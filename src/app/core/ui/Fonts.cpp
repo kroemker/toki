@@ -1,0 +1,74 @@
+#include "Fonts.h"
+
+#include "app/core/domain/Log.h"
+#include "app/core/domain/Utf8.h"
+
+#include <filesystem>
+#include <system_error>
+
+namespace toki::core {
+
+namespace {
+
+constexpr const char* BodyFile = "Inter-Regular.ttf";
+constexpr const char* StrongFile = "Inter-SemiBold.ttf";
+constexpr const char* MonoFile = "JetBrainsMono-Regular.ttf";
+constexpr const char* IconFile = "Phosphor.ttf";
+
+[[nodiscard]] bool isFile(const std::filesystem::path& path) {
+    std::error_code status;
+    return std::filesystem::is_regular_file(path, status);
+}
+
+[[nodiscard]] ImFont* addFont(ImFontAtlas& atlas, const std::filesystem::path& path, float size) {
+    if (!isFile(path)) {
+        logError("font missing: {}", toUtf8(path));
+        return nullptr;
+    }
+    return atlas.AddFontFromFileTTF(toUtf8(path).c_str(), size);
+}
+
+void mergeIcons(ImFontAtlas& atlas, const std::filesystem::path& path, float size) {
+    if (!isFile(path)) {
+        logError("icon font missing: {} — icons will render as boxes", toUtf8(path));
+        return;
+    }
+
+    ImFontConfig config;
+    config.MergeMode = true;
+    config.PixelSnapH = true;
+    config.GlyphMinAdvanceX = size;
+    config.GlyphOffset = ImVec2(0.0F, 1.0F);
+    atlas.AddFontFromFileTTF(toUtf8(path).c_str(), size, &config);
+}
+
+[[nodiscard]] ImFont* addTextFont(ImFontAtlas& atlas, const std::filesystem::path& dir,
+                                  const char* file, float size) {
+    ImFont* font = addFont(atlas, dir / file, size);
+    if (font == nullptr) {
+        return atlas.AddFontDefault();
+    }
+    mergeIcons(atlas, dir / IconFile, size);
+    return font;
+}
+
+} // namespace
+
+Fonts Fonts::load(const std::filesystem::path& assetDir) {
+    const std::filesystem::path dir = assetDir / "fonts";
+    ImFontAtlas& atlas = *ImGui::GetIO().Fonts;
+
+    Fonts fonts;
+    fonts.body = addTextFont(atlas, dir, BodyFile, BodySize);
+    fonts.strong = addTextFont(atlas, dir, StrongFile, BodySize);
+
+    fonts.mono = addFont(atlas, dir / MonoFile, MonoSize);
+    if (fonts.mono == nullptr) {
+        fonts.mono = fonts.body;
+    }
+
+    ImGui::GetIO().FontDefault = fonts.body;
+    return fonts;
+}
+
+} // namespace toki::core

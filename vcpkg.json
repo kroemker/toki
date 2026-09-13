@@ -15,6 +15,7 @@
         "sdl3-binding"
       ]
     },
-    "catch2"
+    "catch2",
+    "tomlplusplus"
   ]
 }

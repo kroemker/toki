@@ -1,6 +1,6 @@
 #pragma once
 
-#include "z64/types.h"
+#include "z64/Types.h"
 
 namespace toki::core {
 

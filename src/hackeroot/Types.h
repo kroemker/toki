@@ -1,8 +1,8 @@
 #pragma once
 
-#include "z64/types.h"
+#include "z64/Types.h"
 
-namespace gfx {
+namespace hackeroot {
 
 using z64::u8;
 using z64::u16;
@@ -19,4 +19,4 @@ using z64::f64;
 
 using z64::usize;
 
-} // namespace gfx
+} // namespace hackeroot

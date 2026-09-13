@@ -89,8 +89,8 @@ src/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
-      create_actor/  register_scene/  configure/         each: ui/ + domain/
-  main.cpp
+      createActor/   registerScene/   configure/         each: ui/ + domain/
+  Main.cpp
 third_party/Fast3D/
 ```
 
@@ -120,7 +120,7 @@ shared parser module.
 
 - `toki_core` — OBJECT library: `z64/`, `hackeroot/`, and every `app/**/domain/**`.
 - `toki_gfx` — static library: `gfx/`, plus Fast3D and the GL backend. Does not exist yet.
-- `toki` — executable: `main.cpp` plus every `app/**/ui/**`.
+- `toki` — executable: `Main.cpp` plus every `app/**/ui/**`.
 - `toki_tests` — links `toki_core` only.
 
 `gfx/` is kept out of `toki_core` on purpose. An object library propagates its usage
@@ -203,16 +203,22 @@ expressible in either, it lives there rather than in prose.
 
 ### Naming
 
-- Types: `PascalCase`. Functions, variables, members: `snake_case`.
-- Private members: trailing underscore (`vertex_buffer_`).
+- Types: `PascalCase`. Functions, variables, members: `camelCase`.
+- No prefix and no trailing underscore on members. Where a member would collide with its
+  accessor, the accessor is `get`-prefixed: `getWindowTitle()` returns `windowTitle`.
+  Mutators are `set`-prefixed.
 - Constants and enumerators: `PascalCase`.
+- Files: `PascalCase`, named after the primary type they declare (`LogPanel.h`,
+  `Types.h`). Directories: lowercase, `camelCase` when multiword (`createActor/`).
+- Name a variable after its type unless a better name exists: a `SetupWizard` member is
+  `setupWizard`, not `wizard`. The type is the clearest thing about it.
 - Namespaces: `z64::`, `hackeroot::`, `gfx::`, and `toki::<feature>` for anything under
-  `app/` (`toki::core`, `toki::scene`, `toki::create_actor`). The `ui/` and `domain/`
+  `app/` (`toki::core`, `toki::scene`, `toki::createActor`). The `ui/` and `domain/`
   split is a directory boundary, not a namespace level — nesting it would make every name
   four levels deep for no gain.
 - Full words. Abbreviate only where universally obvious in this domain: `z64`, `gfx`,
   `dl`, `idx`, `len`.
-- The width aliases in `z64/types.h` (`u8`, `u32`, `s16`, `f32`, `usize`, ...) are the one
+- The width aliases in `z64/Types.h` (`u8`, `u32`, `s16`, `f32`, `usize`, ...) are the one
   exception to `PascalCase` types. They are spelled the way the decomp and the gbi headers
   spell them so parsed structs read next to the C they came from.
 
@@ -231,7 +237,7 @@ expressible in either, it lives there rather than in prose.
 - The aliases live in `namespace z64` rather than at global scope, because vendored
   Fast3D's `gbi.h` brings in the libultra typedefs of the same names and its `u64` is a
   different type from `std::uint64_t` on LP64. Every other namespace gets them from its
-  own `types.h` (`hackeroot/types.h`, `gfx/types.h`, `app/<feature>/types.h`), which is a
+  own `Types.h` (`hackeroot/Types.h`, `gfx/Types.h`, `app/<feature>/Types.h`), which is a
   block of `using z64::u32;` declarations and nothing else. A new namespace gets one too.
 - No out-parameters. Return a value or a struct.
 
@@ -251,10 +257,15 @@ expressible in either, it lives there rather than in prose.
 
 ### Comments
 
-- Explain **why**. Readable code makes *what* self-evident.
-- **No banner comments.** No section dividers. If a file needs sections, it needs to be
-  more than one file.
-- No commented-out code.
+Two kinds of comment are allowed, and nothing else:
+
+- Function documentation on central infrastructure — the types and free functions the
+  rest of the codebase is built on top of.
+- A note on a temporary workaround or a hack, saying what makes it temporary.
+
+Everything else goes uncommented. Readable code makes *what* self-evident, and a
+running commentary on *why* ages into a lie. No banner comments, no section dividers,
+no commented-out code.
 
 ### Size
 

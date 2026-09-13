@@ -1,0 +1,9 @@
+---
+# Test code is not production code: a fixture that tears a directory down in its
+# destructor and a Catch2 macro expansion are not worth shaping the rules around.
+InheritParentConfig: true
+Checks: >
+  -bugprone-exception-escape,
+  -bugprone-unchecked-optional-access,
+  -cppcoreguidelines-special-member-functions,
+  -readability-function-cognitive-complexity

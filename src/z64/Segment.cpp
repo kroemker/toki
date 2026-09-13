@@ -1,8 +1,11 @@
-#include "segment.h"
+#include "Segment.h"
+
+#include "z64/Types.h"
 
 namespace z64 {
 
 namespace {
+
 constexpr u32 OffsetMask = 0x00FFFFFF;
 constexpr u32 SegmentShift = 24;
 constexpr u32 SegmentMask = 0x0F;
@@ -20,7 +23,7 @@ SegmentAddr unpack(u32 raw) {
     };
 }
 
-bool is_segmented(u32 raw) {
+bool isSegmented(u32 raw) {
     return ((raw >> SegmentShift) & SegmentMask) != 0;
 }
 

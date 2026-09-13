@@ -1,4 +1,6 @@
-#include "z64/segment.h"
+#include "z64/Segment.h"
+
+#include "z64/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -21,6 +23,6 @@ TEST_CASE("the offset is masked to twenty-four bits", "[z64][segment]") {
 }
 
 TEST_CASE("segment zero means the pointer needs no resolving", "[z64][segment]") {
-    REQUIRE_FALSE(z64::is_segmented(0x0000'1234));
-    REQUIRE(z64::is_segmented(0x0200'1234));
+    REQUIRE_FALSE(z64::isSegmented(0x0000'1234));
+    REQUIRE(z64::isSegmented(0x0200'1234));
 }
