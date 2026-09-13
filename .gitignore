@@ -1,0 +1,10 @@
+build/
+out/
+.vs/
+.idea/
+.cache/
+compile_commands.json
+CMakeUserPresets.json
+vcpkg_installed/
+imgui.ini
+cmake-build-*/

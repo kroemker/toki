@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "toki",
+  "version": "0.1.0",
+  "description": "Desktop workbench for modding Ocarina of Time on the HackerOoT decompilation",
+  "builtin-baseline": "a1cae005c39be7b18ba319fced856b68d7276271",
+  "dependencies": [
+    "glm",
+    "sdl3",
+    {
+      "name": "imgui",
+      "features": [
+        "docking-experimental",
+        "opengl3-binding",
+        "sdl3-binding"
+      ]
+    },
+    "catch2"
+  ]
+}

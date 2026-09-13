@@ -1,0 +1,43 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: Latest
+
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+NamespaceIndentation: None
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+QualifierAlignment: Left
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces: Attach
+InsertBraces: true
+
+SeparateDefinitionBlocks: Always
+FixNamespaceComments: true
+InsertNewlineAtEOF: true
+SpaceAfterCStyleCast: true
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Own headers first, then third-party, then standard library.
+  - Regex: '^"'
+    Priority: 1
+  - Regex: '^<(z64|hackeroot|gfx|app)/'
+    Priority: 2
+  - Regex: '^<(SDL3|imgui|glm|catch2)'
+    Priority: 3
+  - Regex: '^<[^/.]+>$'
+    Priority: 5
+  - Regex: '.*'
+    Priority: 4

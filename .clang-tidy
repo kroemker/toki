@@ -1,0 +1,47 @@
+---
+# Magic numbers are excluded because N64 graphics code is inherently full of
+# bit masks and shifts that are clearer as literals next to the spec they encode.
+Checks: >
+  bugprone-*,
+  cppcoreguidelines-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-designated-initializers,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/src/.*'
+FormatStyle: file
+
+CheckOptions:
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  # The fixed-width aliases in z64/types.h are deliberately spelled the way
+  # the decomp and the gbi headers spell them, so they are exempt.
+  readability-identifier-naming.TypeAliasIgnoredRegexp: '^([usf](8|16|32|64)|usize)$'
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.PrivateMemberCase: lower_case
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.StaticConstantCase: CamelCase
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-function-cognitive-complexity.Threshold: 25
