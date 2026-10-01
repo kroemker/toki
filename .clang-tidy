@@ -5,6 +5,11 @@
 # The pro-bounds and pro-type-vararg checks are excluded because ImGui and SDL
 # are C APIs: style.Colors[slot], SDL's char* const* results and the printf-style
 # text calls cannot be expressed without tripping them.
+#
+# avoid-const-or-ref-data-members is excluded because the parsers are written as
+# worker classes that live for one call and borrow their inputs; copying a
+# SourceSet or a token buffer into each of them is the opposite of the point.
+
 Checks: >
   bugprone-*,
   cppcoreguidelines-*,
@@ -15,6 +20,7 @@ Checks: >
   readability-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-signed-bitwise,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
   -cppcoreguidelines-avoid-do-while,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
@@ -34,10 +40,19 @@ Checks: >
   -readability-trailing-comma
 
 WarningsAsErrors: ''
+# clang-cl maps /WX to -Werror, which turns this clang-only pedantry into a hard
+# error on every designated initializer that leaves a defaulted member alone.
+ExtraArgs:
+  - '-Wno-missing-designated-field-initializers'
 HeaderFilterRegex: '.*[/\\]src[/\\].*'
 FormatStyle: file
 
 CheckOptions:
+  # MSVC's std::map and std::unordered_map allocate a sentinel node when moved,
+  # so every type owning one (SourceSet, MacroTable, and the results holding
+  # them) has a move constructor that can in principle throw bad_alloc. Nothing
+  # we could write would change that short of replacing the containers.
+  bugprone-exception-escape.CheckMoveMemberFunctions: false
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase
   readability-identifier-naming.EnumCase: CamelCase
@@ -46,7 +61,7 @@ CheckOptions:
   readability-identifier-naming.TypedefCase: CamelCase
   # The fixed-width aliases in z64/Types.h are deliberately spelled the way
   # the decomp and the gbi headers spell them, so they are exempt.
-  readability-identifier-naming.TypeAliasIgnoredRegexp: '^(SDL_GLContext|[usf](8|16|32|64)|usize)$'
+  readability-identifier-naming.TypeAliasIgnoredRegexp: '^(SDL_GLContext|is_transparent|[usf](8|16|32|64)|usize)$'
   readability-identifier-naming.NamespaceCase: camelBack
   readability-identifier-naming.FunctionCase: camelBack
   readability-identifier-naming.MethodCase: camelBack

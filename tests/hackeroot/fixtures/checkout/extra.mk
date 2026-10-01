@@ -1,0 +1,2 @@
+PACKAGE_NAME := "$(shell git log -1 --pretty=%s)"
+CPP_DEFINES += -DPACKAGE_NAME='$(PACKAGE_NAME)' -DTESTSUITE_MODE=0
