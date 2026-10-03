@@ -66,17 +66,27 @@ Segments are **per-segment buffers**, not one flat fake RDRAM. The game addresse
 segment, a contiguous 8 MB is never needed, and per-segment gives free bounds checks and
 cheap reload of a single room.
 
-### Rendering: vendored Fast3D
+### Rendering: our own N64 renderer
 
-Fast3D (MIT) lives inside `libultraship/src/graphic/Fast3D/`. It is extracted and
-vendored into `third_party/Fast3D/`, not consumed via libultraship — LUS drags in the OTR
-resource system plus its own window, audio, input and ImGui stacks. Expect a maintained
-diff against upstream.
+The renderer is written here, not vendored. It reads F3DEX2 display lists straight out of
+the memory image, the way the N64 does, and is split where the hardware splits:
 
-Fast3D backends are OpenGL, D3D11, D3D12, Metal. **There is no Vulkan backend**, which is
-why parallel-rdp is not used: it is Vulkan-only, and LLE would additionally require an RSP
-running F3DZEX2 microcode against real RDRAM. Revisit only if an emulator core is ever
-embedded.
+- **`n64/`** is the RSP running F3DEX2 and the RDP's state: matrices, vertex transform and
+  lighting in the N64's fixed point, clipping and culling, segments, texture memory loads
+  and tile descriptors, combiner and blender settings. Its output is a list of triangles,
+  each carrying the full RDP state it is drawn with. It is plain CPU code, tested like a
+  parser.
+- **`gfx/`** draws that list through SDL3's GPU API (D3D12, Vulkan, Metal). One fixed
+  ubershader reads combiner and blender settings as data, so no shader is ever generated
+  or compiled at runtime.
+
+Accuracy is the goal and F3DEX2 is the scope. F3DEX3 is not supported: a checkout that
+enables it is told so, not drawn wrong.
+
+Nothing off the shelf fits ([docs/renderer.md](docs/renderer.md) has the comparison).
+Fast3D reads 64-bit PC display lists and approximates the combiner and blender; RT64 is
+accurate but an emulator plugin with its own ImGui, backends and sixteen dependencies;
+parallel-rdp is Vulkan-only and needs an emulated RSP. They are references instead.
 
 ### Layout
 
@@ -88,14 +98,14 @@ src/
   makeparser/  A GNU make reader: variables, conditionals, includes, functions.
   z64/         Zelda64/N64 formats and decomp conventions. No processes, no UI.
   hackeroot/   The user's checkout: discovery, tables, config, build runner.
-  gfx/         Fast3D binding: segment upload, viewport target, camera.
+  n64/         The hardware: F3DEX2 on the RSP, RDP state, texture memory. CPU only.
+  gfx/         The GPU side of the renderer: upload, ubershader, viewport, camera.
   app/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/
   Main.cpp
-third_party/Fast3D/
 ```
 
 `cparser/` is the machinery every asset domain reads C with: a lexer, a preprocessor with
@@ -135,7 +145,8 @@ shared parser module.
 - `cparser/` and `makeparser/` depend on `base/` only, and never on each other.
 - `z64/` may depend on `base/` and `cparser/`.
 - `hackeroot/` may depend on `base/`, `cparser/`, `makeparser/` and `z64/`.
-- `gfx/` may depend on `base/` and `z64/`.
+- `n64/` depends on `base/` only. It is the hardware, and knows nothing of Zelda.
+- `gfx/` may depend on `base/`, `n64/` and `z64/`.
 - `app/**/domain/` may depend on everything above.
 - `app/**/ui/` may depend on anything.
 - **`domain/` must never include `ui/`.** This is what keeps parsers testable without SDL
@@ -144,15 +155,16 @@ shared parser module.
 
 ### Build targets
 
-- `toki_core` — OBJECT library: `base/`, `cparser/`, `makeparser/`, `z64/`, `hackeroot/`,
-  and every `app/**/domain/**`.
-- `toki_gfx` — static library: `gfx/`, plus Fast3D and the GL backend. Does not exist yet.
+- `toki_core` — OBJECT library: `base/`, `cparser/`, `makeparser/`, `n64/`, `z64/`,
+  `hackeroot/`, and every `app/**/domain/**`.
+- `toki_gfx` — static library: `gfx/` and its compiled shaders. Does not exist yet.
 - `toki` — executable: `Main.cpp` plus every `app/**/ui/**`.
 - `toki_tests` — links `toki_core` only.
 
 `gfx/` is kept out of `toki_core` on purpose. An object library propagates its usage
-requirements, so folding it in would drag a GL context into the test binary and break the
-rule that tests need no GPU.
+requirements, so folding it in would drag a GPU device into the test binary and break the
+rule that tests need no GPU. Everything in the renderer that can be tested without one lives
+in `n64/`.
 
 Source lists are **explicit**. No globbing — directory shape must not silently determine
 the build graph.
@@ -165,8 +177,8 @@ the build graph.
 |---|---|
 | Language | C++23 |
 | Build | CMake + vcpkg manifest mode + Ninja + CMakePresets |
-| Renderer | Fast3D, vendored |
-| GFX backend | OpenGL 3.3 first; D3D11 available |
+| Renderer | Our own: F3DEX2 in `n64/`, GPU side in `gfx/` |
+| GFX backend | SDL3 GPU (D3D12, Vulkan, Metal) |
 | Window/input | SDL3 |
 | UI | Dear ImGui (docking) + ImGuizmo |
 | Math | glm |
@@ -206,6 +218,12 @@ listed below is only what no change may break.
     `\\wsl.localhost`.
   - Change detection polls modification times. Windows sends no change notifications for
     the WSL share, so a watcher built on them would silently never fire.
+- **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
+  how the RSP, RDP and GPU stages divide the work.
+  - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only
+    draws.
+  - Code taken from an MIT renderer keeps its notice in `THIRD_PARTY_NOTICES.md`. GPL
+    renderers (GLideN64, mupen64plus) are read, never copied.
 
 ---
 
@@ -258,9 +276,9 @@ expressible in either, it lives there rather than in prose.
   `s8`/`s16`/`s32`/`s64`, `f32`/`f64`. Sizes and indices use `usize` instead — a count of
   host elements is not N64 data, and `u32` there truncates on 64-bit and warns at every
   comparison against `.size()`.
-- The aliases live in `namespace base` rather than at global scope, because vendored
-  Fast3D's `gbi.h` brings in the libultra typedefs of the same names and its `u64` is a
-  different type from `std::uint64_t` on LP64. Every other namespace gets them from its
+- The aliases live in `namespace base` rather than at global scope, because any libultra
+  header brings in typedefs of the same names, and its `u64` is a different type from
+  `std::uint64_t` on LP64. Every other namespace gets them from its
   own `Types.h` (`z64/Types.h`, `cparser/Types.h`, `app/<feature>/Types.h`, ...), which is
   a block of `using base::u32;` declarations and nothing else. A new namespace gets one too.
 - No out-parameters. Return a value or a struct.
@@ -306,7 +324,6 @@ never require SDL, ImGui or a GPU.
 ## Workflow
 
 - **Never commit automatically.** Commit only when explicitly asked.
-- Vendored Fast3D changes stay minimal and documented, so upstream can be re-merged.
 
 ---
 
@@ -317,5 +334,4 @@ never require SDL, ImGui or a GPU.
   warm over `\\wsl.localhost`, all of it in ~100 serial file opens.
 - Whether the header scrape needs an on-disk cache keyed by mtime. It is 1.4 s for 263
   headers and 7,496 defines, paid once per checkout per session.
-- OpenGL vs D3D11 as the shipping backend on Windows.
 - MM support. Deliberately unplanned.

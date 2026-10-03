@@ -3,11 +3,10 @@
 Porting the Rust prototype (`../Toki64`) to this codebase, in order.
 
 The ordering puts the UI first on purpose. The shell, the workspace layer and the asset
-browser are the same work no matter what ends up rendering, so none of it is at risk from
-the Fast3D spike. Doing them first also means every parser package that follows can be
-exercised from the running app instead of from unit tests alone. The one exception is the
-spike itself, which sits right after the workspace: it depends on nothing before it, and
-its answer decides the shape of package 8.
+browser are the same work no matter what ends up rendering. Doing them first also means
+every parser package that follows can be exercised from the running app instead of from
+unit tests alone. The one exception is the renderer, which sits right after the workspace:
+it depends on nothing before it, and it fixes what package 8's memory image must hold.
 
 ## Standing rules
 
@@ -171,45 +170,36 @@ per poll); reopening the checkout picks up a change there. A panel without a sav
 position, such as the new Workspace panel in an existing layout, opens floating until the
 layout is reset. Quitting during a read waits for that read to finish.
 
-## 5. Fast3D extraction spike
+## 5. N64 renderer, F3DEX2
 
-The one genuinely risky package. **Timebox it and name the box up front.**
+Our own renderer, replacing the Fast3D spike. The spike's research found Fast3D usable
+only through a translation pass and short on accuracy; RT64 accurate but too heavy to
+embed. See [docs/renderer.md](docs/renderer.md). Writing it is not the risk; proving it
+accurate is, so every stage that can run without a GPU does, under tests.
 
-It is not mainly an extraction question. Getting Fast3D to compile is necessary; what
-decides package 8 is whether Fast3D can consume the words our memory image will produce.
-Answer these first, before any plumbing:
+Hand-assembled display lists stand in for the memory image, which arrives in package 8.
+Tests build their words with a small helper of their own, not with `gbi.h`.
 
-- **Word format.** libultraship moved Fast3D to PC display lists. Check whether its `Gfx`
-  is still two `u32` words carrying segment addresses, or two pointer-sized words carrying
-  host pointers. If the latter, the choice is a 32-bit word path in the vendored copy or a
-  translation pass, and the verdict must say which.
-- **Which `gbi.h` encodes the words.** [docs/gbi.md](docs/gbi.md) says the `gs*` words
-  come from vendored Fast3D's `gbi.h`. If that header is the PC variant, it encodes PC
-  words. The faithful alternative is HackerOoT's own `include/ultra64/gbi.h` compiled with
-  the `GBI_DEFINES` the configuration layer already reads, which conflicts with "never
-  parse decomp headers for gbi constants". Decide, and update docs/gbi.md with the
-  decision.
-- **F3DEX3.** HackerOoT supports `ENABLE_F3DEX3`, and fast64 can export for it. Find out
-  whether Fast3D handles F3DEX3 commands. If not, "F3DEX3 checkouts are unsupported" goes
-  into the plan as a decision, not left to surface as a bug.
-- **Textures.** Does Fast3D decode N64 texture formats itself? If it does, decoding is off
-  the rendering path and only needed later for a texture browser. It does not remove
-  encoding; see package 8.
+- **RSP** (`n64/`) — F3DEX2 commands in, triangles out: the matrix stack, vertex
+  transform and lighting in the N64's fixed point, texture coordinate generation,
+  clipping, culling, segments, `G_DL` and `G_ENDDL`, `G_MOVEWORD`, `G_MOVEMEM`. An
+  unknown opcode is a diagnostic naming it and the address it was found at.
+- **Texture memory** (`n64/`) — `LoadBlock`, `LoadTile`, `LoadTLUT`, tile descriptors,
+  the swapped odd rows, wrap, mirror, clamp and masks. Load commands in, texels out.
+- **Combiner and blender** (`n64/`) — one and two cycle, as data a shader can read; a CPU
+  evaluation of the same equations for tests.
+- **GPU** (`gfx/`, `toki_gfx`) — SDL3 GPU device, one ubershader compiled at build time
+  for each backend, N64 three-point filtering, depth modes, fog. Draws a hand-written
+  display list into an offscreen texture.
 
-Then the plumbing:
+Done when a hand-written display list covering textures, lighting and two-cycle
+combining renders offscreen, the CPU stages are under tests, and docs/renderer.md says
+what matches the references and what does not yet.
 
-- Find the minimal file set behind `gfx_pc` and the OpenGL backend
-- Sever the libultraship resource manager, window, input and ImGui hooks
-- Get it compiling under `third_party/Fast3D/`
-- Draw one hand-written display list, in the word format package 8 will emit, into an
-  offscreen framebuffer
-
-Done when a demo renders Fast3D output, and there is a written verdict: usable as-is,
-needs surgery, or abandon, with the four questions above answered.
-
-If it is abandoned, the fallback is porting the prototype's renderer logic to OpenGL —
-`z64-render` worked, so this is a known quantity rather than open-ended. Note that the
-memory-image decision would also reopen in that case.
+Open, settle while building: how shaders are compiled for each backend at build time
+(`SDL_shadercross`, or DXC plus SPIRV-Cross directly), and which reference renders the
+pixel comparison uses (RT64 or an emulator screenshot until a parallel-rdp harness
+exists).
 
 ## 6. Build runner
 
@@ -249,12 +239,12 @@ Ports from `toki64/src/ui/asset_browser.rs`.
 
 The rest of the parsing layer, plus the one component with no prototype equivalent. The
 const-expr evaluator moved into package 2, which needed it for `#if` and array bounds.
-Which `gbi.h` and which word format are settled by package 5.
+The word format is settled by package 5: real N64 words, two `u32` with segment
+addresses, which is what the renderer reads.
 
-**gbi word emission** — a name-to-value map generated from the chosen `gbi.h`, and a
-generated dispatcher that calls the real dynamic `g*(pkt, ...)` macro for each `gs*` name
-with the evaluated arguments, so the SDK header encodes the words rather than a
-hand-written table. `gsDPLoadTextureBlock` expands to seven commands, which is what rules a
+**gbi word emission** — which `gbi.h` encodes the words is decided here; see
+[docs/gbi.md](docs/gbi.md). Either way the header encodes the words, not a hand-written
+table. `gsDPLoadTextureBlock` expands to seven commands, which is what rules a
 hand-written table out. Unknown macros must produce a diagnostic naming the macro; the set
 must be user-extensible. The prototype's `gfx_decode.rs` tests are a source of known-good
 word values. The same scrape of `gbi.h` that drives the dispatcher can likely drive a
@@ -280,10 +270,10 @@ in the prototype to copy.
 Done when a fast64 room's C files and a vanilla room's C and PNG files both produce a
 segment buffer and a display list entry offset, with byte-level tests.
 
-## 9. gfx binding and viewport
+## 9. Viewport
 
-- Fast3D initialised on the OpenGL backend
-- Segment table upload
+- The renderer drawing a memory image
+- Segment table set from the image
 - Render to an offscreen framebuffer, presented as an ImGui image
 - Orbit camera and projection
 
@@ -309,11 +299,10 @@ Ports from `z64-parser/{scene,room,lib}.rs`.
 animation transport panel. Ports from `z64-data/object.rs`,
 `toki64/src/editor/animation_player.rs`.
 
-**Display list inspector** — this one grew. The prototype decoded into a typed
-`GfxCommand` enum, so the panel was nearly free. We emit raw words, so this now needs a
-real disassembler: words back to readable commands. New work, not a port, unless package 8
-finds it can be generated from the same `gbi.h` scrape as the dispatcher. Not a reason to
-reverse the architecture, but do not budget it as "port the panel".
+**Display list inspector** — the RSP in `n64/` already decodes every word, so the
+disassembler is a printer over its decoder rather than new work. What the renderer knows
+on top (the RDP state behind a triangle, the combiner a material resolves to) is what
+makes this panel worth more than the prototype's.
 
 **Scene properties** — env lighting picker, fog, live updates.
 
