@@ -1,8 +1,8 @@
 #include "Segment.h"
 
-#include "z64/Types.h"
+#include "n64/Types.h"
 
-namespace z64 {
+namespace n64 {
 
 namespace {
 
@@ -11,13 +11,13 @@ constexpr u32 SegmentShift = 24;
 constexpr u32 SegmentMask = 0x0F;
 } // namespace
 
-u32 pack(SegmentAddr address) {
+u32 pack(SegmentAddress address) {
     return (static_cast<u32>(address.segment & SegmentMask) << SegmentShift) |
            (address.offset & OffsetMask);
 }
 
-SegmentAddr unpack(u32 raw) {
-    return SegmentAddr{
+SegmentAddress unpack(u32 raw) {
+    return SegmentAddress{
         .segment = static_cast<u8>((raw >> SegmentShift) & SegmentMask),
         .offset = raw & OffsetMask,
     };
@@ -27,4 +27,4 @@ bool isSegmented(u32 raw) {
     return ((raw >> SegmentShift) & SegmentMask) != 0;
 }
 
-} // namespace z64
+} // namespace n64

@@ -22,8 +22,11 @@ add_executable(toki_tests
         hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
         makeparser/ShellWordsTest.cpp
+        n64/FixedMatrixTest.cpp
+        n64/MemoryTest.cpp
+        n64/RspTest.cpp
+        n64/SegmentTest.cpp
         z64/DecompDialectTest.cpp
-        z64/SegmentTest.cpp
         z64/TextureIncludesTest.cpp)
 target_link_libraries(toki_tests PRIVATE toki_core Catch2::Catch2WithMain toki_warnings)
 

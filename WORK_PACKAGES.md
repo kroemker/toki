@@ -180,10 +180,12 @@ accurate is, so every stage that can run without a GPU does, under tests.
 Hand-assembled display lists stand in for the memory image, which arrives in package 8.
 Tests build their words with a small helper of their own, not with `gbi.h`.
 
-- **RSP** (`n64/`) — F3DEX2 commands in, triangles out: the matrix stack, vertex
-  transform and lighting in the N64's fixed point, texture coordinate generation,
-  clipping, culling, segments, `G_DL` and `G_ENDDL`, `G_MOVEWORD`, `G_MOVEMEM`. An
-  unknown opcode is a diagnostic naming it and the address it was found at.
+- **RSP** (`n64/`, done) — F3DEX2 commands in, triangles out: the matrix stack, vertex
+  transform and lighting, texture coordinate generation, culling, segments, `G_DL` and
+  `G_ENDDL`, `G_MOVEWORD`, `G_MOVEMEM`. An unknown opcode is a diagnostic naming it and
+  the address it was found at. Clipping is left to the GPU: triangles leave in clip
+  space. What is approximated and what is not supported is listed in
+  [docs/renderer.md](docs/renderer.md).
 - **Texture memory** (`n64/`) — `LoadBlock`, `LoadTile`, `LoadTLUT`, tile descriptors,
   the swapped odd rows, wrap, mirror, clamp and masks. Load commands in, texels out.
 - **Combiner and blender** (`n64/`) — one and two cycle, as data a shader can read; a CPU

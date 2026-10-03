@@ -65,6 +65,34 @@ Stages 1 and 2 are in `toki_core` and are tested the way parsers are. Only the s
 arithmetic needs a pixel comparison, against RT64 or an emulator screenshot until a
 parallel-rdp harness exists.
 
+## The RSP stage
+
+`n64::runTask` runs one graphics task against a `Memory`, the physical address space, and
+a starting segment table. It produces what the RSP sends the RDP: triangles with their
+vertices transformed, lit, fogged and textured, texture rectangles, and every other RDP
+command as it is, with image addresses resolved. Triangles stay in clip space, because
+the GPU clips them; the viewport each was transformed under travels with it.
+
+It follows F3DEX2's own layouts where that keeps it exact: lights are kept as the 24-byte
+slots `G_MOVEMEM` and `G_MOVEWORD` write into, so a partial write behaves as it does on
+the RSP, and matrices are kept in s15.16, so `G_MW_MATRIX` can overwrite half an element.
+
+Approximated, and to be checked against a reference:
+
+- Matrix products round toward negative infinity; the RSP drops the low bits of the
+  fraction-by-fraction products, which can differ in the last place.
+- Lighting, texture generation and fog are computed in floating point, the way RT64
+  computes them, not in the RSP's fixed point.
+- Flat shading gives the triangle its first vertex's colour.
+- The modelview stack is taken as sixteen deep, the size of the `dram_stack` OoT gives
+  the task, and display list calls as eighteen.
+
+Not supported yet, each reported as a diagnostic: `G_MODIFYVTX` of a screen z,
+`G_MOVEMEM` of the modelview or projection directly, and a task that loads another
+microcode. Point lights are not read. `G_CULLDL` never culls, which changes no pixel.
+Clip ratio and perspective normalisation are ignored, since the GPU clips in floating
+point.
+
 ## Scope
 
 In: one and two cycle combining, blender modes (fog, translucency, decal, alpha compare),

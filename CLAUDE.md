@@ -119,11 +119,14 @@ for includes the build generates rather than finds.
 `makeparser/` is general GNU make, for the same reason: reading a Makefile is not a
 HackerOoT concern, only what is read out of HackerOoT's is.
 
-`z64/` holds what is specific to the game and the decomp: segment addressing, the
-decomp's dialect (`getDecompDialect`: the N64's type widths, the `u8`..`f64` typedefs,
-`TEX_LEN` and `ARRAY_COUNT`), its rule for generated texture includes
-(`resolveTextureInclude`), and later gbi word emission, the memory image and texture
-format decoding. It holds no domain structs.
+`z64/` holds what is specific to the game and the decomp: the decomp's dialect
+(`getDecompDialect`: the N64's type widths, the `u8`..`f64` typedefs, `TEX_LEN` and
+`ARRAY_COUNT`), its rule for generated texture includes (`resolveTextureInclude`), and
+later gbi word emission and the memory image. It holds no domain structs.
+
+`n64/` is the hardware, and what is true of every N64 game: segment addressing, the
+physical address space (`Memory`), fixed-point matrices, and F3DEX2 running on the RSP
+(`runTask`). Texture memory and the RDP's combiner and blender follow.
 
 `cparser/` reads files, because a preprocessor that follows includes has to, but only in
 three places: `SourceSet` opens files, `IncludeResolver` lists directories, and `Scrape`
@@ -143,7 +146,7 @@ shared parser module.
 
 - `base/` depends on nothing else in `src/`.
 - `cparser/` and `makeparser/` depend on `base/` only, and never on each other.
-- `z64/` may depend on `base/` and `cparser/`.
+- `z64/` may depend on `base/`, `cparser/` and `n64/`.
 - `hackeroot/` may depend on `base/`, `cparser/`, `makeparser/` and `z64/`.
 - `n64/` depends on `base/` only. It is the hardware, and knows nothing of Zelda.
 - `gfx/` may depend on `base/`, `n64/` and `z64/`.
