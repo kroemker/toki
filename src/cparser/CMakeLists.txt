@@ -1,4 +1,6 @@
 target_sources(toki_core PRIVATE
+        Dialect.cpp
+        DirectoryCache.cpp
         Expand.cpp
         Expression.cpp
         IncludeResolver.cpp

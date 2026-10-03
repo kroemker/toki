@@ -1,10 +1,9 @@
 #include "Value.h"
 
+#include "cparser/ScalarType.h"
 #include "cparser/Token.h"
 #include "cparser/Types.h"
 
-#include <algorithm>
-#include <array>
 #include <charconv>
 #include <cmath>
 #include <limits>
@@ -16,40 +15,20 @@ namespace cparser {
 
 namespace {
 
-constexpr std::array CastTypes = {
-    std::string_view("u8"),       std::string_view("u16"),    std::string_view("u32"),
-    std::string_view("u64"),      std::string_view("s8"),     std::string_view("s16"),
-    std::string_view("s32"),      std::string_view("s64"),    std::string_view("f32"),
-    std::string_view("f64"),      std::string_view("char"),   std::string_view("short"),
-    std::string_view("int"),      std::string_view("long"),   std::string_view("float"),
-    std::string_view("double"),   std::string_view("void"),   std::string_view("unsigned"),
-    std::string_view("signed"),   std::string_view("size_t"), std::string_view("uintptr_t"),
-    std::string_view("intptr_t"), std::string_view("u8_t"),
-};
-
-[[nodiscard]] s64 truncateTo(std::string_view type, s64 value) {
-    if (type == "u8") {
-        return static_cast<u8>(value);
+[[nodiscard]] s64 truncateTo(const ScalarType& type, s64 value) {
+    switch (type.size) {
+    case 1:
+        return type.isSigned ? static_cast<s64>(static_cast<s8>(value))
+                             : static_cast<s64>(static_cast<u8>(value));
+    case 2:
+        return type.isSigned ? static_cast<s64>(static_cast<s16>(value))
+                             : static_cast<s64>(static_cast<u16>(value));
+    case 4:
+        return type.isSigned ? static_cast<s64>(static_cast<s32>(value))
+                             : static_cast<s64>(static_cast<u32>(value));
+    default:
+        return value;
     }
-    if (type == "char") {
-        return static_cast<u8>(value);
-    }
-    if (type == "s8") {
-        return static_cast<s8>(value);
-    }
-    if (type == "u16") {
-        return static_cast<u16>(value);
-    }
-    if (type == "s16" || type == "short") {
-        return static_cast<s16>(value);
-    }
-    if (type == "u32" || type == "unsigned") {
-        return static_cast<u32>(value);
-    }
-    if (type == "s32" || type == "int" || type == "signed" || type == "long") {
-        return static_cast<s32>(value);
-    }
-    return value;
 }
 
 [[nodiscard]] std::optional<Value> integerLiteral(std::string_view text) {
@@ -315,32 +294,12 @@ Value applyOperator(std::string_view op, const Value& left, const Value& right) 
     return apply(op, left, right);
 }
 
-bool isCastType(std::string_view name) {
-    return std::ranges::find(CastTypes, name) != CastTypes.end();
-}
-
-s64 sizeOfType(std::string_view name) {
-    if (name == "u8" || name == "s8" || name == "char") {
-        return 1;
-    }
-    if (name == "u16" || name == "s16" || name == "short") {
-        return 2;
-    }
-    if (name == "u64" || name == "s64" || name == "f64" || name == "double") {
-        return 8;
-    }
-    return 4;
-}
-
-Value castTo(std::string_view type, bool pointer, const Value& operand) {
+Value castTo(const ScalarType& type, bool pointer, const Value& operand) {
     if (pointer) {
         return integerValue(asInteger(operand));
     }
-    if (type == "f32" || type == "float") {
-        return floatValue(asReal(operand));
-    }
-    if (type == "f64" || type == "double") {
-        return doubleValue(asReal(operand));
+    if (type.isReal) {
+        return type.size == 4 ? floatValue(asReal(operand)) : doubleValue(asReal(operand));
     }
     return integerValue(truncateTo(type, asInteger(operand)));
 }

@@ -7,7 +7,7 @@ ActorEntry sActorList[LENGTH_sActorList] = {
 #endif
 };
 
-u64 sFloorTex[TEX_LEN(u64, 32, 32, 16)] = {
+u64 sFloorTex[256] = {
 #include "sFloorTex.rgba16.inc.c"
 };
 

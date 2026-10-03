@@ -5,6 +5,7 @@
 #include "cparser/Preprocessor.h"
 #include "cparser/Scrape.h"
 #include "cparser/SourceFile.h"
+#include "z64/DecompDialect.h"
 
 #include <filesystem>
 #include <span>
@@ -22,6 +23,7 @@ Configuration readConfiguration(const cparser::MacroTable& scraped,
         .searchPaths = {include, repository},
         .allowedRoots = {include / "config.h", include / "versions.h", include / "config",
                          include / "libc" / "stdbool.h"},
+        .dialect = &z64::decompDialect(),
     };
 
     const cparser::MacroTable nothing;

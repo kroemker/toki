@@ -10,7 +10,7 @@
 #define DEG_TO_BINANG(degrees) (s16)TRUNCF_BINANG((degrees) * (0x8000 / 180.0f))
 
 extern ActorEntry sActorList[LENGTH_sActorList];
-extern u64 sFloorTex[TEX_LEN(u64, 32, 32, 16)];
+extern u64 sFloorTex[256];
 extern u8 sPalette[];
 extern Vtx sVertices[];
 

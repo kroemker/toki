@@ -113,11 +113,11 @@ void readInitializer(std::span<const Token> initializer, Declaration& declaratio
         return;
     }
     declaration.initializer = *body;
-    const bool fromImage =
+    const bool embeds =
         std::ranges::any_of(splitElements(*body), [](std::span<const Token> element) {
-            return element.size() == 1 && element.front().kind == TokenKind::Image;
+            return element.size() == 1 && element.front().kind == TokenKind::Embedded;
         });
-    if (!declaration.arrayLength && declaration.isArray && !fromImage) {
+    if (!declaration.arrayLength && declaration.isArray && !embeds) {
         declaration.arrayLength = countElements(*body);
     }
 }

@@ -6,7 +6,6 @@
 
 #include <expected>
 #include <filesystem>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,6 +22,13 @@ namespace cparser {
 /// every file lives on the heap behind it.
 class SourceSet {
 public:
+    SourceSet() = default;
+    SourceSet(const SourceSet&) = delete;
+    SourceSet(SourceSet&&) noexcept = default;
+    SourceSet& operator=(const SourceSet&) = delete;
+    SourceSet& operator=(SourceSet&&) noexcept = default;
+    ~SourceSet() = default;
+
     [[nodiscard]] std::expected<const SourceFile*, base::Diagnostic>
     open(const std::filesystem::path& path);
 
@@ -42,7 +48,17 @@ public:
 
 private:
     std::vector<std::unique_ptr<SourceFile>> files;
-    std::map<std::filesystem::path, const SourceFile*> byPath;
+
+    struct Indexed {
+        std::filesystem::path path;
+        const SourceFile* file = nullptr;
+    };
+
+    [[nodiscard]] const SourceFile* lookup(const std::filesystem::path& key) const;
+
+    void index(const std::filesystem::path& key, const SourceFile* file);
+
+    std::vector<Indexed> byPath;
 };
 
 [[nodiscard]] std::filesystem::path canonicalize(const std::filesystem::path& path);

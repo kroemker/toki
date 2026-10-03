@@ -18,21 +18,21 @@ enum class TokenKind : u8 {
     Character,
     Punctuator,
 
-    /// Stands where an `#include` of texture data was, after the include was
-    /// resolved to the image the build would have generated it from. Only the
-    /// preprocessor makes these; `Token::image` says which image.
-    Image,
+    /// Stands where an `#include` was that resolved to a file not read as C,
+    /// such as data the build generates. Only the preprocessor makes these;
+    /// `Token::embedded` says which file.
+    Embedded,
 };
 
-/// One lexeme of decomp C. `text` is a view into `file->contents`, so a token is
+/// One lexeme of C. `text` is a view into `file->contents`, so a token is
 /// only valid while the `SourceSet` that read its file is alive.
 struct Token {
     TokenKind kind = TokenKind::EndOfFile;
     bool startsLine = false;
     bool spaceBefore = false;
 
-    /// For an `Image` token, its index into `TranslationUnit::images`.
-    u32 image = 0;
+    /// For an `Embedded` token, its index into `TranslationUnit::embedded`.
+    u32 embedded = 0;
 
     const SourceFile* file = nullptr;
     std::string_view text;

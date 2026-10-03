@@ -7,6 +7,7 @@
 
 namespace cparser {
 
+struct ScalarType;
 struct Token;
 
 enum class ValueType : u8 {
@@ -57,13 +58,9 @@ struct Value {
 /// Integer division by zero is 0 here; the evaluator is what reports it.
 [[nodiscard]] Value applyOperator(std::string_view op, const Value& left, const Value& right);
 
-[[nodiscard]] bool isCastType(std::string_view name);
-
-[[nodiscard]] s64 sizeOfType(std::string_view name);
-
-/// Applies a cast the way the decomp's type would: `(s16)` wraps, `(f32)`
-/// rounds to single precision, and a pointer cast leaves the bits alone.
-/// `char` is unsigned and `long` is 32 bits, as the N64 build compiles them.
-[[nodiscard]] Value castTo(std::string_view type, bool pointer, const Value& operand);
+/// Applies a cast the way `type` converts: an integer type wraps to its size
+/// and signedness, a 4-byte real rounds to single precision, and a pointer
+/// cast leaves the bits alone.
+[[nodiscard]] Value castTo(const ScalarType& type, bool pointer, const Value& operand);
 
 } // namespace cparser

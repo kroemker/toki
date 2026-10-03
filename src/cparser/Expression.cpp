@@ -1,7 +1,9 @@
 #include "Expression.h"
 
 #include "base/Diagnostic.h"
+#include "cparser/Dialect.h"
 #include "cparser/Expand.h"
+#include "cparser/ScalarType.h"
 #include "cparser/Token.h"
 #include "cparser/Types.h"
 #include "cparser/Value.h"
@@ -20,12 +22,8 @@ namespace cparser {
 
 namespace {
 
-[[nodiscard]] bool isArrayCount(std::string_view name) {
-    return name == "ARRAY_COUNT" || name == "ARRAY_COUNTU" || name == "ARRAY_COUNT_2D";
-}
-
-[[nodiscard]] bool isBuiltinCall(std::string_view name) {
-    return isArrayCount(name) || name == "TEX_LEN";
+[[nodiscard]] const Dialect& dialectOf(const EvalContext& context) {
+    return context.dialect == nullptr ? standardC() : *context.dialect;
 }
 
 [[nodiscard]] int precedenceOf(std::string_view op) {
@@ -63,16 +61,18 @@ namespace {
 }
 
 struct Cast {
-    std::string_view type;
+    const ScalarType* type = nullptr;
     bool pointer = false;
     usize after = 0;
 };
 
+class Call;
+
 class Evaluator {
 public:
     Evaluator(std::span<const Token> tokens, const EvalContext& context,
-              std::vector<base::Diagnostic>& diagnostics)
-        : tokens(tokens), context(context), diagnostics(diagnostics) {
+              std::vector<base::Diagnostic>& diagnostics, usize quiet = 0)
+        : tokens(tokens), context(context), diagnostics(diagnostics), quiet(quiet) {
         if (!tokens.empty()) {
             const Token& last = tokens.back();
             endOfInput.file = last.file;
@@ -84,6 +84,8 @@ public:
     [[nodiscard]] std::expected<Value, base::Diagnostic> run();
 
 private:
+    friend class Call;
+
     [[nodiscard]] bool atEnd() const {
         return cursor >= tokens.size() || tokens[cursor].kind == TokenKind::EndOfFile;
     }
@@ -104,7 +106,8 @@ private:
 
     [[nodiscard]] std::optional<Cast> castAt(usize at) const;
 
-    [[nodiscard]] std::expected<Value, base::Diagnostic> parseBuiltin(const Token& name);
+    [[nodiscard]] std::expected<Value, base::Diagnostic> parseBuiltin(const Builtin& builtin,
+                                                                      const Token& name);
 
     [[nodiscard]] std::expected<std::vector<Value>, base::Diagnostic> parseArguments();
 
@@ -129,6 +132,43 @@ private:
     usize cursor = 0;
     usize quiet = 0;
     Token endOfInput;
+};
+
+class Call final : public BuiltinCall {
+public:
+    Call(Evaluator& evaluator, std::span<const std::span<const Token>> arguments,
+         base::SourceLocation location)
+        : evaluator(evaluator), arguments(arguments), location(std::move(location)) {}
+
+    [[nodiscard]] std::span<const std::span<const Token>> getArguments() const override {
+        return arguments;
+    }
+
+    [[nodiscard]] const base::SourceLocation& getLocation() const override {
+        return location;
+    }
+
+    [[nodiscard]] std::expected<Value, base::Diagnostic>
+    evaluate(std::span<const Token> tokens) const override {
+        return Evaluator(tokens, evaluator.context, evaluator.diagnostics, evaluator.quiet).run();
+    }
+
+    [[nodiscard]] std::optional<usize> arrayLength(std::string_view name) const override {
+        return evaluator.context.arrayLength ? evaluator.context.arrayLength(name) : std::nullopt;
+    }
+
+    [[nodiscard]] const ScalarType* type(std::string_view name) const override {
+        return findType(dialectOf(evaluator.context), name);
+    }
+
+    void report(base::Diagnostic diagnostic) const override {
+        evaluator.report(std::move(diagnostic));
+    }
+
+private:
+    Evaluator& evaluator;
+    std::span<const std::span<const Token>> arguments;
+    base::SourceLocation location;
 };
 
 base::SourceLocation Evaluator::here() const {
@@ -186,61 +226,38 @@ std::expected<std::vector<Value>, base::Diagnostic> Evaluator::parseArguments() 
     return arguments;
 }
 
-std::expected<Value, base::Diagnostic> Evaluator::parseBuiltin(const Token& name) {
-    if (isArrayCount(name.text)) {
-        if (cursor + 1 >= tokens.size() || tokens[cursor + 1].kind != TokenKind::Identifier) {
-            return std::unexpected(base::error(here(), "ARRAY_COUNT expects an array name"));
-        }
-        const Token& array = tokens[cursor + 1];
-        cursor += 2;
-        if (!isPunctuator(peek(), ")")) {
-            return std::unexpected(
-                base::error(here(), "expected ')' after the ARRAY_COUNT argument"));
-        }
-        ++cursor;
-
-        if (context.arrayLength) {
-            if (const std::optional<usize> length = context.arrayLength(array.text)) {
-                return integerValue(static_cast<s64>(*length));
+std::expected<Value, base::Diagnostic> Evaluator::parseBuiltin(const Builtin& builtin,
+                                                               const Token& name) {
+    std::vector<std::span<const Token>> arguments;
+    usize nesting = 0;
+    usize begin = cursor + 1;
+    for (usize at = cursor; at < tokens.size(); ++at) {
+        if (isPunctuator(tokens[at], "(")) {
+            ++nesting;
+        } else if (isPunctuator(tokens[at], ")")) {
+            if (--nesting == 0) {
+                if (at > begin || !arguments.empty()) {
+                    arguments.push_back(tokens.subspan(begin, at - begin));
+                }
+                cursor = at + 1;
+                const Call call(*this, arguments, locate(name));
+                return builtin.evaluate(call);
             }
+        } else if (isPunctuator(tokens[at], ",") && nesting == 1) {
+            arguments.push_back(tokens.subspan(begin, at - begin));
+            begin = at + 1;
         }
-        report(base::warning(
-            here(), std::format("ARRAY_COUNT({}) has no declaration to count", array.text)));
-        return integerValue(0);
     }
-
-    if (cursor + 2 >= tokens.size() || tokens[cursor + 1].kind != TokenKind::Identifier ||
-        !isPunctuator(tokens[cursor + 2], ",")) {
-        return std::unexpected(base::error(here(), "TEX_LEN expects an element type first"));
-    }
-    const s64 elementSize = sizeOfType(tokens[cursor + 1].text);
-    cursor += 2;
-
-    std::vector<Value> arguments;
-    while (isPunctuator(peek(), ",")) {
-        ++cursor;
-        const std::expected<Value, base::Diagnostic> argument = parseConditional();
-        if (!argument) {
-            return std::unexpected(argument.error());
-        }
-        arguments.push_back(*argument);
-    }
-    if (!isPunctuator(peek(), ")")) {
-        return std::unexpected(base::error(here(), "expected ')' to close TEX_LEN"));
-    }
-    ++cursor;
-    if (arguments.size() != 3) {
-        return std::unexpected(base::error(here(),
-                                           "TEX_LEN expects a type, a width, a height and a "
-                                           "bit depth"));
-    }
-    const s64 bits = asInteger(arguments[0]) * asInteger(arguments[1]) * asInteger(arguments[2]);
-    return integerValue(bits / 8 / elementSize);
+    return std::unexpected(base::error(
+        locate(name), std::format("the arguments to '{}' are never closed", name.text)));
 }
 
 std::optional<Cast> Evaluator::castAt(usize at) const {
-    if (at + 2 >= tokens.size() || tokens[at + 1].kind != TokenKind::Identifier ||
-        !isCastType(tokens[at + 1].text)) {
+    if (at + 2 >= tokens.size() || tokens[at + 1].kind != TokenKind::Identifier) {
+        return std::nullopt;
+    }
+    const ScalarType* type = findType(dialectOf(context), tokens[at + 1].text);
+    if (type == nullptr) {
         return std::nullopt;
     }
 
@@ -251,7 +268,7 @@ std::optional<Cast> Evaluator::castAt(usize at) const {
     if (after >= tokens.size() || !isPunctuator(tokens[after], ")")) {
         return std::nullopt;
     }
-    return Cast{.type = tokens[at + 1].text, .pointer = after != at + 2, .after = after + 1};
+    return Cast{.type = type, .pointer = after != at + 2, .after = after + 1};
 }
 
 std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
@@ -267,7 +284,7 @@ std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
             if (!operand) {
                 return operand;
             }
-            return castTo(cast->type, cast->pointer, *operand);
+            return castTo(*cast->type, cast->pointer, *operand);
         }
 
         ++cursor;
@@ -283,10 +300,11 @@ std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
     }
 
     if (token.kind == TokenKind::Identifier) {
-        if (isBuiltinCall(token.text) && cursor + 1 < tokens.size() &&
+        const Builtin* builtin = findBuiltin(dialectOf(context), token.text);
+        if (builtin != nullptr && cursor + 1 < tokens.size() &&
             isPunctuator(tokens[cursor + 1], "(")) {
             ++cursor;
-            return parseBuiltin(token);
+            return parseBuiltin(*builtin, token);
         }
         ++cursor;
         if (isPunctuator(peek(), "(")) {
@@ -415,7 +433,8 @@ std::expected<Value, base::Diagnostic> evaluate(std::span<const Token> tokens,
         .macros = context.macros,
         .keep =
             [&context](std::string_view name) {
-                return isBuiltinCall(name) || (context.keep && context.keep(name));
+                return findBuiltin(dialectOf(context), name) != nullptr ||
+                       (context.keep && context.keep(name));
             },
     };
     const std::vector<Token> expanded = expand(tokens, options, diagnostics);

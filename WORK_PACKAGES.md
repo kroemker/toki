@@ -134,7 +134,10 @@ no warnings from either.
 **Afterwards, the front end moved out of `z64/`.** It had grown into a general C front end
 with a few Zelda rules buried inside it, so it became `cparser/`, the make evaluator moved
 out of `hackeroot/` into `makeparser/`, and `Diagnostic` and the width aliases moved to
-`base/`, which every module shares. `z64/` keeps what is actually about the game.
+`base/`, which every module shares. `z64/` keeps what is actually about the game, and the
+Zelda rules that had been buried in the front end are now handed to it from there:
+`decompDialect` (the N64's type widths, the decomp's typedefs, `TEX_LEN` and
+`ARRAY_COUNT`) and `resolveTextureInclude` (the `.inc.c` to `.png` rule).
 
 ## 4. Workspace
 

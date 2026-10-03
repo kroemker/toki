@@ -2,6 +2,7 @@
 
 #include "base/Diagnostic.h"
 #include "cparser/Expression.h"
+#include "cparser/IncludeResolver.h"
 #include "cparser/MacroTable.h"
 #include "cparser/SourceSet.h"
 #include "cparser/Token.h"
@@ -17,18 +18,20 @@
 
 namespace cparser {
 
-struct ImageReference {
+/// A file an include resolved to that is not read as C. `tag` is whatever the
+/// `MissingInclude` that produced it said the file is.
+struct EmbeddedFile {
     std::filesystem::path path;
-    std::string format;
+    std::string tag;
     base::SourceLocation location;
 };
 
-/// One asset's C after directives are gone: every reachable file's tokens in
-/// source order, the images the build would have generated, and everything
-/// that went wrong on the way. Each image also stands in `tokens` as an
-/// `Image` token where its include was, so the declaration it fills has it in
-/// its initializer. Macro uses are left standing, because which of
-/// them to expand is the consumer's decision.
+/// One file's C after directives are gone: every reachable file's tokens in
+/// source order, the embedded files the includes resolved to, and everything
+/// that went wrong on the way. Each embedded file also stands in `tokens` as an
+/// `Embedded` token where its include was, so the declaration it fills holds it
+/// in its initializer. Macro uses are left standing, because which of them to
+/// expand is the consumer's decision.
 ///
 /// A unit owns what it read. `sources` holds every file it opened, and
 /// `macros` holds the definitions those files made, layered over the base the
@@ -38,7 +41,7 @@ struct TranslationUnit {
     SourceSet sources;
     MacroTable macros;
     std::vector<Token> tokens;
-    std::vector<ImageReference> images;
+    std::vector<EmbeddedFile> embedded;
     std::vector<base::Diagnostic> diagnostics;
 };
 
@@ -52,6 +55,14 @@ struct PreprocessOptions {
     std::vector<std::filesystem::path> allowedRoots;
 
     usize maxDepth = 32;
+
+    /// Asked about an include that names no file on disk, before it is
+    /// reported missing.
+    MissingInclude missingInclude;
+
+    /// The type names and builtins conditions are evaluated with. Plain C when
+    /// nothing is given.
+    const Dialect* dialect = nullptr;
 
     /// Identifiers an `#if` may use that are not macros, such as the enum
     /// constants the ordinal tables generate.

@@ -1,6 +1,7 @@
 #include "cparser/Expression.h"
 
 #include "base/Diagnostic.h"
+#include "cparser/Dialect.h"
 #include "cparser/Scanner.h"
 #include "cparser/Scrape.h"
 #include "cparser/SourceFile.h"
@@ -10,6 +11,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cmath>
 #include <expected>
 #include <filesystem>
@@ -51,9 +53,6 @@ struct Harness {
     [[nodiscard]] cparser::EvalContext context() {
         return cparser::EvalContext{
             .macros = &scraped.macros,
-            .arrayLength = [](std::string_view name) -> std::optional<cparser::usize> {
-                return name == "sVertices" ? std::optional<cparser::usize>(52) : std::nullopt;
-            },
         };
     }
 
@@ -99,35 +98,26 @@ TEST_CASE("operators follow C precedence", "[cparser][expression]") {
     REQUIRE(harness.integer("2 > 1 && 1 < 2") == 1);
 }
 
-TEST_CASE("a cast truncates the way the decomp's type does", "[cparser][expression]") {
+TEST_CASE("a cast truncates the way its type does", "[cparser][expression]") {
     Harness harness;
 
-    REQUIRE(harness.integer("(s16)(0x8000 | 100)") == -32668);
-    REQUIRE(harness.integer("(u8)0x1FF") == 0xFF);
-    REQUIRE(harness.integer("(s16)((((1) / 4) << 10) | (970))") == 970);
+    REQUIRE(harness.integer("(short)(0x8000 | 100)") == -32668);
+    REQUIRE(harness.integer("(unsigned)-1") == 0xFFFF'FFFF);
+    REQUIRE(harness.integer("(short)((((1) / 4) << 10) | (970))") == 970);
+}
+
+TEST_CASE("a type the dialect does not name is not a cast", "[cparser][expression]") {
+    Harness harness;
+    const Expression expression("(s16)1");
+
+    REQUIRE_FALSE(
+        cparser::evaluate(expression.tokens(), harness.context(), harness.diagnostics).has_value());
 }
 
 TEST_CASE("macros are expanded before evaluation", "[cparser][expression]") {
     Harness harness;
 
     REQUIRE(harness.integer("LENGTH_sActorList") == 2);
-    REQUIRE(harness.integer("TRUNCF_BINANG(3.9)") == 3);
-}
-
-TEST_CASE("a rotation written as degrees survives the macro chain", "[cparser][expression]") {
-    Harness harness;
-
-    REQUIRE(harness.integer("DEG_TO_BINANG(0.000)") == 0);
-
-    REQUIRE(harness.integer("DEG_TO_BINANG(90.0)") == 16384);
-}
-
-TEST_CASE("a rotation lands on the binary angle C computes, float rounding included",
-          "[cparser][expression]") {
-    Harness harness;
-
-    REQUIRE(harness.integer("DEG_TO_BINANG(210.13)") == -27283);
-    REQUIRE(harness.integer("DEG_TO_BINANG(300.13)") == -10899);
 }
 
 TEST_CASE("float arithmetic stays in single precision", "[cparser][expression]") {
@@ -158,11 +148,11 @@ TEST_CASE("a float past the largest one rounds the way the hardware does",
           "[cparser][expression]") {
     Harness harness;
 
-    REQUIRE(harness.value("(f32)3.4028235e38").number ==
+    REQUIRE(harness.value("(float)3.4028235e38").number ==
             static_cast<cparser::f64>(std::numeric_limits<cparser::f32>::max()));
-    REQUIRE(harness.value("(f32)-3.4028235e38").number ==
+    REQUIRE(harness.value("(float)-3.4028235e38").number ==
             -static_cast<cparser::f64>(std::numeric_limits<cparser::f32>::max()));
-    REQUIRE(std::isinf(harness.value("(f32)3.5e38").number));
+    REQUIRE(std::isinf(harness.value("(float)3.5e38").number));
 }
 
 TEST_CASE("a double anywhere makes the whole operation double", "[cparser][expression]") {
@@ -178,22 +168,13 @@ TEST_CASE("a double anywhere makes the whole operation double", "[cparser][expre
 TEST_CASE("a float cast rounds and a double cast widens", "[cparser][expression]") {
     Harness harness;
 
-    const cparser::Value narrowed = harness.value("(f32)0.1");
+    const cparser::Value narrowed = harness.value("(float)0.1");
     REQUIRE(narrowed.type == cparser::ValueType::Float);
     REQUIRE(narrowed.number == static_cast<cparser::f64>(0.1F));
 
-    const cparser::Value widened = harness.value("(f64)0.1f");
+    const cparser::Value widened = harness.value("(double)0.1f");
     REQUIRE(widened.type == cparser::ValueType::Double);
     REQUIRE(widened.number == static_cast<cparser::f64>(0.1F));
-}
-
-TEST_CASE("ARRAY_COUNT and TEX_LEN are answered by the parser, not by sizeof",
-          "[cparser][expression]") {
-    Harness harness;
-
-    REQUIRE(harness.integer("ARRAY_COUNT(sVertices)") == 52);
-    REQUIRE(harness.integer("TEX_LEN(u64, 32, 32, 16)") == 256);
-    REQUIRE(harness.integer("TEX_LEN(u8, 16, 16, 4)") == 128);
 }
 
 TEST_CASE("an identifier nothing defines is a zero and a diagnostic", "[cparser][expression]") {
@@ -311,15 +292,46 @@ TEST_CASE("a real too large for an integer saturates instead of being undefined"
             std::numeric_limits<cparser::s64>::max());
     REQUIRE(cparser::asInteger(cparser::doubleValue(-1.0e300)) ==
             std::numeric_limits<cparser::s64>::min());
-    REQUIRE(cparser::asInteger(cparser::doubleValue(std::numeric_limits<cparser::f64>::quiet_NaN())) ==
-            0);
+    REQUIRE(cparser::asInteger(
+                cparser::doubleValue(std::numeric_limits<cparser::f64>::quiet_NaN())) == 0);
 }
 
-TEST_CASE("char is unsigned and long is 32 bits, as the N64 build has them",
-          "[cparser][expression]") {
+TEST_CASE("plain C has char signed and long 32 bits", "[cparser][expression]") {
     Harness harness;
 
-    REQUIRE(harness.integer("(char)-1") == 255);
-    REQUIRE(harness.integer("(s8)-1") == -1);
+    REQUIRE(harness.integer("(char)255") == -1);
     REQUIRE(harness.integer("(long)0x100000001") == 1);
+}
+
+namespace {
+
+std::expected<cparser::Value, base::Diagnostic> twice(const cparser::BuiltinCall& call) {
+    if (call.getArguments().size() != 1) {
+        return std::unexpected(base::error(call.getLocation(), "TWICE takes one argument"));
+    }
+    const std::expected<cparser::Value, base::Diagnostic> value =
+        call.evaluate(call.getArguments().front());
+    if (!value) {
+        return value;
+    }
+    return cparser::integerValue(cparser::asInteger(*value) * 2);
+}
+
+constexpr std::array TwiceBuiltin = {cparser::Builtin{.name = "TWICE", .evaluate = &twice}};
+
+} // namespace
+
+TEST_CASE("a builtin the dialect names is answered, not expanded", "[cparser][expression]") {
+    Harness harness;
+    const cparser::Dialect dialect{.types = cparser::standardC().types, .builtins = TwiceBuiltin};
+    cparser::EvalContext context = harness.context();
+    context.dialect = &dialect;
+
+    const Expression expression("TWICE(LENGTH_sActorList + 1) + 1");
+    const std::expected<cparser::Value, base::Diagnostic> value =
+        cparser::evaluate(expression.tokens(), context, harness.diagnostics);
+
+    REQUIRE(value.has_value());
+    REQUIRE(cparser::asInteger(*value) == 7);
+    REQUIRE(harness.diagnostics.empty());
 }

@@ -3,6 +3,7 @@
 #include "base/Diagnostic.h"
 #include "cparser/SourceFile.h"
 
+#include <algorithm>
 #include <expected>
 #include <filesystem>
 #include <fstream>
@@ -30,8 +31,8 @@ bool isInside(const std::filesystem::path& path, const std::filesystem::path& ro
 std::expected<const SourceFile*, base::Diagnostic>
 SourceSet::open(const std::filesystem::path& path) {
     const std::filesystem::path key = canonicalize(path);
-    if (const auto found = byPath.find(key); found != byPath.end()) {
-        return found->second;
+    if (const SourceFile* found = lookup(key)) {
+        return found;
     }
 
     std::ifstream stream(key, std::ios::binary);
@@ -46,14 +47,14 @@ SourceSet::open(const std::filesystem::path& path) {
 
     const SourceFile* opened = file.get();
     files.push_back(std::move(file));
-    byPath.emplace(key, opened);
+    index(key, opened);
     return opened;
 }
 
 const SourceFile* SourceSet::add(const std::filesystem::path& path, std::string contents) {
     const std::filesystem::path key = canonicalize(path);
-    if (const auto found = byPath.find(key); found != byPath.end()) {
-        return found->second;
+    if (const SourceFile* found = lookup(key)) {
+        return found;
     }
 
     auto file = std::make_unique<SourceFile>();
@@ -62,7 +63,7 @@ const SourceFile* SourceSet::add(const std::filesystem::path& path, std::string 
 
     const SourceFile* added = file.get();
     files.push_back(std::move(file));
-    byPath.emplace(key, added);
+    index(key, added);
     return added;
 }
 
@@ -76,8 +77,17 @@ std::vector<const SourceFile*> SourceSet::getFiles() const {
 }
 
 const SourceFile* SourceSet::find(const std::filesystem::path& path) const {
-    const auto found = byPath.find(canonicalize(path));
-    return found == byPath.end() ? nullptr : found->second;
+    return lookup(canonicalize(path));
+}
+
+const SourceFile* SourceSet::lookup(const std::filesystem::path& key) const {
+    const auto found = std::ranges::lower_bound(byPath, key, {}, &Indexed::path);
+    return found != byPath.end() && found->path == key ? found->file : nullptr;
+}
+
+void SourceSet::index(const std::filesystem::path& key, const SourceFile* file) {
+    const auto at = std::ranges::lower_bound(byPath, key, {}, &Indexed::path);
+    byPath.insert(at, Indexed{.path = key, .file = file});
 }
 
 } // namespace cparser

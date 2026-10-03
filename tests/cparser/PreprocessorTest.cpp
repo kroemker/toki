@@ -1,5 +1,6 @@
 #include "cparser/Preprocessor.h"
 
+#include "Generated.h"
 #include "base/Diagnostic.h"
 #include "cparser/MacroTable.h"
 #include "cparser/SourceFile.h"
@@ -36,7 +37,8 @@ namespace {
     return static_cast<cparser::usize>(found - unit.tokens.begin());
 }
 
-[[nodiscard]] cparser::usize lastIndexOf(const cparser::TranslationUnit& unit, std::string_view name) {
+[[nodiscard]] cparser::usize lastIndexOf(const cparser::TranslationUnit& unit,
+                                         std::string_view name) {
     const auto found = std::ranges::find_if(
         unit.tokens.rbegin(), unit.tokens.rend(),
         [name](const cparser::Token& token) { return cparser::isIdentifier(token, name); });
@@ -166,13 +168,14 @@ TEST_CASE("a define in an included header is in scope for the file that included
 TEST_CASE("reading a file twice against one base reads it the same way",
           "[cparser][preprocessor]") {
     const Harness harness;
-    const cparser::PreprocessOptions options{.allowedRoots = {fixtures() / "asset"}};
+    const cparser::PreprocessOptions options{.allowedRoots = {fixtures() / "asset"},
+                                             .missingInclude = embedGenerated};
 
     const cparser::TranslationUnit first = harness.read(fixtures() / "asset/room.c", options);
     const cparser::TranslationUnit second = harness.read(fixtures() / "asset/room.c", options);
 
     REQUIRE(second.tokens.size() == first.tokens.size());
-    REQUIRE(second.images.size() == first.images.size());
+    REQUIRE(second.embedded.size() == first.embedded.size());
     REQUIRE(hasIdentifier(second, "sActorList"));
 }
 
@@ -189,22 +192,24 @@ TEST_CASE("a unit outlives nothing but its base", "[cparser][preprocessor]") {
     REQUIRE(moved.macros.find("LENGTH_sActorList")->body.front().text == "2");
 }
 
-TEST_CASE("texture data the build would have generated resolves to its image",
+TEST_CASE("an include the caller resolves to an embedded file stands for that file",
           "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
         harness.read(fixtures() / "asset/room.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
+                                                .missingInclude = embedGenerated});
 
-    REQUIRE(unit.images.size() == 2);
-    REQUIRE(unit.images[0].path.filename() == "sFloorTex.rgba16.png");
-    REQUIRE(unit.images[0].format == "rgba16");
+    REQUIRE(unit.embedded.size() == 2);
+    REQUIRE(unit.embedded[0].path.filename() == "sFloorTex.rgba16.inc.c");
+    REQUIRE(unit.embedded[0].tag == "generated");
+    REQUIRE(unit.embedded[0].location.line > 0);
 
-    SECTION("each image stands in the token stream where its include was") {
+    SECTION("each embedded file stands in the token stream where its include was") {
         std::vector<cparser::usize> positions;
         for (cparser::usize at = 0; at < unit.tokens.size(); ++at) {
-            if (unit.tokens[at].kind == cparser::TokenKind::Image) {
-                REQUIRE(unit.tokens[at].image == positions.size());
+            if (unit.tokens[at].kind == cparser::TokenKind::Embedded) {
+                REQUIRE(unit.tokens[at].embedded == positions.size());
                 REQUIRE(unit.tokens[at].text.contains(".inc.c"));
                 positions.push_back(at);
             }
@@ -216,11 +221,17 @@ TEST_CASE("texture data the build would have generated resolves to its image",
         REQUIRE(positions[0] < lastIndexOf(unit, "sPalette"));
         REQUIRE(lastIndexOf(unit, "sPalette") < positions[1]);
     }
+}
 
-    SECTION("a paletted image names its palette, so the include is only a prefix") {
-        REQUIRE(unit.images[1].path.filename() == "sPalette.ci8.tlut_sRoomTlut.png");
-        REQUIRE(unit.images[1].format == "ci8");
-    }
+TEST_CASE("without a rule for missing includes, a missing include is only missing",
+          "[cparser][preprocessor]") {
+    const Harness harness;
+    const cparser::TranslationUnit unit =
+        harness.read(fixtures() / "asset/room.c",
+                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+
+    REQUIRE(unit.embedded.empty());
+    REQUIRE(reports(unit, "sFloorTex.rgba16.inc.c"));
 }
 
 TEST_CASE("an entry held only in memory resolves includes from where it says it is",

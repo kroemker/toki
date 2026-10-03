@@ -1,2 +1,4 @@
 target_sources(toki_core PRIVATE
-        Segment.cpp)
+        DecompDialect.cpp
+        Segment.cpp
+        TextureIncludes.cpp)

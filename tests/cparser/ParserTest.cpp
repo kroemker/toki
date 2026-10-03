@@ -1,5 +1,6 @@
 #include "cparser/Parser.h"
 
+#include "Generated.h"
 #include "base/Diagnostic.h"
 #include "cparser/Expression.h"
 #include "cparser/Initializer.h"
@@ -29,7 +30,8 @@ public:
     Harness() {
         std::expected<cparser::TranslationUnit, base::Diagnostic> read =
             cparser::preprocess(base, fixtures() / "asset/room.c",
-                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
+                                                           .missingInclude = embedGenerated});
         REQUIRE(read.has_value());
         unit = std::move(*read);
         parsed = cparser::parseDeclarations(unit, cparser::EvalContext{});
@@ -80,7 +82,7 @@ TEST_CASE("an array bound written as a macro is evaluated", "[cparser][parser]")
     REQUIRE(harness.find("sActorList").arrayLength == 2);
 }
 
-TEST_CASE("a texture's length comes from TEX_LEN, not from its data", "[cparser][parser]") {
+TEST_CASE("a declared length stands although the data is embedded", "[cparser][parser]") {
     const Harness harness;
     const cparser::Declaration& texture = harness.find("sFloorTex");
 
@@ -94,9 +96,9 @@ TEST_CASE("a texture's initializer holds the image the build would include", "[c
 
     REQUIRE(texture.initializer.size() == 1);
     const cparser::Token& image = texture.initializer.front();
-    REQUIRE(image.kind == cparser::TokenKind::Image);
-    REQUIRE(image.image < harness.unit.images.size());
-    REQUIRE(harness.unit.images[image.image].path.filename() == "sFloorTex.rgba16.png");
+    REQUIRE(image.kind == cparser::TokenKind::Embedded);
+    REQUIRE(image.embedded < harness.unit.embedded.size());
+    REQUIRE(harness.unit.embedded[image.embedded].path.filename() == "sFloorTex.rgba16.inc.c");
 }
 
 TEST_CASE("an empty bound filled from an image is left unknown, not counted", "[cparser][parser]") {
@@ -105,7 +107,7 @@ TEST_CASE("an empty bound filled from an image is left unknown, not counted", "[
 
     REQUIRE(palette.isArray);
     REQUIRE_FALSE(palette.arrayLength.has_value());
-    REQUIRE(harness.unit.images[palette.initializer.front().image].format == "ci8");
+    REQUIRE(harness.unit.embedded[palette.initializer.front().embedded].tag == "generated");
 }
 
 TEST_CASE("an image nested inside an element does not stop the count", "[cparser][parser]") {
@@ -114,7 +116,8 @@ TEST_CASE("an image nested inside an element does not stop the count", "[cparser
         cparser::preprocessText(base, fixtures() / "asset/<memory>.c",
                                 "u64 sNested[] = {\n    { 1, 2 },\n    {\n#include "
                                 "\"sFloorTex.rgba16.inc.c\"\n    },\n};\n",
-                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
+                                                           .missingInclude = embedGenerated});
     const cparser::ParseResult parsed = cparser::parseDeclarations(unit, cparser::EvalContext{});
 
     REQUIRE(parsed.declarations.size() == 1);

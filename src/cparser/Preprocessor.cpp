@@ -44,7 +44,8 @@ struct Conditional {
 class Preprocessor {
 public:
     Preprocessor(TranslationUnit& unit, const PreprocessOptions& options)
-        : unit(unit), options(options), resolver(options.searchPaths, options.allowedRoots) {}
+        : unit(unit), options(options),
+          resolver(options.searchPaths, options.allowedRoots, options.missingInclude) {}
 
     void run(const SourceFile& file, usize depth);
 
@@ -93,6 +94,7 @@ const std::vector<Token>& Preprocessor::tokensOf(const SourceFile& file) {
 EvalContext Preprocessor::evalContext() const {
     return EvalContext{
         .macros = &unit.macros,
+        .dialect = options.dialect,
         .resolve = options.resolve,
         .unknownIsZero = !options.strictConditionals,
     };
@@ -239,19 +241,19 @@ void Preprocessor::doInclude(const Token& directive, std::span<const Token> line
         return;
     }
 
-    if (resolved->isImage) {
+    if (resolved->embedded) {
         unit.tokens.push_back(Token{
-            .kind = TokenKind::Image,
+            .kind = TokenKind::Embedded,
             .startsLine = true,
             .spaceBefore = true,
-            .image = static_cast<u32>(unit.images.size()),
+            .embedded = static_cast<u32>(unit.embedded.size()),
             .file = target.file,
             .text = target.text,
             .line = target.line,
             .column = target.column,
         });
-        unit.images.push_back(ImageReference{
-            .path = resolved->path, .format = resolved->format, .location = location});
+        unit.embedded.push_back(
+            EmbeddedFile{.path = resolved->path, .tag = resolved->tag, .location = location});
         return;
     }
 

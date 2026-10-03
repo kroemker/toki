@@ -101,14 +101,19 @@ third_party/Fast3D/
 `cparser/` is the machinery every asset domain reads C with: a lexer, a preprocessor with
 include following and real conditional evaluation, a layered macro table and header
 scrape, macro expansion, a constant expression evaluator, a declaration parser and an
-X-macro table reader. It is general C.
+X-macro table reader. It is general C. What is particular to a codebase is handed to it
+by its caller: the `Dialect` its constant expressions are written in (cast types at the
+target's widths, and builtins for macros it cannot expand), and a `MissingInclude` rule
+for includes the build generates rather than finds.
 
 `makeparser/` is general GNU make, for the same reason: reading a Makefile is not a
 HackerOoT concern, only what is read out of HackerOoT's is.
 
-`z64/` holds what is specific to the game and the decomp: segment addressing, the N64
-target and the decomp's conventions, and later gbi word emission, the memory image and
-texture format decoding. It holds no domain structs.
+`z64/` holds what is specific to the game and the decomp: segment addressing, the
+decomp's dialect (`decompDialect`: the N64's type widths, the `u8`..`f64` typedefs,
+`TEX_LEN` and `ARRAY_COUNT`), its rule for generated texture includes
+(`resolveTextureInclude`), and later gbi word emission, the memory image and texture
+format decoding. It holds no domain structs.
 
 `cparser/` reads files, because a preprocessor that follows includes has to, but only in
 three places: `SourceSet` opens files, `IncludeResolver` lists directories, and `Scrape`
@@ -227,8 +232,10 @@ preprocessed `config/` belong.
 5. **`Value` and `Expression`** — a constant expression evaluator over the C operators the
    decomp uses, including casts that truncate the way the named type does. Integer and
    floating point both, because `DEG_TO_BINANG` is `(s16)(s32)((degrees) * (0x8000 /
-   180.0f))`. `ARRAY_COUNT` and `TEX_LEN` are builtins rather than expansions: their real
-   definitions are written with `sizeof`, which nothing here can answer.
+   180.0f))`. Which type names a cast may use, and how wide they are, comes from the
+   caller's `Dialect`. `ARRAY_COUNT` and `TEX_LEN` are builtins of the decomp's dialect
+   rather than expansions: their real definitions are written with `sizeof`, which
+   nothing here can answer.
 6. **`Parser`** — file-scope declarations only, as `{name, type, arrayLength, initializer
    token span}`, one per declarator in a list. Typedefs, struct definitions, functions
    and function prototypes are stepped over; anything else it cannot read is a note. The
@@ -259,11 +266,14 @@ diagnostic naming it, never a failure. Cycles are broken on the active include s
 on a visited set: the same `.inc.c` is legitimately included by two different arrays.
 
 **A `.inc.c` that does not exist is a texture.** `X.rgba16.inc.c` resolves to the
-`X.rgba16.png` the build would have generated it from, reported as an `ImageReference`
-carrying the format its name spells. It also stands in the token stream as an `Image`
-token where the include was, so the declaration it fills holds it in its initializer. A paletted texture's image also carries the palette it
-was extracted against, so the include's spelling is only a prefix of the filename. Never
-parse a vanilla texture as C: the PNG is both faster and the only thing actually on disk.
+`X.rgba16.png` the build would have generated it from, as an `EmbeddedFile` tagged with
+the format its name spells. It also stands in the token stream as an `Embedded` token
+where the include was, so the declaration it fills holds it in its initializer. A
+paletted texture's image also carries the palette it was extracted against, so the
+include's spelling is only a prefix of the filename. Never parse a vanilla texture as C:
+the PNG is both faster and the only thing actually on disk. The rule is
+`z64::resolveTextureInclude`, passed to the preprocessor as its `missingInclude`;
+`cparser` itself knows only that some includes embed a file.
 
 **Every filesystem question is answered from a cached directory listing.** A checkout on
 `\\wsl.localhost` charges milliseconds per `stat` and a vanilla scene asks hundreds:

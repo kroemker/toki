@@ -8,6 +8,8 @@
 #include "cparser/Token.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
+#include "z64/DecompDialect.h"
+#include "z64/TextureIncludes.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -73,20 +75,23 @@ void requireImagesLinked(const cparser::MacroTable& macros,
     const std::expected<cparser::TranslationUnit, base::Diagnostic> unit = cparser::preprocess(
         macros, extracted / scene,
         cparser::PreprocessOptions{.searchPaths = {repository, extracted},
-                                   .allowedRoots = {repository / "assets", extracted / "assets"}});
+                                   .allowedRoots = {repository / "assets", extracted / "assets"},
+                                   .missingInclude = z64::resolveTextureInclude,
+                                   .dialect = &z64::decompDialect()});
     REQUIRE(unit.has_value());
-    REQUIRE_FALSE(unit->images.empty());
+    REQUIRE_FALSE(unit->embedded.empty());
 
-    const cparser::ParseResult parsed = cparser::parseDeclarations(*unit, cparser::EvalContext{});
+    const cparser::ParseResult parsed =
+        cparser::parseDeclarations(*unit, cparser::EvalContext{.dialect = &z64::decompDialect()});
     REQUIRE(loudest(unit->diagnostics).empty());
     REQUIRE(loudest(parsed.diagnostics).empty());
-    std::vector<base::usize> uses(unit->images.size(), 0);
+    std::vector<base::usize> uses(unit->embedded.size(), 0);
     for (const cparser::Declaration& declaration : parsed.declarations) {
         bool fromImage = false;
         for (const cparser::Token& token : declaration.initializer) {
-            if (token.kind == cparser::TokenKind::Image) {
-                REQUIRE(token.image < uses.size());
-                ++uses[token.image];
+            if (token.kind == cparser::TokenKind::Embedded) {
+                REQUIRE(token.embedded < uses.size());
+                ++uses[token.embedded];
                 fromImage = true;
             }
         }
