@@ -5,6 +5,8 @@
 
 #include <expected>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,9 +28,20 @@ struct LogSettings {
 
 struct Settings {
     std::optional<std::filesystem::path> hackerootPath;
+
+    /// Make's command line for the checkout, such as `VERSION` and
+    /// `DEBUG_FEATURES`. Empty means the Makefile's own defaults. The workspace
+    /// reads the checkout with these and the build runner builds with them, so
+    /// both always agree on what the build is.
+    std::map<std::string, std::string, std::less<>> build;
+
     std::optional<WindowGeometry> window;
     LogSettings log;
     std::optional<std::vector<std::string>> openPanels;
+
+    /// Kept beside `openPanels` so a panel in neither list is one this config
+    /// has never seen, which opens as its default says rather than closed.
+    std::vector<std::string> closedPanels;
 
     [[nodiscard]] bool isConfigured() const {
         return hackerootPath.has_value();

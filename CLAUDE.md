@@ -200,6 +200,12 @@ listed below is only what no change may break.
   - Nothing runs make, or any other process, to learn the configuration.
 - **[gbi words](docs/gbi.md)** — where gbi constants and the words of `gs*` macros come
   from.
+- **[The workspace](docs/workspace.md)** — how one checkout is read, kept current off the
+  UI thread, and watched for changes.
+  - Nothing on the UI thread reads the checkout. A read takes seconds over
+    `\\wsl.localhost`.
+  - Change detection polls modification times. Windows sends no change notifications for
+    the WSL share, so a watcher built on them would silently never fire.
 
 ---
 

@@ -6,8 +6,11 @@
 #include "cparser/Scrape.h"
 #include "cparser/TableReader.h"
 #include "cparser/Token.h"
+#include "hackeroot/Assets.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
+#include "hackeroot/Tables.h"
+#include "hackeroot/Workspace.h"
 #include "z64/DecompDialect.h"
 #include "z64/TextureIncludes.h"
 
@@ -137,4 +140,31 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
     requireTable(configuration.macros, tables / "object_table.h", ObjectMacros);
     requireTable(configuration.macros, tables / "entrance_table.h", EntranceMacros);
     requireImagesLinked(configuration.macros, repository);
+}
+
+TEST_CASE("a real checkout loads as a workspace without warnings", "[hackeroot][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+    REQUIRE(collectLoudest(workspace->collectDiagnostics()).empty());
+
+    const hackeroot::Tables& tables = workspace->getTables();
+    REQUIRE_FALSE(tables.scenes.empty());
+    REQUIRE_FALSE(tables.actors.empty());
+    REQUIRE_FALSE(tables.objects.empty());
+    REQUIRE_FALSE(tables.entrances.empty());
+
+    const std::vector<hackeroot::AssetDirectory>& scenes = workspace->getAssets().scenes;
+    REQUIRE(std::ranges::any_of(scenes, [](const hackeroot::AssetDirectory& scene) {
+        return scene.name == "spot00" && scene.isExtracted;
+    }));
+    REQUIRE(std::ranges::count_if(scenes, [](const hackeroot::AssetDirectory& scene) {
+                return !scene.isExtracted;
+            }) > 0);
+    REQUIRE(workspace->listWatchedFiles().size() > 10);
 }

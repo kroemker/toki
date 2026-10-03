@@ -29,7 +29,12 @@ public:
 
     [[nodiscard]] std::vector<std::string> getOpenIds() const;
 
-    void restoreOpenIds(const std::vector<std::string>& ids);
+    [[nodiscard]] std::vector<std::string> getClosedIds() const;
+
+    /// Opens the panels in `open` and closes those in `closed`. A panel in
+    /// neither is new to the saved state and opens as its default says.
+    void restoreOpenState(const std::vector<std::string>& open,
+                          const std::vector<std::string>& closed);
 
     void openDefaults();
 

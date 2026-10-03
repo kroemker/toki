@@ -1,22 +1,22 @@
 #pragma once
 
-#include "z64/Types.h"
+#include "base/Types.h"
 
 namespace toki::core {
 
-using z64::u8;
-using z64::u16;
-using z64::u32;
-using z64::u64;
+using base::u8;
+using base::u16;
+using base::u32;
+using base::u64;
 
-using z64::s8;
-using z64::s16;
-using z64::s32;
-using z64::s64;
+using base::s8;
+using base::s16;
+using base::s32;
+using base::s64;
 
-using z64::f32;
-using z64::f64;
+using base::f32;
+using base::f64;
 
-using z64::usize;
+using base::usize;
 
 } // namespace toki::core

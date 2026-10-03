@@ -8,6 +8,9 @@
 #include "app/core/ui/Paths.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
+#include "app/workspace/ui/WorkspacePanel.h"
+#include "base/Diagnostic.h"
+#include "hackeroot/Checkout.h"
 
 #include <imgui.h>
 
@@ -73,7 +76,9 @@ std::expected<void, std::string> App::initialize() {
     registerPanels();
     restoreLayout();
 
-    if (!settings.isConfigured()) {
+    if (settings.hackerootPath) {
+        openCheckout(*settings.hackerootPath);
+    } else {
         setupWizard.beginFirstRun();
     }
 
@@ -83,11 +88,12 @@ std::expected<void, std::string> App::initialize() {
 
 void App::registerPanels() {
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
+    panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
 }
 
 void App::restoreLayout() {
     if (settings.openPanels) {
-        panels.restoreOpenIds(*settings.openPanels);
+        panels.restoreOpenState(*settings.openPanels, settings.closedPanels);
     } else {
         panels.openDefaults();
     }
@@ -106,6 +112,7 @@ void App::run() {
 }
 
 void App::drawFrame() {
+    workspaceService.update();
     const MenuActions actions = drawMenuBar(panels, settings);
     panels.draw();
 
@@ -126,6 +133,19 @@ void App::setHackerootPath(const std::filesystem::path& path) {
     logOk("HackerOoT folder set to {}", encodeUtf8(path));
 
     saveState();
+    openCheckout(path);
+}
+
+void App::openCheckout(const std::filesystem::path& path) {
+    const std::expected<std::filesystem::path, base::Diagnostic> root =
+        hackeroot::findCheckoutRoot(path);
+    if (!root) {
+        logError("{}", base::describe(root.error()));
+        return;
+    }
+    logInfo("reading the checkout at {}", encodeUtf8(*root));
+    workspaceService.open(*root,
+                          makeparser::MakeOverrides(settings.build.begin(), settings.build.end()));
 }
 
 void App::saveState() {
@@ -139,6 +159,7 @@ void App::saveState() {
 
     settings.window = window->getGeometry();
     settings.openPanels = panels.getOpenIds();
+    settings.closedPanels = panels.getClosedIds();
 
     if (const std::expected<void, std::string> saved = saveSettings(settings, settingsPath);
         !saved) {

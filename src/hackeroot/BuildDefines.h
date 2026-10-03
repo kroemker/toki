@@ -14,6 +14,11 @@ struct BuildDefines {
     /// The `-D`, `-U` and `-std=` arguments the build hands to `cpp`, in order
     /// and with the shell's quoting removed.
     std::vector<std::string> arguments;
+
+    /// The `VERSION` the build is for. It also names the `extracted/` directory
+    /// the vanilla assets of that version were extracted into.
+    std::string version;
+
     std::vector<base::Diagnostic> diagnostics;
 };
 

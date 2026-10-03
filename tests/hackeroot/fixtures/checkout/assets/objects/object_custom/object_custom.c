@@ -1,0 +1,1 @@
+u8 object_custom_placeholder;

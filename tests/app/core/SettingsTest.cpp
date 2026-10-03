@@ -171,3 +171,33 @@ TEST_CASE("the log cap round-trips and rejects nonsense", "[core][settings]") {
     REQUIRE(rejected.has_value());
     REQUIRE(rejected->log.maxEntries == toki::core::Log::DefaultMaxEntries);
 }
+
+TEST_CASE("build settings round-trip and accept numbers", "[core][settings]") {
+    const TempDir dir("build_settings");
+    writeFile(dir.getFile(),
+              "[build]\nVERSION = \"gc-eu-mq-dbg\"\nDEBUG_FEATURES = 0\nBAD = true\n");
+
+    const auto loaded = loadSettings(dir.getFile());
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->build.at("VERSION") == "gc-eu-mq-dbg");
+    REQUIRE(loaded->build.at("DEBUG_FEATURES") == "0");
+    REQUIRE_FALSE(loaded->build.contains("BAD"));
+
+    REQUIRE(saveSettings(*loaded, dir.getFile()).has_value());
+    const auto reloaded = loadSettings(dir.getFile());
+    REQUIRE(reloaded.has_value());
+    REQUIRE(reloaded->build == loaded->build);
+}
+
+TEST_CASE("closed panels round-trip beside open ones", "[core][settings]") {
+    const TempDir dir("closed_panels");
+    Settings written;
+    written.openPanels = std::vector<std::string>{"log"};
+    written.closedPanels = {"workspace"};
+
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    const auto loaded = loadSettings(dir.getFile());
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->openPanels == std::vector<std::string>{"log"});
+    REQUIRE(loaded->closedPanels == std::vector<std::string>{"workspace"});
+}

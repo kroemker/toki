@@ -1,23 +1,22 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
+#include "base/Types.h"
 
 namespace z64 {
 
-using u8 = std::uint8_t;
-using u16 = std::uint16_t;
-using u32 = std::uint32_t;
-using u64 = std::uint64_t;
+using base::u8;
+using base::u16;
+using base::u32;
+using base::u64;
 
-using s8 = std::int8_t;
-using s16 = std::int16_t;
-using s32 = std::int32_t;
-using s64 = std::int64_t;
+using base::s8;
+using base::s16;
+using base::s32;
+using base::s64;
 
-using f32 = float;
-using f64 = double;
+using base::f32;
+using base::f64;
 
-using usize = std::size_t;
+using base::usize;
 
 } // namespace z64

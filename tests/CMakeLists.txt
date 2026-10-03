@@ -3,6 +3,7 @@ find_package(Catch2 3 CONFIG REQUIRED)
 add_executable(toki_tests
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
+        app/workspace/WorkspaceServiceTest.cpp
         cparser/ExpandTest.cpp
         cparser/ExpressionTest.cpp
         cparser/MacroTableTest.cpp
@@ -13,8 +14,12 @@ add_executable(toki_tests
         cparser/ScrapeTest.cpp
         cparser/TableReaderTest.cpp
         hackeroot/BuildDefinesTest.cpp
+        hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp
         hackeroot/ConfigurationTest.cpp
+        hackeroot/FilePollerTest.cpp
+        hackeroot/WorkspaceTest.cpp
+        hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
         makeparser/ShellWordsTest.cpp
         z64/DecompDialectTest.cpp

@@ -41,9 +41,26 @@ std::vector<std::string> PanelManager::getOpenIds() const {
     return ids;
 }
 
-void PanelManager::restoreOpenIds(const std::vector<std::string>& ids) {
+std::vector<std::string> PanelManager::getClosedIds() const {
+    std::vector<std::string> ids;
     for (const std::unique_ptr<Panel>& panel : panels) {
-        panel->setOpen(std::ranges::find(ids, panel->getId()) != ids.end());
+        if (!panel->isOpen()) {
+            ids.push_back(panel->getId());
+        }
+    }
+    return ids;
+}
+
+void PanelManager::restoreOpenState(const std::vector<std::string>& open,
+                                    const std::vector<std::string>& closed) {
+    for (const std::unique_ptr<Panel>& panel : panels) {
+        if (std::ranges::find(open, panel->getId()) != open.end()) {
+            panel->setOpen(true);
+        } else if (std::ranges::find(closed, panel->getId()) != closed.end()) {
+            panel->setOpen(false);
+        } else {
+            panel->setOpen(panel->isOpenByDefault());
+        }
     }
 }
 

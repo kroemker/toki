@@ -106,20 +106,55 @@ void readWindow(const toml::table& root, Settings& settings) {
                                      .maximized = (*window)["maximized"].value_or(false)};
 }
 
-void readPanels(const toml::table& root, Settings& settings) {
-    const toml::array* open = root["panels"]["open"].as_array();
-    if (open == nullptr) {
-        return;
-    }
-
+[[nodiscard]] std::vector<std::string> readIds(const toml::array& array) {
     std::vector<std::string> ids;
-    ids.reserve(open->size());
-    for (const toml::node& node : *open) {
+    ids.reserve(array.size());
+    for (const toml::node& node : array) {
         if (const std::optional<std::string> id = node.value<std::string>()) {
             ids.push_back(*id);
         }
     }
-    settings.openPanels = std::move(ids);
+    return ids;
+}
+
+void readPanels(const toml::table& root, Settings& settings) {
+    if (const toml::array* open = root["panels"]["open"].as_array()) {
+        settings.openPanels = readIds(*open);
+    }
+    if (const toml::array* closed = root["panels"]["closed"].as_array()) {
+        settings.closedPanels = readIds(*closed);
+    }
+}
+
+void readBuild(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
+    const toml::table* build = root["build"].as_table();
+    if (build == nullptr) {
+        return;
+    }
+
+    for (const auto& [key, node] : *build) {
+        if (const toml::value<std::string>* text = node.as_string()) {
+            settings.build.insert_or_assign(std::string(key.str()), text->get());
+        } else if (const toml::value<s64>* number = node.as_integer()) {
+            settings.build.insert_or_assign(std::string(key.str()), std::to_string(number->get()));
+        } else {
+            logWarn("{}: build.{} must be a string or a number, ignoring it", encodeUtf8(path),
+                    key.str());
+        }
+    }
+}
+
+void writeBuild(toml::table& root, const Settings& settings) {
+    if (settings.build.empty()) {
+        root.erase("build");
+        return;
+    }
+
+    toml::table build;
+    for (const auto& [name, value] : settings.build) {
+        build.insert_or_assign(name, value);
+    }
+    root.insert_or_assign("build", std::move(build));
 }
 
 void writeLog(toml::table& root, const Settings& settings) {
@@ -152,7 +187,13 @@ void writePanels(toml::table& root, const Settings& settings) {
     for (const std::string& id : *settings.openPanels) {
         open.push_back(id);
     }
-    ensureSection(root, "panels").insert_or_assign("open", std::move(open));
+    toml::array closed;
+    for (const std::string& id : settings.closedPanels) {
+        closed.push_back(id);
+    }
+    toml::table& panels = ensureSection(root, "panels");
+    panels.insert_or_assign("open", std::move(open));
+    panels.insert_or_assign("closed", std::move(closed));
 }
 
 } // namespace
@@ -177,6 +218,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readLog(*root, path, settings);
     readWindow(*root, settings);
     readPanels(*root, settings);
+    readBuild(*root, path, settings);
 
     return settings;
 }
@@ -207,6 +249,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeLog(root, settings);
     writeWindow(root, settings);
     writePanels(root, settings);
+    writeBuild(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

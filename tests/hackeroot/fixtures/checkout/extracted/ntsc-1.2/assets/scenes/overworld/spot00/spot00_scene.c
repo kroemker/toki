@@ -1,0 +1,1 @@
+u8 spot00_scene_placeholder;

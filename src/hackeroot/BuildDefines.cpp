@@ -85,6 +85,8 @@ readBuildDefines(const std::filesystem::path& repository,
     BuildDefines defines;
     defines.diagnostics = std::move(makefile->diagnostics);
     const makeparser::MakeSite site{.location = base::SourceLocation{.file = path}};
+    defines.version = makeparser::stripWords(
+        makefile->variables.expand("$(VERSION)", site, defines.diagnostics).text);
 
     if (makefile->variables.find("CPP_DEFINES") == nullptr) {
         defines.diagnostics.push_back(

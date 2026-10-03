@@ -5,6 +5,7 @@
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
+#include "app/workspace/domain/WorkspaceService.h"
 
 #include <expected>
 #include <filesystem>
@@ -33,6 +34,7 @@ private:
     void restoreLayout();
     void drawFrame();
     void setHackerootPath(const std::filesystem::path& path);
+    void openCheckout(const std::filesystem::path& path);
     void saveState();
 
     std::unique_ptr<Window> window;
@@ -44,6 +46,7 @@ private:
     Fonts fonts;
     PanelManager panels;
     SetupWizard setupWizard{fonts};
+    workspace::WorkspaceService workspaceService;
 };
 
 } // namespace toki::core

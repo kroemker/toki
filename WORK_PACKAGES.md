@@ -139,27 +139,37 @@ Zelda rules that had been buried in the front end are now handed to it from ther
 `getDecompDialect` (the N64's type widths, the decomp's typedefs, `TEX_LEN` and
 `ARRAY_COUNT`) and `resolveTextureInclude` (the `.inc.c` to `.png` rule).
 
-## 4. Workspace
+## 4. Workspace (done)
 
-Everything that talks to the user's HackerOoT checkout.
+Everything that talks to the user's HackerOoT checkout. See
+[docs/workspace.md](docs/workspace.md).
 
-- Root discovery and validation
-- Windows/WSL path translation
-- Build settings persisted, and handed to `readBuildDefines` as make overrides. The
-  scrape and `Configuration` are owned for the session, in that order, since the layer
-  points at the scrape
-- Ordinal table readers: scene, entrance, actor, object, read against the configuration
-- Asset enumeration under `assets/`
-- **Watching the checkout.** The edit loop is why this tool exists: export from fast64,
-  see the change. The architecture already allows a reload (a new unit per read, the old
-  one valid until dropped), but nothing triggers one. Watch the checkout; a changed asset
-  file invalidates the units that read it, and a changed Makefile or `include/config/`
-  header rebuilds the configuration and rereads the tables
+- `hackeroot::findCheckoutRoot` — any folder inside a checkout finds its root
+- `hackeroot::findWslPath` — `\\wsl.localhost\Ubuntu\x` to distribution and Linux path,
+  for the build runner
+- Build settings persisted under `[build]` in `config.toml` and handed to the workspace as
+  make overrides; `readBuildDefines` now also reports `VERSION`
+- `hackeroot::readTables` — scenes, actors, objects and entrances as typed entries, read
+  against the configuration; an entry with too few arguments keeps its ID and is warned
+  about
+- `hackeroot::listAssets` — scene and object folders from `assets/` and
+  `extracted/<VERSION>/assets/`
+- `hackeroot::Workspace` — all of the above for one checkout and one set of settings
+- `toki::workspace::WorkspaceService` — reads on a worker thread, polls the watched files
+  once a second, and reads again on a change; `WorkspacePanel` shows the tables
 
-Done when the app can point at a checkout, list its scenes, objects and actor IDs, and
-lists them again on its own after `config_debug.h` changes.
+Windows delivers no change notifications for `\\wsl.localhost`: a `FileSystemWatcher` on
+the share saw nothing while a file changed under it. Watching is therefore polling, at
+about a millisecond per file. Against the real checkout a read takes about two seconds in
+a Debug build, with no warnings; `CheckoutTest` loads it as a workspace.
 
-Ports from `toki64/src/hackeroot_tables.rs`, path handling in `build_runner.rs`.
+Along the way, a panel the saved layout has never seen now opens by its default rather
+than closed: the settings keep closed panel IDs beside the open ones.
+
+Known limits: the scraped headers under `include/` are not watched (a quarter of a second
+per poll); reopening the checkout picks up a change there. A panel without a saved dock
+position, such as the new Workspace panel in an existing layout, opens floating until the
+layout is reset. Quitting during a read waits for that read to finish.
 
 ## 5. Fast3D extraction spike
 
