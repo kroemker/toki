@@ -13,6 +13,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace z64 {
@@ -71,7 +72,14 @@ class Evaluator {
 public:
     Evaluator(std::span<const Token> tokens, const EvalContext& context,
               std::vector<Diagnostic>& diagnostics)
-        : tokens(tokens), context(context), diagnostics(diagnostics) {}
+        : tokens(tokens), context(context), diagnostics(diagnostics) {
+        if (!tokens.empty()) {
+            const Token& last = tokens.back();
+            endOfInput.file = last.file;
+            endOfInput.line = last.line;
+            endOfInput.column = last.column + static_cast<u32>(last.text.size());
+        }
+    }
 
     [[nodiscard]] std::expected<Value, Diagnostic> run();
 
@@ -102,10 +110,24 @@ private:
 
     [[nodiscard]] Value resolveIdentifier(const Token& token);
 
+    [[nodiscard]] std::expected<Value, Diagnostic> parseQuietly(bool quietly, auto parse) {
+        quiet += quietly ? 1 : 0;
+        std::expected<Value, Diagnostic> value = parse();
+        quiet -= quietly ? 1 : 0;
+        return value;
+    }
+
+    void report(Diagnostic diagnostic) {
+        if (quiet == 0) {
+            diagnostics.push_back(std::move(diagnostic));
+        }
+    }
+
     std::span<const Token> tokens;
     const EvalContext& context;
     std::vector<Diagnostic>& diagnostics;
     usize cursor = 0;
+    usize quiet = 0;
     Token endOfInput;
 };
 
@@ -121,7 +143,7 @@ Value Evaluator::resolveIdentifier(const Token& token) {
         return integerValue(0);
     }
     if (token.text == "M_PI") {
-        return realValue(std::numbers::pi);
+        return doubleValue(std::numbers::pi);
     }
     if (context.resolve) {
         if (const std::optional<Value> resolved = context.resolve(token.text)) {
@@ -130,7 +152,7 @@ Value Evaluator::resolveIdentifier(const Token& token) {
     }
 
     const SourceLocation location = locate(token);
-    diagnostics.push_back(
+    report(
         context.unknownIsZero
             ? note(location, std::format("'{}' is not defined, reading it as 0", token.text))
             : warning(location, std::format("'{}' is not defined, reading it as 0", token.text)));
@@ -180,8 +202,8 @@ std::expected<Value, Diagnostic> Evaluator::parseBuiltin(const Token& name) {
                 return integerValue(static_cast<s64>(*length));
             }
         }
-        diagnostics.push_back(warning(
-            here(), std::format("ARRAY_COUNT({}) has no declaration to count", array.text)));
+        report(warning(here(),
+                       std::format("ARRAY_COUNT({}) has no declaration to count", array.text)));
         return integerValue(0);
     }
 
@@ -269,7 +291,7 @@ std::expected<Value, Diagnostic> Evaluator::parsePrimary() {
             if (!arguments) {
                 return std::unexpected(arguments.error());
             }
-            diagnostics.push_back(
+            report(
                 warning(here(), std::format("'{}' is not a macro this build knows, reading it as 0",
                                             token.text)));
             return integerValue(0);
@@ -305,14 +327,17 @@ std::expected<Value, Diagnostic> Evaluator::parseUnary() {
         return *operand;
     }
     if (op == "-") {
-        return operand->real
-                   ? realValue(-operand->number)
-                   : integerValue(static_cast<s64>(u64{0} - static_cast<u64>(operand->integer)));
+        if (isReal(*operand)) {
+            Value negated = *operand;
+            negated.number = -negated.number;
+            return negated;
+        }
+        return integerValue(static_cast<s64>(u64{0} - static_cast<u64>(operand->integer)));
     }
     if (op == "~") {
         return integerValue(~asInteger(*operand));
     }
-    return integerValue(asInteger(*operand) == 0 ? 1 : 0);
+    return integerValue(isTrue(*operand) ? 0 : 1);
 }
 
 std::expected<Value, Diagnostic> Evaluator::parseBinary(int minPrecedence) {
@@ -327,10 +352,17 @@ std::expected<Value, Diagnostic> Evaluator::parseBinary(int minPrecedence) {
         if (precedence == 0 || precedence < minPrecedence) {
             break;
         }
+        const SourceLocation location = here();
         ++cursor;
-        const std::expected<Value, Diagnostic> right = parseBinary(precedence + 1);
+        const bool decided = (op == "&&" && !isTrue(*left)) || (op == "||" && isTrue(*left));
+        const std::expected<Value, Diagnostic> right =
+            parseQuietly(decided, [&] { return parseBinary(precedence + 1); });
         if (!right) {
             return right;
+        }
+        const bool integerDivision = op == "%" || (op == "/" && !isReal(*left) && !isReal(*right));
+        if (integerDivision && asInteger(*right) == 0) {
+            report(warning(location, std::format("'{}' by zero, reading it as 0", op)));
         }
         left = applyOperator(op, *left, *right);
     }
@@ -344,7 +376,9 @@ std::expected<Value, Diagnostic> Evaluator::parseConditional() {
     }
 
     ++cursor;
-    const std::expected<Value, Diagnostic> whenTrue = parseConditional();
+    const bool chosen = isTrue(*condition);
+    const std::expected<Value, Diagnostic> whenTrue =
+        parseQuietly(!chosen, [this] { return parseConditional(); });
     if (!whenTrue) {
         return whenTrue;
     }
@@ -352,11 +386,12 @@ std::expected<Value, Diagnostic> Evaluator::parseConditional() {
         return std::unexpected(error(here(), "expected ':' in a conditional expression"));
     }
     ++cursor;
-    const std::expected<Value, Diagnostic> whenFalse = parseConditional();
+    const std::expected<Value, Diagnostic> whenFalse =
+        parseQuietly(chosen, [this] { return parseConditional(); });
     if (!whenFalse) {
         return whenFalse;
     }
-    return asInteger(*condition) != 0 ? *whenTrue : *whenFalse;
+    return chosen ? *whenTrue : *whenFalse;
 }
 
 std::expected<Value, Diagnostic> Evaluator::run() {

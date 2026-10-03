@@ -83,10 +83,12 @@ ScrapeResult scrapeDefinitions(const std::filesystem::path& directory) {
 
     std::error_code failure;
     std::vector<std::filesystem::path> headers;
-    for (const std::filesystem::directory_entry& entry :
-         std::filesystem::recursive_directory_iterator(directory, failure)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".h") {
-            headers.push_back(entry.path());
+    for (std::filesystem::recursive_directory_iterator entry(directory, failure);
+         !failure && entry != std::filesystem::recursive_directory_iterator();
+         entry.increment(failure)) {
+        std::error_code typeFailure;
+        if (entry->is_regular_file(typeFailure) && entry->path().extension() == ".h") {
+            headers.push_back(entry->path());
         }
     }
     if (failure) {

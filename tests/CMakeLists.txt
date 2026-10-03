@@ -8,6 +8,7 @@ add_executable(toki_tests
         hackeroot/ConfigurationTest.cpp
         hackeroot/MakefileTest.cpp
         hackeroot/ShellWordsTest.cpp
+        z64/ExpandTest.cpp
         z64/ExpressionTest.cpp
         z64/MacroTableTest.cpp
         z64/ParserTest.cpp

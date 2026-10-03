@@ -34,6 +34,14 @@ namespace {
     return static_cast<z64::usize>(found - unit.tokens.begin());
 }
 
+[[nodiscard]] z64::usize lastIndexOf(const z64::TranslationUnit& unit, std::string_view name) {
+    const auto found = std::ranges::find_if(
+        unit.tokens.rbegin(), unit.tokens.rend(),
+        [name](const z64::Token& token) { return z64::isIdentifier(token, name); });
+    REQUIRE(found != unit.tokens.rend());
+    return static_cast<z64::usize>(unit.tokens.rend() - found) - 1;
+}
+
 [[nodiscard]] bool reports(const z64::TranslationUnit& unit, std::string_view text) {
     return std::ranges::any_of(unit.diagnostics, [text](const z64::Diagnostic& diagnostic) {
         return diagnostic.message.contains(text);
@@ -189,6 +197,23 @@ TEST_CASE("texture data the build would have generated resolves to its image",
     REQUIRE(unit.images[0].path.filename() == "sFloorTex.rgba16.png");
     REQUIRE(unit.images[0].format == "rgba16");
 
+    SECTION("each image stands in the token stream where its include was") {
+        std::vector<z64::usize> positions;
+        for (z64::usize at = 0; at < unit.tokens.size(); ++at) {
+            if (unit.tokens[at].kind == z64::TokenKind::Image) {
+                REQUIRE(unit.tokens[at].image == positions.size());
+                REQUIRE(unit.tokens[at].text.contains(".inc.c"));
+                positions.push_back(at);
+            }
+        }
+        REQUIRE(positions.size() == 2);
+        REQUIRE(z64::isPunctuator(unit.tokens[positions[0] - 1], "{"));
+        REQUIRE(z64::isPunctuator(unit.tokens[positions[0] + 1], "}"));
+        REQUIRE(lastIndexOf(unit, "sFloorTex") < positions[0]);
+        REQUIRE(positions[0] < lastIndexOf(unit, "sPalette"));
+        REQUIRE(lastIndexOf(unit, "sPalette") < positions[1]);
+    }
+
     SECTION("a paletted image names its palette, so the include is only a prefix") {
         REQUIRE(unit.images[1].path.filename() == "sPalette.ci8.tlut_sRoomTlut.png");
         REQUIRE(unit.images[1].format == "ci8");
@@ -206,4 +231,52 @@ TEST_CASE("an entry held only in memory resolves includes from where it says it 
     REQUIRE(unit.macros.contains("LENGTH_sActorList"));
     REQUIRE(unit.sources.count() == 2);
     REQUIRE(unit.sources.getFiles().front()->path.filename() == "<memory>");
+}
+
+TEST_CASE("a strict condition guarded by defined() does not warn about what it guards",
+          "[z64][preprocessor]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit =
+        z64::preprocessText(base, fixtures() / "asset/<memory>",
+                            "#if defined(NOT_DEFINED) && NOT_DEFINED > 2\nint a;\n#endif\n",
+                            z64::PreprocessOptions{.strictConditionals = true});
+
+    REQUIRE(unit.diagnostics.empty());
+    REQUIRE_FALSE(hasIdentifier(unit, "a"));
+}
+
+TEST_CASE("a macro body continues past a comment that spans lines", "[z64][preprocessor]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit =
+        z64::preprocessText(base, fixtures() / "asset/<memory>",
+                            "#define A 1 /* spans\n lines */ + 2\nint v = A;\n", {});
+
+    const z64::Macro* macro = unit.macros.find("A");
+    REQUIRE(macro != nullptr);
+    REQUIRE(macro->body.size() == 3);
+}
+
+TEST_CASE("a directive's diagnostics say where the directive is", "[z64][preprocessor]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit =
+        z64::preprocessText(base, fixtures() / "asset/<memory>",
+                            "#endif\n#else\n#ifdef\n#endif\n#if\n#endif\n#define\n#if 1\n", {});
+
+    REQUIRE(unit.diagnostics.size() == 6);
+    for (const z64::Diagnostic& diagnostic : unit.diagnostics) {
+        INFO(diagnostic.message);
+        REQUIRE(diagnostic.location.file.filename() == "<memory>");
+        REQUIRE(diagnostic.location.line > 0);
+    }
+    REQUIRE(unit.diagnostics.back().location.line == 8);
+    REQUIRE(unit.diagnostics.back().message.contains("never closed"));
+}
+
+TEST_CASE("an include through a file as if it were a directory is a diagnostic",
+          "[z64][preprocessor]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = z64::preprocessText(base, fixtures() / "asset/<memory>",
+                                                          "#include \"room.c/inside.h\"\n", {});
+
+    REQUIRE(reports(unit, "cannot find"));
 }

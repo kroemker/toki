@@ -85,49 +85,51 @@ directory listings.
 
 Replaces `c-parser/*` and the front half of the prototype's parsing layer.
 
-## 3. Front-end gaps
+## 3. Front-end gaps (done)
 
-Package 2 is done in the sense that it reads the real checkout. These are the gaps a review
-found afterwards, each one confirmed with a probe. The first two block later packages and
-come first.
+Package 2 was done in the sense that it read the real checkout. These are the gaps a
+review found afterwards, each confirmed with a probe and each now covered by a regression
+test. `CheckoutTest` also preprocesses and parses the real `spot00_scene.c` and requires
+no warnings from either.
 
 **Blocking:**
 
-- **An image is not linked to the declaration it fills.** A texture include becomes an
-  `ImageReference` carrying only a location, and the declaration around it gets an empty
-  initializer; `u64 tex[] = { #include "….inc.c" }` gets an `arrayLength` of 0. Emit a
-  synthetic token at the include site, so the initializer span contains its image and a
-  length can come from the PNG's size and bit depth. Blocks package 8.
-- **`f32` arithmetic is done in `f64`.** The `f` suffix is dropped, so
-  `DEG_TO_BINANG(210.13)` is −27284 where C says −27283; 14 of 36,000 angles at 0.01°
-  steps differ. `Value` needs to know f32 from f64 and round where C does. Blocks package
-  10, where it moves actors.
+- **Images are linked to the declarations they fill.** The preprocessor emits a
+  `TokenKind::Image` token where a texture include was, carrying its index into
+  `TranslationUnit::images`, so a declaration's initializer holds its image. A `[]` array
+  whose element is an image has an unknown length rather than a counted one; its real
+  length is the PNG's size times its bit depth, which package 8 reads. `CheckoutTest`
+  checks that every image in the real `spot00_scene.c` sits in exactly one declaration,
+  each sized by `TEX_LEN`. fast64 exports write texture data inline as `u64` literals,
+  so this only matters for extracted assets.
+- **`float` stays `float`.** `Value` carries `Integer`, `Float` or `Double`. A float
+  literal, a `(f32)` cast and arithmetic between floats round to single precision, an
+  integer meeting a float is converted to float first, and a double anywhere widens the
+  operation, as in C. `DEG_TO_BINANG(210.13)` is −27283.
 
 **Correctness:**
 
-- `Expand` rescans a macro's body alone, not together with the tokens after it, so
-  `#define F G` then `F(1)` never reaches `G(1)`. No `__VA_ARGS__`; `F()` on a
-  one-parameter macro counts as zero arguments.
-- `Parser` reads `void foo(void);` as a declaration named `void`, and an array bound
-  naming an unresolved macro becomes length 0 instead of falling back to counting the
-  initializer. `int a = 1, b = 2;` loses `b`. Heads it cannot read are dropped without a
-  diagnostic.
-- `Value` sends `&&`, `||` and `!` on reals through the wrong path: `1.0 && 1` is 0.
-- `std::filesystem` iterators in `Scrape` and `IncludeResolver` throw on error, which a
-  hiccup on `\\wsl.localhost` would turn into a crash. Use `increment(ec)`.
+- `Expand` works on hide sets: a replacement rescans together with the tokens after it,
+  `...` and GNU's `args...` collect into the last parameter, and `F()` is one empty
+  argument. Its tests include the standard's own `f(2)(9)` example.
+- `Parser` reads every declarator in a list, steps over function prototypes, strips
+  `__attribute__`, falls back to counting the initializer when a bound names something
+  unresolved, and notes what it cannot read (function pointers, unclosed declarations).
+- `&&`, `||`, `!` and `?:` test a real for nonzero.
+- Directory iteration in `Scrape` and `IncludeResolver` reports errors instead of
+  throwing.
 
 **Smaller:**
 
-- `INT64_MIN / -1` traps; division by zero is a silent 0; out-of-range real-to-integer
-  casts are undefined behaviour.
-- `1e3` is lexed as an integer and rejected. A block comment spanning lines ends a
-  `#define` early.
-- Several diagnostics carry no location (`#endif` without `#if`), or the wrong one (an
-  expression that ends early reports file 0, line 0).
-- `&&` and `||` do not short-circuit, so `#if defined(X) && X > 2` warns under strict mode.
-- `char` is signed here and unsigned on MIPS; `(long)` does not truncate to 32 bits.
-
-Done when each of the above has a regression test and the blocking two are fixed.
+- `INT64_MIN / -1` wraps; integer division by zero is a warning; real division follows
+  IEEE; a real outside the integer range saturates, and NaN reads as 0.
+- `1e3` is a real. A block comment or string spanning lines no longer ends the line it
+  started on, so a `#define` continues past it.
+- Directive diagnostics carry the directive's location, an unclosed conditional points
+  at its `#if`, an empty `#if` says so, and an expression that ends early reports where.
+- `&&`, `||` and `?:` do not evaluate the side already decided, so `#if defined(X) &&
+  X > 2` is quiet under strict mode.
+- `char` is unsigned, as the build's `-funsigned-char` makes it; `long` is 32 bits.
 
 ## 4. Workspace
 

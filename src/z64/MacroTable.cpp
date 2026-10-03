@@ -25,9 +25,18 @@ std::optional<Macro> parseDefinition(std::span<const Token> line) {
     if (cursor < line.size() && isPunctuator(line[cursor], "(") && !line[cursor].spaceBefore) {
         macro.functionLike = true;
         ++cursor;
+        bool afterName = false;
         while (cursor < line.size() && !isPunctuator(line[cursor], ")")) {
             if (line[cursor].kind == TokenKind::Identifier) {
                 macro.parameters.emplace_back(line[cursor].text);
+                afterName = true;
+            } else if (isPunctuator(line[cursor], "...")) {
+                if (!afterName) {
+                    macro.parameters.emplace_back("__VA_ARGS__");
+                }
+                macro.variadic = true;
+            } else {
+                afterName = false;
             }
             ++cursor;
         }

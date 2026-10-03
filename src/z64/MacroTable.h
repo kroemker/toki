@@ -19,6 +19,11 @@ struct Macro {
     std::vector<std::string> parameters;
     std::vector<Token> body;
     bool functionLike = false;
+
+    /// The last parameter takes every argument past the named ones, commas
+    /// included. It is `__VA_ARGS__` for `...`, or the name GNU's `args...`
+    /// spelling gives it.
+    bool variadic = false;
 };
 
 /// Reads the tokens after `#define` into a macro. A function-like macro is one

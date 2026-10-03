@@ -7,6 +7,7 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -30,7 +31,10 @@ constexpr std::array CastTypes = {
     if (type == "u8") {
         return static_cast<u8>(value);
     }
-    if (type == "s8" || type == "char") {
+    if (type == "char") {
+        return static_cast<u8>(value);
+    }
+    if (type == "s8") {
         return static_cast<s8>(value);
     }
     if (type == "u16") {
@@ -42,7 +46,7 @@ constexpr std::array CastTypes = {
     if (type == "u32" || type == "unsigned") {
         return static_cast<u32>(value);
     }
-    if (type == "s32" || type == "int" || type == "signed") {
+    if (type == "s32" || type == "int" || type == "signed" || type == "long") {
         return static_cast<s32>(value);
     }
     return value;
@@ -86,8 +90,11 @@ constexpr std::array CastTypes = {
 }
 
 [[nodiscard]] std::optional<Value> realLiteral(std::string_view text) {
-    while (!text.empty() &&
-           (text.back() == 'f' || text.back() == 'F' || text.back() == 'l' || text.back() == 'L')) {
+    bool single = false;
+    if (!text.empty() && (text.back() == 'f' || text.back() == 'F')) {
+        single = true;
+        text.remove_suffix(1);
+    } else if (!text.empty() && (text.back() == 'l' || text.back() == 'L')) {
         text.remove_suffix(1);
     }
     f64 parsed = 0.0;
@@ -96,7 +103,7 @@ constexpr std::array CastTypes = {
     if (failure != std::errc() || stop != begin + text.size()) {
         return std::nullopt;
     }
-    return realValue(parsed);
+    return single ? floatValue(parsed) : doubleValue(parsed);
 }
 
 [[nodiscard]] std::optional<Value> characterLiteral(std::string_view text) {
@@ -149,18 +156,37 @@ constexpr std::array CastTypes = {
     return integerValue(equal ? 0 : 1);
 }
 
-[[nodiscard]] Value applyReal(std::string_view op, f64 a, f64 b) {
+[[nodiscard]] f64 divide(f64 a, f64 b) {
+    if (b != 0.0) {
+        return a / b;
+    }
+    if (a == 0.0 || std::isnan(a)) {
+        return std::numeric_limits<f64>::quiet_NaN();
+    }
+    const bool negative = std::signbit(a) != std::signbit(b);
+    return negative ? -std::numeric_limits<f64>::infinity() : std::numeric_limits<f64>::infinity();
+}
+
+[[nodiscard]] bool isArithmetic(std::string_view op) {
+    return op == "+" || op == "-" || op == "*" || op == "/" || op == "<" || op == ">" ||
+           op == "<=" || op == ">=" || op == "==" || op == "!=";
+}
+
+[[nodiscard]] Value applyReal(std::string_view op, f64 a, f64 b, ValueType type) {
+    const auto make = [type](f64 value) {
+        return type == ValueType::Float ? floatValue(value) : doubleValue(value);
+    };
     if (op == "+") {
-        return realValue(a + b);
+        return make(a + b);
     }
     if (op == "-") {
-        return realValue(a - b);
+        return make(a - b);
     }
     if (op == "*") {
-        return realValue(a * b);
+        return make(a * b);
     }
     if (op == "/") {
-        return realValue(b == 0.0 ? 0.0 : a / b);
+        return make(divide(a, b));
     }
     return compare(op, a < b, a == b);
 }
@@ -176,11 +202,14 @@ constexpr std::array CastTypes = {
     if (op == "*") {
         return integerValue(static_cast<s64>(wide * static_cast<u64>(b)));
     }
-    if (op == "/") {
-        return integerValue(b == 0 ? 0 : a / b);
-    }
-    if (op == "%") {
-        return integerValue(b == 0 ? 0 : a % b);
+    if (op == "/" || op == "%") {
+        if (b == 0) {
+            return integerValue(0);
+        }
+        if (b == -1) {
+            return integerValue(op == "/" ? static_cast<s64>(u64{0} - wide) : 0);
+        }
+        return integerValue(op == "/" ? a / b : a % b);
     }
     if (op == "<<") {
         return integerValue(static_cast<s64>(wide << (static_cast<u64>(b) & 63)));
@@ -197,37 +226,76 @@ constexpr std::array CastTypes = {
     if (op == "^") {
         return integerValue(a ^ b);
     }
-    if (op == "&&") {
-        return integerValue(a != 0 && b != 0 ? 1 : 0);
-    }
-    if (op == "||") {
-        return integerValue(a != 0 || b != 0 ? 1 : 0);
-    }
     return compare(op, a < b, a == b);
 }
 
 [[nodiscard]] Value apply(std::string_view op, const Value& left, const Value& right) {
-    if ((left.real || right.real) && op != "<<" && op != ">>" && op != "%") {
-        return applyReal(op, asReal(left), asReal(right));
+    if (op == "&&") {
+        return integerValue(isTrue(left) && isTrue(right) ? 1 : 0);
+    }
+    if (op == "||") {
+        return integerValue(isTrue(left) || isTrue(right) ? 1 : 0);
+    }
+    if ((isReal(left) || isReal(right)) && isArithmetic(op)) {
+        if (left.type == ValueType::Double || right.type == ValueType::Double) {
+            return applyReal(op, asReal(left), asReal(right), ValueType::Double);
+        }
+        return applyReal(op, floatValue(asReal(left)).number, floatValue(asReal(right)).number,
+                         ValueType::Float);
     }
     return applyInteger(op, asInteger(left), asInteger(right));
 }
 } // namespace
 
 Value integerValue(s64 value) {
-    return Value{.real = false, .integer = value, .number = static_cast<f64>(value)};
+    return Value{.type = ValueType::Integer, .integer = value, .number = static_cast<f64>(value)};
 }
 
-Value realValue(f64 value) {
-    return Value{.real = true, .integer = static_cast<s64>(value), .number = value};
+Value floatValue(f64 value) {
+    constexpr f64 Largest = std::numeric_limits<f32>::max();
+    constexpr f64 Overflow = Largest + 0x1p103;
+    const f64 magnitude = std::fabs(value);
+    if (magnitude >= Overflow) {
+        return Value{.type = ValueType::Float,
+                     .number = std::copysign(std::numeric_limits<f64>::infinity(), value)};
+    }
+    if (magnitude > Largest) {
+        return Value{.type = ValueType::Float, .number = std::copysign(Largest, value)};
+    }
+    return Value{.type = ValueType::Float, .number = static_cast<f64>(static_cast<f32>(value))};
+}
+
+Value doubleValue(f64 value) {
+    return Value{.type = ValueType::Double, .number = value};
+}
+
+bool isReal(const Value& value) {
+    return value.type != ValueType::Integer;
+}
+
+bool isTrue(const Value& value) {
+    return isReal(value) ? value.number != 0.0 : value.integer != 0;
 }
 
 s64 asInteger(const Value& value) {
-    return value.real ? static_cast<s64>(std::trunc(value.number)) : value.integer;
+    if (!isReal(value)) {
+        return value.integer;
+    }
+    constexpr f64 Limit = 0x1p63;
+    if (std::isnan(value.number)) {
+        return 0;
+    }
+    if (value.number >= Limit) {
+        return std::numeric_limits<s64>::max();
+    }
+    if (value.number < -Limit) {
+        return std::numeric_limits<s64>::min();
+    }
+    return static_cast<s64>(std::trunc(value.number));
 }
 
 f64 asReal(const Value& value) {
-    return value.real ? value.number : static_cast<f64>(value.integer);
+    return isReal(value) ? value.number : static_cast<f64>(value.integer);
 }
 
 std::optional<Value> literalValue(const Token& token) {
@@ -268,8 +336,11 @@ Value castTo(std::string_view type, bool pointer, const Value& operand) {
     if (pointer) {
         return integerValue(asInteger(operand));
     }
-    if (type == "f32" || type == "f64" || type == "float" || type == "double") {
-        return realValue(asReal(operand));
+    if (type == "f32" || type == "float") {
+        return floatValue(asReal(operand));
+    }
+    if (type == "f64" || type == "double") {
+        return doubleValue(asReal(operand));
     }
     return integerValue(truncateTo(type, asInteger(operand)));
 }

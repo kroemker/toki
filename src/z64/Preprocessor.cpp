@@ -31,6 +31,7 @@ struct Conditional {
     bool parentActive = true;
     bool taken = false;
     bool active = false;
+    SourceLocation opened;
 };
 
 [[nodiscard]] std::string_view unquote(std::string_view spelling) {
@@ -58,13 +59,13 @@ private:
 
     void applyDirective(std::span<const Token> line, usize depth);
 
-    void doInclude(std::span<const Token> line, usize depth);
+    void doInclude(const Token& directive, std::span<const Token> line, usize depth);
 
-    void doDefine(std::span<const Token> line);
+    void doDefine(const Token& directive, std::span<const Token> line);
 
-    void doConditional(std::string_view directive, std::span<const Token> line);
+    void doConditional(const Token& directive, std::span<const Token> line);
 
-    [[nodiscard]] bool evaluateCondition(std::span<const Token> line);
+    [[nodiscard]] bool evaluateCondition(const Token& directive, std::span<const Token> line);
 
     [[nodiscard]] std::vector<Token> substituteDefined(std::span<const Token> line);
 
@@ -132,7 +133,13 @@ std::vector<Token> Preprocessor::substituteDefined(std::span<const Token> line) 
     return output;
 }
 
-bool Preprocessor::evaluateCondition(std::span<const Token> line) {
+bool Preprocessor::evaluateCondition(const Token& directive, std::span<const Token> line) {
+    if (line.empty()) {
+        unit.diagnostics.push_back(
+            warning(locate(directive),
+                    std::format("'#{}' has no condition, reading it as false", directive.text)));
+        return false;
+    }
     const std::vector<Token> prepared = substituteDefined(line);
     const std::expected<Value, Diagnostic> value =
         evaluate(prepared, evalContext(), unit.diagnostics);
@@ -143,66 +150,69 @@ bool Preprocessor::evaluateCondition(std::span<const Token> line) {
     return asInteger(*value) != 0;
 }
 
-void Preprocessor::doConditional(std::string_view directive, std::span<const Token> line) {
-    if (directive == "endif") {
+void Preprocessor::doConditional(const Token& directive, std::span<const Token> line) {
+    const std::string_view name = directive.text;
+    if (name == "endif") {
         if (conditionals.empty()) {
             unit.diagnostics.push_back(
-                warning(SourceLocation{}, "'#endif' without a matching '#if'"));
+                warning(locate(directive), "'#endif' without a matching '#if'"));
             return;
         }
         conditionals.pop_back();
         return;
     }
 
-    if (directive == "if" || directive == "ifdef" || directive == "ifndef") {
+    if (name == "if" || name == "ifdef" || name == "ifndef") {
         const bool parentActive = active();
         bool taken = false;
         if (parentActive) {
-            if (directive == "if") {
-                taken = evaluateCondition(line);
+            if (name == "if") {
+                taken = evaluateCondition(directive, line);
             } else if (!line.empty() && line.front().kind == TokenKind::Identifier) {
-                taken = unit.macros.contains(line.front().text) == (directive == "ifdef");
+                taken = unit.macros.contains(line.front().text) == (name == "ifdef");
             } else {
-                unit.diagnostics.push_back(warning(
-                    SourceLocation{}, std::format("'#{}' expects a macro name", directive)));
+                unit.diagnostics.push_back(
+                    warning(locate(directive), std::format("'#{}' expects a macro name", name)));
             }
         }
-        conditionals.push_back(
-            Conditional{.parentActive = parentActive, .taken = taken, .active = taken});
+        conditionals.push_back(Conditional{.parentActive = parentActive,
+                                           .taken = taken,
+                                           .active = taken,
+                                           .opened = locate(directive)});
         return;
     }
 
     if (conditionals.empty()) {
         unit.diagnostics.push_back(
-            warning(SourceLocation{}, std::format("'#{}' without a matching '#if'", directive)));
+            warning(locate(directive), std::format("'#{}' without a matching '#if'", name)));
         return;
     }
 
     Conditional& state = conditionals.back();
-    if (directive == "else") {
+    if (name == "else") {
         state.active = state.parentActive && !state.taken;
         state.taken = true;
         return;
     }
 
-    const bool taken = state.parentActive && !state.taken && evaluateCondition(line);
+    const bool taken = state.parentActive && !state.taken && evaluateCondition(directive, line);
     state.active = taken;
     state.taken = state.taken || taken;
 }
 
-void Preprocessor::doDefine(std::span<const Token> line) {
+void Preprocessor::doDefine(const Token& directive, std::span<const Token> line) {
     std::optional<Macro> macro = parseDefinition(line);
     if (!macro) {
-        unit.diagnostics.push_back(warning(SourceLocation{}, "'#define' expects a macro name"));
+        unit.diagnostics.push_back(warning(locate(directive), "'#define' expects a macro name"));
         return;
     }
     unit.macros.define(std::move(*macro));
 }
 
-void Preprocessor::doInclude(std::span<const Token> line, usize depth) {
+void Preprocessor::doInclude(const Token& directive, std::span<const Token> line, usize depth) {
     if (line.empty() || line.front().kind != TokenKind::String) {
-        unit.diagnostics.push_back(warning(line.empty() ? SourceLocation{} : locate(line.front()),
-                                           "cannot read the include"));
+        unit.diagnostics.push_back(
+            warning(locate(line.empty() ? directive : line.front()), "cannot read the include"));
         return;
     }
 
@@ -229,6 +239,16 @@ void Preprocessor::doInclude(std::span<const Token> line, usize depth) {
     }
 
     if (resolved->isImage) {
+        unit.tokens.push_back(Token{
+            .kind = TokenKind::Image,
+            .startsLine = true,
+            .spaceBefore = true,
+            .image = static_cast<u32>(unit.images.size()),
+            .file = target.file,
+            .text = target.text,
+            .line = target.line,
+            .column = target.column,
+        });
         unit.images.push_back(ImageReference{
             .path = resolved->path, .format = resolved->format, .location = location});
         return;
@@ -258,16 +278,16 @@ void Preprocessor::applyDirective(std::span<const Token> line, usize depth) {
     const std::span<const Token> rest = line.subspan(1);
     if (directive == "if" || directive == "ifdef" || directive == "ifndef" || directive == "elif" ||
         directive == "else" || directive == "endif") {
-        doConditional(directive, rest);
+        doConditional(line.front(), rest);
         return;
     }
     if (!active()) {
         return;
     }
     if (directive == "include") {
-        doInclude(rest, depth);
+        doInclude(line.front(), rest, depth);
     } else if (directive == "define") {
-        doDefine(rest);
+        doDefine(line.front(), rest);
     } else if (directive == "undef") {
         if (!rest.empty()) {
             unit.macros.remove(rest.front().text);
@@ -308,11 +328,11 @@ void Preprocessor::run(const SourceFile& file, usize depth) {
         }
     }
 
-    if (conditionals.size() != conditionalsOnEntry) {
+    for (usize open = conditionalsOnEntry; open < conditionals.size(); ++open) {
         unit.diagnostics.push_back(
-            warning(SourceLocation{.file = file.path}, "a conditional is left unclosed"));
-        conditionals.resize(conditionalsOnEntry);
+            warning(conditionals[open].opened, "this conditional is never closed in its file"));
     }
+    conditionals.resize(conditionalsOnEntry);
     stack.pop_back();
 }
 

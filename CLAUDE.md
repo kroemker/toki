@@ -205,15 +205,19 @@ the next. A reload is a new unit; the old one stays valid until dropped. The onl
 lifetime rule is that the base outlives, and does not move under, every unit read
 against it. Layers stack, which is where build-derived predefines and a properly
 preprocessed `config/` belong.
-4. **`Expand`** — on-demand macro expansion of a token range, with a stop-list. Standard
-   blue-paint recursion. `#` and `##` are diagnosed, not implemented.
+4. **`Expand`** — on-demand macro expansion of a token range, with a stop-list. Every
+   token carries a hide set, as the standard describes, and a replacement is rescanned
+   together with the tokens after it, so `#define F G` then `F(1)` reaches `G(1)`.
+   Variadic macros, both `...` and GNU's `args...`, are supported. `#` and `##` are
+   diagnosed, not implemented.
 5. **`Value` and `Expression`** — a constant expression evaluator over the C operators the
    decomp uses, including casts that truncate the way the named type does. Integer and
    floating point both, because `DEG_TO_BINANG` is `(s16)(s32)((degrees) * (0x8000 /
    180.0f))`. `ARRAY_COUNT` and `TEX_LEN` are builtins rather than expansions: their real
    definitions are written with `sizeof`, which nothing here can answer.
 6. **`Parser`** — file-scope declarations only, as `{name, type, arrayLength, initializer
-   token span}`. Typedefs, struct definitions and functions are stepped over. The
+   token span}`, one per declarator in a list. Typedefs, struct definitions, functions
+   and function prototypes are stepped over; anything else it cannot read is a note. The
    initializer stays *unevaluated tokens*, because the memory image and the scene reader
    want different things out of it and neither should pay for the other's reading.
 
@@ -242,7 +246,8 @@ on a visited set: the same `.inc.c` is legitimately included by two different ar
 
 **A `.inc.c` that does not exist is a texture.** `X.rgba16.inc.c` resolves to the
 `X.rgba16.png` the build would have generated it from, reported as an `ImageReference`
-carrying the format its name spells. A paletted texture's image also carries the palette it
+carrying the format its name spells. It also stands in the token stream as an `Image`
+token where the include was, so the declaration it fills holds it in its initializer. A paletted texture's image also carries the palette it
 was extracted against, so the include's spelling is only a prefix of the filename. Never
 parse a vanilla texture as C: the PNG is both faster and the only thing actually on disk.
 

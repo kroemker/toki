@@ -89,6 +89,39 @@ TEST_CASE("a texture's length comes from TEX_LEN, not from its data", "[z64][par
     REQUIRE(texture.arrayLength == 256);
 }
 
+TEST_CASE("a texture's initializer holds the image the build would include", "[z64][parser]") {
+    const Harness harness;
+    const z64::Declaration& texture = harness.find("sFloorTex");
+
+    REQUIRE(texture.initializer.size() == 1);
+    const z64::Token& image = texture.initializer.front();
+    REQUIRE(image.kind == z64::TokenKind::Image);
+    REQUIRE(image.image < harness.unit.images.size());
+    REQUIRE(harness.unit.images[image.image].path.filename() == "sFloorTex.rgba16.png");
+}
+
+TEST_CASE("an empty bound filled from an image is left unknown, not counted", "[z64][parser]") {
+    const Harness harness;
+    const z64::Declaration& palette = harness.find("sPalette");
+
+    REQUIRE(palette.isArray);
+    REQUIRE_FALSE(palette.arrayLength.has_value());
+    REQUIRE(harness.unit.images[palette.initializer.front().image].format == "ci8");
+}
+
+TEST_CASE("an image nested inside an element does not stop the count", "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit =
+        z64::preprocessText(base, fixtures() / "asset/<memory>.c",
+                            "u64 sNested[] = {\n    { 1, 2 },\n    {\n#include "
+                            "\"sFloorTex.rgba16.inc.c\"\n    },\n};\n",
+                            z64::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+    const z64::ParseResult parsed = z64::parseDeclarations(unit, z64::EvalContext{});
+
+    REQUIRE(parsed.declarations.size() == 1);
+    REQUIRE(parsed.declarations.front().arrayLength == 2);
+}
+
 TEST_CASE("an empty bound is counted from the initializer", "[z64][parser]") {
     const Harness harness;
     const z64::Declaration& commands = harness.find("sOpaque");
@@ -130,4 +163,90 @@ TEST_CASE("a scalar definition is read too", "[z64][parser]") {
     REQUIRE(angle.type == "s16");
     REQUIRE_FALSE(angle.isArray);
     REQUIRE(angle.hasInitializer);
+}
+
+namespace {
+
+[[nodiscard]] z64::ParseResult parseText(const z64::TranslationUnit& unit) {
+    return z64::parseDeclarations(unit, z64::EvalContext{});
+}
+
+[[nodiscard]] z64::TranslationUnit unitOf(const z64::MacroTable& base, std::string source) {
+    return z64::preprocessText(base, "memory.c", std::move(source), {});
+}
+
+[[nodiscard]] bool notes(const z64::ParseResult& parsed, std::string_view text) {
+    return std::ranges::any_of(parsed.diagnostics, [text](const z64::Diagnostic& diagnostic) {
+        return diagnostic.severity == z64::Severity::Note && diagnostic.message.contains(text);
+    });
+}
+
+} // namespace
+
+TEST_CASE("a function prototype is not a declaration of data", "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = unitOf(base, "void Foo_Init(void);\ns32 sValue = 1;\n");
+    const z64::ParseResult parsed = parseText(unit);
+
+    REQUIRE(parsed.declarations.size() == 1);
+    REQUIRE(parsed.declarations.front().name == "sValue");
+    REQUIRE(parsed.diagnostics.empty());
+}
+
+TEST_CASE("every declarator in a list is read, with the type they share", "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = unitOf(base, "static s16 a = 1, *b, c[] = { 1, 2, 3 };\n");
+    const z64::ParseResult parsed = parseText(unit);
+
+    REQUIRE(parsed.declarations.size() == 3);
+    REQUIRE(parsed.declarations[0].name == "a");
+    REQUIRE(parsed.declarations[0].initializer.size() == 1);
+    REQUIRE(parsed.declarations[1].name == "b");
+    REQUIRE(parsed.declarations[1].type == "s16");
+    REQUIRE(parsed.declarations[1].pointerDepth == 1);
+    REQUIRE(parsed.declarations[2].name == "c");
+    REQUIRE(parsed.declarations[2].arrayLength == 3);
+}
+
+TEST_CASE("an attribute does not hide the name it decorates", "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = unitOf(
+        base,
+        "__attribute__((aligned(8))) u64 sTex[2] __attribute__((aligned (16))) = { 0, 0 };\n");
+    const z64::ParseResult parsed = parseText(unit);
+
+    REQUIRE(parsed.declarations.size() == 1);
+    REQUIRE(parsed.declarations.front().name == "sTex");
+    REQUIRE(parsed.declarations.front().type == "u64");
+    REQUIRE(parsed.declarations.front().arrayLength == 2);
+}
+
+TEST_CASE("a bound naming an unknown macro falls back to counting the initializer",
+          "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = unitOf(base, "u8 sArr[LENGTH_UNKNOWN] = { 1, 2, 3 };\n");
+    const z64::ParseResult parsed = parseText(unit);
+
+    REQUIRE(parsed.declarations.front().arrayLength == 3);
+    REQUIRE(std::ranges::any_of(parsed.diagnostics, [](const z64::Diagnostic& diagnostic) {
+        return diagnostic.severity == z64::Severity::Warning &&
+               diagnostic.message.contains("LENGTH_UNKNOWN");
+    }));
+}
+
+TEST_CASE("a bound naming an unknown macro with nothing to count is unknown", "[z64][parser]") {
+    const z64::MacroTable base;
+    const z64::TranslationUnit unit = unitOf(base, "extern u8 sArr[LENGTH_UNKNOWN];\n");
+
+    REQUIRE_FALSE(parseText(unit).declarations.front().arrayLength.has_value());
+}
+
+TEST_CASE("what the parser cannot read is noted, never dropped silently", "[z64][parser]") {
+    const z64::MacroTable base;
+
+    const z64::TranslationUnit pointer = unitOf(base, "void (*sCallback)(void) = 0;\n");
+    REQUIRE(notes(parseText(pointer), "function pointer"));
+
+    const z64::TranslationUnit unclosed = unitOf(base, "s32 sValue = 1\n");
+    REQUIRE(notes(parseText(unclosed), "never closed"));
 }

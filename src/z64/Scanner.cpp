@@ -127,10 +127,12 @@ void Scanner::skipComment() {
     }
 
     const SourceLocation opened = here();
+    const bool wasLineStart = startsLine;
     advance(2);
     while (!atEnd() && (peek() != '*' || peek(1) != '/')) {
         advance();
     }
+    startsLine = wasLineStart;
     if (atEnd()) {
         result.diagnostics.push_back(error(opened, "unterminated block comment"));
         return;
@@ -164,10 +166,13 @@ void Scanner::scanNumber() {
     }
     while (!atEnd()) {
         const char c = peek();
-        if (!hexadecimal && (c == 'e' || c == 'E') && (peek(1) == '+' || peek(1) == '-')) {
-            fractional = true;
-            advance(2);
-            continue;
+        if (!hexadecimal && (c == 'e' || c == 'E')) {
+            const bool signedExponent = (peek(1) == '+' || peek(1) == '-') && isDigit(peek(2));
+            if (signedExponent || isDigit(peek(1))) {
+                fractional = true;
+                advance(signedExponent ? 2 : 1);
+                continue;
+            }
         }
         if (c == '.') {
             fractional = true;
@@ -187,10 +192,12 @@ void Scanner::scanQuoted(char terminator, TokenKind kind) {
     const u32 beginLine = line;
     const u32 beginColumn = column;
     const SourceLocation opened = here();
+    const bool wasLineStart = startsLine;
     advance();
     while (!atEnd() && peek() != terminator && peek() != '\n') {
         advance(peek() == '\\' ? 2 : 1);
     }
+    startsLine = wasLineStart;
     if (peek() != terminator) {
         result.diagnostics.push_back(error(opened, "unterminated literal"));
     } else {

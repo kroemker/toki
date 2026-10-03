@@ -25,7 +25,9 @@ struct ImageReference {
 
 /// One asset's C after directives are gone: every reachable file's tokens in
 /// source order, the images the build would have generated, and everything
-/// that went wrong on the way. Macro uses are left standing, because which of
+/// that went wrong on the way. Each image also stands in `tokens` as an
+/// `Image` token where its include was, so the declaration it fills has it in
+/// its initializer. Macro uses are left standing, because which of
 /// them to expand is the consumer's decision.
 ///
 /// A unit owns what it read. `sources` holds every file it opened, and

@@ -27,7 +27,8 @@ struct Declaration {
     bool hasInitializer = false;
 
     /// The declared element count, or the counted one when the source wrote
-    /// `[]`. Nothing when neither was available.
+    /// `[]`. Nothing when neither was available, which includes `[]` filled
+    /// from an image: its count is the image's size, not its token count.
     std::optional<usize> arrayLength;
 
     /// The interior of the outermost braces, or the whole expression when the

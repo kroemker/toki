@@ -50,9 +50,9 @@ const std::vector<std::string>& IncludeResolver::listing(const std::filesystem::
 
     std::vector<std::string> names;
     std::error_code failure;
-    for (const std::filesystem::directory_entry& entry :
-         std::filesystem::directory_iterator(directory, failure)) {
-        names.push_back(entry.path().filename().string());
+    for (std::filesystem::directory_iterator entry(directory, failure);
+         !failure && entry != std::filesystem::directory_iterator(); entry.increment(failure)) {
+        names.push_back(entry->path().filename().string());
     }
     std::ranges::sort(names);
     return listings.emplace(directory, std::move(names)).first->second;

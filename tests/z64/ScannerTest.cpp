@@ -123,3 +123,27 @@ TEST_CASE("an unterminated block comment is reported", "[z64][scanner]") {
     REQUIRE(result.diagnostics.size() == 1);
     REQUIRE(result.diagnostics.front().severity == z64::Severity::Error);
 }
+
+TEST_CASE("an exponent without a sign still makes a real", "[z64][scanner]") {
+    const Scanned scanned("1e3 2E-4 5e+2f 0xE+1");
+    const std::span<const z64::Token> tokens = scanned.tokens();
+
+    REQUIRE(tokens.size() == 6);
+    REQUIRE(tokens[0].kind == z64::TokenKind::Real);
+    REQUIRE(tokens[1].kind == z64::TokenKind::Real);
+    REQUIRE(tokens[2].kind == z64::TokenKind::Real);
+    REQUIRE(tokens[2].text == "5e+2f");
+    REQUIRE(tokens[3].kind == z64::TokenKind::Integer);
+    REQUIRE(tokens[3].text == "0xE");
+}
+
+TEST_CASE("a block comment spanning lines does not end the line it started on", "[z64][scanner]") {
+    const Scanned scanned("#define A 1 /* spans\n lines */ + 2\nB");
+    const std::span<const z64::Token> tokens = scanned.tokens();
+
+    REQUIRE(tokens.size() == 7);
+    REQUIRE(tokens[4].text == "+");
+    REQUIRE_FALSE(tokens[4].startsLine);
+    REQUIRE(tokens[6].text == "B");
+    REQUIRE(tokens[6].startsLine);
+}

@@ -70,3 +70,10 @@ TEST_CASE("every name a file defines or undefines is found, whatever the conditi
 
     REQUIRE(z64::mentionedNames(file) == std::vector<std::string_view>{"HIDDEN", "SHOWN", "LAST"});
 }
+
+TEST_CASE("a path that is not a directory is reported, never thrown", "[z64][scrape]") {
+    const z64::ScrapeResult scraped = z64::scrapeDefinitions(fixtures() / "headers/a_first.h");
+
+    REQUIRE(scraped.headers == 0);
+    REQUIRE(scraped.diagnostics.size() == 1);
+}

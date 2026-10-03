@@ -1,8 +1,13 @@
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
 #include "z64/Diagnostic.h"
+#include "z64/Expression.h"
+#include "z64/Parser.h"
+#include "z64/Preprocessor.h"
 #include "z64/Scrape.h"
 #include "z64/TableReader.h"
+#include "z64/Token.h"
+#include "z64/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -13,6 +18,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace {
@@ -43,6 +49,52 @@ void requireTable(const z64::MacroTable& macros, const std::filesystem::path& fi
     REQUIRE(table.has_value());
     REQUIRE_FALSE(table->rows.empty());
     REQUIRE(loudest(table->diagnostics).empty());
+}
+
+[[nodiscard]] std::filesystem::path extractedScene(const std::filesystem::path& repository,
+                                                   const std::filesystem::path& scene) {
+    std::error_code failure;
+    for (std::filesystem::directory_iterator entry(repository / "extracted", failure);
+         !failure && entry != std::filesystem::directory_iterator(); entry.increment(failure)) {
+        if (std::filesystem::exists(entry->path() / scene, failure)) {
+            return entry->path();
+        }
+    }
+    return {};
+}
+
+void requireImagesLinked(const z64::MacroTable& macros, const std::filesystem::path& repository) {
+    const std::filesystem::path scene = "assets/scenes/overworld/spot00/spot00_scene.c";
+    const std::filesystem::path extracted = extractedScene(repository, scene);
+    INFO("no extracted spot00 under " << (repository / "extracted").string());
+    REQUIRE_FALSE(extracted.empty());
+
+    const std::expected<z64::TranslationUnit, z64::Diagnostic> unit = z64::preprocess(
+        macros, extracted / scene,
+        z64::PreprocessOptions{.searchPaths = {repository, extracted},
+                               .allowedRoots = {repository / "assets", extracted / "assets"}});
+    REQUIRE(unit.has_value());
+    REQUIRE_FALSE(unit->images.empty());
+
+    const z64::ParseResult parsed = z64::parseDeclarations(*unit, z64::EvalContext{});
+    REQUIRE(loudest(unit->diagnostics).empty());
+    REQUIRE(loudest(parsed.diagnostics).empty());
+    std::vector<z64::usize> uses(unit->images.size(), 0);
+    for (const z64::Declaration& declaration : parsed.declarations) {
+        bool fromImage = false;
+        for (const z64::Token& token : declaration.initializer) {
+            if (token.kind == z64::TokenKind::Image) {
+                REQUIRE(token.image < uses.size());
+                ++uses[token.image];
+                fromImage = true;
+            }
+        }
+        if (fromImage) {
+            INFO(declaration.name);
+            REQUIRE(declaration.arrayLength.value_or(0) > 0);
+        }
+    }
+    REQUIRE(std::ranges::all_of(uses, [](z64::usize count) { return count == 1; }));
 }
 
 } // namespace
@@ -77,4 +129,5 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
     requireTable(configuration.macros, tables / "actor_table.h", ActorMacros);
     requireTable(configuration.macros, tables / "object_table.h", ObjectMacros);
     requireTable(configuration.macros, tables / "entrance_table.h", EntranceMacros);
+    requireImagesLinked(configuration.macros, repository);
 }

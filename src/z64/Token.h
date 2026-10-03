@@ -16,6 +16,11 @@ enum class TokenKind : u8 {
     String,
     Character,
     Punctuator,
+
+    /// Stands where an `#include` of texture data was, after the include was
+    /// resolved to the image the build would have generated it from. Only the
+    /// preprocessor makes these; `Token::image` says which image.
+    Image,
 };
 
 /// One lexeme of decomp C. `text` is a view into `file->contents`, so a token is
@@ -24,6 +29,10 @@ struct Token {
     TokenKind kind = TokenKind::EndOfFile;
     bool startsLine = false;
     bool spaceBefore = false;
+
+    /// For an `Image` token, its index into `TranslationUnit::images`.
+    u32 image = 0;
+
     const SourceFile* file = nullptr;
     std::string_view text;
     u32 line = 0;
