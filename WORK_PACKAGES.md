@@ -131,6 +131,11 @@ no warnings from either.
   X > 2` is quiet under strict mode.
 - `char` is unsigned, as the build's `-funsigned-char` makes it; `long` is 32 bits.
 
+**Afterwards, the front end moved out of `z64/`.** It had grown into a general C front end
+with a few Zelda rules buried inside it, so it became `cparser/`, the make evaluator moved
+out of `hackeroot/` into `makeparser/`, and `Diagnostic` and the width aliases moved to
+`base/`, which every module shares. `z64/` keeps what is actually about the game.
+
 ## 4. Workspace
 
 Everything that talks to the user's HackerOoT checkout.

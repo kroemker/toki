@@ -3,21 +3,21 @@ find_package(Catch2 3 CONFIG REQUIRED)
 add_executable(toki_tests
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
+        cparser/ExpandTest.cpp
+        cparser/ExpressionTest.cpp
+        cparser/MacroTableTest.cpp
+        cparser/ParserTest.cpp
+        cparser/PredefinesTest.cpp
+        cparser/PreprocessorTest.cpp
+        cparser/ScannerTest.cpp
+        cparser/ScrapeTest.cpp
+        cparser/TableReaderTest.cpp
         hackeroot/BuildDefinesTest.cpp
         hackeroot/CheckoutTest.cpp
         hackeroot/ConfigurationTest.cpp
-        hackeroot/MakefileTest.cpp
-        hackeroot/ShellWordsTest.cpp
-        z64/ExpandTest.cpp
-        z64/ExpressionTest.cpp
-        z64/MacroTableTest.cpp
-        z64/ParserTest.cpp
-        z64/PredefinesTest.cpp
-        z64/PreprocessorTest.cpp
-        z64/ScannerTest.cpp
-        z64/ScrapeTest.cpp
-        z64/SegmentTest.cpp
-        z64/TableReaderTest.cpp)
+        makeparser/MakefileTest.cpp
+        makeparser/ShellWordsTest.cpp
+        z64/SegmentTest.cpp)
 target_link_libraries(toki_tests PRIVATE toki_core Catch2::Catch2WithMain toki_warnings)
 
 set(TOKI_HACKEROOT "" CACHE PATH

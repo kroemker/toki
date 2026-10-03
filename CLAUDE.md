@@ -82,7 +82,11 @@ embedded.
 
 ```
 src/
-  z64/         Zelda64/N64 formats and the C machinery to read them. No processes, no UI.
+  base/        What every module shares: the width aliases and Diagnostic.
+  cparser/     A C front end: lexer, preprocessor, macro expansion, constant
+               expressions, declarations, X-macro tables. Knows nothing of Zelda.
+  makeparser/  A GNU make reader: variables, conditionals, includes, functions.
+  z64/         Zelda64/N64 formats and decomp conventions. No processes, no UI.
   hackeroot/   The user's checkout: discovery, tables, config, build runner.
   gfx/         Fast3D binding: segment upload, viewport target, camera.
   app/
@@ -94,17 +98,23 @@ src/
 third_party/Fast3D/
 ```
 
-`z64/` exposes the machinery every asset domain needs: a C lexer, a preprocessor with
-include following and real conditional evaluation, a macro table and header scrape, a
-constant expression evaluator, a declaration parser, an X-macro table reader, gbi word
-emission, the memory image and segment addressing, and texture format decoding. It holds
-no domain structs.
+`cparser/` is the machinery every asset domain reads C with: a lexer, a preprocessor with
+include following and real conditional evaluation, a layered macro table and header
+scrape, macro expansion, a constant expression evaluator, a declaration parser and an
+X-macro table reader. It is general C.
 
-`z64/` reads files, because a preprocessor that follows includes has to, but only in
+`makeparser/` is general GNU make, for the same reason: reading a Makefile is not a
+HackerOoT concern, only what is read out of HackerOoT's is.
+
+`z64/` holds what is specific to the game and the decomp: segment addressing, the N64
+target and the decomp's conventions, and later gbi word emission, the memory image and
+texture format decoding. It holds no domain structs.
+
+`cparser/` reads files, because a preprocessor that follows includes has to, but only in
 three places: `SourceSet` opens files, `IncludeResolver` lists directories, and `Scrape`
 walks a header tree. Everything else gets its bytes from a `SourceSet`. That keeps the
 rule about `\\wsl.localhost` enforceable: filesystem cost lives in three classes, and a
-new caller of `std::filesystem` in `z64/` is a design question, not a convenience.
+new caller of `std::filesystem` in `cparser/` is a design question, not a convenience.
 
 `hackeroot/` is deliberately named after the project it couples to, because everything in
 it is HackerOoT-specific — the config header system, the table conventions, the Makefile
@@ -116,9 +126,12 @@ shared parser module.
 
 ### Dependency rules (hard)
 
-- `z64/` depends on nothing else in `src/`.
-- `hackeroot/` and `gfx/` may depend on `z64/`, and on nothing else in `src/`.
-- `app/**/domain/` may depend on `z64/`, `hackeroot/`, `gfx/`.
+- `base/` depends on nothing else in `src/`.
+- `cparser/` and `makeparser/` depend on `base/` only, and never on each other.
+- `z64/` may depend on `base/` and `cparser/`.
+- `hackeroot/` may depend on `base/`, `cparser/`, `makeparser/` and `z64/`.
+- `gfx/` may depend on `base/` and `z64/`.
+- `app/**/domain/` may depend on everything above.
 - `app/**/ui/` may depend on anything.
 - **`domain/` must never include `ui/`.** This is what keeps parsers testable without SDL
   or ImGui, and it is not negotiable.
@@ -126,7 +139,8 @@ shared parser module.
 
 ### Build targets
 
-- `toki_core` — OBJECT library: `z64/`, `hackeroot/`, and every `app/**/domain/**`.
+- `toki_core` — OBJECT library: `base/`, `cparser/`, `makeparser/`, `z64/`, `hackeroot/`,
+  and every `app/**/domain/**`.
 - `toki_gfx` — static library: `gfx/`, plus Fast3D and the GL backend. Does not exist yet.
 - `toki` — executable: `Main.cpp` plus every `app/**/ui/**`.
 - `toki_tests` — links `toki_core` only.
@@ -273,7 +287,8 @@ flag, but only its first-seen arm, and the flags tables actually hinge on
 `-D` arguments the Makefile builds. So conditions are answered against a **configuration
 layer** between the scrape and every unit (`hackeroot/Configuration`):
 
-- `readBuildDefines` reads the checkout's own Makefile with a small GNU make evaluator —
+- `readBuildDefines` reads the checkout's own Makefile with `makeparser`, a small GNU make
+  evaluator —
   assignments of every flavour, conditionals, includes, `define`, the text functions —
   and takes `CPP_DEFINES` and `GBI_DEFINES` as make would expand them. Running make is
   not an option: parsing HackerOoT's Makefile alone runs `mkdir -p`, `find` over the tree
@@ -319,13 +334,14 @@ expressible in either, it lives there rather than in prose.
   `Types.h`). Directories: lowercase, `camelCase` when multiword (`createActor/`).
 - Name a variable after its type unless a better name exists: a `SetupWizard` member is
   `setupWizard`, not `wizard`. The type is the clearest thing about it.
-- Namespaces: `z64::`, `hackeroot::`, `gfx::`, and `toki::<feature>` for anything under
+- Namespaces: `base::`, `cparser::`, `makeparser::`, `z64::`, `hackeroot::`, `gfx::`, and
+  `toki::<feature>` for anything under
   `app/` (`toki::core`, `toki::scene`, `toki::createActor`). The `ui/` and `domain/`
   split is a directory boundary, not a namespace level — nesting it would make every name
   four levels deep for no gain.
 - Full words. Abbreviate only where universally obvious in this domain: `z64`, `gfx`,
   `dl`, `idx`, `len`.
-- The width aliases in `z64/Types.h` (`u8`, `u32`, `s16`, `f32`, `usize`, ...) are the one
+- The width aliases in `base/Types.h` (`u8`, `u32`, `s16`, `f32`, `usize`, ...) are the one
   exception to `PascalCase` types. They are spelled the way the decomp and the gbi headers
   spell them so parsed structs read next to the C they came from.
 
@@ -341,11 +357,11 @@ expressible in either, it lives there rather than in prose.
   `s8`/`s16`/`s32`/`s64`, `f32`/`f64`. Sizes and indices use `usize` instead — a count of
   host elements is not N64 data, and `u32` there truncates on 64-bit and warns at every
   comparison against `.size()`.
-- The aliases live in `namespace z64` rather than at global scope, because vendored
+- The aliases live in `namespace base` rather than at global scope, because vendored
   Fast3D's `gbi.h` brings in the libultra typedefs of the same names and its `u64` is a
   different type from `std::uint64_t` on LP64. Every other namespace gets them from its
-  own `Types.h` (`hackeroot/Types.h`, `gfx/Types.h`, `app/<feature>/Types.h`), which is a
-  block of `using z64::u32;` declarations and nothing else. A new namespace gets one too.
+  own `Types.h` (`z64/Types.h`, `cparser/Types.h`, `app/<feature>/Types.h`, ...), which is
+  a block of `using base::u32;` declarations and nothing else. A new namespace gets one too.
 - No out-parameters. Return a value or a struct.
 
 ### Errors

@@ -1,10 +1,10 @@
 #include "BuildDefines.h"
 
-#include "hackeroot/MakeVariables.h"
-#include "hackeroot/MakeWords.h"
-#include "hackeroot/Makefile.h"
-#include "hackeroot/ShellWords.h"
-#include "z64/Diagnostic.h"
+#include "base/Diagnostic.h"
+#include "makeparser/MakeVariables.h"
+#include "makeparser/MakeWords.h"
+#include "makeparser/Makefile.h"
+#include "makeparser/ShellWords.h"
 
 #include <array>
 #include <expected>
@@ -47,12 +47,14 @@ constexpr std::array DefineVariables = {std::string_view("CPP_DEFINES"),
            argument.starts_with("-std=");
 }
 
-[[nodiscard]] MakeOverrides deriveOverrides(const Makefile& first, const MakeOverrides& settings) {
-    MakeOverrides overrides = settings;
-    std::vector<z64::Diagnostic> discarded;
+[[nodiscard]] makeparser::MakeOverrides deriveOverrides(const makeparser::Makefile& first,
+                                                        const makeparser::MakeOverrides& settings) {
+    makeparser::MakeOverrides overrides = settings;
+    std::vector<base::Diagnostic> discarded;
     const auto valueOf = [&](std::string_view name) {
-        return stripWords(
-            first.variables.expand(std::format("$({})", name), MakeSite{}, discarded).text);
+        return makeparser::stripWords(
+            first.variables.expand(std::format("$({})", name), makeparser::MakeSite{}, discarded)
+                .text);
     };
     if (!overrides.contains("VERSION_MACRO")) {
         overrides.emplace("VERSION_MACRO", versionMacro(valueOf("VERSION")));
@@ -65,36 +67,38 @@ constexpr std::array DefineVariables = {std::string_view("CPP_DEFINES"),
 
 } // namespace
 
-std::expected<BuildDefines, z64::Diagnostic>
-readBuildDefines(const std::filesystem::path& repository, const MakeOverrides& settings) {
+std::expected<BuildDefines, base::Diagnostic>
+readBuildDefines(const std::filesystem::path& repository,
+                 const makeparser::MakeOverrides& settings) {
     const std::filesystem::path path = repository / "Makefile";
-    const std::expected<Makefile, z64::Diagnostic> first = readMakefile(path, settings);
+    const std::expected<makeparser::Makefile, base::Diagnostic> first =
+        makeparser::readMakefile(path, settings);
     if (!first) {
         return std::unexpected(first.error());
     }
-    std::expected<Makefile, z64::Diagnostic> makefile =
-        readMakefile(path, deriveOverrides(*first, settings));
+    std::expected<makeparser::Makefile, base::Diagnostic> makefile =
+        makeparser::readMakefile(path, deriveOverrides(*first, settings));
     if (!makefile) {
         return std::unexpected(makefile.error());
     }
 
     BuildDefines defines;
     defines.diagnostics = std::move(makefile->diagnostics);
-    const MakeSite site{.location = z64::SourceLocation{.file = path}};
+    const makeparser::MakeSite site{.location = base::SourceLocation{.file = path}};
 
     if (makefile->variables.find("CPP_DEFINES") == nullptr) {
         defines.diagnostics.push_back(
-            z64::warning(site.location, "the Makefile leaves CPP_DEFINES undefined"));
+            base::warning(site.location, "the Makefile leaves CPP_DEFINES undefined"));
     }
     for (const std::string_view variable : DefineVariables) {
-        for (const MakeText& word :
+        for (const makeparser::MakeText& word :
              makefile->variables.expandWords(variable, site, defines.diagnostics)) {
-            for (std::string& argument : splitShellWords(word.text)) {
+            for (std::string& argument : makeparser::splitShellWords(word.text)) {
                 if (!isDefineArgument(argument)) {
                     continue;
                 }
                 if (!word.certain) {
-                    defines.diagnostics.push_back(z64::note(
+                    defines.diagnostics.push_back(base::note(
                         site.location,
                         std::format("{} depends on something make would run, and is read as '{}'",
                                     variable, argument)));

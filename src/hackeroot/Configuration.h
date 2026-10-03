@@ -1,8 +1,8 @@
 #pragma once
 
-#include "z64/Diagnostic.h"
-#include "z64/MacroTable.h"
-#include "z64/SourceSet.h"
+#include "base/Diagnostic.h"
+#include "cparser/MacroTable.h"
+#include "cparser/SourceSet.h"
 
 #include <filesystem>
 #include <span>
@@ -27,12 +27,12 @@ namespace hackeroot {
 /// Like any layer, it must outlive every unit read against it, and the scraped
 /// table it sits on must outlive it and not move.
 struct Configuration {
-    z64::SourceSet sources;
-    z64::MacroTable macros;
-    std::vector<z64::Diagnostic> diagnostics;
+    cparser::SourceSet sources;
+    cparser::MacroTable macros;
+    std::vector<base::Diagnostic> diagnostics;
 };
 
-[[nodiscard]] Configuration readConfiguration(const z64::MacroTable& scraped,
+[[nodiscard]] Configuration readConfiguration(const cparser::MacroTable& scraped,
                                               const std::filesystem::path& repository,
                                               std::span<const std::string> defineArguments);
 

@@ -1,13 +1,13 @@
+#include "base/Diagnostic.h"
+#include "base/Types.h"
+#include "cparser/Expression.h"
+#include "cparser/Parser.h"
+#include "cparser/Preprocessor.h"
+#include "cparser/Scrape.h"
+#include "cparser/TableReader.h"
+#include "cparser/Token.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
-#include "z64/Diagnostic.h"
-#include "z64/Expression.h"
-#include "z64/Parser.h"
-#include "z64/Preprocessor.h"
-#include "z64/Scrape.h"
-#include "z64/TableReader.h"
-#include "z64/Token.h"
-#include "z64/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -31,21 +31,21 @@ constexpr std::array ObjectMacros = {std::string_view("DEFINE_OBJECT"),
                                      std::string_view("DEFINE_OBJECT_UNSET")};
 constexpr std::array EntranceMacros = {std::string_view("DEFINE_ENTRANCE")};
 
-[[nodiscard]] std::vector<std::string> loudest(const std::vector<z64::Diagnostic>& diagnostics) {
+[[nodiscard]] std::vector<std::string> loudest(const std::vector<base::Diagnostic>& diagnostics) {
     std::vector<std::string> described;
-    for (const z64::Diagnostic& diagnostic : diagnostics) {
-        if (diagnostic.severity != z64::Severity::Note) {
-            described.push_back(z64::describe(diagnostic));
+    for (const base::Diagnostic& diagnostic : diagnostics) {
+        if (diagnostic.severity != base::Severity::Note) {
+            described.push_back(base::describe(diagnostic));
         }
     }
     return described;
 }
 
-void requireTable(const z64::MacroTable& macros, const std::filesystem::path& file,
+void requireTable(const cparser::MacroTable& macros, const std::filesystem::path& file,
                   std::span<const std::string_view> entryMacros) {
     INFO(file.string());
-    const std::expected<z64::TableResult, z64::Diagnostic> table =
-        z64::readTable(macros, file, entryMacros, {});
+    const std::expected<cparser::TableResult, base::Diagnostic> table =
+        cparser::readTable(macros, file, entryMacros, {});
     REQUIRE(table.has_value());
     REQUIRE_FALSE(table->rows.empty());
     REQUIRE(loudest(table->diagnostics).empty());
@@ -63,27 +63,28 @@ void requireTable(const z64::MacroTable& macros, const std::filesystem::path& fi
     return {};
 }
 
-void requireImagesLinked(const z64::MacroTable& macros, const std::filesystem::path& repository) {
+void requireImagesLinked(const cparser::MacroTable& macros,
+                         const std::filesystem::path& repository) {
     const std::filesystem::path scene = "assets/scenes/overworld/spot00/spot00_scene.c";
     const std::filesystem::path extracted = extractedScene(repository, scene);
     INFO("no extracted spot00 under " << (repository / "extracted").string());
     REQUIRE_FALSE(extracted.empty());
 
-    const std::expected<z64::TranslationUnit, z64::Diagnostic> unit = z64::preprocess(
+    const std::expected<cparser::TranslationUnit, base::Diagnostic> unit = cparser::preprocess(
         macros, extracted / scene,
-        z64::PreprocessOptions{.searchPaths = {repository, extracted},
-                               .allowedRoots = {repository / "assets", extracted / "assets"}});
+        cparser::PreprocessOptions{.searchPaths = {repository, extracted},
+                                   .allowedRoots = {repository / "assets", extracted / "assets"}});
     REQUIRE(unit.has_value());
     REQUIRE_FALSE(unit->images.empty());
 
-    const z64::ParseResult parsed = z64::parseDeclarations(*unit, z64::EvalContext{});
+    const cparser::ParseResult parsed = cparser::parseDeclarations(*unit, cparser::EvalContext{});
     REQUIRE(loudest(unit->diagnostics).empty());
     REQUIRE(loudest(parsed.diagnostics).empty());
-    std::vector<z64::usize> uses(unit->images.size(), 0);
-    for (const z64::Declaration& declaration : parsed.declarations) {
+    std::vector<base::usize> uses(unit->images.size(), 0);
+    for (const cparser::Declaration& declaration : parsed.declarations) {
         bool fromImage = false;
-        for (const z64::Token& token : declaration.initializer) {
-            if (token.kind == z64::TokenKind::Image) {
+        for (const cparser::Token& token : declaration.initializer) {
+            if (token.kind == cparser::TokenKind::Image) {
                 REQUIRE(token.image < uses.size());
                 ++uses[token.image];
                 fromImage = true;
@@ -94,7 +95,7 @@ void requireImagesLinked(const z64::MacroTable& macros, const std::filesystem::p
             REQUIRE(declaration.arrayLength.value_or(0) > 0);
         }
     }
-    REQUIRE(std::ranges::all_of(uses, [](z64::usize count) { return count == 1; }));
+    REQUIRE(std::ranges::all_of(uses, [](base::usize count) { return count == 1; }));
 }
 
 } // namespace
@@ -106,7 +107,7 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
         SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
     }
 
-    const std::expected<hackeroot::BuildDefines, z64::Diagnostic> defines =
+    const std::expected<hackeroot::BuildDefines, base::Diagnostic> defines =
         hackeroot::readBuildDefines(repository, {});
     REQUIRE(defines.has_value());
     REQUIRE(loudest(defines->diagnostics).empty());
@@ -118,7 +119,7 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
         }));
     }
 
-    const z64::ScrapeResult scraped = z64::scrapeDefinitions(repository / "include");
+    const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(repository / "include");
     const hackeroot::Configuration configuration =
         hackeroot::readConfiguration(scraped.macros, repository, defines->arguments);
     REQUIRE(loudest(configuration.diagnostics).empty());

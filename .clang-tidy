@@ -59,7 +59,7 @@ CheckOptions:
   readability-identifier-naming.EnumConstantCase: CamelCase
   readability-identifier-naming.TypeAliasCase: CamelCase
   readability-identifier-naming.TypedefCase: CamelCase
-  # The fixed-width aliases in z64/Types.h are deliberately spelled the way
+  # The fixed-width aliases in base/Types.h are deliberately spelled the way
   # the decomp and the gbi headers spell them, so they are exempt.
   readability-identifier-naming.TypeAliasIgnoredRegexp: '^(SDL_GLContext|is_transparent|[usf](8|16|32|64)|usize)$'
   readability-identifier-naming.NamespaceCase: camelBack

@@ -1,7 +1,7 @@
 #include "hackeroot/BuildDefines.h"
 
-#include "hackeroot/Makefile.h"
-#include "z64/Diagnostic.h"
+#include "base/Diagnostic.h"
+#include "makeparser/Makefile.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -19,8 +19,8 @@ namespace {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout";
 }
 
-[[nodiscard]] hackeroot::BuildDefines read(const hackeroot::MakeOverrides& settings = {}) {
-    std::expected<hackeroot::BuildDefines, z64::Diagnostic> defines =
+[[nodiscard]] hackeroot::BuildDefines read(const makeparser::MakeOverrides& settings = {}) {
+    std::expected<hackeroot::BuildDefines, base::Diagnostic> defines =
         hackeroot::readBuildDefines(checkout(), settings);
     REQUIRE(defines.has_value());
     return std::move(*defines);
@@ -66,12 +66,12 @@ TEST_CASE("an explicit VERSION_MACRO is left alone", "[hackeroot][defines]") {
 TEST_CASE("a define fed by a shell command is named in a note", "[hackeroot][defines]") {
     const hackeroot::BuildDefines defines = read();
 
-    REQUIRE(std::ranges::any_of(defines.diagnostics, [](const z64::Diagnostic& diagnostic) {
-        return diagnostic.severity == z64::Severity::Note &&
+    REQUIRE(std::ranges::any_of(defines.diagnostics, [](const base::Diagnostic& diagnostic) {
+        return diagnostic.severity == base::Severity::Note &&
                diagnostic.message.contains("-DPACKAGE_NAME");
     }));
-    REQUIRE_FALSE(std::ranges::any_of(defines.diagnostics, [](const z64::Diagnostic& diagnostic) {
-        return diagnostic.severity != z64::Severity::Note;
+    REQUIRE_FALSE(std::ranges::any_of(defines.diagnostics, [](const base::Diagnostic& diagnostic) {
+        return diagnostic.severity != base::Severity::Note;
     }));
 }
 

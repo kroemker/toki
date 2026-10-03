@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hackeroot/Makefile.h"
-#include "z64/Diagnostic.h"
+#include "base/Diagnostic.h"
+#include "makeparser/Makefile.h"
 
 #include <expected>
 #include <filesystem>
@@ -14,7 +14,7 @@ struct BuildDefines {
     /// The `-D`, `-U` and `-std=` arguments the build hands to `cpp`, in order
     /// and with the shell's quoting removed.
     std::vector<std::string> arguments;
-    std::vector<z64::Diagnostic> diagnostics;
+    std::vector<base::Diagnostic> diagnostics;
 };
 
 /// Reads the preprocessor definitions a HackerOoT build compiles with out of
@@ -28,7 +28,8 @@ struct BuildDefines {
 /// way and passed as command-line overrides, unless `settings` already sets
 /// them. This is a hack that mirrors those two lines; it must follow them if
 /// they change.
-[[nodiscard]] std::expected<BuildDefines, z64::Diagnostic>
-readBuildDefines(const std::filesystem::path& repository, const MakeOverrides& settings);
+[[nodiscard]] std::expected<BuildDefines, base::Diagnostic>
+readBuildDefines(const std::filesystem::path& repository,
+                 const makeparser::MakeOverrides& settings);
 
 } // namespace hackeroot
