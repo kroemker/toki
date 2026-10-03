@@ -11,7 +11,7 @@ namespace cparser {
 
 namespace {
 
-[[nodiscard]] std::optional<std::string_view> standardVersion(std::string_view standard) {
+[[nodiscard]] std::optional<std::string_view> findStandardVersion(std::string_view standard) {
     if (standard.starts_with("gnu")) {
         standard.remove_prefix(3);
     } else if (standard.starts_with('c')) {
@@ -51,7 +51,7 @@ void appendDefine(std::string& source, std::string_view definition) {
 
 } // namespace
 
-std::string predefineSource(std::span<const std::string> arguments) {
+std::string buildPredefineSource(std::span<const std::string> arguments) {
     std::string source;
     for (const std::string_view argument : arguments) {
         if (argument.starts_with("-D") && argument.size() > 2) {
@@ -62,7 +62,7 @@ std::string predefineSource(std::span<const std::string> arguments) {
             source += '\n';
         } else if (argument.starts_with("-std=")) {
             if (const std::optional<std::string_view> version =
-                    standardVersion(argument.substr(5))) {
+                    findStandardVersion(argument.substr(5))) {
                 source += "#define __STDC_VERSION__ ";
                 source += *version;
                 source += '\n';

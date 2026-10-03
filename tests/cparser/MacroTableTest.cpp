@@ -9,8 +9,7 @@
 
 namespace {
 
-[[nodiscard]] cparser::Macro macroNamed(std::string name,
-                                        std::vector<std::string> parameters = {}) {
+[[nodiscard]] cparser::Macro makeMacro(std::string name, std::vector<std::string> parameters = {}) {
     return cparser::Macro{
         .name = std::move(name),
         .parameters = std::move(parameters),
@@ -23,7 +22,7 @@ namespace {
 TEST_CASE("a layer answers from its base when it has no definition of its own",
           "[cparser][macros]") {
     cparser::MacroTable base;
-    base.define(macroNamed("FROM_BASE"));
+    base.define(makeMacro("FROM_BASE"));
     const cparser::MacroTable layer(&base);
 
     REQUIRE(layer.contains("FROM_BASE"));
@@ -32,11 +31,11 @@ TEST_CASE("a layer answers from its base when it has no definition of its own",
 
 TEST_CASE("a definition in a layer shadows the base without touching it", "[cparser][macros]") {
     cparser::MacroTable base;
-    base.define(macroNamed("SHARED"));
+    base.define(makeMacro("SHARED"));
     cparser::MacroTable layer(&base);
 
-    layer.define(macroNamed("SHARED", {"x"}));
-    layer.define(macroNamed("ONLY_IN_LAYER"));
+    layer.define(makeMacro("SHARED", {"x"}));
+    layer.define(makeMacro("ONLY_IN_LAYER"));
 
     REQUIRE(layer.find("SHARED")->parameters.size() == 1);
     REQUIRE(base.find("SHARED")->parameters.empty());
@@ -46,7 +45,7 @@ TEST_CASE("a definition in a layer shadows the base without touching it", "[cpar
 TEST_CASE("an undef in a layer hides the base's definition from that layer only",
           "[cparser][macros]") {
     cparser::MacroTable base;
-    base.define(macroNamed("GUARD_H"));
+    base.define(makeMacro("GUARD_H"));
     cparser::MacroTable layer(&base);
 
     layer.remove("GUARD_H");
@@ -55,7 +54,7 @@ TEST_CASE("an undef in a layer hides the base's definition from that layer only"
     REQUIRE(base.contains("GUARD_H"));
 
     SECTION("and a later define brings the name back") {
-        layer.define(macroNamed("GUARD_H", {"y"}));
+        layer.define(makeMacro("GUARD_H", {"y"}));
 
         REQUIRE(layer.find("GUARD_H")->parameters.size() == 1);
     }
@@ -63,10 +62,10 @@ TEST_CASE("an undef in a layer hides the base's definition from that layer only"
 
 TEST_CASE("defineIfAbsent counts a base definition as present", "[cparser][macros]") {
     cparser::MacroTable base;
-    base.define(macroNamed("FIRST"));
+    base.define(makeMacro("FIRST"));
     cparser::MacroTable layer(&base);
 
-    layer.defineIfAbsent(macroNamed("FIRST", {"x"}));
+    layer.defineIfAbsent(makeMacro("FIRST", {"x"}));
 
     REQUIRE(layer.find("FIRST")->parameters.empty());
     REQUIRE(layer.count() == 0);
@@ -74,9 +73,9 @@ TEST_CASE("defineIfAbsent counts a base definition as present", "[cparser][macro
 
 TEST_CASE("layers stack", "[cparser][macros]") {
     cparser::MacroTable scraped;
-    scraped.define(macroNamed("DEEP"));
+    scraped.define(makeMacro("DEEP"));
     cparser::MacroTable config(&scraped);
-    config.define(macroNamed("MIDDLE"));
+    config.define(makeMacro("MIDDLE"));
     cparser::MacroTable unit(&config);
     unit.remove("DEEP");
 
@@ -87,9 +86,9 @@ TEST_CASE("layers stack", "[cparser][macros]") {
 
 TEST_CASE("a layer lists only the names it defines itself", "[cparser][macros]") {
     cparser::MacroTable base;
-    base.define(macroNamed("BELOW"));
+    base.define(makeMacro("BELOW"));
     cparser::MacroTable layer(&base);
-    layer.define(macroNamed("HERE"));
+    layer.define(makeMacro("HERE"));
 
-    REQUIRE(layer.definedNames() == std::vector<std::string_view>{"HERE"});
+    REQUIRE(layer.getDefinedNames() == std::vector<std::string_view>{"HERE"});
 }

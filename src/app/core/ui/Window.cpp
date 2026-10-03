@@ -144,7 +144,7 @@ void Window::rememberGeometry() {
     SDL_GetWindowSize(window, &restored.width, &restored.height);
 }
 
-WindowGeometry Window::geometry() const {
+WindowGeometry Window::getGeometry() const {
     WindowGeometry current = restored;
     current.maximized = (SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED) != 0;
     return current;

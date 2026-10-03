@@ -125,7 +125,7 @@ std::optional<Call> Expander::readCall(std::vector<Pending>& stack, const Macro&
         current.push_back(std::move(pending));
     }
 
-    diagnostics.push_back(base::warning(
+    diagnostics.push_back(base::makeWarning(
         locate(use), std::format("the arguments to '{}' are never closed", macro.name)));
     while (!consumed.empty()) {
         stack.push_back(std::move(consumed.back()));
@@ -145,8 +145,8 @@ void Expander::fitArguments(std::vector<Argument>& arguments, const Macro& macro
     }
     if (arguments.size() != expected) {
         diagnostics.push_back(
-            base::warning(locate(use), std::format("'{}' takes {} arguments but {} were given",
-                                                   macro.name, expected, arguments.size())));
+            base::makeWarning(locate(use), std::format("'{}' takes {} arguments but {} were given",
+                                                       macro.name, expected, arguments.size())));
         arguments.resize(expected);
     }
 }
@@ -162,7 +162,7 @@ std::vector<Pending> Expander::substitute(const Macro& macro,
     for (const Token& token : macro.body) {
         if (isPunctuator(token, "#") || isPunctuator(token, "##")) {
             if (!reportedOperator) {
-                diagnostics.push_back(base::warning(
+                diagnostics.push_back(base::makeWarning(
                     locate(use), std::format("'{}' uses the '{}' operator, which is not supported",
                                              macro.name, token.text)));
                 reportedOperator = true;
@@ -203,7 +203,7 @@ std::vector<Pending> Expander::run(std::vector<Pending> input) {
             continue;
         }
         if (++expansions > options.maxExpansions) {
-            diagnostics.push_back(base::error(
+            diagnostics.push_back(base::makeError(
                 locate(current.token), std::format("macro expansion did not finish after {} steps",
                                                    options.maxExpansions)));
             exhausted = true;

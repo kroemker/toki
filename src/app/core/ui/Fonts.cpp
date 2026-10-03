@@ -22,15 +22,15 @@ constexpr const char* IconFile = "Phosphor.ttf";
 
 [[nodiscard]] ImFont* addFont(ImFontAtlas& atlas, const std::filesystem::path& path, float size) {
     if (!isFile(path)) {
-        logError("font missing: {}", toUtf8(path));
+        logError("font missing: {}", encodeUtf8(path));
         return nullptr;
     }
-    return atlas.AddFontFromFileTTF(toUtf8(path).c_str(), size);
+    return atlas.AddFontFromFileTTF(encodeUtf8(path).c_str(), size);
 }
 
 void mergeIcons(ImFontAtlas& atlas, const std::filesystem::path& path, float size) {
     if (!isFile(path)) {
-        logError("icon font missing: {} — icons will render as boxes", toUtf8(path));
+        logError("icon font missing: {} — icons will render as boxes", encodeUtf8(path));
         return;
     }
 
@@ -39,7 +39,7 @@ void mergeIcons(ImFontAtlas& atlas, const std::filesystem::path& path, float siz
     config.PixelSnapH = true;
     config.GlyphMinAdvanceX = size;
     config.GlyphOffset = ImVec2(0.0F, 1.0F);
-    atlas.AddFontFromFileTTF(toUtf8(path).c_str(), size, &config);
+    atlas.AddFontFromFileTTF(encodeUtf8(path).c_str(), size, &config);
 }
 
 [[nodiscard]] ImFont* addTextFont(ImFontAtlas& atlas, const std::filesystem::path& dir,

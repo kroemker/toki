@@ -37,8 +37,8 @@ SourceSet::open(const std::filesystem::path& path) {
 
     std::ifstream stream(key, std::ios::binary);
     if (!stream) {
-        return std::unexpected(
-            base::error(base::SourceLocation{.file = path}, "cannot open the file for reading"));
+        return std::unexpected(base::makeError(base::SourceLocation{.file = path},
+                                               "cannot open the file for reading"));
     }
 
     auto file = std::make_unique<SourceFile>();

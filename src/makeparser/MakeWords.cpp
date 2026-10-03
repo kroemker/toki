@@ -21,11 +21,11 @@ namespace {
 
 using Arguments = std::span<const std::string>;
 
-[[nodiscard]] std::string_view argumentAt(Arguments arguments, usize index) {
+[[nodiscard]] std::string_view getArgument(Arguments arguments, usize index) {
     return index < arguments.size() ? std::string_view(arguments[index]) : std::string_view();
 }
 
-[[nodiscard]] std::string eachWord(std::string_view list, auto transform) {
+[[nodiscard]] std::string mapWords(std::string_view list, auto transform) {
     std::vector<std::string> words;
     for (const std::string_view word : splitWords(list)) {
         words.push_back(transform(word));
@@ -34,9 +34,9 @@ using Arguments = std::span<const std::string>;
 }
 
 [[nodiscard]] std::string substitute(Arguments arguments) {
-    const std::string_view from = argumentAt(arguments, 0);
-    const std::string_view to = argumentAt(arguments, 1);
-    std::string text(argumentAt(arguments, 2));
+    const std::string_view from = getArgument(arguments, 0);
+    const std::string_view to = getArgument(arguments, 1);
+    std::string text(getArgument(arguments, 2));
     if (from.empty()) {
         return text;
     }
@@ -48,20 +48,20 @@ using Arguments = std::span<const std::string>;
 }
 
 [[nodiscard]] std::string substitutePatterns(Arguments arguments) {
-    return eachWord(argumentAt(arguments, 2), [&](std::string_view word) {
-        return substitutePattern(argumentAt(arguments, 0), argumentAt(arguments, 1), word);
+    return mapWords(getArgument(arguments, 2), [&](std::string_view word) {
+        return substitutePattern(getArgument(arguments, 0), getArgument(arguments, 1), word);
     });
 }
 
 [[nodiscard]] std::string findString(Arguments arguments) {
-    const std::string_view wanted = argumentAt(arguments, 0);
-    return argumentAt(arguments, 1).contains(wanted) ? std::string(wanted) : std::string();
+    const std::string_view wanted = getArgument(arguments, 0);
+    return getArgument(arguments, 1).contains(wanted) ? std::string(wanted) : std::string();
 }
 
 [[nodiscard]] std::string filterWords(Arguments arguments, bool keepMatches) {
-    const std::vector<std::string_view> patterns = splitWords(argumentAt(arguments, 0));
+    const std::vector<std::string_view> patterns = splitWords(getArgument(arguments, 0));
     std::vector<std::string> kept;
-    for (const std::string_view word : splitWords(argumentAt(arguments, 1))) {
+    for (const std::string_view word : splitWords(getArgument(arguments, 1))) {
         const bool matches = std::ranges::any_of(patterns, [word](std::string_view pattern) {
             return matchPattern(pattern, word).has_value();
         });
@@ -82,7 +82,7 @@ using Arguments = std::span<const std::string>;
 
 [[nodiscard]] std::string sortWords(Arguments arguments) {
     std::vector<std::string> words;
-    for (const std::string_view word : splitWords(argumentAt(arguments, 0))) {
+    for (const std::string_view word : splitWords(getArgument(arguments, 0))) {
         words.emplace_back(word);
     }
     std::ranges::sort(words);
@@ -90,57 +90,57 @@ using Arguments = std::span<const std::string>;
     return joinWords(words);
 }
 
-[[nodiscard]] std::string nthWord(Arguments arguments) {
-    const std::string number = stripWords(argumentAt(arguments, 0));
+[[nodiscard]] std::string pickWord(Arguments arguments) {
+    const std::string number = stripWords(getArgument(arguments, 0));
     usize index = 0;
     std::from_chars(number.data(), number.data() + number.size(), index);
-    const std::vector<std::string_view> list = splitWords(argumentAt(arguments, 1));
+    const std::vector<std::string_view> list = splitWords(getArgument(arguments, 1));
     return index > 0 && index <= list.size() ? std::string(list[index - 1]) : std::string();
 }
 
 [[nodiscard]] std::string countWords(Arguments arguments) {
-    return std::to_string(splitWords(argumentAt(arguments, 0)).size());
+    return std::to_string(splitWords(getArgument(arguments, 0)).size());
 }
 
-[[nodiscard]] std::string firstOfWords(Arguments arguments) {
-    const std::vector<std::string_view> list = splitWords(argumentAt(arguments, 0));
+[[nodiscard]] std::string pickFirstWord(Arguments arguments) {
+    const std::vector<std::string_view> list = splitWords(getArgument(arguments, 0));
     return list.empty() ? std::string() : std::string(list.front());
 }
 
-[[nodiscard]] std::string lastOfWords(Arguments arguments) {
-    const std::vector<std::string_view> list = splitWords(argumentAt(arguments, 0));
+[[nodiscard]] std::string pickLastWord(Arguments arguments) {
+    const std::vector<std::string_view> list = splitWords(getArgument(arguments, 0));
     return list.empty() ? std::string() : std::string(list.back());
 }
 
-[[nodiscard]] std::string directoryParts(Arguments arguments) {
-    return eachWord(argumentAt(arguments, 0), [](std::string_view word) {
+[[nodiscard]] std::string takeDirectoryParts(Arguments arguments) {
+    return mapWords(getArgument(arguments, 0), [](std::string_view word) {
         const usize slash = word.rfind('/');
         return slash == std::string_view::npos ? std::string("./")
                                                : std::string(word.substr(0, slash + 1));
     });
 }
 
-[[nodiscard]] std::string fileParts(Arguments arguments) {
-    return eachWord(argumentAt(arguments, 0), [](std::string_view word) {
+[[nodiscard]] std::string takeFileParts(Arguments arguments) {
+    return mapWords(getArgument(arguments, 0), [](std::string_view word) {
         const usize slash = word.rfind('/');
         return std::string(slash == std::string_view::npos ? word : word.substr(slash + 1));
     });
 }
 
 [[nodiscard]] std::string addPrefix(Arguments arguments) {
-    return eachWord(argumentAt(arguments, 1), [&](std::string_view word) {
-        return std::string(argumentAt(arguments, 0)) + std::string(word);
+    return mapWords(getArgument(arguments, 1), [&](std::string_view word) {
+        return std::string(getArgument(arguments, 0)) + std::string(word);
     });
 }
 
 [[nodiscard]] std::string addSuffix(Arguments arguments) {
-    return eachWord(argumentAt(arguments, 1), [&](std::string_view word) {
-        return std::string(word) + std::string(argumentAt(arguments, 0));
+    return mapWords(getArgument(arguments, 1), [&](std::string_view word) {
+        return std::string(word) + std::string(getArgument(arguments, 0));
     });
 }
 
 [[nodiscard]] std::string stripArgument(Arguments arguments) {
-    return stripWords(argumentAt(arguments, 0));
+    return stripWords(getArgument(arguments, 0));
 }
 
 struct TextFunction {
@@ -149,13 +149,13 @@ struct TextFunction {
 };
 
 constexpr std::array TextFunctions = {
-    TextFunction{"subst", &substitute},       TextFunction{"patsubst", &substitutePatterns},
-    TextFunction{"findstring", &findString},  TextFunction{"filter", &filterIn},
-    TextFunction{"filter-out", &filterOut},   TextFunction{"sort", &sortWords},
-    TextFunction{"word", &nthWord},           TextFunction{"words", &countWords},
-    TextFunction{"firstword", &firstOfWords}, TextFunction{"lastword", &lastOfWords},
-    TextFunction{"dir", &directoryParts},     TextFunction{"notdir", &fileParts},
-    TextFunction{"addprefix", &addPrefix},    TextFunction{"addsuffix", &addSuffix},
+    TextFunction{"subst", &substitute},        TextFunction{"patsubst", &substitutePatterns},
+    TextFunction{"findstring", &findString},   TextFunction{"filter", &filterIn},
+    TextFunction{"filter-out", &filterOut},    TextFunction{"sort", &sortWords},
+    TextFunction{"word", &pickWord},           TextFunction{"words", &countWords},
+    TextFunction{"firstword", &pickFirstWord}, TextFunction{"lastword", &pickLastWord},
+    TextFunction{"dir", &takeDirectoryParts},  TextFunction{"notdir", &takeFileParts},
+    TextFunction{"addprefix", &addPrefix},     TextFunction{"addsuffix", &addSuffix},
     TextFunction{"strip", &stripArgument},
 };
 

@@ -12,7 +12,7 @@ namespace cparser {
 
 namespace {
 
-[[nodiscard]] int nestingDelta(const Token& token) {
+[[nodiscard]] int getNestingDelta(const Token& token) {
     if (token.kind != TokenKind::Punctuator || token.text.size() != 1) {
         return 0;
     }
@@ -38,7 +38,7 @@ std::vector<std::span<const Token>> splitElements(std::span<const Token> body) {
     usize begin = 0;
 
     for (usize cursor = 0; cursor < body.size(); ++cursor) {
-        nesting += nestingDelta(body[cursor]);
+        nesting += getNestingDelta(body[cursor]);
         if (nesting != 0 || !isPunctuator(body[cursor], ",")) {
             continue;
         }
@@ -52,7 +52,7 @@ std::vector<std::span<const Token>> splitElements(std::span<const Token> body) {
     return elements;
 }
 
-std::optional<std::span<const Token>> braceBody(std::span<const Token> element) {
+std::optional<std::span<const Token>> getBraceBody(std::span<const Token> element) {
     if (element.size() < 2 || !isPunctuator(element.front(), "{") ||
         !isPunctuator(element.back(), "}")) {
         return std::nullopt;

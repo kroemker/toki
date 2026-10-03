@@ -45,11 +45,11 @@ Ports from `toki64/src/{app,settings,logger}.rs`, `ui/{tabs,log_panel,menu,setup
 
 ## 2. The C front end (done)
 
-Wider than first planned, because the real checkout forced it. See the parsing strategy in
-CLAUDE.md for why; the short version is that fast64 emits `#if` and function-like macros
-inside asset `.c`, extracted assets include texture data from files the build generates
-from `.png`, and array bounds come from `#define`s in a sibling header. None of that can
-be read without a preprocessor.
+Wider than first planned, because the real checkout forced it. See
+[docs/c-parsing.md](docs/c-parsing.md) for why; the short version is that fast64 emits
+`#if` and function-like macros inside asset `.c`, extracted assets include texture data
+from files the build generates from `.png`, and array bounds come from `#define`s in a
+sibling header. None of that can be read without a preprocessor.
 
 - `Scanner` — lexer over decomp C
 - `SourceSet` — owns every file one reading pass opened, so tokens can be `string_view`s
@@ -136,7 +136,7 @@ with a few Zelda rules buried inside it, so it became `cparser/`, the make evalu
 out of `hackeroot/` into `makeparser/`, and `Diagnostic` and the width aliases moved to
 `base/`, which every module shares. `z64/` keeps what is actually about the game, and the
 Zelda rules that had been buried in the front end are now handed to it from there:
-`decompDialect` (the N64's type widths, the decomp's typedefs, `TEX_LEN` and
+`getDecompDialect` (the N64's type widths, the decomp's typedefs, `TEX_LEN` and
 `ARRAY_COUNT`) and `resolveTextureInclude` (the `.inc.c` to `.png` rule).
 
 ## 4. Workspace
@@ -173,11 +173,12 @@ Answer these first, before any plumbing:
   is still two `u32` words carrying segment addresses, or two pointer-sized words carrying
   host pointers. If the latter, the choice is a 32-bit word path in the vendored copy or a
   translation pass, and the verdict must say which.
-- **Which `gbi.h` encodes the words.** CLAUDE.md says the `gs*` words come from vendored
-  Fast3D's `gbi.h`. If that header is the PC variant, it encodes PC words. The faithful
-  alternative is HackerOoT's own `include/ultra64/gbi.h` compiled with the `GBI_DEFINES`
-  the configuration layer already reads, which conflicts with "never parse decomp headers
-  for gbi constants". Decide, and update CLAUDE.md with the decision.
+- **Which `gbi.h` encodes the words.** [docs/gbi.md](docs/gbi.md) says the `gs*` words
+  come from vendored Fast3D's `gbi.h`. If that header is the PC variant, it encodes PC
+  words. The faithful alternative is HackerOoT's own `include/ultra64/gbi.h` compiled with
+  the `GBI_DEFINES` the configuration layer already reads, which conflicts with "never
+  parse decomp headers for gbi constants". Decide, and update docs/gbi.md with the
+  decision.
 - **F3DEX3.** HackerOoT supports `ENABLE_F3DEX3`, and fast64 can export for it. Find out
   whether Fast3D handles F3DEX3 commands. If not, "F3DEX3 checkouts are unsupported" goes
   into the plan as a decision, not left to surface as a bug.

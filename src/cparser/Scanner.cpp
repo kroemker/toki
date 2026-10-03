@@ -44,7 +44,7 @@ public:
     [[nodiscard]] ScanResult run();
 
 private:
-    [[nodiscard]] bool atEnd() const {
+    [[nodiscard]] bool isAtEnd() const {
         return cursor >= source.size();
     }
 
@@ -53,7 +53,7 @@ private:
         return at < source.size() ? source[at] : '\0';
     }
 
-    [[nodiscard]] base::SourceLocation here() const {
+    [[nodiscard]] base::SourceLocation locateHere() const {
         return base::SourceLocation{.file = file.path, .line = line, .column = column};
     }
 
@@ -82,7 +82,7 @@ private:
 };
 
 void Scanner::advance(usize count) {
-    for (usize step = 0; step < count && !atEnd(); ++step) {
+    for (usize step = 0; step < count && !isAtEnd(); ++step) {
         if (source[cursor] == '\n') {
             ++line;
             column = 1;
@@ -95,7 +95,7 @@ void Scanner::advance(usize count) {
 }
 
 void Scanner::skipTrivia() {
-    while (!atEnd()) {
+    while (!isAtEnd()) {
         const char c = peek();
         if (c == '\\' && (peek(1) == '\n' || (peek(1) == '\r' && peek(2) == '\n'))) {
             const bool wasLineStart = startsLine;
@@ -120,21 +120,21 @@ void Scanner::skipTrivia() {
 
 void Scanner::skipComment() {
     if (peek(1) == '/') {
-        while (!atEnd() && peek() != '\n') {
+        while (!isAtEnd() && peek() != '\n') {
             advance();
         }
         return;
     }
 
-    const base::SourceLocation opened = here();
+    const base::SourceLocation opened = locateHere();
     const bool wasLineStart = startsLine;
     advance(2);
-    while (!atEnd() && (peek() != '*' || peek(1) != '/')) {
+    while (!isAtEnd() && (peek() != '*' || peek(1) != '/')) {
         advance();
     }
     startsLine = wasLineStart;
-    if (atEnd()) {
-        result.diagnostics.push_back(base::error(opened, "unterminated block comment"));
+    if (isAtEnd()) {
+        result.diagnostics.push_back(base::makeError(opened, "unterminated block comment"));
         return;
     }
     advance(2);
@@ -164,7 +164,7 @@ void Scanner::scanNumber() {
     if (hexadecimal) {
         advance(2);
     }
-    while (!atEnd()) {
+    while (!isAtEnd()) {
         const char c = peek();
         if (!hexadecimal && (c == 'e' || c == 'E')) {
             const bool signedExponent = (peek(1) == '+' || peek(1) == '-') && isDigit(peek(2));
@@ -191,15 +191,15 @@ void Scanner::scanQuoted(char terminator, TokenKind kind) {
     const usize begin = cursor;
     const u32 beginLine = line;
     const u32 beginColumn = column;
-    const base::SourceLocation opened = here();
+    const base::SourceLocation opened = locateHere();
     const bool wasLineStart = startsLine;
     advance();
-    while (!atEnd() && peek() != terminator && peek() != '\n') {
+    while (!isAtEnd() && peek() != terminator && peek() != '\n') {
         advance(peek() == '\\' ? 2 : 1);
     }
     startsLine = wasLineStart;
     if (peek() != terminator) {
-        result.diagnostics.push_back(base::error(opened, "unterminated literal"));
+        result.diagnostics.push_back(base::makeError(opened, "unterminated literal"));
     } else {
         advance();
     }
@@ -226,7 +226,7 @@ ScanResult Scanner::run() {
     result.tokens.reserve(source.size() / 4);
     while (true) {
         skipTrivia();
-        if (atEnd()) {
+        if (isAtEnd()) {
             break;
         }
 
@@ -236,7 +236,7 @@ ScanResult Scanner::run() {
         const u32 beginColumn = column;
 
         if (isIdentifierStart(c)) {
-            while (!atEnd() && isIdentifierBody(peek())) {
+            while (!isAtEnd() && isIdentifierBody(peek())) {
                 advance();
             }
             push(TokenKind::Identifier, begin, beginLine, beginColumn);

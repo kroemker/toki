@@ -69,7 +69,7 @@ public:
     }
 
     /// The names this layer defines itself, in no particular order.
-    [[nodiscard]] std::vector<std::string_view> definedNames() const;
+    [[nodiscard]] std::vector<std::string_view> getDefinedNames() const;
 
 private:
     struct Hash {

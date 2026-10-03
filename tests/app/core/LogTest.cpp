@@ -15,9 +15,9 @@ using toki::core::usize;
 
 namespace {
 
-[[nodiscard]] std::vector<std::string> messages(const Log& log) {
+[[nodiscard]] std::vector<std::string> collectMessages(const Log& log) {
     std::vector<std::string> collected;
-    log.forEach([&](usize, const LogEntry& entry) { collected.push_back(entry.message); });
+    log.visitEntries([&](usize, const LogEntry& entry) { collected.push_back(entry.message); });
     return collected;
 }
 
@@ -26,13 +26,13 @@ namespace {
 TEST_CASE("level names round-trip", "[core][log]") {
     for (const LogLevel level :
          {LogLevel::Debug, LogLevel::Info, LogLevel::Ok, LogLevel::Warn, LogLevel::Error}) {
-        REQUIRE(toki::core::logLevelFromName(toki::core::logLevelName(level)) == level);
+        REQUIRE(toki::core::parseLogLevel(toki::core::getLogLevelName(level)) == level);
     }
 }
 
 TEST_CASE("an unknown level name is rejected rather than defaulted", "[core][log]") {
-    REQUIRE_FALSE(toki::core::logLevelFromName("verbose").has_value());
-    REQUIRE_FALSE(toki::core::logLevelFromName("").has_value());
+    REQUIRE_FALSE(toki::core::parseLogLevel("verbose").has_value());
+    REQUIRE_FALSE(toki::core::parseLogLevel("").has_value());
 }
 
 TEST_CASE("pushed entries are visited oldest first", "[core][log]") {
@@ -40,16 +40,16 @@ TEST_CASE("pushed entries are visited oldest first", "[core][log]") {
     log.push(LogLevel::Info, "first");
     log.push(LogLevel::Debug, "second");
 
-    REQUIRE(log.size() == 2);
-    REQUIRE(messages(log) == std::vector<std::string>{"first", "second"});
-    REQUIRE(log.entry(1).value().level == LogLevel::Debug);
+    REQUIRE(log.countEntries() == 2);
+    REQUIRE(collectMessages(log) == std::vector<std::string>{"first", "second"});
+    REQUIRE(log.getEntry(1).value().level == LogLevel::Debug);
 }
 
 TEST_CASE("an index past the end has no entry", "[core][log]") {
     Log log;
     log.push(LogLevel::Info, "only");
 
-    REQUIRE_FALSE(log.entry(1).has_value());
+    REQUIRE_FALSE(log.getEntry(1).has_value());
 }
 
 TEST_CASE("clearing empties the log", "[core][log]") {
@@ -58,8 +58,8 @@ TEST_CASE("clearing empties the log", "[core][log]") {
 
     log.clear();
 
-    REQUIRE(log.size() == 0);
-    REQUIRE(messages(log).empty());
+    REQUIRE(log.countEntries() == 0);
+    REQUIRE(collectMessages(log).empty());
 }
 
 TEST_CASE("the oldest entries are evicted past the cap", "[core][log]") {
@@ -72,9 +72,9 @@ TEST_CASE("the oldest entries are evicted past the cap", "[core][log]") {
         log.push(LogLevel::Debug, std::format("entry {}", i));
     }
 
-    REQUIRE(log.size() == Cap);
-    REQUIRE(log.entry(0).value().message == std::format("entry {}", Overflow));
-    REQUIRE(log.entry(Cap - 1).value().message == std::format("entry {}", Cap + Overflow - 1));
+    REQUIRE(log.countEntries() == Cap);
+    REQUIRE(log.getEntry(0).value().message == std::format("entry {}", Overflow));
+    REQUIRE(log.getEntry(Cap - 1).value().message == std::format("entry {}", Cap + Overflow - 1));
 }
 
 TEST_CASE("lowering the cap evicts immediately", "[core][log]") {
@@ -85,9 +85,9 @@ TEST_CASE("lowering the cap evicts immediately", "[core][log]") {
 
     log.setMaxEntries(3);
 
-    REQUIRE(log.size() == 3);
+    REQUIRE(log.countEntries() == 3);
     REQUIRE(log.getMaxEntries() == 3);
-    REQUIRE(log.entry(0).value().message == "entry 7");
+    REQUIRE(log.getEntry(0).value().message == "entry 7");
 }
 
 TEST_CASE("a cap of zero would leave nothing to show, so it is clamped", "[core][log]") {
@@ -96,5 +96,5 @@ TEST_CASE("a cap of zero would leave nothing to show, so it is clamped", "[core]
     log.push(LogLevel::Info, "kept");
 
     REQUIRE(log.getMaxEntries() == 1);
-    REQUIRE(log.size() == 1);
+    REQUIRE(log.countEntries() == 1);
 }

@@ -24,7 +24,7 @@ namespace cparser {
 namespace {
 
 template <typename Visit>
-void forEachDirective(std::span<const Token> tokens, Visit visit) {
+void visitDirectives(std::span<const Token> tokens, Visit visit) {
     for (usize cursor = 0; cursor + 1 < tokens.size(); ++cursor) {
         if (!tokens[cursor].startsLine || !isPunctuator(tokens[cursor], "#")) {
             continue;
@@ -51,30 +51,30 @@ void scrapeFile(const std::filesystem::path& path, ScrapeResult& result) {
     ++result.headers;
 
     const ScanResult scanned = scan(**file);
-    forEachDirective(scanned.tokens,
-                     [&result](std::string_view directive, std::span<const Token> rest) {
-                         if (directive != "define") {
-                             return;
-                         }
-                         if (std::optional<Macro> macro = parseDefinition(rest)) {
-                             result.macros.defineIfAbsent(std::move(*macro));
-                             ++result.definitions;
-                         }
-                     });
+    visitDirectives(scanned.tokens,
+                    [&result](std::string_view directive, std::span<const Token> rest) {
+                        if (directive != "define") {
+                            return;
+                        }
+                        if (std::optional<Macro> macro = parseDefinition(rest)) {
+                            result.macros.defineIfAbsent(std::move(*macro));
+                            ++result.definitions;
+                        }
+                    });
 }
 
 } // namespace
 
-std::vector<std::string_view> mentionedNames(const SourceFile& file) {
+std::vector<std::string_view> findMentionedNames(const SourceFile& file) {
     std::vector<std::string_view> names;
     const ScanResult scanned = scan(file);
-    forEachDirective(scanned.tokens,
-                     [&names](std::string_view directive, std::span<const Token> rest) {
-                         if ((directive == "define" || directive == "undef") && !rest.empty() &&
-                             rest.front().kind == TokenKind::Identifier) {
-                             names.push_back(rest.front().text);
-                         }
-                     });
+    visitDirectives(scanned.tokens,
+                    [&names](std::string_view directive, std::span<const Token> rest) {
+                        if ((directive == "define" || directive == "undef") && !rest.empty() &&
+                            rest.front().kind == TokenKind::Identifier) {
+                            names.push_back(rest.front().text);
+                        }
+                    });
     return names;
 }
 
@@ -93,8 +93,8 @@ ScrapeResult scrapeDefinitions(const std::filesystem::path& directory) {
     }
     if (failure) {
         result.diagnostics.push_back(
-            base::error(base::SourceLocation{.file = directory},
-                        std::format("cannot list the header tree: {}", failure.message())));
+            base::makeError(base::SourceLocation{.file = directory},
+                            std::format("cannot list the header tree: {}", failure.message())));
         return result;
     }
 

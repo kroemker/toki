@@ -24,8 +24,8 @@ void FolderDialog::open(SDL_Window* parent, const std::filesystem::path& startIn
         choice.reset();
     }
 
-    const std::string start = toUtf8(startIn);
-    SDL_ShowOpenFolderDialog(&FolderDialog::onChosen, this, parent,
+    const std::string start = encodeUtf8(startIn);
+    SDL_ShowOpenFolderDialog(&FolderDialog::handleChosen, this, parent,
                              start.empty() ? nullptr : start.c_str(), false);
 }
 
@@ -39,14 +39,14 @@ std::optional<std::filesystem::path> FolderDialog::takeChoice() {
     return std::exchange(choice, std::nullopt);
 }
 
-void FolderDialog::onChosen(void* userdata, const char* const* files, int /*filter*/) {
+void FolderDialog::handleChosen(void* userdata, const char* const* files, int /*filter*/) {
     auto* folderDialog = static_cast<FolderDialog*>(userdata);
 
     if (files == nullptr) {
         logError("folder folderDialog failed: {}", SDL_GetError());
     } else if (files[0] != nullptr) {
         const std::scoped_lock lock(folderDialog->mutex);
-        folderDialog->choice = fromUtf8(files[0]);
+        folderDialog->choice = decodeUtf8(files[0]);
         folderDialog->pending = false;
         return;
     }

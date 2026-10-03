@@ -10,7 +10,7 @@
 
 namespace cparser {
 
-const std::vector<std::string>& DirectoryCache::listing(const std::filesystem::path& directory) {
+const std::vector<std::string>& DirectoryCache::getListing(const std::filesystem::path& directory) {
     const auto found = listings.find(directory);
     if (found != listings.end()) {
         return found->second;
@@ -27,13 +27,13 @@ const std::vector<std::string>& DirectoryCache::listing(const std::filesystem::p
 }
 
 bool DirectoryCache::holds(const std::filesystem::path& file) {
-    const std::vector<std::string>& names = listing(file.parent_path());
+    const std::vector<std::string>& names = getListing(file.parent_path());
     return std::ranges::binary_search(names, file.filename().string());
 }
 
-std::string DirectoryCache::startingWith(const std::filesystem::path& directory,
-                                         std::string_view prefix, std::string_view suffix) {
-    const std::vector<std::string>& names = listing(directory);
+std::string DirectoryCache::findStartingWith(const std::filesystem::path& directory,
+                                             std::string_view prefix, std::string_view suffix) {
+    const std::vector<std::string>& names = getListing(directory);
     for (auto candidate = std::ranges::lower_bound(names, prefix);
          candidate != names.end() && std::string_view(*candidate).starts_with(prefix);
          ++candidate) {

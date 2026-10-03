@@ -25,11 +25,11 @@ struct Diagnostic {
     std::string message;
 };
 
-[[nodiscard]] Diagnostic note(SourceLocation location, std::string message);
+[[nodiscard]] Diagnostic makeNote(SourceLocation location, std::string message);
 
-[[nodiscard]] Diagnostic warning(SourceLocation location, std::string message);
+[[nodiscard]] Diagnostic makeWarning(SourceLocation location, std::string message);
 
-[[nodiscard]] Diagnostic error(SourceLocation location, std::string message);
+[[nodiscard]] Diagnostic makeError(SourceLocation location, std::string message);
 
 /// A single line in the `path:line:column: severity: message` shape every
 /// compiler uses, so log output is clickable in the same places.

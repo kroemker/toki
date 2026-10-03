@@ -39,7 +39,7 @@ public:
         std::filesystem::remove_all(path, ignored);
     }
 
-    [[nodiscard]] std::filesystem::path file() const {
+    [[nodiscard]] std::filesystem::path getFile() const {
         return path / "config.toml";
     }
 
@@ -62,7 +62,7 @@ void writeFile(const std::filesystem::path& path, std::string_view contents) {
 TEST_CASE("a missing config yields defaults, not a failure", "[core][settings]") {
     const TempDir dir("missing");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
 
     REQUIRE(loaded.has_value());
     REQUIRE_FALSE(loaded->isConfigured());
@@ -70,9 +70,9 @@ TEST_CASE("a missing config yields defaults, not a failure", "[core][settings]")
 
 TEST_CASE("an empty config yields defaults", "[core][settings]") {
     const TempDir dir("empty");
-    writeFile(dir.file(), "");
+    writeFile(dir.getFile(), "");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
 
     REQUIRE(loaded.has_value());
     REQUIRE_FALSE(loaded->isConfigured());
@@ -89,9 +89,9 @@ TEST_CASE("settings round-trip through a file", "[core][settings]") {
         WindowGeometry{.x = 120, .y = 80, .width = 1280, .height = 720, .maximized = true};
     written.openPanels = std::vector<std::string>{"log", "assets"};
 
-    REQUIRE(saveSettings(written, dir.file()).has_value());
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
     REQUIRE(loaded.has_value());
 
     const Settings& read = *loaded;
@@ -106,7 +106,7 @@ TEST_CASE("settings round-trip through a file", "[core][settings]") {
 
 TEST_CASE("saving creates the config directory", "[core][settings]") {
     const TempDir dir("nested");
-    const std::filesystem::path nested = dir.file().parent_path() / "a" / "b" / "config.toml";
+    const std::filesystem::path nested = dir.getFile().parent_path() / "a" / "b" / "config.toml";
 
     REQUIRE(saveSettings(Settings{}, nested).has_value());
     REQUIRE(std::filesystem::is_regular_file(nested));
@@ -114,9 +114,9 @@ TEST_CASE("saving creates the config directory", "[core][settings]") {
 
 TEST_CASE("a malformed config reports where it broke", "[core][settings]") {
     const TempDir dir("malformed");
-    writeFile(dir.file(), "hackeroot_path = \n");
+    writeFile(dir.getFile(), "hackeroot_path = \n");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
 
     REQUIRE_FALSE(loaded.has_value());
     REQUIRE(loaded.error().contains("config.toml"));
@@ -124,9 +124,9 @@ TEST_CASE("a malformed config reports where it broke", "[core][settings]") {
 
 TEST_CASE("an unknown log level falls back instead of failing", "[core][settings]") {
     const TempDir dir("bad_level");
-    writeFile(dir.file(), "[log]\nmin_level = \"verbose\"\n");
+    writeFile(dir.getFile(), "[log]\nmin_level = \"verbose\"\n");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
 
     REQUIRE(loaded.has_value());
     REQUIRE(loaded->log.minLevel == LogLevel::Debug);
@@ -134,9 +134,9 @@ TEST_CASE("an unknown log level falls back instead of failing", "[core][settings
 
 TEST_CASE("a partial window section is discarded", "[core][settings]") {
     const TempDir dir("partial_window");
-    writeFile(dir.file(), "[window]\nwidth = 800\n");
+    writeFile(dir.getFile(), "[window]\nwidth = 800\n");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
 
     REQUIRE(loaded.has_value());
     REQUIRE_FALSE(loaded->window.has_value());
@@ -144,13 +144,13 @@ TEST_CASE("a partial window section is discarded", "[core][settings]") {
 
 TEST_CASE("keys this build does not know are preserved", "[core][settings]") {
     const TempDir dir("unknown_keys");
-    writeFile(dir.file(), "future_option = 42\n\n[future]\nnested = \"kept\"\n");
+    writeFile(dir.getFile(), "future_option = 42\n\n[future]\nnested = \"kept\"\n");
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
     REQUIRE(loaded.has_value());
-    REQUIRE(saveSettings(*loaded, dir.file()).has_value());
+    REQUIRE(saveSettings(*loaded, dir.getFile()).has_value());
 
-    const std::string contents = readFile(dir.file());
+    const std::string contents = readFile(dir.getFile());
     REQUIRE(contents.contains("future_option"));
     REQUIRE(contents.contains("kept"));
 }
@@ -160,14 +160,14 @@ TEST_CASE("the log cap round-trips and rejects nonsense", "[core][settings]") {
 
     Settings written;
     written.log.maxEntries = 250;
-    REQUIRE(saveSettings(written, dir.file()).has_value());
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
 
-    const auto loaded = loadSettings(dir.file());
+    const auto loaded = loadSettings(dir.getFile());
     REQUIRE(loaded.has_value());
     REQUIRE(loaded->log.maxEntries == 250);
 
-    writeFile(dir.file(), "[log]\nmax_entries = 0\n");
-    const auto rejected = loadSettings(dir.file());
+    writeFile(dir.getFile(), "[log]\nmax_entries = 0\n");
+    const auto rejected = loadSettings(dir.getFile());
     REQUIRE(rejected.has_value());
     REQUIRE(rejected->log.maxEntries == toki::core::Log::DefaultMaxEntries);
 }

@@ -110,7 +110,7 @@ for includes the build generates rather than finds.
 HackerOoT concern, only what is read out of HackerOoT's is.
 
 `z64/` holds what is specific to the game and the decomp: segment addressing, the
-decomp's dialect (`decompDialect`: the N64's type widths, the `u8`..`f64` typedefs,
+decomp's dialect (`getDecompDialect`: the N64's type widths, the `u8`..`f64` typedefs,
 `TEX_LEN` and `ARRAY_COUNT`), its rule for generated texture includes
 (`resolveTextureInclude`), and later gbi word emission, the memory image and texture
 format decoding. It holds no domain structs.
@@ -177,149 +177,29 @@ consistent spacing scale are a budgeted requirement, not polish.
 
 ---
 
-## Parsing strategy
+## Concepts
 
-**A real preprocessor, but a lazy one, over a targeted parser.** The prototype expanded
-all of `gbi.h`/`z64.h` up front to learn what `gsSPVertex` meant; that was the source of
-its multi-second load times. The fix is not to skip expansion — real asset C cannot be
-read without it — but to expand only what a consumer asks for, and to take macro
-*definitions* from a cheap scrape instead of from resolving the include graph.
+Each part of the system with more to it than fits here is written up in full under
+[docs/](docs/README.md). Read the document before changing the code it describes. What is
+listed below is only what no change may break.
 
-What the checkout actually contains decided this. fast64 emits `#if
-ENABLE_ANIMATED_MATERIALS` inside a `SceneCmd[]`, writes rotations as
-`DEG_TO_BINANG(0.000)`, and sizes arrays with a `#define LENGTH_…` from a sibling header.
-Extracted vanilla assets are a different shape again:
-
-```c
-u64 spot00_scene_00013D98_Tex[TEX_LEN(u64, spot00_scene_00013D98_Tex_WIDTH, …, 16)] = {
-#include "assets/scenes/overworld/spot00/spot00_scene_00013D98_Tex.rgba16.inc.c"
-};
-```
-
-That include is spelled from the repository root, sits inside an initializer, and names a
-file that does not exist — the build generates it from a `.png`.
-
-The pieces:
-
-1. **A lexer**, `Scanner`. Comments and line continuations are trivia; `#` comes back as
-   an ordinary punctuator carrying a line-start flag. A token points at the `SourceFile`
-   it came from and its text is a `string_view` into that file's contents, so whatever
-   owns the file must outlive the token.
-2. **`MacroTable`, filled by a define-only scrape** of the checkout's header tree
-   (`Scrape`). One linear scan per header, conditionals ignored, first definition of a
-   name wins. This is how `SCENE_CMD_ROOM_LIST`, `BLEND_RATE_AND_FOG_NEAR` and the
-   `config/` feature flags become known without resolving a single include, and it tracks
-   decomp changes on its own rather than going stale. Both arms of an `#if` are seen; that
-   is the price, and it is cheaper than the alternative.
-3. **`Preprocessor`** — directives, real `#if`/`#elif`/`#ifdef` evaluation, `#define`, and
-   include splicing into one token stream. Macro uses are *left standing*: which of them
-   to expand is the consumer's decision, and `gs*` must never be expanded at all.
-
-**Ownership is layered, and nothing reads into shared mutable state.** The scrape's
-`ScrapeResult` owns the header files and the base `MacroTable`. Each `preprocess` call
-returns a `TranslationUnit` that owns its own `SourceSet` and a `MacroTable` layered over
-that base: its `#define`s, `#undef`s and include guards live in the layer and never reach
-the base, so reading a file twice reads it the same way and one scene cannot leak into
-the next. A reload is a new unit; the old one stays valid until dropped. The only
-lifetime rule is that the base outlives, and does not move under, every unit read
-against it. Layers stack, which is where build-derived predefines and a properly
-preprocessed `config/` belong.
-4. **`Expand`** — on-demand macro expansion of a token range, with a stop-list. Every
-   token carries a hide set, as the standard describes, and a replacement is rescanned
-   together with the tokens after it, so `#define F G` then `F(1)` reaches `G(1)`.
-   Variadic macros, both `...` and GNU's `args...`, are supported. `#` and `##` are
-   diagnosed, not implemented.
-5. **`Value` and `Expression`** — a constant expression evaluator over the C operators the
-   decomp uses, including casts that truncate the way the named type does. Integer and
-   floating point both, because `DEG_TO_BINANG` is `(s16)(s32)((degrees) * (0x8000 /
-   180.0f))`. Which type names a cast may use, and how wide they are, comes from the
-   caller's `Dialect`. `ARRAY_COUNT` and `TEX_LEN` are builtins of the decomp's dialect
-   rather than expansions: their real definitions are written with `sizeof`, which
-   nothing here can answer.
-6. **`Parser`** — file-scope declarations only, as `{name, type, arrayLength, initializer
-   token span}`, one per declarator in a list. Typedefs, struct definitions, functions
-   and function prototypes are stepped over; anything else it cannot read is a note. The
-   initializer stays *unevaluated tokens*, because the memory image and the scene reader
-   want different things out of it and neither should pay for the other's reading.
-
-### gbi constants and `gs*` words
-
-**gbi constants come free.** The `gs*` macro set is a frozen 1996 SDK header. Vendored
-Fast3D ships `gbi.h`, so `G_RM_AA_ZB_OPA_SURF`, `G_CC_MODULATEIA` and friends are real
-values compiled into the binary. Resolve identifiers against a generated name-to-value
-map; never parse decomp headers for them.
-
-**The words come from the real macros.** `gsDPLoadTextureBlock` expands to seven commands,
-not one, and a hand-written macro-to-words table covering gbi.h is both a lot of code and
-a thing that goes stale. Instead a build-time generator scrapes `gbi.h` for macro names and
-arity and emits a dispatcher that calls the actual dynamic `g*(pkt, …)` macro with the
-evaluated arguments, letting the SDK header encode the words itself. Not built yet; it
-belongs with the memory image.
-
-### Include resolution
-
-Two roots, tried in order: the including file's own directory, then each configured search
-path — for HackerOoT the repository root and `extracted/<version>`, which is what the
-Makefile passes to `cpp`. An include is followed only when it resolves *inside* an allowed
-root, so a scene reaches its rooms and never descends into `z64.h`. A missing include is a
-diagnostic naming it, never a failure. Cycles are broken on the active include stack, not
-on a visited set: the same `.inc.c` is legitimately included by two different arrays.
-
-**A `.inc.c` that does not exist is a texture.** `X.rgba16.inc.c` resolves to the
-`X.rgba16.png` the build would have generated it from, as an `EmbeddedFile` tagged with
-the format its name spells. It also stands in the token stream as an `Embedded` token
-where the include was, so the declaration it fills holds it in its initializer. A
-paletted texture's image also carries the palette it was extracted against, so the
-include's spelling is only a prefix of the filename. Never parse a vanilla texture as C:
-the PNG is both faster and the only thing actually on disk. The rule is
-`z64::resolveTextureInclude`, passed to the preprocessor as its `missingInclude`;
-`cparser` itself knows only that some includes embed a file.
-
-**Every filesystem question is answered from a cached directory listing.** A checkout on
-`\\wsl.localhost` charges milliseconds per `stat` and a vanilla scene asks hundreds:
-answering them one at a time cost 3 s per scene, a listing per directory costs 0.6 s cold
-and 0.09 s warm. Nothing in the parsing layer may call `exists` in a loop.
-
-### `#if` policy
-
-**Asset `.c` files need it.** fast64 emits `#if ENABLE_ANIMATED_MATERIALS` around a scene
-command, and the answer lives in the checkout's own `include/config/*.h`.
-
-**Ordinal table files need it most.** `SceneID` and `ActorID` come from position in an
-X-macro table, so reading one conditionally-disabled entry shifts every subsequent ID by
-one — silent, and it corrupts actor placement and scene registration. `readTable` therefore
-preprocesses with `strictConditionals`, which raises an unresolved identifier in a
-condition from a note to a warning. An `#if` in a table is never read quietly.
-
-**Resolving a name is not the same as resolving it correctly.** The scrape knows every
-flag, but only its first-seen arm, and the flags tables actually hinge on
-(`DEBUG_FEATURES`, `OOT_VERSION`, `PLATFORM_*`) are not in any header at all: they are
-`-D` arguments the Makefile builds. So conditions are answered against a **configuration
-layer** between the scrape and every unit (`hackeroot/Configuration`):
-
-- `readBuildDefines` reads the checkout's own Makefile with `makeparser`, a small GNU make
-  evaluator —
-  assignments of every flavour, conditionals, includes, `define`, the text functions —
-  and takes `CPP_DEFINES` and `GBI_DEFINES` as make would expand them. Running make is
-  not an option: parsing HackerOoT's Makefile alone runs `mkdir -p`, `find` over the tree
-  and `cpp` over the spec. So nothing is executed; `$(shell)` expands to nothing and marks
-  what it fed as uncertain, and only an uncertain *define* is reported. The one `$(shell)`
-  whose output matters, `VERSION_MACRO`, is derived and passed as a command-line
-  override, which is what make itself would do with it.
-- `readConfiguration` turns those arguments into source text and preprocesses
-  `include/config.h` under them, against an empty base (the scrape has seen `CONFIG_H`
-  and would skip the file). The result becomes a layer over the scrape, and every name
-  the config headers define in some arm but not in this configuration is hidden, so the
-  scrape's first-seen arm can never answer for it.
-
-The user's build settings (`VERSION`, `DEBUG_FEATURES`, ...) are make's command line,
-and flow through exactly as they would in `make VERSION=... `.
-
-### Unknown macros
-
-HackerOoT adds its own `gs*` macros and users will add more. An unknown macro must
-produce a diagnostic naming it exactly, and the macro table must be user-extensible.
-Never fail silently.
+- **[Reading C](docs/c-parsing.md)** — how `cparser` reads decomp C without a build: a
+  lazy preprocessor over a targeted parser, layered macro tables, include resolution,
+  embedded files.
+  - `gs*` macros are never expanded. Which macros to expand is the consumer's decision.
+  - Reading a file twice reads it the same way: a unit never writes to the macros it is
+    read against.
+  - Nothing in the parsing layer calls `exists` in a loop. Filesystem questions go through
+    `DirectoryCache`.
+  - An unknown macro or a missing include is a diagnostic naming it, never a silent skip
+    and never a failure of the whole read.
+- **[Build configuration](docs/build-configuration.md)** — why an `#if` must be answered
+  the way the build answers it, and how the Makefile and `config.h` become a macro layer.
+  - An `#if` in an ordinal table is never read quietly: a wrong answer shifts every ID
+    after it.
+  - Nothing runs make, or any other process, to learn the configuration.
+- **[gbi words](docs/gbi.md)** — where gbi constants and the words of `gs*` macros come
+  from.
 
 ---
 
@@ -336,9 +216,14 @@ expressible in either, it lives there rather than in prose.
 ### Naming
 
 - Types: `PascalCase`. Functions, variables, members: `camelCase`.
-- No prefix and no trailing underscore on members. Where a member would collide with its
-  accessor, the accessor is `get`-prefixed: `getWindowTitle()` returns `windowTitle`.
-  Mutators are `set`-prefixed.
+- Every function name contains a verb, because a call is an action:
+  `getDecompDialect()`, not `decompDialect()`. Accessors are `get`-prefixed and mutators
+  `set`-prefixed, so a member and its accessor are `windowTitle` and `getWindowTitle()`.
+  Predicates read as questions (`isActive`, `hasIdentifier`, `contains`), functions that
+  build a value are `make`-prefixed (`makeInteger`), and lookups that may come back empty
+  are `find`-prefixed (`findType`). The rule covers free functions, members, callbacks
+  stored in members (`findArrayLength`) and test helpers alike.
+- No prefix and no trailing underscore on members.
 - Constants and enumerators: `PascalCase`.
 - Files: `PascalCase`, named after the primary type they declare (`LogPanel.h`,
   `Types.h`). Directories: lowercase, `camelCase` when multiword (`createActor/`).

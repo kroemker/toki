@@ -27,7 +27,7 @@ public:
         rebuildLayout = true;
     }
 
-    [[nodiscard]] std::vector<std::string> openIds() const;
+    [[nodiscard]] std::vector<std::string> getOpenIds() const;
 
     void restoreOpenIds(const std::vector<std::string>& ids);
 

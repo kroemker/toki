@@ -15,13 +15,13 @@
 
 namespace {
 
-[[nodiscard]] std::filesystem::path checkout() {
+[[nodiscard]] std::filesystem::path getCheckout() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout";
 }
 
 [[nodiscard]] hackeroot::BuildDefines read(const makeparser::MakeOverrides& settings = {}) {
     std::expected<hackeroot::BuildDefines, base::Diagnostic> defines =
-        hackeroot::readBuildDefines(checkout(), settings);
+        hackeroot::readBuildDefines(getCheckout(), settings);
     REQUIRE(defines.has_value());
     return std::move(*defines);
 }
@@ -76,5 +76,5 @@ TEST_CASE("a define fed by a shell command is named in a note", "[hackeroot][def
 }
 
 TEST_CASE("a checkout without a Makefile is an error", "[hackeroot][defines]") {
-    REQUIRE_FALSE(hackeroot::readBuildDefines(checkout() / "include", {}).has_value());
+    REQUIRE_FALSE(hackeroot::readBuildDefines(getCheckout() / "include", {}).has_value());
 }

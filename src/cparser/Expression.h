@@ -33,7 +33,7 @@ struct EvalContext {
     std::function<std::optional<Value>(std::string_view)> resolve;
 
     /// Declared element counts, for builtins that count an array.
-    std::function<std::optional<usize>(std::string_view)> arrayLength;
+    std::function<std::optional<usize>(std::string_view)> findArrayLength;
 
     /// C says an identifier left over in an `#if` is zero. Data expressions
     /// want the opposite, so the caller chooses. Either way it is reported.

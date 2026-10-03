@@ -44,7 +44,7 @@ struct MakeLine {
 
 [[nodiscard]] std::string_view stripMakeComment(std::string_view text);
 
-[[nodiscard]] std::pair<std::string_view, std::string_view> firstWord(std::string_view text);
+[[nodiscard]] std::pair<std::string_view, std::string_view> splitFirstWord(std::string_view text);
 
 /// Tells an assignment from a rule the way make does, by whichever of `=` and
 /// a lone `:` comes first outside a variable reference.
@@ -52,6 +52,6 @@ struct MakeLine {
 
 /// The two operands of `ifeq`, in either the `(a,b)` or the quoted form.
 [[nodiscard]] std::optional<std::pair<std::string_view, std::string_view>>
-comparisonOperands(std::string_view text);
+parseComparisonOperands(std::string_view text);
 
 } // namespace makeparser

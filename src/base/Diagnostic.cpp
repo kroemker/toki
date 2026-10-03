@@ -31,15 +31,15 @@ namespace {
 
 } // namespace
 
-Diagnostic note(SourceLocation location, std::string message) {
+Diagnostic makeNote(SourceLocation location, std::string message) {
     return make(Severity::Note, std::move(location), std::move(message));
 }
 
-Diagnostic warning(SourceLocation location, std::string message) {
+Diagnostic makeWarning(SourceLocation location, std::string message) {
     return make(Severity::Warning, std::move(location), std::move(message));
 }
 
-Diagnostic error(SourceLocation location, std::string message) {
+Diagnostic makeError(SourceLocation location, std::string message) {
     return make(Severity::Error, std::move(location), std::move(message));
 }
 

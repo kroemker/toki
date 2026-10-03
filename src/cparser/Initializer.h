@@ -16,7 +16,7 @@ namespace cparser {
 
 /// The interior of an element that is itself a brace list, as `{ 0, 0 }` is
 /// inside an `ActorEntry` list. Nothing for an element that is an expression.
-[[nodiscard]] std::optional<std::span<const Token>> braceBody(std::span<const Token> element);
+[[nodiscard]] std::optional<std::span<const Token>> getBraceBody(std::span<const Token> element);
 
 [[nodiscard]] usize countElements(std::span<const Token> body);
 

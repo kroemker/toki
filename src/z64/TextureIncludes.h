@@ -16,7 +16,7 @@ namespace z64 {
 /// was extracted against (`X.ci8.tlut_Y.png`), so the include's spelling is
 /// only a prefix of it. `X.bin.inc.c` resolves to `X.bin`.
 ///
-/// Meant as a `PreprocessOptions::missingInclude`.
+/// Meant as a `PreprocessOptions::resolveMissingInclude`.
 [[nodiscard]] std::optional<cparser::ResolvedInclude>
 resolveTextureInclude(const std::filesystem::path& candidate, cparser::DirectoryCache& directories);
 

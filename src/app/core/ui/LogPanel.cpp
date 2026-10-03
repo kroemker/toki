@@ -35,7 +35,7 @@ constexpr std::array<LevelStyle, LogLevelCount> Levels = {{
     {LogLevel::Error, "ERROR", palette::Danger},
 }};
 
-consteval bool levelsAreComplete() {
+consteval bool areLevelsComplete() {
     for (usize index = 0; index < Levels.size(); ++index) {
         if (static_cast<usize>(std::to_underlying(Levels[index].level)) != index) {
             return false;
@@ -44,24 +44,24 @@ consteval bool levelsAreComplete() {
     return true;
 }
 
-static_assert(levelsAreComplete(), "Levels must hold one style per LogLevel, in enum order");
+static_assert(areLevelsComplete(), "Levels must hold one style per LogLevel, in enum order");
 
-[[nodiscard]] const LevelStyle& styleOf(LogLevel level) {
+[[nodiscard]] const LevelStyle& getStyle(LogLevel level) {
     return Levels.at(static_cast<usize>(std::to_underlying(level)));
 }
 
-[[nodiscard]] char lowered(char c) {
+[[nodiscard]] char makeLowercase(char c) {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 }
 
 [[nodiscard]] bool containsIgnoringCase(std::string_view haystack, std::string_view needle) {
-    const auto found = std::ranges::search(haystack, needle,
-                                           [](char a, char b) { return lowered(a) == lowered(b); });
+    const auto found = std::ranges::search(
+        haystack, needle, [](char a, char b) { return makeLowercase(a) == makeLowercase(b); });
     return !found.empty();
 }
 
 [[nodiscard]] std::string formatEntry(const LogEntry& entry) {
-    return std::format("[{}] {}", styleOf(entry.level).tag, entry.message);
+    return std::format("[{}] {}", getStyle(entry.level).tag, entry.message);
 }
 
 } // namespace
@@ -75,7 +75,7 @@ void LogPanel::collectVisible() {
     const LogLevel minLevel = logSettings.minLevel;
 
     visible.clear();
-    log.forEach([&](const usize index, const LogEntry& entry) {
+    log.visitEntries([&](const usize index, const LogEntry& entry) {
         if (entry.level < minLevel) {
             return;
         }
@@ -89,7 +89,7 @@ void LogPanel::collectVisible() {
 void LogPanel::copyVisible() const {
     std::string text;
     for (const usize index : visible) {
-        if (const std::optional<LogEntry> entry = log.entry(index)) {
+        if (const std::optional<LogEntry> entry = log.getEntry(index)) {
             text += formatEntry(*entry);
             text += '\n';
         }
@@ -99,7 +99,7 @@ void LogPanel::copyVisible() const {
 
 void LogPanel::drawToolbar() {
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 6.0F);
-    if (ImGui::BeginCombo("##level", styleOf(logSettings.minLevel).tag)) {
+    if (ImGui::BeginCombo("##level", getStyle(logSettings.minLevel).tag)) {
         for (const LevelStyle& level : Levels) {
             ImGui::PushStyleColor(ImGuiCol_Text, level.color);
             if (ImGui::Selectable(level.tag, level.level == logSettings.minLevel)) {
@@ -145,8 +145,9 @@ void LogPanel::drawEntries() {
     }
 
     if (visible.empty()) {
-        ImGui::TextColored(palette::TextMuted,
-                           log.size() == 0 ? "No messages." : "Nothing matches the filter.");
+        ImGui::TextColored(palette::TextMuted, log.countEntries() == 0
+                                                   ? "No messages."
+                                                   : "Nothing matches the filter.");
         ImGui::EndChild();
         return;
     }
@@ -158,11 +159,11 @@ void LogPanel::drawEntries() {
     clipper.Begin(static_cast<int>(visible.size()));
     while (clipper.Step()) {
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
-            const std::optional<LogEntry> entry = log.entry(visible[static_cast<usize>(row)]);
+            const std::optional<LogEntry> entry = log.getEntry(visible[static_cast<usize>(row)]);
             if (!entry) {
                 continue;
             }
-            ImGui::PushStyleColor(ImGuiCol_Text, styleOf(entry->level).color);
+            ImGui::PushStyleColor(ImGuiCol_Text, getStyle(entry->level).color);
             ImGui::TextUnformatted(formatEntry(*entry).c_str());
             ImGui::PopStyleColor();
         }

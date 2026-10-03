@@ -39,7 +39,7 @@ resolveTextureInclude(const std::filesystem::path& candidate,
         return cparser::ResolvedInclude{.path = directory / stem, .embedded = true, .tag = format};
     }
 
-    const std::string image = directories.startingWith(directory, stem + ".", ".png");
+    const std::string image = directories.findStartingWith(directory, stem + ".", ".png");
     if (image.empty()) {
         return std::nullopt;
     }

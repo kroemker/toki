@@ -22,14 +22,14 @@ public:
     explicit Scanned(std::string_view source)
         : file{.path = "memory.c", .contents = std::string(source)}, result(cparser::scan(file)) {}
 
-    [[nodiscard]] std::span<const cparser::Token> tokens() const {
+    [[nodiscard]] std::span<const cparser::Token> getTokens() const {
         REQUIRE(result.diagnostics.empty());
         return std::span(result.tokens).first(result.tokens.size() - 1);
     }
 
-    [[nodiscard]] std::vector<std::string> texts() const {
+    [[nodiscard]] std::vector<std::string> getTexts() const {
         std::vector<std::string> texts;
-        for (const cparser::Token& token : tokens()) {
+        for (const cparser::Token& token : getTokens()) {
             texts.emplace_back(token.text);
         }
         return texts;
@@ -39,21 +39,21 @@ public:
     cparser::ScanResult result;
 };
 
-[[nodiscard]] std::vector<std::string> textsOf(std::string_view source) {
-    return Scanned(source).texts();
+[[nodiscard]] std::vector<std::string> scanTexts(std::string_view source) {
+    return Scanned(source).getTexts();
 }
 
 } // namespace
 
 TEST_CASE("comments are trivia", "[cparser][scanner]") {
-    const std::vector<std::string> texts = textsOf("a /* one\ntwo */ b // three\nc");
+    const std::vector<std::string> texts = scanTexts("a /* one\ntwo */ b // three\nc");
 
     REQUIRE(texts == std::vector<std::string>{"a", "b", "c"});
 }
 
 TEST_CASE("numbers keep their decomp spelling", "[cparser][scanner]") {
     const Scanned scanned("0x0A 010 42u 0xFFFFFFFFuL 1.0f .5f 2.5e-3f");
-    const std::span<const cparser::Token> tokens = scanned.tokens();
+    const std::span<const cparser::Token> tokens = scanned.getTokens();
 
     REQUIRE(tokens.size() == 7);
     for (const cparser::usize at : {0U, 1U, 2U, 3U}) {
@@ -67,9 +67,9 @@ TEST_CASE("numbers keep their decomp spelling", "[cparser][scanner]") {
 }
 
 TEST_CASE("multi-character punctuators are one token", "[cparser][scanner]") {
-    REQUIRE(textsOf("a << 3 | b >> 1") ==
+    REQUIRE(scanTexts("a << 3 | b >> 1") ==
             std::vector<std::string>{"a", "<<", "3", "|", "b", ">>", "1"});
-    REQUIRE(textsOf("x->y") == std::vector<std::string>{"x", "->", "y"});
+    REQUIRE(scanTexts("x->y") == std::vector<std::string>{"x", "->", "y"});
 }
 
 TEST_CASE("string and character literals stay whole", "[cparser][scanner]") {
@@ -77,7 +77,7 @@ TEST_CASE("string and character literals stay whole", "[cparser][scanner]") {
     const std::string character = "'\\0'";
     const std::string source = "a " + quoted + " " + character;
     const Scanned scanned(source);
-    const std::span<const cparser::Token> tokens = scanned.tokens();
+    const std::span<const cparser::Token> tokens = scanned.getTokens();
 
     REQUIRE(tokens.size() == 3);
     REQUIRE(tokens[1].kind == cparser::TokenKind::String);
@@ -87,14 +87,14 @@ TEST_CASE("string and character literals stay whole", "[cparser][scanner]") {
 }
 
 TEST_CASE("an angled include target is one token", "[cparser][scanner]") {
-    const std::vector<std::string> texts = textsOf("#include <ultra64.h>");
+    const std::vector<std::string> texts = scanTexts("#include <ultra64.h>");
 
     REQUIRE(texts == std::vector<std::string>{"#", "include", "<ultra64.h>"});
 }
 
 TEST_CASE("line starts survive a continuation", "[cparser][scanner]") {
     const Scanned scanned("#define A(x) \\\n    ((x) + 1)\nB");
-    const std::span<const cparser::Token> tokens = scanned.tokens();
+    const std::span<const cparser::Token> tokens = scanned.getTokens();
 
     const auto lineStarts =
         std::ranges::count_if(tokens, [](const cparser::Token& token) { return token.startsLine; });
@@ -105,8 +105,8 @@ TEST_CASE("line starts survive a continuation", "[cparser][scanner]") {
 
 TEST_CASE("a function-like macro is told apart by the space before its paren",
           "[cparser][scanner]") {
-    REQUIRE_FALSE(Scanned("#define A(x) x").tokens()[3].spaceBefore);
-    REQUIRE(Scanned("#define A (x)").tokens()[3].spaceBefore);
+    REQUIRE_FALSE(Scanned("#define A(x) x").getTokens()[3].spaceBefore);
+    REQUIRE(Scanned("#define A (x)").getTokens()[3].spaceBefore);
 }
 
 TEST_CASE("every token points at the file it was read from", "[cparser][scanner]") {
@@ -127,7 +127,7 @@ TEST_CASE("an unterminated block comment is reported", "[cparser][scanner]") {
 
 TEST_CASE("an exponent without a sign still makes a real", "[cparser][scanner]") {
     const Scanned scanned("1e3 2E-4 5e+2f 0xE+1");
-    const std::span<const cparser::Token> tokens = scanned.tokens();
+    const std::span<const cparser::Token> tokens = scanned.getTokens();
 
     REQUIRE(tokens.size() == 6);
     REQUIRE(tokens[0].kind == cparser::TokenKind::Real);
@@ -141,7 +141,7 @@ TEST_CASE("an exponent without a sign still makes a real", "[cparser][scanner]")
 TEST_CASE("a block comment spanning lines does not end the line it started on",
           "[cparser][scanner]") {
     const Scanned scanned("#define A 1 /* spans\n lines */ + 2\nB");
-    const std::span<const cparser::Token> tokens = scanned.tokens();
+    const std::span<const cparser::Token> tokens = scanned.getTokens();
 
     REQUIRE(tokens.size() == 7);
     REQUIRE(tokens[4].text == "+");

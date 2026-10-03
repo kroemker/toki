@@ -18,24 +18,24 @@ constexpr const char* PrefApp = "toki";
 
 } // namespace
 
-std::expected<std::filesystem::path, std::string> configDir() {
+std::expected<std::filesystem::path, std::string> findConfigDirectory() {
     char* prefPath = SDL_GetPrefPath(PrefOrg, PrefApp);
     if (prefPath == nullptr) {
         return std::unexpected(std::string("cannot locate a config directory: ") + SDL_GetError());
     }
 
-    std::filesystem::path path = fromUtf8(prefPath);
+    std::filesystem::path path = decodeUtf8(prefPath);
     SDL_free(prefPath);
     return path;
 }
 
-std::expected<std::filesystem::path, std::string> assetDir() {
+std::expected<std::filesystem::path, std::string> findAssetDirectory() {
     const char* basePath = SDL_GetBasePath();
     if (basePath == nullptr) {
         return std::unexpected(std::string("cannot locate the executable directory: ") +
                                SDL_GetError());
     }
-    return fromUtf8(basePath) / "assets";
+    return decodeUtf8(basePath) / "assets";
 }
 
 } // namespace toki::core

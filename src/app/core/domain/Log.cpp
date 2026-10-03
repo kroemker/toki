@@ -23,11 +23,11 @@ static_assert(LevelNames.size() == LogLevelCount, "a level was added to the enum
 
 } // namespace
 
-std::string_view logLevelName(const LogLevel level) {
+std::string_view getLogLevelName(const LogLevel level) {
     return LevelNames.at(static_cast<usize>(std::to_underlying(level)));
 }
 
-std::optional<LogLevel> logLevelFromName(const std::string_view name) {
+std::optional<LogLevel> parseLogLevel(const std::string_view name) {
     for (usize index = 0; index < LevelNames.size(); ++index) {
         if (LevelNames[index] == name) {
             return static_cast<LogLevel>(index);
@@ -38,7 +38,7 @@ std::optional<LogLevel> logLevelFromName(const std::string_view name) {
 
 void Log::push(const LogLevel level, std::string message) {
     if (level >= LogLevel::Warn) {
-        std::println(stderr, "[{}] {}", logLevelName(level), message);
+        std::println(stderr, "[{}] {}", getLogLevelName(level), message);
     }
 
     const std::scoped_lock lock(mutex);
@@ -53,7 +53,7 @@ void Log::clear() {
     entries.clear();
 }
 
-std::optional<LogEntry> Log::entry(const usize index) const {
+std::optional<LogEntry> Log::getEntry(const usize index) const {
     const std::scoped_lock lock(mutex);
     if (index >= entries.size()) {
         return std::nullopt;
@@ -61,7 +61,7 @@ std::optional<LogEntry> Log::entry(const usize index) const {
     return entries[index];
 }
 
-usize Log::size() const {
+usize Log::countEntries() const {
     const std::scoped_lock lock(mutex);
     return entries.size();
 }

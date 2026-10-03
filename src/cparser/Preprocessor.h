@@ -58,7 +58,7 @@ struct PreprocessOptions {
 
     /// Asked about an include that names no file on disk, before it is
     /// reported missing.
-    MissingInclude missingInclude;
+    MissingInclude resolveMissingInclude;
 
     /// The type names and builtins conditions are evaluated with. Plain C when
     /// nothing is given.

@@ -34,11 +34,11 @@ public:
         running = false;
     }
 
-    [[nodiscard]] SDL_Window* handle() const {
+    [[nodiscard]] SDL_Window* getHandle() const {
         return window;
     }
 
-    [[nodiscard]] WindowGeometry geometry() const;
+    [[nodiscard]] WindowGeometry getGeometry() const;
 
 private:
     Window() = default;

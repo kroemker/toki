@@ -23,13 +23,13 @@ namespace {
 
 constexpr std::array SceneMacros = {std::string_view("DEFINE_SCENE")};
 
-[[nodiscard]] std::filesystem::path checkout() {
+[[nodiscard]] std::filesystem::path getCheckout() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout";
 }
 
-[[nodiscard]] std::vector<std::string> definesFor(const makeparser::MakeOverrides& settings) {
+[[nodiscard]] std::vector<std::string> readDefines(const makeparser::MakeOverrides& settings) {
     std::expected<hackeroot::BuildDefines, base::Diagnostic> defines =
-        hackeroot::readBuildDefines(checkout(), settings);
+        hackeroot::readBuildDefines(getCheckout(), settings);
     REQUIRE(defines.has_value());
     return std::move(defines->arguments);
 }
@@ -39,11 +39,11 @@ constexpr std::array SceneMacros = {std::string_view("DEFINE_SCENE")};
 class Harness {
 public:
     explicit Harness(const makeparser::MakeOverrides& settings = {})
-        : scraped(cparser::scrapeDefinitions(checkout() / "include")),
+        : scraped(cparser::scrapeDefinitions(getCheckout() / "include")),
           configuration(
-              hackeroot::readConfiguration(scraped.macros, checkout(), definesFor(settings))) {}
+              hackeroot::readConfiguration(scraped.macros, getCheckout(), readDefines(settings))) {}
 
-    [[nodiscard]] std::string bodyOf(std::string_view name) const {
+    [[nodiscard]] std::string getBody(std::string_view name) const {
         const cparser::Macro* macro = configuration.macros.find(name);
         REQUIRE(macro != nullptr);
         std::string body;
@@ -53,9 +53,9 @@ public:
         return body;
     }
 
-    [[nodiscard]] std::vector<std::string> scenes() const {
+    [[nodiscard]] std::vector<std::string> readScenes() const {
         std::expected<cparser::TableResult, base::Diagnostic> table = cparser::readTable(
-            configuration.macros, checkout() / "include/tables/scene_table.h", SceneMacros, {});
+            configuration.macros, getCheckout() / "include/tables/scene_table.h", SceneMacros, {});
         REQUIRE(table.has_value());
         REQUIRE_FALSE(
             std::ranges::any_of(table->diagnostics, [](const base::Diagnostic& diagnostic) {
@@ -79,17 +79,17 @@ TEST_CASE("the build's defines and the config headers are read together",
           "[hackeroot][configuration]") {
     const Harness harness;
 
-    REQUIRE(harness.bodyOf("DEBUG_FEATURES") == "1");
-    REQUIRE(harness.bodyOf("OOT_VERSION") == "NTSC_1_2");
-    REQUIRE(harness.bodyOf("DEBUG_ASSETS") == "0");
-    REQUIRE(harness.bodyOf("INCLUDE_EXAMPLE_SCENE") == "true");
+    REQUIRE(harness.getBody("DEBUG_FEATURES") == "1");
+    REQUIRE(harness.getBody("OOT_VERSION") == "NTSC_1_2");
+    REQUIRE(harness.getBody("DEBUG_ASSETS") == "0");
+    REQUIRE(harness.getBody("INCLUDE_EXAMPLE_SCENE") == "true");
 }
 
 TEST_CASE("the configured arm of a conditional wins over the scrape's first one",
           "[hackeroot][configuration]") {
     const Harness harness({{"DEBUG_FEATURES", "0"}});
 
-    REQUIRE(harness.bodyOf("INCLUDE_EXAMPLE_SCENE") == "false");
+    REQUIRE(harness.getBody("INCLUDE_EXAMPLE_SCENE") == "false");
     REQUIRE(harness.scraped.macros.find("INCLUDE_EXAMPLE_SCENE")->body.front().text == "true");
 }
 
@@ -107,16 +107,16 @@ TEST_CASE("names the configuration never mentions still come from the scrape",
           "[hackeroot][configuration]") {
     const Harness harness;
 
-    REQUIRE(harness.bodyOf("ONLY_IN_HEADERS") == "7");
+    REQUIRE(harness.getBody("ONLY_IN_HEADERS") == "7");
     REQUIRE(harness.configuration.macros.count() > 0);
 }
 
 TEST_CASE("a scene table's ordinals follow the build's settings", "[hackeroot][configuration]") {
-    REQUIRE(Harness().scenes() ==
+    REQUIRE(Harness().readScenes() ==
             std::vector<std::string>{"first_scene", "example_scene", "custom_scene"});
-    REQUIRE(Harness({{"DEBUG_FEATURES", "0"}}).scenes() ==
+    REQUIRE(Harness({{"DEBUG_FEATURES", "0"}}).readScenes() ==
             std::vector<std::string>{"first_scene", "custom_scene"});
-    REQUIRE(Harness({{"VERSION", "gc-eu-mq-dbg"}}).scenes() ==
+    REQUIRE(Harness({{"VERSION", "gc-eu-mq-dbg"}}).readScenes() ==
             std::vector<std::string>{"first_scene", "test_scene", "example_scene", "custom_scene"});
 }
 

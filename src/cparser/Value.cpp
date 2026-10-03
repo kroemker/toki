@@ -31,7 +31,7 @@ namespace {
     }
 }
 
-[[nodiscard]] std::optional<Value> integerLiteral(std::string_view text) {
+[[nodiscard]] std::optional<Value> parseIntegerLiteral(std::string_view text) {
     int base = 10;
     if (text.starts_with("0x") || text.starts_with("0X")) {
         base = 16;
@@ -65,10 +65,10 @@ namespace {
             return std::nullopt;
         }
     }
-    return integerValue(static_cast<s64>(parsed));
+    return makeInteger(static_cast<s64>(parsed));
 }
 
-[[nodiscard]] std::optional<Value> realLiteral(std::string_view text) {
+[[nodiscard]] std::optional<Value> parseRealLiteral(std::string_view text) {
     bool single = false;
     if (!text.empty() && (text.back() == 'f' || text.back() == 'F')) {
         single = true;
@@ -82,35 +82,35 @@ namespace {
     if (failure != std::errc() || stop != begin + text.size()) {
         return std::nullopt;
     }
-    return single ? floatValue(parsed) : doubleValue(parsed);
+    return single ? makeFloat(parsed) : makeDouble(parsed);
 }
 
-[[nodiscard]] std::optional<Value> characterLiteral(std::string_view text) {
+[[nodiscard]] std::optional<Value> parseCharacterLiteral(std::string_view text) {
     if (text.size() < 3 || text.front() != '\'' || text.back() != '\'') {
         return std::nullopt;
     }
     const std::string_view body = text.substr(1, text.size() - 2);
     if (body.size() == 1) {
-        return integerValue(static_cast<u8>(body[0]));
+        return makeInteger(static_cast<u8>(body[0]));
     }
     if (body.size() != 2 || body[0] != '\\') {
         return std::nullopt;
     }
     switch (body[1]) {
     case '0':
-        return integerValue(0);
+        return makeInteger(0);
     case 'n':
-        return integerValue('\n');
+        return makeInteger('\n');
     case 't':
-        return integerValue('\t');
+        return makeInteger('\t');
     case 'r':
-        return integerValue('\r');
+        return makeInteger('\r');
     case '\\':
-        return integerValue('\\');
+        return makeInteger('\\');
     case '\'':
-        return integerValue('\'');
+        return makeInteger('\'');
     case '"':
-        return integerValue('"');
+        return makeInteger('"');
     default:
         return std::nullopt;
     }
@@ -118,21 +118,21 @@ namespace {
 
 [[nodiscard]] Value compare(std::string_view op, bool less, bool equal) {
     if (op == "<") {
-        return integerValue(less ? 1 : 0);
+        return makeInteger(less ? 1 : 0);
     }
     if (op == ">") {
-        return integerValue(!less && !equal ? 1 : 0);
+        return makeInteger(!less && !equal ? 1 : 0);
     }
     if (op == "<=") {
-        return integerValue(less || equal ? 1 : 0);
+        return makeInteger(less || equal ? 1 : 0);
     }
     if (op == ">=") {
-        return integerValue(!less ? 1 : 0);
+        return makeInteger(!less ? 1 : 0);
     }
     if (op == "==") {
-        return integerValue(equal ? 1 : 0);
+        return makeInteger(equal ? 1 : 0);
     }
-    return integerValue(equal ? 0 : 1);
+    return makeInteger(equal ? 0 : 1);
 }
 
 [[nodiscard]] f64 divide(f64 a, f64 b) {
@@ -153,7 +153,7 @@ namespace {
 
 [[nodiscard]] Value applyReal(std::string_view op, f64 a, f64 b, ValueType type) {
     const auto make = [type](f64 value) {
-        return type == ValueType::Float ? floatValue(value) : doubleValue(value);
+        return type == ValueType::Float ? makeFloat(value) : makeDouble(value);
     };
     if (op == "+") {
         return make(a + b);
@@ -173,64 +173,64 @@ namespace {
 [[nodiscard]] Value applyInteger(std::string_view op, s64 a, s64 b) {
     const u64 wide = static_cast<u64>(a);
     if (op == "+") {
-        return integerValue(static_cast<s64>(wide + static_cast<u64>(b)));
+        return makeInteger(static_cast<s64>(wide + static_cast<u64>(b)));
     }
     if (op == "-") {
-        return integerValue(static_cast<s64>(wide - static_cast<u64>(b)));
+        return makeInteger(static_cast<s64>(wide - static_cast<u64>(b)));
     }
     if (op == "*") {
-        return integerValue(static_cast<s64>(wide * static_cast<u64>(b)));
+        return makeInteger(static_cast<s64>(wide * static_cast<u64>(b)));
     }
     if (op == "/" || op == "%") {
         if (b == 0) {
-            return integerValue(0);
+            return makeInteger(0);
         }
         if (b == -1) {
-            return integerValue(op == "/" ? static_cast<s64>(u64{0} - wide) : 0);
+            return makeInteger(op == "/" ? static_cast<s64>(u64{0} - wide) : 0);
         }
-        return integerValue(op == "/" ? a / b : a % b);
+        return makeInteger(op == "/" ? a / b : a % b);
     }
     if (op == "<<") {
-        return integerValue(static_cast<s64>(wide << (static_cast<u64>(b) & 63)));
+        return makeInteger(static_cast<s64>(wide << (static_cast<u64>(b) & 63)));
     }
     if (op == ">>") {
-        return integerValue(a >> (static_cast<u64>(b) & 63));
+        return makeInteger(a >> (static_cast<u64>(b) & 63));
     }
     if (op == "&") {
-        return integerValue(a & b);
+        return makeInteger(a & b);
     }
     if (op == "|") {
-        return integerValue(a | b);
+        return makeInteger(a | b);
     }
     if (op == "^") {
-        return integerValue(a ^ b);
+        return makeInteger(a ^ b);
     }
     return compare(op, a < b, a == b);
 }
 
 [[nodiscard]] Value apply(std::string_view op, const Value& left, const Value& right) {
     if (op == "&&") {
-        return integerValue(isTrue(left) && isTrue(right) ? 1 : 0);
+        return makeInteger(isTrue(left) && isTrue(right) ? 1 : 0);
     }
     if (op == "||") {
-        return integerValue(isTrue(left) || isTrue(right) ? 1 : 0);
+        return makeInteger(isTrue(left) || isTrue(right) ? 1 : 0);
     }
     if ((isReal(left) || isReal(right)) && isArithmetic(op)) {
         if (left.type == ValueType::Double || right.type == ValueType::Double) {
-            return applyReal(op, asReal(left), asReal(right), ValueType::Double);
+            return applyReal(op, getReal(left), getReal(right), ValueType::Double);
         }
-        return applyReal(op, floatValue(asReal(left)).number, floatValue(asReal(right)).number,
+        return applyReal(op, makeFloat(getReal(left)).number, makeFloat(getReal(right)).number,
                          ValueType::Float);
     }
-    return applyInteger(op, asInteger(left), asInteger(right));
+    return applyInteger(op, getInteger(left), getInteger(right));
 }
 } // namespace
 
-Value integerValue(s64 value) {
+Value makeInteger(s64 value) {
     return Value{.type = ValueType::Integer, .integer = value, .number = static_cast<f64>(value)};
 }
 
-Value floatValue(f64 value) {
+Value makeFloat(f64 value) {
     constexpr f64 Largest = std::numeric_limits<f32>::max();
     constexpr f64 Overflow = Largest + 0x1p103;
     const f64 magnitude = std::fabs(value);
@@ -244,7 +244,7 @@ Value floatValue(f64 value) {
     return Value{.type = ValueType::Float, .number = static_cast<f64>(static_cast<f32>(value))};
 }
 
-Value doubleValue(f64 value) {
+Value makeDouble(f64 value) {
     return Value{.type = ValueType::Double, .number = value};
 }
 
@@ -256,7 +256,7 @@ bool isTrue(const Value& value) {
     return isReal(value) ? value.number != 0.0 : value.integer != 0;
 }
 
-s64 asInteger(const Value& value) {
+s64 getInteger(const Value& value) {
     if (!isReal(value)) {
         return value.integer;
     }
@@ -273,18 +273,18 @@ s64 asInteger(const Value& value) {
     return static_cast<s64>(std::trunc(value.number));
 }
 
-f64 asReal(const Value& value) {
+f64 getReal(const Value& value) {
     return isReal(value) ? value.number : static_cast<f64>(value.integer);
 }
 
-std::optional<Value> literalValue(const Token& token) {
+std::optional<Value> parseLiteral(const Token& token) {
     switch (token.kind) {
     case TokenKind::Integer:
-        return integerLiteral(token.text);
+        return parseIntegerLiteral(token.text);
     case TokenKind::Real:
-        return realLiteral(token.text);
+        return parseRealLiteral(token.text);
     case TokenKind::Character:
-        return characterLiteral(token.text);
+        return parseCharacterLiteral(token.text);
     default:
         return std::nullopt;
     }
@@ -296,12 +296,12 @@ Value applyOperator(std::string_view op, const Value& left, const Value& right) 
 
 Value castTo(const ScalarType& type, bool pointer, const Value& operand) {
     if (pointer) {
-        return integerValue(asInteger(operand));
+        return makeInteger(getInteger(operand));
     }
     if (type.isReal) {
-        return type.size == 4 ? floatValue(asReal(operand)) : doubleValue(asReal(operand));
+        return type.size == 4 ? makeFloat(getReal(operand)) : makeDouble(getReal(operand));
     }
-    return integerValue(truncateTo(type, asInteger(operand)));
+    return makeInteger(truncateTo(type, getInteger(operand)));
 }
 
 } // namespace cparser

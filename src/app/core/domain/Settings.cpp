@@ -26,13 +26,13 @@ namespace {
 [[nodiscard]] std::expected<std::string, std::string> readFile(const std::filesystem::path& path) {
     const std::ifstream stream(path, std::ios::binary);
     if (!stream) {
-        return std::unexpected(std::format("cannot open {} for reading", toUtf8(path)));
+        return std::unexpected(std::format("cannot open {} for reading", encodeUtf8(path)));
     }
 
     std::ostringstream contents;
     contents << stream.rdbuf();
     if (stream.bad()) {
-        return std::unexpected(std::format("cannot read {}", toUtf8(path)));
+        return std::unexpected(std::format("cannot read {}", encodeUtf8(path)));
     }
     return std::move(contents).str();
 }
@@ -44,14 +44,15 @@ namespace {
     }
 
     try {
-        return toml::parse(*contents, toUtf8(path));
+        return toml::parse(*contents, encodeUtf8(path));
     } catch (const toml::parse_error& error) {
-        return std::unexpected(std::format("{}:{}:{}: {}", toUtf8(path), error.source().begin.line,
-                                           error.source().begin.column, error.description()));
+        return std::unexpected(std::format("{}:{}:{}: {}", encodeUtf8(path),
+                                           error.source().begin.line, error.source().begin.column,
+                                           error.description()));
     }
 }
 
-[[nodiscard]] toml::table& section(toml::table& root, std::string_view name) {
+[[nodiscard]] toml::table& ensureSection(toml::table& root, std::string_view name) {
     if (toml::table* existing = root[name].as_table(); existing != nullptr) {
         return *existing;
     }
@@ -66,11 +67,11 @@ void readLog(const toml::table& root, const std::filesystem::path& path, Setting
     }
 
     if (const std::optional<std::string> level = (*log)["min_level"].value<std::string>()) {
-        if (const std::optional<LogLevel> parsed = logLevelFromName(*level)) {
+        if (const std::optional<LogLevel> parsed = parseLogLevel(*level)) {
             settings.log.minLevel = *parsed;
         } else {
-            logWarn("{}: unknown log.min_level '{}', using '{}'", toUtf8(path), *level,
-                    logLevelName(settings.log.minLevel));
+            logWarn("{}: unknown log.min_level '{}', using '{}'", encodeUtf8(path), *level,
+                    getLogLevelName(settings.log.minLevel));
         }
     }
 
@@ -78,7 +79,7 @@ void readLog(const toml::table& root, const std::filesystem::path& path, Setting
         if (*maxEntries > 0) {
             settings.log.maxEntries = static_cast<usize>(*maxEntries);
         } else {
-            logWarn("{}: log.max_entries must be positive, using {}", toUtf8(path),
+            logWarn("{}: log.max_entries must be positive, using {}", encodeUtf8(path),
                     settings.log.maxEntries);
         }
     }
@@ -122,8 +123,8 @@ void readPanels(const toml::table& root, Settings& settings) {
 }
 
 void writeLog(toml::table& root, const Settings& settings) {
-    toml::table& log = section(root, "log");
-    log.insert_or_assign("min_level", std::string{logLevelName(settings.log.minLevel)});
+    toml::table& log = ensureSection(root, "log");
+    log.insert_or_assign("min_level", std::string{getLogLevelName(settings.log.minLevel)});
     log.insert_or_assign("max_entries", static_cast<s64>(settings.log.maxEntries));
 }
 
@@ -133,7 +134,7 @@ void writeWindow(toml::table& root, const Settings& settings) {
         return;
     }
 
-    toml::table& window = section(root, "window");
+    toml::table& window = ensureSection(root, "window");
     window.insert_or_assign("x", settings.window->x);
     window.insert_or_assign("y", settings.window->y);
     window.insert_or_assign("width", settings.window->width);
@@ -151,7 +152,7 @@ void writePanels(toml::table& root, const Settings& settings) {
     for (const std::string& id : *settings.openPanels) {
         open.push_back(id);
     }
-    section(root, "panels").insert_or_assign("open", std::move(open));
+    ensureSection(root, "panels").insert_or_assign("open", std::move(open));
 }
 
 } // namespace
@@ -170,7 +171,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     Settings settings;
     if (const std::optional<std::string> checkout =
             (*root)["hackeroot_path"].value<std::string>()) {
-        settings.hackerootPath = fromUtf8(*checkout);
+        settings.hackerootPath = decodeUtf8(*checkout);
     }
 
     readLog(*root, path, settings);
@@ -187,7 +188,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
         std::filesystem::create_directories(parent, status);
         if (status) {
             return std::unexpected(
-                std::format("cannot create {}: {}", toUtf8(parent), status.message()));
+                std::format("cannot create {}: {}", encodeUtf8(parent), status.message()));
         }
     }
 
@@ -199,7 +200,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     }
 
     if (settings.hackerootPath) {
-        root.insert_or_assign("hackeroot_path", toUtf8(*settings.hackerootPath));
+        root.insert_or_assign("hackeroot_path", encodeUtf8(*settings.hackerootPath));
     } else {
         root.erase("hackeroot_path");
     }
@@ -209,12 +210,12 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {
-        return std::unexpected(std::format("cannot open {} for writing", toUtf8(path)));
+        return std::unexpected(std::format("cannot open {} for writing", encodeUtf8(path)));
     }
 
     stream << root << '\n';
     if (!stream.good()) {
-        return std::unexpected(std::format("cannot write {}", toUtf8(path)));
+        return std::unexpected(std::format("cannot write {}", encodeUtf8(path)));
     }
     return {};
 }

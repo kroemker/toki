@@ -32,9 +32,9 @@ public:
     [[nodiscard]] virtual std::expected<Value, base::Diagnostic>
     evaluate(std::span<const Token> tokens) const = 0;
 
-    [[nodiscard]] virtual std::optional<usize> arrayLength(std::string_view name) const = 0;
+    [[nodiscard]] virtual std::optional<usize> findArrayLength(std::string_view name) const = 0;
 
-    [[nodiscard]] virtual const ScalarType* type(std::string_view name) const = 0;
+    [[nodiscard]] virtual const ScalarType* findType(std::string_view name) const = 0;
 
     virtual void report(base::Diagnostic diagnostic) const = 0;
 };
@@ -59,7 +59,7 @@ struct Dialect {
 
 /// Plain C on a 32-bit target: `int` and `long` 32 bits, `char` signed, and no
 /// builtins.
-[[nodiscard]] const Dialect& standardC();
+[[nodiscard]] const Dialect& getStandardC();
 
 [[nodiscard]] const ScalarType* findType(const Dialect& dialect, std::string_view name);
 

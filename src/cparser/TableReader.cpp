@@ -18,7 +18,7 @@ namespace cparser {
 
 namespace {
 
-[[nodiscard]] std::string_view spellingOf(std::span<const Token> argument) {
+[[nodiscard]] std::string_view getSpelling(std::span<const Token> argument) {
     if (argument.empty()) {
         return {};
     }
@@ -75,7 +75,7 @@ readTable(const MacroTable& base, const std::filesystem::path& file,
         const usize close = findClose(tokens, cursor + 1);
         if (close == tokens.size()) {
             result.diagnostics.push_back(
-                base::warning(locate(token), "the entry's argument list is never closed"));
+                base::makeWarning(locate(token), "the entry's argument list is never closed"));
             break;
         }
 
@@ -85,7 +85,7 @@ readTable(const MacroTable& base, const std::filesystem::path& file,
         row.location = locate(token);
         for (const std::span<const Token> argument :
              splitElements(tokens.subspan(cursor + 2, close - cursor - 2))) {
-            row.arguments.push_back(spellingOf(argument));
+            row.arguments.push_back(getSpelling(argument));
         }
         result.rows.push_back(std::move(row));
         cursor = close;

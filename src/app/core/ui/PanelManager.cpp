@@ -31,7 +31,7 @@ Panel* PanelManager::find(std::string_view id) {
     return match == panels.end() ? nullptr : match->get();
 }
 
-std::vector<std::string> PanelManager::openIds() const {
+std::vector<std::string> PanelManager::getOpenIds() const {
     std::vector<std::string> ids;
     for (const std::unique_ptr<Panel>& panel : panels) {
         if (panel->isOpen()) {

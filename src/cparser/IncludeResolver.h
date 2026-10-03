@@ -35,7 +35,7 @@ using MissingInclude = std::function<std::optional<ResolvedInclude>(
 class IncludeResolver {
 public:
     IncludeResolver(std::vector<std::filesystem::path> searchPaths,
-                    std::vector<std::filesystem::path> allowedRoots, MissingInclude missing);
+                    std::vector<std::filesystem::path> allowedRoots, MissingInclude resolveMissing);
 
     [[nodiscard]] std::expected<ResolvedInclude, std::string>
     resolve(std::string_view spelling, const std::filesystem::path& includingDirectory);
@@ -45,7 +45,7 @@ private:
 
     std::vector<std::filesystem::path> searchPaths;
     std::vector<std::filesystem::path> allowedRoots;
-    MissingInclude missing;
+    MissingInclude resolveMissing;
     DirectoryCache directories;
 };
 

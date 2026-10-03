@@ -23,22 +23,22 @@ Configuration readConfiguration(const cparser::MacroTable& scraped,
         .searchPaths = {include, repository},
         .allowedRoots = {include / "config.h", include / "versions.h", include / "config",
                          include / "libc" / "stdbool.h"},
-        .dialect = &z64::decompDialect(),
+        .dialect = &z64::getDecompDialect(),
     };
 
     const cparser::MacroTable nothing;
-    std::string source = cparser::predefineSource(defineArguments);
+    std::string source = cparser::buildPredefineSource(defineArguments);
     source += "#include \"config.h\"\n";
     cparser::TranslationUnit unit = cparser::preprocessText(
         nothing, repository / "<build configuration>", std::move(source), options);
 
     Configuration configuration;
     configuration.macros = cparser::MacroTable(&scraped);
-    for (const std::string_view name : unit.macros.definedNames()) {
+    for (const std::string_view name : unit.macros.getDefinedNames()) {
         configuration.macros.define(*unit.macros.find(name));
     }
     for (const cparser::SourceFile* file : unit.sources.getFiles()) {
-        for (const std::string_view name : cparser::mentionedNames(*file)) {
+        for (const std::string_view name : cparser::findMentionedNames(*file)) {
             if (!unit.macros.contains(name)) {
                 configuration.macros.remove(name);
             }

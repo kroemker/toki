@@ -11,6 +11,6 @@ namespace cparser {
 /// `-UNAME` becomes `#undef NAME`, and `-std=` defines `__STDC_VERSION__`.
 /// Every other argument is ignored. Arguments are expected with the shell's
 /// quoting already removed.
-[[nodiscard]] std::string predefineSource(std::span<const std::string> arguments);
+[[nodiscard]] std::string buildPredefineSource(std::span<const std::string> arguments);
 
 } // namespace cparser

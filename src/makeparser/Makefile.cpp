@@ -56,7 +56,7 @@ struct Definition {
 }
 
 [[nodiscard]] bool extendDefinition(Definition& definition, const MakeLine& line) {
-    const std::string_view keyword = firstWord(line.text).first;
+    const std::string_view keyword = splitFirstWord(line.text).first;
     if (keyword == "define") {
         ++definition.nesting;
     } else if (keyword == "endef") {
@@ -84,23 +84,23 @@ private:
         bool certain = true;
     };
 
-    [[nodiscard]] bool active() const {
+    [[nodiscard]] bool isActive() const {
         return conditionals.empty() || conditionals.back().active;
     }
 
-    [[nodiscard]] bool branchCertain() const {
+    [[nodiscard]] bool isBranchCertain() const {
         return std::ranges::all_of(
             conditionals, [](const Conditional& conditional) { return conditional.certain; });
     }
 
-    [[nodiscard]] MakeSite siteAt(u32 line) const {
+    [[nodiscard]] MakeSite makeSite(u32 line) const {
         return MakeSite{.location =
                             base::SourceLocation{.file = currentFile, .line = line, .column = 1},
-                        .certain = branchCertain()};
+                        .certain = isBranchCertain()};
     }
 
     [[nodiscard]] MakeText expand(std::string_view text, u32 line) {
-        return makefile.variables.expand(text, siteAt(line), makefile.diagnostics);
+        return makefile.variables.expand(text, makeSite(line), makefile.diagnostics);
     }
 
     void handle(const MakeLine& line, usize depth);
@@ -132,7 +132,7 @@ void Reader::readFile(const std::filesystem::path& path, usize depth) {
     const std::optional<std::string> text = readText(path);
     if (!text) {
         makefile.diagnostics.push_back(
-            base::warning(base::SourceLocation{.file = path}, "cannot read the file"));
+            base::makeWarning(base::SourceLocation{.file = path}, "cannot read the file"));
         return;
     }
 
@@ -151,14 +151,14 @@ void Reader::readFile(const std::filesystem::path& path, usize depth) {
     }
 
     if (definition) {
-        makefile.diagnostics.push_back(base::warning(
-            siteAt(definition->line).location,
+        makefile.diagnostics.push_back(base::makeWarning(
+            makeSite(definition->line).location,
             std::format("'define {}' is never closed with 'endef'", definition->name)));
         definition.reset();
     }
     if (conditionals.size() != conditionalsOnEntry) {
-        makefile.diagnostics.push_back(
-            base::warning(base::SourceLocation{.file = path}, "a conditional is left unclosed"));
+        makefile.diagnostics.push_back(base::makeWarning(base::SourceLocation{.file = path},
+                                                         "a conditional is left unclosed"));
         conditionals.resize(conditionalsOnEntry);
     }
     currentFile = includingFile;
@@ -174,7 +174,7 @@ void Reader::handle(const MakeLine& line, usize depth) {
         return;
     }
 
-    std::pair<std::string_view, std::string_view> words = firstWord(text);
+    std::pair<std::string_view, std::string_view> words = splitFirstWord(text);
     if (std::ranges::find(ConditionalKeywords, words.first) != ConditionalKeywords.end()) {
         handleConditional(words.first, words.second, line.number);
         return;
@@ -185,14 +185,14 @@ void Reader::handle(const MakeLine& line, usize depth) {
     while (words.first == "export" || words.first == "override" || words.first == "private") {
         isOverride = isOverride || words.first == "override";
         statement = words.second;
-        words = firstWord(words.second);
+        words = splitFirstWord(words.second);
     }
     const auto [keyword, rest] = words;
     if (keyword == "define") {
         startDefinition(rest, isOverride, line.number);
         return;
     }
-    if (statement.empty() || !active()) {
+    if (statement.empty() || !isActive()) {
         return;
     }
 
@@ -216,8 +216,8 @@ void Reader::handleStatement(std::string_view text, bool isOverride, u32 line) {
     case MakeStatementKind::Assignment: {
         const std::string name = stripWords(expand(statement.name, line).text);
         if (name.empty() || name.find_first_of(" \t") != std::string::npos) {
-            makefile.diagnostics.push_back(base::note(
-                siteAt(line).location, std::format("cannot read '{}' as a variable name", name)));
+            makefile.diagnostics.push_back(base::makeNote(
+                makeSite(line).location, std::format("cannot read '{}' as a variable name", name)));
             return;
         }
         assign(name, statement.assign, statement.value, isOverride, line);
@@ -228,8 +228,8 @@ void Reader::handleStatement(std::string_view text, bool isOverride, u32 line) {
         return;
     case MakeStatementKind::Other:
         if (!trim(expand(text, line).text).empty()) {
-            makefile.diagnostics.push_back(base::note(
-                siteAt(line).location, "neither an assignment nor a rule, so it is skipped"));
+            makefile.diagnostics.push_back(base::makeNote(
+                makeSite(line).location, "neither an assignment nor a rule, so it is skipped"));
         }
         return;
     }
@@ -239,7 +239,7 @@ void Reader::handleConditional(std::string_view keyword, std::string_view rest, 
     if (keyword == "endif") {
         if (conditionals.empty()) {
             makefile.diagnostics.push_back(
-                base::warning(siteAt(line).location, "'endif' without a matching 'if'"));
+                base::makeWarning(makeSite(line).location, "'endif' without a matching 'if'"));
             return;
         }
         conditionals.pop_back();
@@ -247,7 +247,7 @@ void Reader::handleConditional(std::string_view keyword, std::string_view rest, 
     }
 
     if (keyword != "else") {
-        Conditional conditional{.parentActive = active()};
+        Conditional conditional{.parentActive = isActive()};
         if (conditional.parentActive) {
             const Condition condition = evaluate(keyword, rest, line);
             conditional.taken = condition.value;
@@ -262,11 +262,11 @@ void Reader::handleConditional(std::string_view keyword, std::string_view rest, 
 
     if (conditionals.empty()) {
         makefile.diagnostics.push_back(
-            base::warning(siteAt(line).location, "'else' without a matching 'if'"));
+            base::makeWarning(makeSite(line).location, "'else' without a matching 'if'"));
         return;
     }
     Conditional& top = conditionals.back();
-    const auto [chained, chainedRest] = firstWord(rest);
+    const auto [chained, chainedRest] = splitFirstWord(rest);
     if (chained.empty()) {
         top.active = top.parentActive && !top.taken;
         top.taken = true;
@@ -291,15 +291,15 @@ Condition Reader::evaluate(std::string_view keyword, std::string_view rest, u32 
                          .certain = found == nullptr || found->certain};
     }
     if (keyword != "ifeq" && keyword != "ifneq") {
-        makefile.diagnostics.push_back(base::warning(
-            siteAt(line).location, std::format("'{}' is not a conditional make knows", keyword)));
+        makefile.diagnostics.push_back(base::makeWarning(
+            makeSite(line).location, std::format("'{}' is not a conditional make knows", keyword)));
         return Condition{.value = false, .certain = false};
     }
 
-    const auto operands = comparisonOperands(rest);
+    const auto operands = parseComparisonOperands(rest);
     if (!operands) {
-        makefile.diagnostics.push_back(base::warning(
-            siteAt(line).location, std::format("cannot read the condition '{}'", rest)));
+        makefile.diagnostics.push_back(base::makeWarning(
+            makeSite(line).location, std::format("cannot read the condition '{}'", rest)));
         return Condition{.value = false, .certain = false};
     }
     const MakeText left = expand(operands->first, line);
@@ -314,15 +314,15 @@ void Reader::handleInclude(std::string_view rest, bool optional, u32 line, usize
         const std::filesystem::path path = directory / std::filesystem::path(name);
         if (depth + 1 > MaxIncludeDepth) {
             makefile.diagnostics.push_back(
-                base::warning(siteAt(line).location,
-                              std::format("not including {}: includes nest too deep", name)));
+                base::makeWarning(makeSite(line).location,
+                                  std::format("not including {}: includes nest too deep", name)));
             continue;
         }
         std::error_code failure;
         if (!std::filesystem::exists(path, failure)) {
             if (!optional) {
-                makefile.diagnostics.push_back(base::warning(
-                    siteAt(line).location, std::format("cannot find the included {}", name)));
+                makefile.diagnostics.push_back(base::makeWarning(
+                    makeSite(line).location, std::format("cannot find the included {}", name)));
             }
             continue;
         }
@@ -337,7 +337,7 @@ void Reader::assign(const std::string& name, MakeAssign kind, std::string_view v
         return;
     }
     const MakeOrigin origin = isOverride ? MakeOrigin::Override : MakeOrigin::File;
-    const bool certain = branchCertain();
+    const bool certain = isBranchCertain();
 
     switch (kind) {
     case MakeAssign::Conditional:
@@ -377,8 +377,8 @@ void Reader::assign(const std::string& name, MakeAssign kind, std::string_view v
         return;
     }
     case MakeAssign::Shell:
-        makefile.diagnostics.push_back(base::note(
-            siteAt(line).location,
+        makefile.diagnostics.push_back(base::makeNote(
+            makeSite(line).location,
             std::format("'{} != ...' runs a shell command, which is not done here", name)));
         makefile.variables.set(name, MakeVariable{.origin = origin, .certain = false});
         return;
@@ -386,7 +386,7 @@ void Reader::assign(const std::string& name, MakeAssign kind, std::string_view v
 }
 
 void Reader::startDefinition(std::string_view rest, bool isOverride, u32 line) {
-    const auto [name, operation] = firstWord(rest);
+    const auto [name, operation] = splitFirstWord(rest);
     MakeAssign kind = MakeAssign::Recursive;
     if (operation == ":=" || operation == "::=") {
         kind = MakeAssign::Simple;
@@ -398,7 +398,7 @@ void Reader::startDefinition(std::string_view rest, bool isOverride, u32 line) {
     definition = Definition{.name = std::string(name),
                             .assign = kind,
                             .isOverride = isOverride,
-                            .active = active(),
+                            .active = isActive(),
                             .line = line};
 }
 
@@ -423,7 +423,7 @@ std::expected<Makefile, base::Diagnostic> readMakefile(const std::filesystem::pa
     std::error_code failure;
     if (!std::filesystem::exists(file, failure)) {
         return std::unexpected(
-            base::error(base::SourceLocation{.file = file}, "cannot find the Makefile"));
+            base::makeError(base::SourceLocation{.file = file}, "cannot find the Makefile"));
     }
 
     Makefile makefile;

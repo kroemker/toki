@@ -22,9 +22,9 @@ enum class LogLevel : u8 {
 
 inline constexpr usize LogLevelCount = static_cast<usize>(LogLevel::Error) + 1;
 
-[[nodiscard]] std::string_view logLevelName(LogLevel level);
+[[nodiscard]] std::string_view getLogLevelName(LogLevel level);
 
-[[nodiscard]] std::optional<LogLevel> logLevelFromName(std::string_view name);
+[[nodiscard]] std::optional<LogLevel> parseLogLevel(std::string_view name);
 
 struct LogEntry {
     LogLevel level = LogLevel::Info;
@@ -33,7 +33,7 @@ struct LogEntry {
 
 /// Holds the application's log entries. Safe to push to from any thread.
 ///
-/// Readers visit the entries in place through `forEach` and `entry`, both of
+/// Readers visit the entries in place through `visitEntries` and `getEntry`, both of
 /// which take the lock for the duration of the call, so there is exactly one
 /// copy of the log in the process.
 class Log {
@@ -46,7 +46,7 @@ public:
 
     /// Calls `visit(index, entry)` for every entry, oldest first.
     template <typename Visit>
-    void forEach(const Visit& visit) const {
+    void visitEntries(const Visit& visit) const {
         const std::scoped_lock lock(mutex);
         for (usize index = 0; index < entries.size(); ++index) {
             visit(index, entries[index]);
@@ -55,9 +55,9 @@ public:
 
     /// Empty once `index` has been evicted, which a reader holding indices
     /// from an earlier call has to expect.
-    [[nodiscard]] std::optional<LogEntry> entry(usize index) const;
+    [[nodiscard]] std::optional<LogEntry> getEntry(usize index) const;
 
-    [[nodiscard]] usize size() const;
+    [[nodiscard]] usize countEntries() const;
 
     [[nodiscard]] usize getMaxEntries() const;
 

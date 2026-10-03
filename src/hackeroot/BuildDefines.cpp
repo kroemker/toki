@@ -22,22 +22,22 @@ namespace {
 constexpr std::array DefineVariables = {std::string_view("CPP_DEFINES"),
                                         std::string_view("GBI_DEFINES")};
 
-[[nodiscard]] char upper(char c) {
+[[nodiscard]] char capitalize(char c) {
     return c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c;
 }
 
-[[nodiscard]] std::string versionMacro(std::string_view version) {
+[[nodiscard]] std::string makeVersionMacro(std::string_view version) {
     std::string macro;
     for (const char c : version) {
-        macro += c == '-' || c == '.' ? '_' : upper(c);
+        macro += c == '-' || c == '.' ? '_' : capitalize(c);
     }
     return macro;
 }
 
-[[nodiscard]] std::string uppercase(std::string_view text) {
+[[nodiscard]] std::string capitalizeAll(std::string_view text) {
     std::string result;
     for (const char c : text) {
-        result += upper(c);
+        result += capitalize(c);
     }
     return result;
 }
@@ -57,10 +57,10 @@ constexpr std::array DefineVariables = {std::string_view("CPP_DEFINES"),
                 .text);
     };
     if (!overrides.contains("VERSION_MACRO")) {
-        overrides.emplace("VERSION_MACRO", versionMacro(valueOf("VERSION")));
+        overrides.emplace("VERSION_MACRO", makeVersionMacro(valueOf("VERSION")));
     }
     if (!overrides.contains("COMPRESSION_TYPE")) {
-        overrides.emplace("COMPRESSION_TYPE", uppercase(valueOf("COMPRESSION")));
+        overrides.emplace("COMPRESSION_TYPE", capitalizeAll(valueOf("COMPRESSION")));
     }
     return overrides;
 }
@@ -88,7 +88,7 @@ readBuildDefines(const std::filesystem::path& repository,
 
     if (makefile->variables.find("CPP_DEFINES") == nullptr) {
         defines.diagnostics.push_back(
-            base::warning(site.location, "the Makefile leaves CPP_DEFINES undefined"));
+            base::makeWarning(site.location, "the Makefile leaves CPP_DEFINES undefined"));
     }
     for (const std::string_view variable : DefineVariables) {
         for (const makeparser::MakeText& word :
@@ -98,7 +98,7 @@ readBuildDefines(const std::filesystem::path& repository,
                     continue;
                 }
                 if (!word.certain) {
-                    defines.diagnostics.push_back(base::note(
+                    defines.diagnostics.push_back(base::makeNote(
                         site.location,
                         std::format("{} depends on something make would run, and is read as '{}'",
                                     variable, argument)));

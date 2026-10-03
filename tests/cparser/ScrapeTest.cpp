@@ -13,14 +13,14 @@
 
 namespace {
 
-[[nodiscard]] std::filesystem::path fixtures() {
+[[nodiscard]] std::filesystem::path getFixtures() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "cparser/fixtures";
 }
 
 } // namespace
 
 TEST_CASE("a header tree gives up its defines without being preprocessed", "[cparser][scrape]") {
-    const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(fixtures() / "headers");
+    const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(getFixtures() / "headers");
     const cparser::MacroTable& macros = scraped.macros;
 
     REQUIRE(scraped.headers == 2);
@@ -56,7 +56,7 @@ TEST_CASE("a header tree gives up its defines without being preprocessed", "[cpa
 }
 
 TEST_CASE("a directory that is not there is an error, not a crash", "[cparser][scrape]") {
-    const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(fixtures() / "nowhere");
+    const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(getFixtures() / "nowhere");
 
     REQUIRE(scraped.headers == 0);
     REQUIRE(scraped.diagnostics.size() == 1);
@@ -68,13 +68,13 @@ TEST_CASE("every name a file defines or undefines is found, whatever the conditi
         .path = "memory.h",
         .contents = "#if 0\n#define HIDDEN 1\n#else\n#undef SHOWN\n#endif\n#define LAST(x) x\n"};
 
-    REQUIRE(cparser::mentionedNames(file) ==
+    REQUIRE(cparser::findMentionedNames(file) ==
             std::vector<std::string_view>{"HIDDEN", "SHOWN", "LAST"});
 }
 
 TEST_CASE("a path that is not a directory is reported, never thrown", "[cparser][scrape]") {
     const cparser::ScrapeResult scraped =
-        cparser::scrapeDefinitions(fixtures() / "headers/a_first.h");
+        cparser::scrapeDefinitions(getFixtures() / "headers/a_first.h");
 
     REQUIRE(scraped.headers == 0);
     REQUIRE(scraped.diagnostics.size() == 1);

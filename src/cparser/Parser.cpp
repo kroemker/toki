@@ -43,7 +43,7 @@ constexpr std::array Skipped = {
     return std::ranges::find(Qualifiers, text) != Qualifiers.end();
 }
 
-[[nodiscard]] int nestingDelta(const Token& token) {
+[[nodiscard]] int getNestingDelta(const Token& token) {
     if (token.kind != TokenKind::Punctuator || token.text.size() != 1) {
         return 0;
     }
@@ -61,14 +61,14 @@ constexpr std::array Skipped = {
     }
 }
 
-[[nodiscard]] std::vector<Token> withoutAttributes(std::span<const Token> head) {
+[[nodiscard]] std::vector<Token> stripAttributes(std::span<const Token> head) {
     std::vector<Token> kept;
     for (usize at = 0; at < head.size(); ++at) {
         if (isIdentifier(head[at], "__attribute__") && at + 1 < head.size() &&
             isPunctuator(head[at + 1], "(")) {
             int nesting = 0;
             for (++at; at < head.size(); ++at) {
-                nesting += nestingDelta(head[at]);
+                nesting += getNestingDelta(head[at]);
                 if (nesting == 0) {
                     break;
                 }
@@ -108,7 +108,7 @@ void readSpecifiers(std::span<const Token> specifiers, Declaration& declaration)
 void readInitializer(std::span<const Token> initializer, Declaration& declaration) {
     declaration.hasInitializer = true;
     declaration.initializer = initializer;
-    const std::optional<std::span<const Token>> body = braceBody(initializer);
+    const std::optional<std::span<const Token>> body = getBraceBody(initializer);
     if (!body) {
         return;
     }
@@ -150,9 +150,9 @@ private:
 
     [[nodiscard]] std::optional<usize> evaluateLength(std::span<const Token> bracket);
 
-    void skipped(const Token& at, std::string_view why) {
+    void noteSkipped(const Token& at, std::string_view why) {
         result.diagnostics.push_back(
-            base::note(locate(at), std::format("{}, so it is skipped", why)));
+            base::makeNote(locate(at), std::format("{}, so it is skipped", why)));
     }
 
     std::span<const Token> tokens;
@@ -177,7 +177,7 @@ usize Parser::findStatementEnd(usize begin, bool& isFunction) const {
             isFunction = true;
             return cursor;
         }
-        nesting += nestingDelta(token);
+        nesting += getNestingDelta(token);
         if (nesting == 0 &&
             (isPunctuator(token, ";") || isPunctuator(token, "=") || isPunctuator(token, ","))) {
             return cursor;
@@ -195,7 +195,7 @@ usize Parser::findTopLevel(usize begin, std::span<const std::string_view> stops)
             })) {
             break;
         }
-        nesting += nestingDelta(tokens[cursor]);
+        nesting += getNestingDelta(tokens[cursor]);
         ++cursor;
     }
     return cursor;
@@ -205,7 +205,7 @@ usize Parser::skipBalanced(usize open) const {
     int nesting = 0;
     usize cursor = open;
     do {
-        nesting += nestingDelta(tokens[cursor]);
+        nesting += getNestingDelta(tokens[cursor]);
         ++cursor;
     } while (cursor < tokens.size() && nesting != 0);
     return cursor;
@@ -219,12 +219,12 @@ std::optional<usize> Parser::evaluateLength(std::span<const Token> bracket) {
     EvalContext nested = context;
     nested.macros = &macros;
     nested.unknownIsZero = false;
-    nested.arrayLength = [this](std::string_view name) -> std::optional<usize> {
+    nested.findArrayLength = [this](std::string_view name) -> std::optional<usize> {
         const auto found = lengths.find(name);
         if (found != lengths.end()) {
             return found->second;
         }
-        return context.arrayLength ? context.arrayLength(name) : std::nullopt;
+        return context.findArrayLength ? context.findArrayLength(name) : std::nullopt;
     };
 
     const usize reported = result.diagnostics.size();
@@ -239,7 +239,7 @@ std::optional<usize> Parser::evaluateLength(std::span<const Token> bracket) {
                     result.diagnostics.end(), [](const base::Diagnostic& diagnostic) {
                         return diagnostic.severity != base::Severity::Note;
                     });
-    const s64 count = asInteger(*length);
+    const s64 count = getInteger(*length);
     if (unresolved || count < 0) {
         return std::nullopt;
     }
@@ -250,7 +250,7 @@ void Parser::readArray(std::span<const Token> head, usize bracket, Declaration& 
     usize close = bracket + 1;
     int nesting = 0;
     while (close < head.size() && (nesting != 0 || !isPunctuator(head[close], "]"))) {
-        nesting += nestingDelta(head[close]);
+        nesting += getNestingDelta(head[close]);
         ++close;
     }
     declaration.arrayLength = evaluateLength(head.subspan(bracket + 1, close - bracket - 1));
@@ -259,7 +259,7 @@ void Parser::readArray(std::span<const Token> head, usize bracket, Declaration& 
 std::optional<std::vector<Token>>
 Parser::readDeclaration(std::span<const Token> rawHead,
                         std::optional<std::span<const Token>> initializer) {
-    const std::vector<Token> kept = withoutAttributes(rawHead);
+    const std::vector<Token> kept = stripAttributes(rawHead);
     const std::span<const Token> head(kept);
     const usize boundary = static_cast<usize>(
         std::ranges::find_if(head,
@@ -270,18 +270,18 @@ Parser::readDeclaration(std::span<const Token> rawHead,
 
     const bool parenthesized = boundary < head.size() && isPunctuator(head[boundary], "(");
     if (parenthesized && boundary + 1 < head.size() && isPunctuator(head[boundary + 1], "*")) {
-        skipped(head[boundary], "cannot read a function pointer declaration");
+        noteSkipped(head[boundary], "cannot read a function pointer declaration");
         return std::nullopt;
     }
     const std::span<const Token> declarator = head.subspan(0, boundary);
     const usize nameAt = findNameIn(declarator);
     if (nameAt == declarator.size() || nameAt == 0) {
-        skipped(rawHead.front(), "cannot read a declaration here");
+        noteSkipped(rawHead.front(), "cannot read a declaration here");
         return std::nullopt;
     }
     if (parenthesized) {
         if (boundary != nameAt + 1) {
-            skipped(head[boundary], "cannot read a declaration here");
+            noteSkipped(head[boundary], "cannot read a declaration here");
         }
         return std::nullopt;
     }
@@ -337,7 +337,7 @@ usize Parser::readDeclarationList(std::span<const Token> head, usize stop) {
         }
         if (!endsAt(end, ",")) {
             if (!endsAt(end, ";")) {
-                skipped(head.front(), "a declaration is never closed with ';'");
+                noteSkipped(head.front(), "a declaration is never closed with ';'");
             }
             return end;
         }
@@ -362,7 +362,7 @@ ParseResult Parser::run() {
         bool isFunction = false;
         const usize stop = findStatementEnd(cursor, isFunction);
         if (stop >= tokens.size() || tokens[stop].kind == TokenKind::EndOfFile) {
-            skipped(tokens[cursor], "a declaration is never closed with ';'");
+            noteSkipped(tokens[cursor], "a declaration is never closed with ';'");
             break;
         }
         if (isFunction) {

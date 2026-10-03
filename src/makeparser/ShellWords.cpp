@@ -24,9 +24,9 @@ public:
 private:
     void endWord();
 
-    [[nodiscard]] usize singleQuoted(usize open);
+    [[nodiscard]] usize readSingleQuoted(usize open);
 
-    [[nodiscard]] usize doubleQuoted(usize open);
+    [[nodiscard]] usize readDoubleQuoted(usize open);
 
     std::string_view text;
     std::vector<std::string> words;
@@ -42,14 +42,14 @@ void Splitter::endWord() {
     }
 }
 
-usize Splitter::singleQuoted(usize open) {
+usize Splitter::readSingleQuoted(usize open) {
     const usize close = text.find('\'', open + 1);
     const usize end = close == std::string_view::npos ? text.size() : close;
     word += text.substr(open + 1, end - open - 1);
     return end;
 }
 
-usize Splitter::doubleQuoted(usize open) {
+usize Splitter::readDoubleQuoted(usize open) {
     usize at = open + 1;
     for (; at < text.size() && text[at] != '"'; ++at) {
         if (text[at] == '\\' && at + 1 < text.size() && escapesInDoubleQuotes(text[at + 1])) {
@@ -70,9 +70,9 @@ std::vector<std::string> Splitter::run() {
 
         inWord = true;
         if (c == '\'') {
-            at = singleQuoted(at);
+            at = readSingleQuoted(at);
         } else if (c == '"') {
-            at = doubleQuoted(at);
+            at = readDoubleQuoted(at);
         } else if (c == '\\' && at + 1 < text.size()) {
             word += text[++at];
         } else {

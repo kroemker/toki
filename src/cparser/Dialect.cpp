@@ -26,7 +26,7 @@ constexpr Dialect Standard{.types = StandardTypes, .builtins = {}};
 
 } // namespace
 
-const Dialect& standardC() {
+const Dialect& getStandardC() {
     return Standard;
 }
 

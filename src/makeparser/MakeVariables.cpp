@@ -50,7 +50,7 @@ constexpr std::array Unevaluated = {
     return std::ranges::find(names, name) != names.end();
 }
 
-[[nodiscard]] usize arityOf(std::string_view function) {
+[[nodiscard]] usize getArity(std::string_view function) {
     if (function == "subst" || function == "patsubst" || function == "foreach" ||
         function == "if") {
         return 3;
@@ -91,7 +91,7 @@ constexpr std::array Unevaluated = {
     return arguments;
 }
 
-[[nodiscard]] std::vector<std::string_view> rawWords(std::string_view text) {
+[[nodiscard]] std::vector<std::string_view> splitRawWords(std::string_view text) {
     std::vector<std::string_view> words;
     usize depth = 0;
     usize begin = 0;
@@ -131,32 +131,32 @@ public:
     }
 
 private:
-    [[nodiscard]] std::string reference(std::string_view inner);
+    [[nodiscard]] std::string expandReference(std::string_view inner);
 
-    [[nodiscard]] std::string variable(std::string_view name);
+    [[nodiscard]] std::string expandVariable(std::string_view name);
 
-    [[nodiscard]] std::string substitution(std::string_view name, std::string_view from,
-                                           std::string_view to);
+    [[nodiscard]] std::string expandSubstitution(std::string_view name, std::string_view from,
+                                                 std::string_view to);
 
-    [[nodiscard]] std::string function(std::string_view name, std::string_view arguments);
+    [[nodiscard]] std::string callFunction(std::string_view name, std::string_view arguments);
 
-    void unevaluated(std::string_view name, std::string_view arguments);
+    void reportUnevaluated(std::string_view name, std::string_view arguments);
 
-    void message(std::string_view name, std::string_view arguments);
+    void reportMessage(std::string_view name, std::string_view arguments);
 
-    [[nodiscard]] std::string logic(std::string_view name,
-                                    std::span<const std::string_view> arguments);
+    [[nodiscard]] std::string evaluateLogic(std::string_view name,
+                                            std::span<const std::string_view> arguments);
 
     [[nodiscard]] std::string inspect(std::string_view name,
                                       std::span<const std::string_view> arguments);
 
     [[nodiscard]] std::string call(std::span<const std::string_view> arguments);
 
-    [[nodiscard]] std::string foreach (std::span<const std::string_view> arguments);
+    [[nodiscard]] std::string expandForeach(std::span<const std::string_view> arguments);
 
-    [[nodiscard]] std::string originOf(std::string_view name) const;
+    [[nodiscard]] std::string getOrigin(std::string_view name) const;
 
-    void uncertain(std::string message);
+    void markUncertain(std::string message);
 
     const MakeVariables& variables;
     const MakeSite& site;
@@ -168,15 +168,16 @@ private:
     std::vector<std::string> expanding;
 };
 
-void Expander::uncertain(std::string message) {
+void Expander::markUncertain(std::string message) {
     certain = false;
-    diagnostics.push_back(base::note(site.location, std::move(message)));
+    diagnostics.push_back(base::makeNote(site.location, std::move(message)));
 }
 
 std::string Expander::run(std::string_view text) {
     if (depth >= MaxDepth) {
         certain = false;
-        diagnostics.push_back(base::error(site.location, "variable expansion nested too deeply"));
+        diagnostics.push_back(
+            base::makeError(site.location, "variable expansion nested too deeply"));
         return {};
     }
     ++depth;
@@ -197,17 +198,18 @@ std::string Expander::run(std::string_view text) {
             continue;
         }
         if (!isOpening(next)) {
-            output += variable(text.substr(at + 1, 1));
+            output += expandVariable(text.substr(at + 1, 1));
             ++at;
             continue;
         }
         const usize close = findClose(text, at + 1);
         if (close == std::string_view::npos) {
             certain = false;
-            diagnostics.push_back(base::warning(site.location, "unterminated variable reference"));
+            diagnostics.push_back(
+                base::makeWarning(site.location, "unterminated variable reference"));
             break;
         }
-        output += reference(text.substr(at + 2, close - at - 2));
+        output += expandReference(text.substr(at + 2, close - at - 2));
         at = close;
     }
 
@@ -215,10 +217,10 @@ std::string Expander::run(std::string_view text) {
     return output;
 }
 
-std::string Expander::reference(std::string_view inner) {
+std::string Expander::expandReference(std::string_view inner) {
     const usize nameEnd = inner.find_first_of(" \t");
     if (nameEnd != std::string_view::npos && isOneOf(inner.substr(0, nameEnd), Functions)) {
-        return function(inner.substr(0, nameEnd), trimLeft(inner.substr(nameEnd + 1)));
+        return callFunction(inner.substr(0, nameEnd), trimLeft(inner.substr(nameEnd + 1)));
     }
 
     const usize colon = findTopLevel(inner, ':');
@@ -226,14 +228,15 @@ std::string Expander::reference(std::string_view inner) {
         const std::string_view replacement = inner.substr(colon + 1);
         const usize equals = findTopLevel(replacement, '=');
         if (equals != std::string_view::npos) {
-            return substitution(run(inner.substr(0, colon)), run(replacement.substr(0, equals)),
-                                run(replacement.substr(equals + 1)));
+            return expandSubstitution(run(inner.substr(0, colon)),
+                                      run(replacement.substr(0, equals)),
+                                      run(replacement.substr(equals + 1)));
         }
     }
-    return variable(run(inner));
+    return expandVariable(run(inner));
 }
 
-std::string Expander::variable(std::string_view name) {
+std::string Expander::expandVariable(std::string_view name) {
     for (auto local = locals.rbegin(); local != locals.rend(); ++local) {
         if (local->first == name) {
             return local->second;
@@ -257,7 +260,7 @@ std::string Expander::variable(std::string_view name) {
     if (std::ranges::find(expanding, name) != expanding.end()) {
         certain = false;
         diagnostics.push_back(
-            base::error(site.location, std::format("'{}' refers to itself", name)));
+            base::makeError(site.location, std::format("'{}' refers to itself", name)));
         return {};
     }
     expanding.emplace_back(name);
@@ -266,12 +269,12 @@ std::string Expander::variable(std::string_view name) {
     return value;
 }
 
-std::string Expander::substitution(std::string_view name, std::string_view from,
-                                   std::string_view to) {
+std::string Expander::expandSubstitution(std::string_view name, std::string_view from,
+                                         std::string_view to) {
     const std::string pattern = from.contains('%') ? std::string(from) : "%" + std::string(from);
     const std::string replacement = to.contains('%') ? std::string(to) : "%" + std::string(to);
     std::vector<std::string> words;
-    const std::string value = variable(name);
+    const std::string value = expandVariable(name);
     for (const std::string_view word : splitWords(value)) {
         words.push_back(substitutePattern(pattern, replacement, word));
     }
@@ -296,7 +299,7 @@ std::string Expander::call(std::span<const std::string_view> arguments) {
     return result;
 }
 
-std::string Expander::foreach (std::span<const std::string_view> arguments) {
+std::string Expander::expandForeach(std::span<const std::string_view> arguments) {
     if (arguments.size() < 3) {
         return {};
     }
@@ -311,7 +314,7 @@ std::string Expander::foreach (std::span<const std::string_view> arguments) {
     return joinWords(results);
 }
 
-std::string Expander::originOf(std::string_view name) const {
+std::string Expander::getOrigin(std::string_view name) const {
     if (std::ranges::any_of(locals, [name](const auto& local) { return local.first == name; }) ||
         (!callArguments.empty() && isNumber(name))) {
         return "automatic";
@@ -331,25 +334,26 @@ std::string Expander::originOf(std::string_view name) const {
     return "file";
 }
 
-void Expander::unevaluated(std::string_view name, std::string_view arguments) {
+void Expander::reportUnevaluated(std::string_view name, std::string_view arguments) {
     if (name == "shell") {
-        uncertain(
+        markUncertain(
             std::format("$(shell {}) is not run here, reading it as empty", stripWords(arguments)));
     } else {
-        uncertain(std::format("$({} ...) is not evaluated here, reading it as empty", name));
+        markUncertain(std::format("$({} ...) is not evaluated here, reading it as empty", name));
     }
 }
 
-void Expander::message(std::string_view name, std::string_view arguments) {
+void Expander::reportMessage(std::string_view name, std::string_view arguments) {
     const std::string text = run(arguments);
     if (name == "error") {
         const std::string stop = std::format("the Makefile stops here: {}", text);
-        diagnostics.push_back(site.certain && certain ? base::warning(site.location, stop)
-                                                      : base::note(site.location, stop));
+        diagnostics.push_back(site.certain && certain ? base::makeWarning(site.location, stop)
+                                                      : base::makeNote(site.location, stop));
     }
 }
 
-std::string Expander::logic(std::string_view name, std::span<const std::string_view> arguments) {
+std::string Expander::evaluateLogic(std::string_view name,
+                                    std::span<const std::string_view> arguments) {
     if (name == "if") {
         if (!stripWords(run(arguments[0])).empty()) {
             return arguments.size() > 1 ? run(arguments[1]) : std::string();
@@ -371,7 +375,7 @@ std::string Expander::logic(std::string_view name, std::span<const std::string_v
 std::string Expander::inspect(std::string_view name, std::span<const std::string_view> arguments) {
     const std::string variableName = stripWords(run(arguments[0]));
     if (name == "origin") {
-        return originOf(variableName);
+        return getOrigin(variableName);
     }
     const MakeVariable* found = variables.find(variableName);
     if (name == "value") {
@@ -383,25 +387,25 @@ std::string Expander::inspect(std::string_view name, std::span<const std::string
     return found->recursive ? "recursive" : "simple";
 }
 
-std::string Expander::function(std::string_view name, std::string_view arguments) {
+std::string Expander::callFunction(std::string_view name, std::string_view arguments) {
     if (name == "shell" || isOneOf(name, Unevaluated)) {
-        unevaluated(name, arguments);
+        reportUnevaluated(name, arguments);
         return {};
     }
     if (name == "error" || name == "warning" || name == "info") {
-        message(name, arguments);
+        reportMessage(name, arguments);
         return {};
     }
 
-    const std::vector<std::string_view> split = splitArguments(arguments, arityOf(name));
+    const std::vector<std::string_view> split = splitArguments(arguments, getArity(name));
     if (name == "if" || name == "or" || name == "and") {
-        return logic(name, split);
+        return evaluateLogic(name, split);
     }
     if (name == "call") {
         return call(split);
     }
     if (name == "foreach") {
-        return foreach (split);
+        return expandForeach(split);
     }
     if (name == "origin" || name == "flavor" || name == "value") {
         return inspect(name, split);
@@ -450,7 +454,7 @@ std::vector<MakeText> MakeVariables::expandWords(std::string_view name, const Ma
     }
 
     std::vector<MakeText> words;
-    for (const std::string_view word : rawWords(found->value)) {
+    for (const std::string_view word : splitRawWords(found->value)) {
         MakeText expanded = expand(word, site, diagnostics);
         expanded.certain = expanded.certain && found->certain;
         words.push_back(std::move(expanded));

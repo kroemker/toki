@@ -10,6 +10,6 @@ namespace z64 {
 /// typedefs (`u8` through `f64`), and two builtins whose real definitions are
 /// written with `sizeof`: `ARRAY_COUNT`, answered from declared array lengths,
 /// and `TEX_LEN`, the element count of a texture of the given size and depth.
-[[nodiscard]] const cparser::Dialect& decompDialect();
+[[nodiscard]] const cparser::Dialect& getDecompDialect();
 
 } // namespace z64

@@ -24,7 +24,7 @@ void drawFileMenu(const Settings& settings, MenuActions& actions) {
     }
 
     ImGui::BeginDisabled();
-    ImGui::TextUnformatted(settings.hackerootPath ? toUtf8(*settings.hackerootPath).c_str()
+    ImGui::TextUnformatted(settings.hackerootPath ? encodeUtf8(*settings.hackerootPath).c_str()
                                                   : "No folder set");
     ImGui::EndDisabled();
 

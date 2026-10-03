@@ -1,0 +1,14 @@
+# Concepts
+
+The detailed write-ups behind [CLAUDE.md](../CLAUDE.md). CLAUDE.md holds the rules and the
+architecture; each document here explains one part of the system in full: what it does,
+why it is shaped that way, and what was measured.
+
+| Document | About |
+|---|---|
+| [c-parsing.md](c-parsing.md) | How `cparser` reads decomp C without a build: the lazy preprocessor, layered macro tables, include resolution, embedded files. |
+| [build-configuration.md](build-configuration.md) | Why `#if` must be answered as the build answers it, and how the Makefile and `config.h` become a macro layer. |
+| [gbi.md](gbi.md) | Where gbi constants and the words of `gs*` macros come from. |
+
+A new concept gets its own document here and a line in this table, and a link from the
+"Concepts" section of CLAUDE.md.

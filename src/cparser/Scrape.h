@@ -38,6 +38,6 @@ struct ScrapeResult {
 
 /// Every name a `#define` or `#undef` in `file` spells, conditionals ignored,
 /// in source order. The views point into `file`.
-[[nodiscard]] std::vector<std::string_view> mentionedNames(const SourceFile& file);
+[[nodiscard]] std::vector<std::string_view> findMentionedNames(const SourceFile& file);
 
 } // namespace cparser

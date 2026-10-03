@@ -51,30 +51,30 @@ arrayCount(const cparser::BuiltinCall& call) {
     if (arguments.size() != 1 || arguments.front().size() != 1 ||
         arguments.front().front().kind != cparser::TokenKind::Identifier) {
         return std::unexpected(
-            base::error(call.getLocation(), "ARRAY_COUNT expects an array name"));
+            base::makeError(call.getLocation(), "ARRAY_COUNT expects an array name"));
     }
 
     const std::string_view name = arguments.front().front().text;
-    if (const std::optional<usize> length = call.arrayLength(name)) {
-        return cparser::integerValue(static_cast<s64>(*length));
+    if (const std::optional<usize> length = call.findArrayLength(name)) {
+        return cparser::makeInteger(static_cast<s64>(*length));
     }
-    call.report(base::warning(call.getLocation(),
-                              std::format("ARRAY_COUNT({}) has no declaration to count", name)));
-    return cparser::integerValue(0);
+    call.report(base::makeWarning(
+        call.getLocation(), std::format("ARRAY_COUNT({}) has no declaration to count", name)));
+    return cparser::makeInteger(0);
 }
 
 [[nodiscard]] std::expected<cparser::Value, base::Diagnostic>
 textureLength(const cparser::BuiltinCall& call) {
     const std::span<const std::span<const cparser::Token>> arguments = call.getArguments();
     if (arguments.size() != 4) {
-        return std::unexpected(base::error(
+        return std::unexpected(base::makeError(
             call.getLocation(), "TEX_LEN expects a type, a width, a height and a bit depth"));
     }
     const ScalarType* element =
-        arguments.front().size() == 1 ? call.type(arguments.front().front().text) : nullptr;
+        arguments.front().size() == 1 ? call.findType(arguments.front().front().text) : nullptr;
     if (element == nullptr || element->size == 0) {
         return std::unexpected(
-            base::error(call.getLocation(), "TEX_LEN expects an element type first"));
+            base::makeError(call.getLocation(), "TEX_LEN expects an element type first"));
     }
 
     s64 bits = 1;
@@ -83,9 +83,9 @@ textureLength(const cparser::BuiltinCall& call) {
         if (!value) {
             return std::unexpected(value.error());
         }
-        bits *= cparser::asInteger(*value);
+        bits *= cparser::getInteger(*value);
     }
-    return cparser::integerValue(bits / 8 / element->size);
+    return cparser::makeInteger(bits / 8 / element->size);
 }
 
 constexpr std::array Builtins = {
@@ -99,7 +99,7 @@ constexpr cparser::Dialect Decomp{.types = Types, .builtins = Builtins};
 
 } // namespace
 
-const cparser::Dialect& decompDialect() {
+const cparser::Dialect& getDecompDialect() {
     return Decomp;
 }
 

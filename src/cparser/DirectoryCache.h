@@ -18,14 +18,15 @@ namespace cparser {
 class DirectoryCache {
 public:
     /// The names in `directory`, sorted. Empty when it cannot be listed.
-    [[nodiscard]] const std::vector<std::string>& listing(const std::filesystem::path& directory);
+    [[nodiscard]] const std::vector<std::string>&
+    getListing(const std::filesystem::path& directory);
 
     [[nodiscard]] bool holds(const std::filesystem::path& file);
 
     /// The first name in `directory` that starts with `prefix` and ends with
     /// `suffix`, or nothing.
-    [[nodiscard]] std::string startingWith(const std::filesystem::path& directory,
-                                           std::string_view prefix, std::string_view suffix);
+    [[nodiscard]] std::string findStartingWith(const std::filesystem::path& directory,
+                                               std::string_view prefix, std::string_view suffix);
 
 private:
     std::map<std::filesystem::path, std::vector<std::string>> listings;

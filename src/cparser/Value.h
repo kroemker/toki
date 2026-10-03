@@ -29,12 +29,12 @@ struct Value {
     f64 number = 0.0;
 };
 
-[[nodiscard]] Value integerValue(s64 value);
+[[nodiscard]] Value makeInteger(s64 value);
 
 /// Rounds to single precision, as a `float` would hold it.
-[[nodiscard]] Value floatValue(f64 value);
+[[nodiscard]] Value makeFloat(f64 value);
 
-[[nodiscard]] Value doubleValue(f64 value);
+[[nodiscard]] Value makeDouble(f64 value);
 
 [[nodiscard]] bool isReal(const Value& value);
 
@@ -44,13 +44,13 @@ struct Value {
 /// Truncates toward zero, the way C converts a real to an integer. C leaves a
 /// real outside the integer's range undefined; this saturates, and reads NaN
 /// as zero.
-[[nodiscard]] s64 asInteger(const Value& value);
+[[nodiscard]] s64 getInteger(const Value& value);
 
-[[nodiscard]] f64 asReal(const Value& value);
+[[nodiscard]] f64 getReal(const Value& value);
 
 /// The value of an integer, floating point or character literal as the decomp
 /// spells it, including the `0x`, `0`, `u`, `L` and `f` forms.
-[[nodiscard]] std::optional<Value> literalValue(const Token& token);
+[[nodiscard]] std::optional<Value> parseLiteral(const Token& token);
 
 /// One binary C operator. Anything the parser did not recognise as an operator
 /// never reaches here, so an unknown spelling is treated as `!=`. A bitwise

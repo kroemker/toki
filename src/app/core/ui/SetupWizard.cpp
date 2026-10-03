@@ -46,7 +46,7 @@ void SetupWizard::beginChangePath(const std::optional<std::filesystem::path>& cu
     step = Step::ChoosePath;
     active = true;
     cancellable = true;
-    setBuffer(pathInput, current ? toUtf8(*current) : std::string{});
+    setBuffer(pathInput, current ? encodeUtf8(*current) : std::string{});
 }
 
 void SetupWizard::drawWelcome() {
@@ -69,7 +69,7 @@ void SetupWizard::drawWelcome() {
 
 std::optional<std::filesystem::path> SetupWizard::drawPathStep(SDL_Window* parent) {
     if (const std::optional<std::filesystem::path> chosen = folderDialog.takeChoice()) {
-        setBuffer(pathInput, toUtf8(*chosen));
+        setBuffer(pathInput, encodeUtf8(*chosen));
     }
 
     ImGui::PushFont(fonts.getStrong(), Fonts::BodySize);
@@ -87,12 +87,12 @@ std::optional<std::filesystem::path> SetupWizard::drawPathStep(SDL_Window* paren
     ImGui::SameLine();
     ImGui::BeginDisabled(folderDialog.isPending());
     if (ImGui::Button("Browse\u2026")) {
-        const std::filesystem::path start = fromUtf8(pathInput.data());
+        const std::filesystem::path start = decodeUtf8(pathInput.data());
         folderDialog.open(parent, isExistingDirectory(start) ? start : std::filesystem::path{});
     }
     ImGui::EndDisabled();
 
-    std::filesystem::path path = fromUtf8(pathInput.data());
+    std::filesystem::path path = decodeUtf8(pathInput.data());
     const bool empty = pathInput[0] == '\0';
     const bool valid = !empty && isExistingDirectory(path);
 

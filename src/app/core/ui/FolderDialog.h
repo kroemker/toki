@@ -25,7 +25,7 @@ public:
     [[nodiscard]] std::optional<std::filesystem::path> takeChoice();
 
 private:
-    static void onChosen(void* userdata, const char* const* files, int filter);
+    static void handleChosen(void* userdata, const char* const* files, int filter);
 
     mutable std::mutex mutex;
     std::optional<std::filesystem::path> choice;

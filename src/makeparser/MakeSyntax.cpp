@@ -21,7 +21,7 @@ namespace {
     return backslashes % 2 == 1;
 }
 
-[[nodiscard]] MakeStatement assignmentAt(std::string_view text, usize equals) {
+[[nodiscard]] MakeStatement readAssignment(std::string_view text, usize equals) {
     MakeAssign assign = MakeAssign::Recursive;
     usize nameEnd = equals;
     if (equals > 0) {
@@ -96,7 +96,7 @@ std::string_view stripMakeComment(std::string_view text) {
     return text;
 }
 
-std::pair<std::string_view, std::string_view> firstWord(std::string_view text) {
+std::pair<std::string_view, std::string_view> splitFirstWord(std::string_view text) {
     text = trimLeft(text);
     const usize end = text.find_first_of(" \t");
     if (end == std::string_view::npos) {
@@ -116,7 +116,7 @@ MakeStatement classifyStatement(std::string_view text) {
         } else if (depth > 0) {
             continue;
         } else if (c == '=') {
-            return assignmentAt(text, at);
+            return readAssignment(text, at);
         } else if (c == ':') {
             const bool simple =
                 (at + 1 < text.size() && text[at + 1] == '=') ||
@@ -130,7 +130,7 @@ MakeStatement classifyStatement(std::string_view text) {
 }
 
 std::optional<std::pair<std::string_view, std::string_view>>
-comparisonOperands(std::string_view text) {
+parseComparisonOperands(std::string_view text) {
     text = trim(text);
     if (text.empty()) {
         return std::nullopt;

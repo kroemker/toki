@@ -73,7 +73,7 @@ void MacroTable::remove(std::string_view name) {
     }
 }
 
-std::vector<std::string_view> MacroTable::definedNames() const {
+std::vector<std::string_view> MacroTable::getDefinedNames() const {
     std::vector<std::string_view> names;
     names.reserve(macros.size());
     for (const auto& [name, macro] : macros) {

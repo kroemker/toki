@@ -33,7 +33,8 @@ constexpr std::array ObjectMacros = {std::string_view("DEFINE_OBJECT"),
                                      std::string_view("DEFINE_OBJECT_UNSET")};
 constexpr std::array EntranceMacros = {std::string_view("DEFINE_ENTRANCE")};
 
-[[nodiscard]] std::vector<std::string> loudest(const std::vector<base::Diagnostic>& diagnostics) {
+[[nodiscard]] std::vector<std::string>
+collectLoudest(const std::vector<base::Diagnostic>& diagnostics) {
     std::vector<std::string> described;
     for (const base::Diagnostic& diagnostic : diagnostics) {
         if (diagnostic.severity != base::Severity::Note) {
@@ -50,11 +51,11 @@ void requireTable(const cparser::MacroTable& macros, const std::filesystem::path
         cparser::readTable(macros, file, entryMacros, {});
     REQUIRE(table.has_value());
     REQUIRE_FALSE(table->rows.empty());
-    REQUIRE(loudest(table->diagnostics).empty());
+    REQUIRE(collectLoudest(table->diagnostics).empty());
 }
 
-[[nodiscard]] std::filesystem::path extractedScene(const std::filesystem::path& repository,
-                                                   const std::filesystem::path& scene) {
+[[nodiscard]] std::filesystem::path findExtractedScene(const std::filesystem::path& repository,
+                                                       const std::filesystem::path& scene) {
     std::error_code failure;
     for (std::filesystem::directory_iterator entry(repository / "extracted", failure);
          !failure && entry != std::filesystem::directory_iterator(); entry.increment(failure)) {
@@ -68,7 +69,7 @@ void requireTable(const cparser::MacroTable& macros, const std::filesystem::path
 void requireImagesLinked(const cparser::MacroTable& macros,
                          const std::filesystem::path& repository) {
     const std::filesystem::path scene = "assets/scenes/overworld/spot00/spot00_scene.c";
-    const std::filesystem::path extracted = extractedScene(repository, scene);
+    const std::filesystem::path extracted = findExtractedScene(repository, scene);
     INFO("no extracted spot00 under " << (repository / "extracted").string());
     REQUIRE_FALSE(extracted.empty());
 
@@ -76,15 +77,15 @@ void requireImagesLinked(const cparser::MacroTable& macros,
         macros, extracted / scene,
         cparser::PreprocessOptions{.searchPaths = {repository, extracted},
                                    .allowedRoots = {repository / "assets", extracted / "assets"},
-                                   .missingInclude = z64::resolveTextureInclude,
-                                   .dialect = &z64::decompDialect()});
+                                   .resolveMissingInclude = z64::resolveTextureInclude,
+                                   .dialect = &z64::getDecompDialect()});
     REQUIRE(unit.has_value());
     REQUIRE_FALSE(unit->embedded.empty());
 
-    const cparser::ParseResult parsed =
-        cparser::parseDeclarations(*unit, cparser::EvalContext{.dialect = &z64::decompDialect()});
-    REQUIRE(loudest(unit->diagnostics).empty());
-    REQUIRE(loudest(parsed.diagnostics).empty());
+    const cparser::ParseResult parsed = cparser::parseDeclarations(
+        *unit, cparser::EvalContext{.dialect = &z64::getDecompDialect()});
+    REQUIRE(collectLoudest(unit->diagnostics).empty());
+    REQUIRE(collectLoudest(parsed.diagnostics).empty());
     std::vector<base::usize> uses(unit->embedded.size(), 0);
     for (const cparser::Declaration& declaration : parsed.declarations) {
         bool fromImage = false;
@@ -115,7 +116,7 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
     const std::expected<hackeroot::BuildDefines, base::Diagnostic> defines =
         hackeroot::readBuildDefines(repository, {});
     REQUIRE(defines.has_value());
-    REQUIRE(loudest(defines->diagnostics).empty());
+    REQUIRE(collectLoudest(defines->diagnostics).empty());
     for (const std::string_view wanted :
          {"-DDEBUG_FEATURES=", "-DOOT_VERSION=", "-DPLATFORM_N64="}) {
         INFO(wanted);
@@ -127,7 +128,7 @@ TEST_CASE("a real checkout reads with its build's configuration and without warn
     const cparser::ScrapeResult scraped = cparser::scrapeDefinitions(repository / "include");
     const hackeroot::Configuration configuration =
         hackeroot::readConfiguration(scraped.macros, repository, defines->arguments);
-    REQUIRE(loudest(configuration.diagnostics).empty());
+    REQUIRE(collectLoudest(configuration.diagnostics).empty());
     REQUIRE(configuration.macros.contains("DEBUG_FEATURES"));
 
     const std::filesystem::path tables = repository / "include/tables";

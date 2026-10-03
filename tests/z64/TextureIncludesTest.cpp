@@ -12,13 +12,13 @@
 
 namespace {
 
-[[nodiscard]] std::filesystem::path textures() {
+[[nodiscard]] std::filesystem::path getTextures() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "z64/fixtures/textures";
 }
 
 [[nodiscard]] std::optional<cparser::ResolvedInclude> resolve(const char* spelling) {
     cparser::DirectoryCache directories;
-    return z64::resolveTextureInclude(textures() / spelling, directories);
+    return z64::resolveTextureInclude(getTextures() / spelling, directories);
 }
 
 } // namespace
@@ -61,8 +61,9 @@ TEST_CASE("only a generated include is a texture", "[z64][textures]") {
 TEST_CASE("the preprocessor embeds a texture the rule resolves", "[z64][textures]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit = cparser::preprocessText(
-        base, textures() / "<memory>", "u64 sTex[] = {\n#include \"sFloorTex.rgba16.inc.c\"\n};\n",
-        cparser::PreprocessOptions{.missingInclude = z64::resolveTextureInclude});
+        base, getTextures() / "<memory>",
+        "u64 sTex[] = {\n#include \"sFloorTex.rgba16.inc.c\"\n};\n",
+        cparser::PreprocessOptions{.resolveMissingInclude = z64::resolveTextureInclude});
 
     REQUIRE(unit.embedded.size() == 1);
     REQUIRE(unit.embedded.front().path.filename() == "sFloorTex.rgba16.png");

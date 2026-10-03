@@ -21,17 +21,17 @@
 
 namespace {
 
-[[nodiscard]] std::filesystem::path fixtures() {
+[[nodiscard]] std::filesystem::path getFixtures() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "cparser/fixtures";
 }
 
 class Harness {
 public:
     Harness() {
-        std::expected<cparser::TranslationUnit, base::Diagnostic> read =
-            cparser::preprocess(base, fixtures() / "asset/room.c",
-                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
-                                                           .missingInclude = embedGenerated});
+        std::expected<cparser::TranslationUnit, base::Diagnostic> read = cparser::preprocess(
+            base, getFixtures() / "asset/room.c",
+            cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"},
+                                       .resolveMissingInclude = embedGenerated});
         REQUIRE(read.has_value());
         unit = std::move(*read);
         parsed = cparser::parseDeclarations(unit, cparser::EvalContext{});
@@ -52,7 +52,7 @@ public:
         return *match;
     }
 
-    [[nodiscard]] cparser::usize countOf(std::string_view name) const {
+    [[nodiscard]] cparser::usize countNamed(std::string_view name) const {
         return static_cast<cparser::usize>(std::ranges::count_if(
             parsed.declarations,
             [name](const cparser::Declaration& declaration) { return declaration.name == name; }));
@@ -112,12 +112,12 @@ TEST_CASE("an empty bound filled from an image is left unknown, not counted", "[
 
 TEST_CASE("an image nested inside an element does not stop the count", "[cparser][parser]") {
     const cparser::MacroTable base;
-    const cparser::TranslationUnit unit =
-        cparser::preprocessText(base, fixtures() / "asset/<memory>.c",
-                                "u64 sNested[] = {\n    { 1, 2 },\n    {\n#include "
-                                "\"sFloorTex.rgba16.inc.c\"\n    },\n};\n",
-                                cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
-                                                           .missingInclude = embedGenerated});
+    const cparser::TranslationUnit unit = cparser::preprocessText(
+        base, getFixtures() / "asset/<memory>.c",
+        "u64 sNested[] = {\n    { 1, 2 },\n    {\n#include "
+        "\"sFloorTex.rgba16.inc.c\"\n    },\n};\n",
+        cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"},
+                                   .resolveMissingInclude = embedGenerated});
     const cparser::ParseResult parsed = cparser::parseDeclarations(unit, cparser::EvalContext{});
 
     REQUIRE(parsed.declarations.size() == 1);
@@ -135,7 +135,7 @@ TEST_CASE("an empty bound is counted from the initializer", "[cparser][parser]")
 TEST_CASE("the extern in the header and the definition are both seen", "[cparser][parser]") {
     const Harness harness;
 
-    REQUIRE(harness.countOf("sVertices") == 2);
+    REQUIRE(harness.countNamed("sVertices") == 2);
     REQUIRE(harness.parsed.declarations.front().isExtern);
 }
 
@@ -173,7 +173,8 @@ namespace {
     return cparser::parseDeclarations(unit, cparser::EvalContext{});
 }
 
-[[nodiscard]] cparser::TranslationUnit unitOf(const cparser::MacroTable& base, std::string source) {
+[[nodiscard]] cparser::TranslationUnit preprocessSource(const cparser::MacroTable& base,
+                                                        std::string source) {
     return cparser::preprocessText(base, "memory.c", std::move(source), {});
 }
 
@@ -187,7 +188,8 @@ namespace {
 
 TEST_CASE("a function prototype is not a declaration of data", "[cparser][parser]") {
     const cparser::MacroTable base;
-    const cparser::TranslationUnit unit = unitOf(base, "void Foo_Init(void);\ns32 sValue = 1;\n");
+    const cparser::TranslationUnit unit =
+        preprocessSource(base, "void Foo_Init(void);\ns32 sValue = 1;\n");
     const cparser::ParseResult parsed = parseText(unit);
 
     REQUIRE(parsed.declarations.size() == 1);
@@ -198,7 +200,7 @@ TEST_CASE("a function prototype is not a declaration of data", "[cparser][parser
 TEST_CASE("every declarator in a list is read, with the type they share", "[cparser][parser]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit =
-        unitOf(base, "static s16 a = 1, *b, c[] = { 1, 2, 3 };\n");
+        preprocessSource(base, "static s16 a = 1, *b, c[] = { 1, 2, 3 };\n");
     const cparser::ParseResult parsed = parseText(unit);
 
     REQUIRE(parsed.declarations.size() == 3);
@@ -213,7 +215,7 @@ TEST_CASE("every declarator in a list is read, with the type they share", "[cpar
 
 TEST_CASE("an attribute does not hide the name it decorates", "[cparser][parser]") {
     const cparser::MacroTable base;
-    const cparser::TranslationUnit unit = unitOf(
+    const cparser::TranslationUnit unit = preprocessSource(
         base,
         "__attribute__((aligned(8))) u64 sTex[2] __attribute__((aligned (16))) = { 0, 0 };\n");
     const cparser::ParseResult parsed = parseText(unit);
@@ -227,7 +229,8 @@ TEST_CASE("an attribute does not hide the name it decorates", "[cparser][parser]
 TEST_CASE("a bound naming an unknown macro falls back to counting the initializer",
           "[cparser][parser]") {
     const cparser::MacroTable base;
-    const cparser::TranslationUnit unit = unitOf(base, "u8 sArr[LENGTH_UNKNOWN] = { 1, 2, 3 };\n");
+    const cparser::TranslationUnit unit =
+        preprocessSource(base, "u8 sArr[LENGTH_UNKNOWN] = { 1, 2, 3 };\n");
     const cparser::ParseResult parsed = parseText(unit);
 
     REQUIRE(parsed.declarations.front().arrayLength == 3);
@@ -239,7 +242,8 @@ TEST_CASE("a bound naming an unknown macro falls back to counting the initialize
 
 TEST_CASE("a bound naming an unknown macro with nothing to count is unknown", "[cparser][parser]") {
     const cparser::MacroTable base;
-    const cparser::TranslationUnit unit = unitOf(base, "extern u8 sArr[LENGTH_UNKNOWN];\n");
+    const cparser::TranslationUnit unit =
+        preprocessSource(base, "extern u8 sArr[LENGTH_UNKNOWN];\n");
 
     REQUIRE_FALSE(parseText(unit).declarations.front().arrayLength.has_value());
 }
@@ -247,9 +251,10 @@ TEST_CASE("a bound naming an unknown macro with nothing to count is unknown", "[
 TEST_CASE("what the parser cannot read is noted, never dropped silently", "[cparser][parser]") {
     const cparser::MacroTable base;
 
-    const cparser::TranslationUnit pointer = unitOf(base, "void (*sCallback)(void) = 0;\n");
+    const cparser::TranslationUnit pointer =
+        preprocessSource(base, "void (*sCallback)(void) = 0;\n");
     REQUIRE(notes(parseText(pointer), "function pointer"));
 
-    const cparser::TranslationUnit unclosed = unitOf(base, "s32 sValue = 1\n");
+    const cparser::TranslationUnit unclosed = preprocessSource(base, "s32 sValue = 1\n");
     REQUIRE(notes(parseText(unclosed), "never closed"));
 }

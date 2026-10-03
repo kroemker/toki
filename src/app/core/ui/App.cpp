@@ -35,10 +35,10 @@ constexpr const char* ImGuiIniFile = "imgui.ini";
 } // namespace
 
 std::expected<void, std::string> App::initialize() {
-    if (const std::expected<std::filesystem::path, std::string> dir = configDir()) {
+    if (const std::expected<std::filesystem::path, std::string> dir = findConfigDirectory()) {
         settingsPath = *dir / SettingsFile;
-        imguiIniPath = toUtf8(*dir / ImGuiIniFile);
-        logDebug("config directory: {}", toUtf8(*dir));
+        imguiIniPath = encodeUtf8(*dir / ImGuiIniFile);
+        logDebug("config directory: {}", encodeUtf8(*dir));
     } else {
         logError("{} — settings and layout will not be saved", dir.error());
     }
@@ -62,8 +62,8 @@ std::expected<void, std::string> App::initialize() {
     ImGui::GetIO().IniFilename = imguiIniPath.empty() ? nullptr : imguiIniPath.c_str();
     applyTheme();
 
-    if (const std::expected<std::filesystem::path, std::string> assets = assetDir()) {
-        logDebug("asset directory: {}", toUtf8(*assets));
+    if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
+        logDebug("asset directory: {}", encodeUtf8(*assets));
         fonts = Fonts::load(*assets);
     } else {
         logError("{} — falling back to the built-in font", assets.error());
@@ -92,7 +92,7 @@ void App::restoreLayout() {
         panels.openDefaults();
     }
 
-    if (imguiIniPath.empty() || !isFile(fromUtf8(imguiIniPath))) {
+    if (imguiIniPath.empty() || !isFile(decodeUtf8(imguiIniPath))) {
         panels.requestDefaultLayout();
     }
 }
@@ -109,7 +109,7 @@ void App::drawFrame() {
     const MenuActions actions = drawMenuBar(panels, settings);
     panels.draw();
 
-    if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->handle())) {
+    if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {
         setHackerootPath(*chosen);
     }
 
@@ -123,7 +123,7 @@ void App::drawFrame() {
 
 void App::setHackerootPath(const std::filesystem::path& path) {
     settings.hackerootPath = path;
-    logOk("HackerOoT folder set to {}", toUtf8(path));
+    logOk("HackerOoT folder set to {}", encodeUtf8(path));
 
     saveState();
 }
@@ -137,8 +137,8 @@ void App::saveState() {
         return;
     }
 
-    settings.window = window->geometry();
-    settings.openPanels = panels.openIds();
+    settings.window = window->getGeometry();
+    settings.openPanels = panels.getOpenIds();
 
     if (const std::expected<void, std::string> saved = saveSettings(settings, settingsPath);
         !saved) {

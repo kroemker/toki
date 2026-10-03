@@ -19,7 +19,7 @@
 
 namespace {
 
-[[nodiscard]] std::filesystem::path fixtures() {
+[[nodiscard]] std::filesystem::path getFixtures() {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "cparser/fixtures";
 }
 
@@ -29,7 +29,8 @@ namespace {
     });
 }
 
-[[nodiscard]] cparser::usize indexOf(const cparser::TranslationUnit& unit, std::string_view name) {
+[[nodiscard]] cparser::usize findIndex(const cparser::TranslationUnit& unit,
+                                       std::string_view name) {
     const auto found = std::ranges::find_if(unit.tokens, [name](const cparser::Token& token) {
         return cparser::isIdentifier(token, name);
     });
@@ -37,8 +38,8 @@ namespace {
     return static_cast<cparser::usize>(found - unit.tokens.begin());
 }
 
-[[nodiscard]] cparser::usize lastIndexOf(const cparser::TranslationUnit& unit,
-                                         std::string_view name) {
+[[nodiscard]] cparser::usize findLastIndex(const cparser::TranslationUnit& unit,
+                                           std::string_view name) {
     const auto found = std::ranges::find_if(
         unit.tokens.rbegin(), unit.tokens.rend(),
         [name](const cparser::Token& token) { return cparser::isIdentifier(token, name); });
@@ -70,12 +71,12 @@ public:
 TEST_CASE("includes are followed only inside the allowed roots", "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
-        harness.read(fixtures() / "include/scene.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "include"}});
+        harness.read(getFixtures() / "include/scene.c",
+                     cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "include"}});
 
     SECTION("an in-scope include is spliced in where it appears") {
-        REQUIRE(indexOf(unit, "sSharedMarker") < indexOf(unit, "sRoomMarker"));
-        REQUIRE(indexOf(unit, "sRoomMarker") < indexOf(unit, "sSceneMarker"));
+        REQUIRE(findIndex(unit, "sSharedMarker") < findIndex(unit, "sRoomMarker"));
+        REQUIRE(findIndex(unit, "sRoomMarker") < findIndex(unit, "sSceneMarker"));
     }
 
     SECTION("a system include is never followed") {
@@ -114,7 +115,7 @@ TEST_CASE("an unreadable entry file is the one hard failure", "[cparser][preproc
     const cparser::MacroTable base;
 
     const std::expected<cparser::TranslationUnit, base::Diagnostic> unit =
-        cparser::preprocess(base, fixtures() / "include/nothing_here.c", {});
+        cparser::preprocess(base, getFixtures() / "include/nothing_here.c", {});
 
     REQUIRE_FALSE(unit.has_value());
     REQUIRE(unit.error().severity == base::Severity::Error);
@@ -124,8 +125,8 @@ TEST_CASE("an unreadable entry file is the one hard failure", "[cparser][preproc
 TEST_CASE("the depth limit stops a runaway include chain", "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit = harness.read(
-        fixtures() / "include/scene.c",
-        cparser::PreprocessOptions{.allowedRoots = {fixtures() / "include"}, .maxDepth = 1});
+        getFixtures() / "include/scene.c",
+        cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "include"}, .maxDepth = 1});
 
     REQUIRE(hasIdentifier(unit, "sRoomMarker"));
     REQUIRE_FALSE(hasIdentifier(unit, "sSharedMarker"));
@@ -135,8 +136,8 @@ TEST_CASE("the depth limit stops a runaway include chain", "[cparser][preprocess
 TEST_CASE("a conditional in an asset file is evaluated, not skipped", "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
-        harness.read(fixtures() / "asset/room.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+        harness.read(getFixtures() / "asset/room.c",
+                     cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"}});
 
     REQUIRE(hasIdentifier(unit, "ACTOR_PLAYER"));
     REQUIRE_FALSE(hasIdentifier(unit, "ACTOR_EN_TEST"));
@@ -146,8 +147,8 @@ TEST_CASE("a define in an included header is in scope for the file that included
           "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
-        harness.read(fixtures() / "asset/room.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+        harness.read(getFixtures() / "asset/room.c",
+                     cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"}});
 
     const cparser::Macro* length = unit.macros.find("LENGTH_sActorList");
     REQUIRE(length != nullptr);
@@ -165,14 +166,14 @@ TEST_CASE("a define in an included header is in scope for the file that included
     }
 }
 
-TEST_CASE("reading a file twice against one base reads it the same way",
+TEST_CASE("reading a file evaluateTwice against one base reads it the same way",
           "[cparser][preprocessor]") {
     const Harness harness;
-    const cparser::PreprocessOptions options{.allowedRoots = {fixtures() / "asset"},
-                                             .missingInclude = embedGenerated};
+    const cparser::PreprocessOptions options{.allowedRoots = {getFixtures() / "asset"},
+                                             .resolveMissingInclude = embedGenerated};
 
-    const cparser::TranslationUnit first = harness.read(fixtures() / "asset/room.c", options);
-    const cparser::TranslationUnit second = harness.read(fixtures() / "asset/room.c", options);
+    const cparser::TranslationUnit first = harness.read(getFixtures() / "asset/room.c", options);
+    const cparser::TranslationUnit second = harness.read(getFixtures() / "asset/room.c", options);
 
     REQUIRE(second.tokens.size() == first.tokens.size());
     REQUIRE(second.embedded.size() == first.embedded.size());
@@ -182,8 +183,8 @@ TEST_CASE("reading a file twice against one base reads it the same way",
 TEST_CASE("a unit outlives nothing but its base", "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     std::expected<cparser::TranslationUnit, base::Diagnostic> read =
-        cparser::preprocess(base, fixtures() / "asset/room.c",
-                            cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+        cparser::preprocess(base, getFixtures() / "asset/room.c",
+                            cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"}});
     REQUIRE(read.has_value());
 
     const cparser::TranslationUnit moved = std::move(*read);
@@ -196,9 +197,9 @@ TEST_CASE("an include the caller resolves to an embedded file stands for that fi
           "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
-        harness.read(fixtures() / "asset/room.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"},
-                                                .missingInclude = embedGenerated});
+        harness.read(getFixtures() / "asset/room.c",
+                     cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"},
+                                                .resolveMissingInclude = embedGenerated});
 
     REQUIRE(unit.embedded.size() == 2);
     REQUIRE(unit.embedded[0].path.filename() == "sFloorTex.rgba16.inc.c");
@@ -217,9 +218,9 @@ TEST_CASE("an include the caller resolves to an embedded file stands for that fi
         REQUIRE(positions.size() == 2);
         REQUIRE(cparser::isPunctuator(unit.tokens[positions[0] - 1], "{"));
         REQUIRE(cparser::isPunctuator(unit.tokens[positions[0] + 1], "}"));
-        REQUIRE(lastIndexOf(unit, "sFloorTex") < positions[0]);
-        REQUIRE(positions[0] < lastIndexOf(unit, "sPalette"));
-        REQUIRE(lastIndexOf(unit, "sPalette") < positions[1]);
+        REQUIRE(findLastIndex(unit, "sFloorTex") < positions[0]);
+        REQUIRE(positions[0] < findLastIndex(unit, "sPalette"));
+        REQUIRE(findLastIndex(unit, "sPalette") < positions[1]);
     }
 }
 
@@ -227,8 +228,8 @@ TEST_CASE("without a rule for missing includes, a missing include is only missin
           "[cparser][preprocessor]") {
     const Harness harness;
     const cparser::TranslationUnit unit =
-        harness.read(fixtures() / "asset/room.c",
-                     cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+        harness.read(getFixtures() / "asset/room.c",
+                     cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"}});
 
     REQUIRE(unit.embedded.empty());
     REQUIRE(reports(unit, "sFloorTex.rgba16.inc.c"));
@@ -238,8 +239,8 @@ TEST_CASE("an entry held only in memory resolves includes from where it says it 
           "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit = cparser::preprocessText(
-        base, fixtures() / "asset/<memory>", "#define FROM_MEMORY 1\n#include \"room.h\"\n",
-        cparser::PreprocessOptions{.allowedRoots = {fixtures() / "asset"}});
+        base, getFixtures() / "asset/<memory>", "#define FROM_MEMORY 1\n#include \"room.h\"\n",
+        cparser::PreprocessOptions{.allowedRoots = {getFixtures() / "asset"}});
 
     REQUIRE(unit.macros.contains("FROM_MEMORY"));
     REQUIRE(unit.macros.contains("LENGTH_sActorList"));
@@ -251,7 +252,7 @@ TEST_CASE("a strict condition guarded by defined() does not warn about what it g
           "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit =
-        cparser::preprocessText(base, fixtures() / "asset/<memory>",
+        cparser::preprocessText(base, getFixtures() / "asset/<memory>",
                                 "#if defined(NOT_DEFINED) && NOT_DEFINED > 2\nint a;\n#endif\n",
                                 cparser::PreprocessOptions{.strictConditionals = true});
 
@@ -262,7 +263,7 @@ TEST_CASE("a strict condition guarded by defined() does not warn about what it g
 TEST_CASE("a macro body continues past a comment that spans lines", "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit =
-        cparser::preprocessText(base, fixtures() / "asset/<memory>",
+        cparser::preprocessText(base, getFixtures() / "asset/<memory>",
                                 "#define A 1 /* spans\n lines */ + 2\nint v = A;\n", {});
 
     const cparser::Macro* macro = unit.macros.find("A");
@@ -273,7 +274,7 @@ TEST_CASE("a macro body continues past a comment that spans lines", "[cparser][p
 TEST_CASE("a directive's diagnostics say where the directive is", "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit =
-        cparser::preprocessText(base, fixtures() / "asset/<memory>",
+        cparser::preprocessText(base, getFixtures() / "asset/<memory>",
                                 "#endif\n#else\n#ifdef\n#endif\n#if\n#endif\n#define\n#if 1\n", {});
 
     REQUIRE(unit.diagnostics.size() == 6);
@@ -290,7 +291,7 @@ TEST_CASE("an include through a file as if it were a directory is a diagnostic",
           "[cparser][preprocessor]") {
     const cparser::MacroTable base;
     const cparser::TranslationUnit unit = cparser::preprocessText(
-        base, fixtures() / "asset/<memory>", "#include \"room.c/inside.h\"\n", {});
+        base, getFixtures() / "asset/<memory>", "#include \"room.c/inside.h\"\n", {});
 
     REQUIRE(reports(unit, "cannot find"));
 }
