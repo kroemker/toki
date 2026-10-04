@@ -186,8 +186,9 @@ Tests build their words with a small helper of their own, not with `gbi.h`.
   the address it was found at. Clipping is left to the GPU: triangles leave in clip
   space. What is approximated and what is not supported is listed in
   [docs/renderer.md](docs/renderer.md).
-- **Texture memory** (`n64/`) — `LoadBlock`, `LoadTile`, `LoadTLUT`, tile descriptors,
-  the swapped odd rows, wrap, mirror, clamp and masks. Load commands in, texels out.
+- **Texture memory** (`n64/`, done) — `LoadBlock`, `LoadTile`, `LoadTLUT`, tile
+  descriptors, the swapped odd rows, wrap, mirror, clamp and masks. Load commands in,
+  texels out. Filtering and level-of-detail selection belong with the GPU stage.
 - **Combiner and blender** (`n64/`) — one and two cycle, as data a shader can read; a CPU
   evaluation of the same equations for tests.
 - **GPU** (`gfx/`, `toki_gfx`) — SDL3 GPU device, one ubershader compiled at build time

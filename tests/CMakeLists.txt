@@ -26,6 +26,7 @@ add_executable(toki_tests
         n64/MemoryTest.cpp
         n64/RspTest.cpp
         n64/SegmentTest.cpp
+        n64/TextureMemoryTest.cpp
         z64/DecompDialectTest.cpp
         z64/TextureIncludesTest.cpp)
 target_link_libraries(toki_tests PRIVATE toki_core Catch2::Catch2WithMain toki_warnings)

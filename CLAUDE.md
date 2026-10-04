@@ -126,7 +126,8 @@ later gbi word emission and the memory image. It holds no domain structs.
 
 `n64/` is the hardware, and what is true of every N64 game: segment addressing, the
 physical address space (`Memory`), fixed-point matrices, and F3DEX2 running on the RSP
-(`runTask`). Texture memory and the RDP's combiner and blender follow.
+(`runTask`), and the RDP's texture memory (`TextureMemory`, `fetchTexel`). The combiner and
+blender follow.
 
 `cparser/` reads files, because a preprocessor that follows includes has to, but only in
 three places: `SourceSet` opens files, `IncludeResolver` lists directories, and `Scrape`

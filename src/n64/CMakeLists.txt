@@ -5,4 +5,6 @@ target_sources(toki_core PRIVATE
         Rsp.cpp
         RspGeometry.cpp
         Segment.cpp
+        TexelFetch.cpp
+        TextureMemory.cpp
         Viewport.cpp)

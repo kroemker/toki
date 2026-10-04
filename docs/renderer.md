@@ -93,6 +93,26 @@ microcode. Point lights are not read. `G_CULLDL` never culls, which changes no p
 Clip ratio and perspective normalisation are ignored, since the GPU clips in floating
 point.
 
+## Texture memory
+
+`n64::TextureMemory` is the RDP's 4 KB of texture memory and its eight tile descriptors.
+It takes the RDP commands that set and load them, in order, and loads byte for byte the
+way RT64 does, which follows the hardware: `G_LOADTILE` and `G_LOADBLOCK` swap the 32-bit
+halves of every odd row (for a block load, every row its `dxt` counter counts), 32-bit
+RGBA puts red and green in the lower half of the memory and blue and alpha in the upper,
+and `G_LOADTLUT` writes each palette entry four times into one 64-bit word of the upper
+half.
+
+Reading is three free functions, kept apart so the GPU's shader can be tested against
+each: `findTileTexel` applies a tile's shift and corner to a coordinate, `wrapTexel`
+clamps, mirrors and masks (an axis with no mask clamps), and `fetchTexel` decodes one
+texel, through the palette when the other mode turns it on. Texture memory is meant to
+reach the GPU as it is, and be read there the same way.
+
+Format and size pairs the hardware has no decoder for (8-bit RGBA, 16-bit intensity,
+32-bit intensity and the like) read as RT64 observed the hardware reading them. YUV is
+not decoded.
+
 ## Scope
 
 In: one and two cycle combining, blender modes (fog, translucency, decal, alpha compare),
