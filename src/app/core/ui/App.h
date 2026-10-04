@@ -8,6 +8,7 @@
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "gfx/Device.h"
 #include "hackeroot/BuildCommand.h"
 
 #include <expected>
@@ -43,6 +44,7 @@ private:
     void updateAssets();
     void saveState();
 
+    std::unique_ptr<gfx::Device> device;
     std::unique_ptr<Window> window;
     Settings settings;
     std::filesystem::path settingsPath;

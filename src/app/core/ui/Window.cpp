@@ -2,12 +2,12 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Theme.h"
+#include "gfx/Device.h"
 
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
 #include <imgui.h>
-#include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl3.h>
+#include <imgui_impl_sdlgpu3.h>
 
 #include <expected>
 #include <format>
@@ -17,44 +17,35 @@
 
 namespace toki::core {
 
-namespace {
-
-constexpr int GlMajorVersion = 3;
-constexpr int GlMinorVersion = 3;
-constexpr const char* GlslVersion = "#version 330";
-} // namespace
-
 std::expected<Window, std::string> Window::create(const char* title,
-                                                  const std::optional<WindowGeometry>& geometry) {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+                                                  const std::optional<WindowGeometry>& geometry,
+                                                  const gfx::Device& device) {
+    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         return std::unexpected(std::format("SDL_Init failed: {}", SDL_GetError()));
     }
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, GlMajorVersion);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, GlMinorVersion);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
     const int width = geometry ? geometry->width : DefaultWidth;
     const int height = geometry ? geometry->height : DefaultHeight;
 
     Window window;
-    window.window = SDL_CreateWindow(title, width, height,
-                                     SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
-                                         SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
+    window.window =
+        SDL_CreateWindow(title, width, height,
+                         SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
     if (window.window == nullptr) {
-        SDL_Quit();
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
         return std::unexpected(std::format("SDL_CreateWindow failed: {}", SDL_GetError()));
     }
 
-    window.glContext = SDL_GL_CreateContext(window.window);
-    if (window.glContext == nullptr) {
+    if (!SDL_ClaimWindowForGPUDevice(device.getHandle(), window.window)) {
         SDL_DestroyWindow(window.window);
         window.window = nullptr;
-        SDL_Quit();
-        return std::unexpected(std::format("SDL_GL_CreateContext failed: {}", SDL_GetError()));
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        return std::unexpected(
+            std::format("the window could not be drawn to by the GPU: {}", SDL_GetError()));
     }
+    window.device = &device;
+    SDL_SetGPUSwapchainParameters(device.getHandle(), window.window,
+                                  SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
     if (geometry) {
         SDL_SetWindowPosition(window.window, geometry->x, geometry->y);
@@ -64,28 +55,28 @@ std::expected<Window, std::string> Window::create(const char* title,
     }
     SDL_ShowWindow(window.window);
 
-    SDL_GL_MakeCurrent(window.window, window.glContext);
-    SDL_GL_SetSwapInterval(1);
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    ImGui_ImplSDL3_InitForOpenGL(window.window, window.glContext);
-    ImGui_ImplOpenGL3_Init(GlslVersion);
+    ImGui_ImplSDL3_InitForSDLGPU(window.window);
+    ImGui_ImplSDLGPU3_InitInfo info;
+    info.Device = device.getHandle();
+    info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(device.getHandle(), window.window);
+    info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+    ImGui_ImplSDLGPU3_Init(&info);
 
     return window;
 }
 
 Window::Window(Window&& other) noexcept
-    : window(std::exchange(other.window, nullptr)),
-      glContext(std::exchange(other.glContext, nullptr)),
+    : window(std::exchange(other.window, nullptr)), device(std::exchange(other.device, nullptr)),
       running(std::exchange(other.running, false)), restored(other.restored) {}
 
 Window& Window::operator=(Window&& other) noexcept {
     if (this != &other) {
         destroy();
         window = std::exchange(other.window, nullptr);
-        glContext = std::exchange(other.glContext, nullptr);
+        device = std::exchange(other.device, nullptr);
         running = std::exchange(other.running, false);
         restored = other.restored;
     }
@@ -101,14 +92,15 @@ void Window::destroy() noexcept {
         return;
     }
 
-    ImGui_ImplOpenGL3_Shutdown();
+    SDL_WaitForGPUIdle(device->getHandle());
+    ImGui_ImplSDLGPU3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
-    SDL_GL_DestroyContext(glContext);
+    SDL_ReleaseWindowFromGPUDevice(device->getHandle(), window);
     SDL_DestroyWindow(window);
-    SDL_Quit();
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
-    glContext = nullptr;
+    device = nullptr;
     window = nullptr;
 }
 
@@ -129,7 +121,7 @@ bool Window::beginFrame() {
 
     rememberGeometry();
 
-    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     return true;
@@ -152,17 +144,33 @@ WindowGeometry Window::getGeometry() const {
 
 void Window::endFrame() {
     ImGui::Render();
+    ImDrawData* drawData = ImGui::GetDrawData();
 
-    int width = 0;
-    int height = 0;
-    SDL_GetWindowSizeInPixels(window, &width, &height);
-    glViewport(0, 0, width, height);
-    glClearColor(palette::Background.x, palette::Background.y, palette::Background.z,
-                 palette::Background.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device->getHandle());
+    if (commands == nullptr) {
+        return;
+    }
+    SDL_GPUTexture* swapchain = nullptr;
+    const bool minimized = drawData->DisplaySize.x <= 0.0F || drawData->DisplaySize.y <= 0.0F;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &swapchain, nullptr, nullptr) ||
+        swapchain == nullptr || minimized) {
+        SDL_SubmitGPUCommandBuffer(commands);
+        return;
+    }
 
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    SDL_GL_SwapWindow(window);
+    ImGui_ImplSDLGPU3_PrepareDrawData(drawData, commands);
+    SDL_GPUColorTargetInfo target{};
+    target.texture = swapchain;
+    target.clear_color = SDL_FColor{.r = palette::Background.x,
+                                    .g = palette::Background.y,
+                                    .b = palette::Background.z,
+                                    .a = palette::Background.w};
+    target.load_op = SDL_GPU_LOADOP_CLEAR;
+    target.store_op = SDL_GPU_STOREOP_STORE;
+    SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
+    ImGui_ImplSDLGPU3_RenderDrawData(drawData, commands, pass);
+    SDL_EndGPURenderPass(pass);
+    SDL_SubmitGPUCommandBuffer(commands);
 }
 
 } // namespace toki::core

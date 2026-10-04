@@ -18,8 +18,9 @@ namespace gfx {
 class Device {
 public:
     /// Creates a device with no window, starting SDL's video subsystem for as
-    /// long as the device lives. Fails with SDL's reason when there is no
-    /// usable GPU backend, which tests treat as a reason to skip.
+    /// long as the device lives. A window that is to show what the device
+    /// draws is claimed for it afterwards. Fails with SDL's reason when there
+    /// is no usable GPU backend, which tests treat as a reason to skip.
     [[nodiscard]] static std::expected<Device, base::Diagnostic> create();
 
     [[nodiscard]] SDL_GPUDevice* getHandle() const {

@@ -3,6 +3,8 @@
 #include "n64/BigEndian.h"
 #include "n64/Types.h"
 
+#include <array>
+#include <cmath>
 #include <span>
 
 namespace n64 {
@@ -23,6 +25,20 @@ Viewport readViewport(const std::span<const u8> bytes) {
             static_cast<f32>(readS16(bytes, TranslateOffset + (axis * 2))) / divisor;
     }
     return viewport;
+}
+
+std::array<u8, ViewportSize> writeViewport(const Viewport& viewport) {
+    std::array<u8, ViewportSize> bytes{};
+    for (usize axis = 0; axis < 3; ++axis) {
+        const f32 multiplier = axis < 2 ? QuarterPixels : 1.0F;
+        writeU16(
+            bytes, axis * 2,
+            static_cast<u16>(static_cast<s16>(std::lround(viewport.scale[axis] * multiplier))));
+        writeU16(
+            bytes, TranslateOffset + (axis * 2),
+            static_cast<u16>(static_cast<s16>(std::lround(viewport.translate[axis] * multiplier))));
+    }
+    return bytes;
 }
 
 Viewport makeDefaultViewport() {

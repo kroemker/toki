@@ -6,6 +6,7 @@ add_executable(toki_tests
         app/build/BuildTextTest.cpp
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
+        app/viewport/ViewportFrameTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
         cparser/AddressTest.cpp
         cparser/ExpandTest.cpp
@@ -34,6 +35,7 @@ add_executable(toki_tests
         makeparser/MakefileTest.cpp
         makeparser/ShellWordsTest.cpp
         n64/CombinerTest.cpp
+        n64/DisplayListWriterTest.cpp
         n64/FixedMatrixTest.cpp
         n64/MemoryTest.cpp
         n64/RdpTest.cpp

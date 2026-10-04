@@ -23,9 +23,17 @@ inline constexpr usize FixedMatrixSize = 64;
 
 [[nodiscard]] FixedMatrix makeIdentityMatrix();
 
+/// Converts sixteen floats, row-major, to s15.16 the way `guMtxF2L` does:
+/// scaled by 65536 and truncated toward zero. Values past the s15.16 range
+/// saturate rather than wrap.
+[[nodiscard]] FixedMatrix makeFixedMatrix(const std::array<f32, 16>& elements);
+
 /// Reads an `Mtx`: sixteen big-endian integer halves, then sixteen fraction
 /// halves. `bytes` must hold `FixedMatrixSize` bytes.
 [[nodiscard]] FixedMatrix readFixedMatrix(std::span<const u8> bytes);
+
+/// Writes an `Mtx` in the layout `readFixedMatrix` reads.
+[[nodiscard]] std::array<u8, FixedMatrixSize> writeFixedMatrix(const FixedMatrix& matrix);
 
 /// `first * second`: a vector transformed by the result is transformed by
 /// `first`, then by `second`. Products are summed exactly and shifted back to

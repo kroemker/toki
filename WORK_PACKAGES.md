@@ -357,6 +357,18 @@ SDL GPU backend (`imgui` feature `sdlgpu3-binding`): the window moves off OpenGL
 
 Done when a hand-built memory image renders in a dockable viewport panel.
 
+*Done:* the window draws ImGui through SDL3's GPU API (`sdlgpu3-binding`) on the same
+`gfx::Device` the renderer uses; OpenGL is gone. `toki::viewport::runFrame` writes a frame
+display list of its own into segment 1, as the game builds one at run time: a `Vp` sized to
+the panel, the `OrbitCamera`'s projection and view as `Mtx` (`n64::makeFixedMatrix`), then a
+call to each of the image's display lists, and runs the RSP and RDP over the image and the
+frame. Words are written by `n64::DisplayListWriter`, checked against the tests' own builder
+and the RSP. The hand-built image is `makeReferenceGrid`, a checkerboard floor in segment 6,
+shown until a scene is opened. `ViewportPanel` renders into an offscreen target sized to the
+panel, only when the camera, size or image changed, and shows it as an ImGui image: left drag
+orbits, right or middle drag (or Shift) pans, the wheel zooms. Tests check that the camera's
+target lands at the screen's centre and the fixed-point matrices agree with the camera's.
+
 ## 10. Scene and room parsing
 
 - `SCENE_CMD_*` header commands

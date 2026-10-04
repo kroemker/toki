@@ -23,6 +23,10 @@ inline constexpr usize ViewportSize = 16;
 /// and y in quarter pixels. `bytes` must hold `ViewportSize` bytes.
 [[nodiscard]] Viewport readViewport(std::span<const u8> bytes);
 
+/// Writes a `Vp` in the layout `readViewport` reads, rounding each value to
+/// the nearest unit it is stored in.
+[[nodiscard]] std::array<u8, ViewportSize> writeViewport(const Viewport& viewport);
+
 /// The viewport F3DEX2 starts a task with: a 320 by 240 screen.
 [[nodiscard]] Viewport makeDefaultViewport();
 

@@ -3,6 +3,8 @@
 #include "n64/BigEndian.h"
 #include "n64/Types.h"
 
+#include <algorithm>
+#include <array>
 #include <span>
 
 namespace n64 {
@@ -38,6 +40,17 @@ FixedMatrix makeIdentityMatrix() {
     return matrix;
 }
 
+FixedMatrix makeFixedMatrix(const std::array<f32, 16>& elements) {
+    constexpr f64 Largest = 2147483647.0;
+    constexpr f64 Smallest = -2147483648.0;
+    FixedMatrix matrix;
+    for (usize i = 0; i < elements.size(); ++i) {
+        const f64 scaled = std::clamp(f64{elements[i]} * FixedOne, Smallest, Largest);
+        matrix.elements[i] = static_cast<s32>(scaled);
+    }
+    return matrix;
+}
+
 FixedMatrix readFixedMatrix(const std::span<const u8> bytes) {
     FixedMatrix matrix;
     for (usize i = 0; i < matrix.elements.size(); ++i) {
@@ -46,6 +59,16 @@ FixedMatrix readFixedMatrix(const std::span<const u8> bytes) {
         matrix.elements[i] = static_cast<s32>((integer << 16) | fraction);
     }
     return matrix;
+}
+
+std::array<u8, FixedMatrixSize> writeFixedMatrix(const FixedMatrix& matrix) {
+    std::array<u8, FixedMatrixSize> bytes{};
+    for (usize i = 0; i < matrix.elements.size(); ++i) {
+        const auto element = static_cast<u32>(matrix.elements[i]);
+        writeU16(bytes, i * 2, static_cast<u16>(element >> 16));
+        writeU16(bytes, FractionOffset + (i * 2), static_cast<u16>(element));
+    }
+    return bytes;
 }
 
 FixedMatrix multiply(const FixedMatrix& first, const FixedMatrix& second) {

@@ -12,8 +12,8 @@
       "name": "imgui",
       "features": [
         "docking-experimental",
-        "opengl3-binding",
-        "sdl3-binding"
+        "sdl3-binding",
+        "sdlgpu3-binding"
       ]
     },
     "catch2",

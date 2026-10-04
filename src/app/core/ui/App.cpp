@@ -14,8 +14,10 @@
 #include "app/core/ui/Paths.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
+#include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
+#include "gfx/Device.h"
 #include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
 
@@ -64,7 +66,14 @@ std::expected<void, std::string> App::initialize() {
     }
     log().setMaxEntries(settings.log.maxEntries);
 
-    std::expected<Window, std::string> created = Window::create(WindowTitle, settings.window);
+    std::expected<gfx::Device, base::Diagnostic> createdDevice = gfx::Device::create();
+    if (!createdDevice) {
+        return std::unexpected(base::describe(createdDevice.error()));
+    }
+    device = std::make_unique<gfx::Device>(std::move(*createdDevice));
+
+    std::expected<Window, std::string> created =
+        Window::create(WindowTitle, settings.window, *device);
     if (!created) {
         return std::unexpected(created.error());
     }
@@ -95,6 +104,7 @@ std::expected<void, std::string> App::initialize() {
 }
 
 void App::registerPanels() {
+    panels.add(std::make_unique<viewport::ViewportPanel>(*device));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(workspaceService, assetReader));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));

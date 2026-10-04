@@ -19,4 +19,16 @@ namespace n64 {
            (static_cast<u32>(bytes[offset + 2]) << 8) | static_cast<u32>(bytes[offset + 3]);
 }
 
+inline void writeU16(const std::span<u8> bytes, const usize offset, const u16 value) {
+    bytes[offset] = static_cast<u8>(value >> 8);
+    bytes[offset + 1] = static_cast<u8>(value);
+}
+
+inline void writeU32(const std::span<u8> bytes, const usize offset, const u32 value) {
+    bytes[offset] = static_cast<u8>(value >> 24);
+    bytes[offset + 1] = static_cast<u8>(value >> 16);
+    bytes[offset + 2] = static_cast<u8>(value >> 8);
+    bytes[offset + 3] = static_cast<u8>(value);
+}
+
 } // namespace n64

@@ -7,8 +7,10 @@
 #include <string>
 
 struct SDL_Window;
-struct SDL_GLContextState;
-using SDL_GLContext = SDL_GLContextState*;
+
+namespace gfx {
+class Device;
+} // namespace gfx
 
 namespace toki::core {
 
@@ -18,7 +20,8 @@ public:
     static constexpr int DefaultHeight = 900;
 
     [[nodiscard]] static std::expected<Window, std::string>
-    create(const char* title, const std::optional<WindowGeometry>& geometry);
+    create(const char* title, const std::optional<WindowGeometry>& geometry,
+           const gfx::Device& device);
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
@@ -46,7 +49,7 @@ private:
     void rememberGeometry();
 
     SDL_Window* window = nullptr;
-    SDL_GLContext glContext = nullptr;
+    const gfx::Device* device = nullptr;
     bool running = true;
     WindowGeometry restored{
         .x = 0, .y = 0, .width = DefaultWidth, .height = DefaultHeight, .maximized = false};

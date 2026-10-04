@@ -2,6 +2,7 @@ target_sources(toki_core PRIVATE
         Blender.cpp
         CombineMode.cpp
         Combiner.cpp
+        DisplayListWriter.cpp
         FixedMatrix.cpp
         Lighting.cpp
         Memory.cpp

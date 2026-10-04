@@ -100,11 +100,12 @@ src/
   z64/         Zelda64/N64 formats and decomp conventions. No processes, no UI.
   hackeroot/   The user's checkout: discovery, tables, config, build runner.
   n64/         The hardware: F3DEX2 on the RSP, RDP state, texture memory. CPU only.
-  gfx/         The GPU side of the renderer: upload, ubershader, viewport, camera.
+  gfx/         The GPU side of the renderer: device, upload, ubershader, render targets.
   app/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
     assets/    ui/ = asset browser   domain/ = asset reports, scene names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
+    viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/
