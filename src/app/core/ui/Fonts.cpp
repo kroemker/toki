@@ -2,7 +2,9 @@
 
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Utf8.h"
+#include "app/core/ui/Icons.h"
 
+#include <array>
 #include <filesystem>
 #include <system_error>
 
@@ -15,6 +17,8 @@ constexpr const char* StrongFile = "Inter-SemiBold.ttf";
 constexpr const char* MonoFile = "JetBrainsMono-Regular.ttf";
 constexpr const char* IconFile = "Phosphor.ttf";
 
+constexpr std::array<ImWchar, 3> IconGlyphRange{icons::RangeMin, icons::RangeMax, 0};
+
 [[nodiscard]] bool isFile(const std::filesystem::path& path) {
     std::error_code status;
     return std::filesystem::is_regular_file(path, status);
@@ -25,7 +29,9 @@ constexpr const char* IconFile = "Phosphor.ttf";
         logError("font missing: {}", encodeUtf8(path));
         return nullptr;
     }
-    return atlas.AddFontFromFileTTF(encodeUtf8(path).c_str(), size);
+    ImFontConfig config;
+    config.GlyphExcludeRanges = IconGlyphRange.data();
+    return atlas.AddFontFromFileTTF(encodeUtf8(path).c_str(), size, &config);
 }
 
 void mergeIcons(ImFontAtlas& atlas, const std::filesystem::path& path, float size) {
