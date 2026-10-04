@@ -14,4 +14,5 @@ target_sources(toki_core PRIVATE
         SourceSet.cpp
         TableReader.cpp
         Token.cpp
+        TypeName.cpp
         Value.cpp)

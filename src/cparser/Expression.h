@@ -17,6 +17,16 @@ namespace cparser {
 class MacroTable;
 struct Dialect;
 
+/// Where a symbol lives, for expressions that take an address: display lists
+/// point at vertices, textures and other display lists.
+struct SymbolAddress {
+    s64 address = 0;
+
+    /// The size of one element, so `&vertices[3]` and `vertices + 3` both move
+    /// by three of them.
+    usize elementSize = 1;
+};
+
 struct EvalContext {
     const MacroTable* macros = nullptr;
 
@@ -31,6 +41,10 @@ struct EvalContext {
     /// Identifiers that are not macros at all: the enum constants generated
     /// from the ordinal tables, and the gbi constants compiled into the binary.
     std::function<std::optional<Value>(std::string_view)> resolve;
+
+    /// Symbols an expression may take the address of. A symbol names its
+    /// first element, as an array does in C.
+    std::function<std::optional<SymbolAddress>(std::string_view)> findSymbol;
 
     /// Declared element counts, for builtins that count an array.
     std::function<std::optional<usize>(std::string_view)> findArrayLength;

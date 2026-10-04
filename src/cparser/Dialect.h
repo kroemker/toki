@@ -55,6 +55,10 @@ struct Builtin {
 struct Dialect {
     std::span<const ScalarType> types;
     std::span<const Builtin> builtins;
+
+    /// Types too wide to convert, which only `sizeof` and a pointer cast may
+    /// name, such as the gbi's `Vtx`.
+    std::span<const ScalarType> aggregates;
 };
 
 /// Plain C on a 32-bit target: `int` and `long` 32 bits, `char` signed, and no
@@ -62,6 +66,8 @@ struct Dialect {
 [[nodiscard]] const Dialect& getStandardC();
 
 [[nodiscard]] const ScalarType* findType(const Dialect& dialect, std::string_view name);
+
+[[nodiscard]] const ScalarType* findAggregate(const Dialect& dialect, std::string_view name);
 
 [[nodiscard]] const Builtin* findBuiltin(const Dialect& dialect, std::string_view name);
 

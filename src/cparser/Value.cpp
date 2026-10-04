@@ -15,6 +15,8 @@ namespace cparser {
 
 namespace {
 
+constexpr usize PointerSize = 4;
+
 [[nodiscard]] s64 truncateTo(const ScalarType& type, s64 value) {
     switch (type.size) {
     case 1:
@@ -291,12 +293,31 @@ std::optional<Value> parseLiteral(const Token& token) {
 }
 
 Value applyOperator(std::string_view op, const Value& left, const Value& right) {
+    const bool leftPointer = left.stride != 0 && !isReal(left);
+    const bool rightPointer = right.stride != 0 && !isReal(right);
+    if (op == "-" && leftPointer && rightPointer && left.stride == right.stride) {
+        return makeInteger((left.integer - right.integer) / static_cast<s64>(left.stride));
+    }
+    if ((op == "+" || op == "-") && leftPointer && !rightPointer) {
+        Value moved =
+            apply(op, left, makeInteger(getInteger(right) * static_cast<s64>(left.stride)));
+        moved.stride = left.stride;
+        return moved;
+    }
+    if (op == "+" && rightPointer && !leftPointer) {
+        Value moved =
+            apply(op, makeInteger(getInteger(left) * static_cast<s64>(right.stride)), right);
+        moved.stride = right.stride;
+        return moved;
+    }
     return apply(op, left, right);
 }
 
-Value castTo(const ScalarType& type, bool pointer, const Value& operand) {
-    if (pointer) {
-        return makeInteger(getInteger(operand));
+Value castTo(const ScalarType& type, const usize pointerDepth, const Value& operand) {
+    if (pointerDepth > 0) {
+        Value pointer = makeInteger(getInteger(operand));
+        pointer.stride = pointerDepth > 1 ? PointerSize : type.size;
+        return pointer;
     }
     if (type.isReal) {
         return type.size == 4 ? makeFloat(getReal(operand)) : makeDouble(getReal(operand));

@@ -35,6 +35,11 @@ const ScalarType* findType(const Dialect& dialect, std::string_view name) {
     return found == dialect.types.end() ? nullptr : &*found;
 }
 
+const ScalarType* findAggregate(const Dialect& dialect, std::string_view name) {
+    const auto found = std::ranges::find(dialect.aggregates, name, &ScalarType::name);
+    return found == dialect.aggregates.end() ? nullptr : &*found;
+}
+
 const Builtin* findBuiltin(const Dialect& dialect, std::string_view name) {
     const auto found = std::ranges::find(dialect.builtins, name, &Builtin::name);
     return found == dialect.builtins.end() ? nullptr : &*found;

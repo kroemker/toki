@@ -15,6 +15,16 @@
 
 namespace hackeroot {
 
+namespace {
+
+constexpr std::string_view CompilerPredefines = "#define _LANGUAGE_C 1\n"
+                                                "#define __mips__ 1\n"
+                                                "#define _MIPS_SZINT 32\n"
+                                                "#define _MIPS_SZLONG 32\n"
+                                                "#define _MIPS_SZPTR 32\n";
+
+} // namespace
+
 Configuration readConfiguration(const cparser::MacroTable& scraped,
                                 const std::filesystem::path& repository,
                                 std::span<const std::string> defineArguments) {
@@ -27,7 +37,8 @@ Configuration readConfiguration(const cparser::MacroTable& scraped,
     };
 
     const cparser::MacroTable nothing;
-    std::string source = cparser::buildPredefineSource(defineArguments);
+    std::string source(CompilerPredefines);
+    source += cparser::buildPredefineSource(defineArguments);
     source += "#include \"config.h\"\n";
     cparser::TranslationUnit unit = cparser::preprocessText(
         nothing, repository / "<build configuration>", std::move(source), options);

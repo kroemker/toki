@@ -4,7 +4,9 @@
 #include "cparser/Dialect.h"
 #include "cparser/Expand.h"
 #include "cparser/ScalarType.h"
+#include "cparser/Spellings.h"
 #include "cparser/Token.h"
+#include "cparser/TypeName.h"
 #include "cparser/Types.h"
 #include "cparser/Value.h"
 
@@ -62,12 +64,6 @@ constexpr s64 PointerSize = 4;
     return 0;
 }
 
-struct Cast {
-    const ScalarType* type = nullptr;
-    bool pointer = false;
-    usize after = 0;
-};
-
 class Call;
 
 class Evaluator {
@@ -105,9 +101,16 @@ private:
     [[nodiscard]] std::expected<Value, base::Diagnostic> parseUnary();
 
     [[nodiscard]] std::expected<Value, base::Diagnostic> parsePrimary();
+
+    [[nodiscard]] std::expected<Value, base::Diagnostic> parseAddress();
+
+    [[nodiscard]] std::expected<Value, base::Diagnostic> parseCast(const TypeName& cast);
+
     [[nodiscard]] std::optional<Value> parseSizeof();
 
-    [[nodiscard]] std::optional<Cast> findCast(usize at) const;
+    [[nodiscard]] std::optional<TypeName> findTypeName(usize open) const {
+        return cparser::findTypeName(tokens, open, getDialect(context));
+    }
 
     [[nodiscard]] std::expected<Value, base::Diagnostic> parseBuiltin(const Builtin& builtin,
                                                                       const Token& name);
@@ -194,6 +197,13 @@ Value Evaluator::resolveIdentifier(const Token& token) {
             return *resolved;
         }
     }
+    if (context.findSymbol) {
+        if (const std::optional<SymbolAddress> symbol = context.findSymbol(token.text)) {
+            Value address = makeInteger(symbol->address);
+            address.stride = symbol->elementSize;
+            return address;
+        }
+    }
 
     const base::SourceLocation location = locate(token);
     report(context.unknownIsZero
@@ -257,44 +267,62 @@ std::expected<Value, base::Diagnostic> Evaluator::parseBuiltin(const Builtin& bu
         locate(name), std::format("the arguments to '{}' are never closed", name.text)));
 }
 
-std::optional<Cast> Evaluator::findCast(usize at) const {
-    if (at + 2 >= tokens.size() || tokens[at + 1].kind != TokenKind::Identifier) {
-        return std::nullopt;
-    }
-    const ScalarType* type = findType(getDialect(context), tokens[at + 1].text);
-    if (type == nullptr) {
-        return std::nullopt;
-    }
-
-    usize after = at + 2;
-    while (after < tokens.size() && isPunctuator(tokens[after], "*")) {
-        ++after;
-    }
-    if (after >= tokens.size() || !isPunctuator(tokens[after], ")")) {
-        return std::nullopt;
-    }
-    return Cast{.type = type, .pointer = after != at + 2, .after = after + 1};
-}
-
 std::optional<Value> Evaluator::parseSizeof() {
     const Token& token = peek();
-    if (token.kind != TokenKind::Identifier || token.text != "sizeof" ||
-        cursor + 1 >= tokens.size() || !isPunctuator(tokens[cursor + 1], "(")) {
+    if (token.kind != TokenKind::Identifier || token.text != "sizeof") {
         return std::nullopt;
     }
-    const std::optional<Cast> type = findCast(cursor + 1);
+    const std::optional<TypeName> type = findTypeName(cursor + 1);
     if (!type) {
         return std::nullopt;
     }
-    cursor = type->after;
-    if (type->pointer) {
+    cursor = type->end;
+    if (type->pointerDepth > 0) {
         return makeInteger(PointerSize);
     }
-    if (type->type->size == 0) {
+    if (type->type.size == 0) {
         report(base::makeWarning(
-            locateHere(), std::format("'{}' has no size, reading it as 0", type->type->name)));
+            locateHere(), std::format("'{}' has no size, reading it as 0", type->type.name)));
     }
-    return makeInteger(type->type->size);
+    return makeInteger(type->type.size);
+}
+
+std::expected<Value, base::Diagnostic> Evaluator::parseAddress() {
+    const Token& name = peek();
+    ++cursor;
+    if (!isPunctuator(peek(), "[")) {
+        return resolveIdentifier(name);
+    }
+    const Value array = resolveIdentifier(name);
+    ++cursor;
+    const std::expected<Value, base::Diagnostic> index = parseConditional();
+    if (!index) {
+        return index;
+    }
+    if (!isPunctuator(peek(), "]")) {
+        return std::unexpected(base::makeError(locateHere(), "expected ']'"));
+    }
+    ++cursor;
+    if (array.stride == 0) {
+        report(base::makeWarning(
+            locate(name), std::format("'{}' is not an array, reading &{}[...] as its address",
+                                      name.text, name.text)));
+        return array;
+    }
+    return applyOperator("+", array, *index);
+}
+
+std::expected<Value, base::Diagnostic> Evaluator::parseCast(const TypeName& cast) {
+    if (cast.isAggregate && cast.pointerDepth == 0) {
+        return std::unexpected(
+            base::makeError(locateHere(), std::format("'{}' cannot be cast to", cast.type.name)));
+    }
+    cursor = cast.end;
+    const std::expected<Value, base::Diagnostic> operand = parseUnary();
+    if (!operand) {
+        return operand;
+    }
+    return castTo(cast.type, cast.pointerDepth, *operand);
 }
 
 std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
@@ -304,13 +332,8 @@ std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
     }
 
     if (isPunctuator(token, "(")) {
-        if (const std::optional<Cast> cast = findCast(cursor)) {
-            cursor = cast->after;
-            const std::expected<Value, base::Diagnostic> operand = parseUnary();
-            if (!operand) {
-                return operand;
-            }
-            return castTo(*cast->type, cast->pointer, *operand);
+        if (const std::optional<TypeName> cast = findTypeName(cursor)) {
+            return parseCast(*cast);
         }
 
         ++cursor;
@@ -370,6 +393,9 @@ std::expected<Value, base::Diagnostic> Evaluator::parseUnary() {
     }
 
     ++cursor;
+    if (op == "&" && peek().kind == TokenKind::Identifier) {
+        return parseAddress();
+    }
     const std::expected<Value, base::Diagnostic> operand = parseUnary();
     if (!operand) {
         return operand;
@@ -460,6 +486,10 @@ std::expected<Value, base::Diagnostic> Evaluator::run() {
 std::expected<Value, base::Diagnostic> evaluate(std::span<const Token> tokens,
                                                 const EvalContext& context,
                                                 std::vector<base::Diagnostic>& diagnostics) {
+    if (context.macros == nullptr) {
+        return Evaluator(tokens, context, diagnostics).run();
+    }
+    Spellings spellings;
     const ExpandOptions options{
         .macros = context.macros,
         .keep =
@@ -467,6 +497,7 @@ std::expected<Value, base::Diagnostic> evaluate(std::span<const Token> tokens,
                 return findBuiltin(getDialect(context), name) != nullptr ||
                        (context.keep && context.keep(name));
             },
+        .spellings = &spellings,
     };
     const std::vector<Token> expanded = expand(tokens, options, diagnostics);
     return Evaluator(expanded, context, diagnostics).run();

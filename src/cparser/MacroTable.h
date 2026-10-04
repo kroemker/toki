@@ -57,6 +57,13 @@ public:
 
     void remove(std::string_view name);
 
+    /// Defines here every macro `other` defines in its own layer, and hides
+    /// every name it undefines. Two tables
+    /// that grew over the same base, such as a file's macros and the gbi's,
+    /// stack this way: one layered over the other, with the other's own
+    /// definitions copied in.
+    void defineFrom(const MacroTable& other);
+
     [[nodiscard]] const Macro* find(std::string_view name) const;
 
     [[nodiscard]] bool contains(std::string_view name) const {

@@ -64,6 +64,15 @@ void MacroTable::defineIfAbsent(Macro macro) {
     define(std::move(macro));
 }
 
+void MacroTable::defineFrom(const MacroTable& other) {
+    for (const auto& [name, macro] : other.macros) {
+        define(macro);
+    }
+    for (const std::string& name : other.undefined) {
+        remove(name);
+    }
+}
+
 void MacroTable::remove(std::string_view name) {
     if (const auto found = macros.find(name); found != macros.end()) {
         macros.erase(found);

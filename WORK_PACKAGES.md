@@ -301,6 +301,14 @@ while building it.
 `Expression` needs one addition here: `&sym[3]` as a symbol reference plus an offset, which
 needs symbol addresses and so could not be built before the memory image.
 
+*Done:* the checkout's own `gbi.h`, read by `hackeroot::readGbi` under the build's
+configuration (which now starts with MIPS GCC's predefines, `_LANGUAGE_C` among them).
+`z64::DisplayListEncoder` expands each element and evaluates its words, brace elision
+included. `cparser` gained `#`, `##` and GNU's comma paste, multi-word type names,
+aggregate `sizeof`, and symbol addresses with pointer arithmetic (`findSymbol`). Every
+display list in the vanilla scenes and objects encodes without a diagnostic, and the common
+commands match F3DEX2's known words. See [docs/gbi.md](docs/gbi.md).
+
 **Texture encoding** — the reverse of decoding, and missing until now. Every vanilla
 texture reaches the front end as a `.png` reference, while a segment buffer needs N64
 bytes. So: a PNG reader (none is in the vcpkg manifest yet), and encoders for each format

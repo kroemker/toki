@@ -6,6 +6,7 @@ target_sources(toki_core PRIVATE
         Checkout.cpp
         Configuration.cpp
         FilePoller.cpp
+        Gbi.cpp
         Tables.cpp
         Workspace.cpp
         WslPath.cpp)

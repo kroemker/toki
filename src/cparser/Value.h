@@ -27,6 +27,10 @@ struct Value {
     ValueType type = ValueType::Integer;
     s64 integer = 0;
     f64 number = 0.0;
+
+    /// For a pointer, the size of what it points at, so adding an integer
+    /// moves it by whole elements as C does. Zero for anything else.
+    usize stride = 0;
 };
 
 [[nodiscard]] Value makeInteger(s64 value);
@@ -56,11 +60,14 @@ struct Value {
 /// never reaches here, so an unknown spelling is treated as `!=`. A bitwise
 /// operator or shift on a real, which C rejects, truncates it to an integer.
 /// Integer division by zero is 0 here; the evaluator is what reports it.
+/// Adding to or subtracting from a pointer scales the integer by its stride,
+/// and the difference of two pointers counts elements.
 [[nodiscard]] Value applyOperator(std::string_view op, const Value& left, const Value& right);
 
 /// Applies a cast the way `type` converts: an integer type wraps to its size
 /// and signedness, a 4-byte real rounds to single precision, and a pointer
-/// cast leaves the bits alone.
-[[nodiscard]] Value castTo(const ScalarType& type, bool pointer, const Value& operand);
+/// cast leaves the bits alone and points at `type`, or at a pointer when
+/// `pointerDepth` is more than one.
+[[nodiscard]] Value castTo(const ScalarType& type, usize pointerDepth, const Value& operand);
 
 } // namespace cparser

@@ -124,8 +124,9 @@ HackerOoT concern, only what is read out of HackerOoT's is.
 
 `z64/` holds what is specific to the game and the decomp: the decomp's dialect
 (`getDecompDialect`: the N64's type widths, the `u8`..`f64` typedefs, `TEX_LEN` and
-`ARRAY_COUNT`), its rule for generated texture includes (`resolveTextureInclude`), and
-later gbi word emission and the memory image. It holds no domain structs.
+`ARRAY_COUNT`), its rule for generated texture includes (`resolveTextureInclude`), texture
+encoding as the build does it (`TextureEncoder`), gbi word emission
+(`DisplayListEncoder`), and later the memory image. It holds no domain structs.
 
 `n64/` is the hardware, and what is true of every N64 game: segment addressing, the
 physical address space (`Memory`), fixed-point matrices, and F3DEX2 running on the RSP

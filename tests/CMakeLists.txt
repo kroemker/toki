@@ -7,6 +7,7 @@ add_executable(toki_tests
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
+        cparser/AddressTest.cpp
         cparser/ExpandTest.cpp
         cparser/ExpressionTest.cpp
         cparser/MacroTableTest.cpp
@@ -20,6 +21,8 @@ add_executable(toki_tests
         hackeroot/BuildDefinesTest.cpp
         hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp
+        hackeroot/GbiCheckoutTest.cpp
+        hackeroot/GbiTest.cpp
         hackeroot/ConfigurationTest.cpp
         hackeroot/FilePollerTest.cpp
         hackeroot/WorkspaceTest.cpp

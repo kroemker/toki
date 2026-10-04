@@ -3,6 +3,7 @@
 #include "base/Diagnostic.h"
 #include "cparser/MacroTable.h"
 #include "cparser/Preprocessor.h"
+#include "cparser/Spellings.h"
 #include "cparser/Token.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -23,6 +24,9 @@ public:
     explicit Expansion(std::string source, cparser::ExpandOptions options = {})
         : unit(cparser::preprocessText(base, "memory.c", std::move(source), {})) {
         options.macros = &unit.macros;
+        if (options.spellings == nullptr) {
+            options.spellings = &spellings;
+        }
         const std::span<const cparser::Token> tokens =
             std::span(unit.tokens).first(unit.tokens.size() - 1);
         for (const cparser::Token& token : cparser::expand(tokens, options, diagnostics)) {
@@ -34,6 +38,7 @@ public:
     }
 
     cparser::MacroTable base;
+    cparser::Spellings spellings;
     cparser::TranslationUnit unit;
     std::vector<base::Diagnostic> diagnostics;
     std::string text;
@@ -119,4 +124,55 @@ TEST_CASE("expansion gives up loudly past its budget", "[cparser][expand]") {
 
 TEST_CASE("a function-like macro without a call is an ordinary name", "[cparser][expand]") {
     REQUIRE(Expansion("#define F(x) x\nF + 1\n").text == "F + 1");
+}
+
+TEST_CASE("## pastes the arguments as written, then the result expands", "[cparser][expand]") {
+    const Expansion expansion("#define G_IM_SIZ_16b 2\n"
+                              "#define G_IM_SIZ_16b_LOAD_BLOCK 2\n"
+                              "#define LOAD(siz) siz##_LOAD_BLOCK\n"
+                              "LOAD(G_IM_SIZ_16b)\n");
+
+    REQUIRE(expansion.text == "2");
+    REQUIRE(expansion.diagnostics.empty());
+}
+
+TEST_CASE("## with an empty argument leaves the other side", "[cparser][expand]") {
+    REQUIRE(Expansion("#define CAT(a, b) a ## b\nCAT(, x) CAT(y, )\n").text == "x y");
+    REQUIRE(Expansion("#define CAT3(a, b, c) a ## b ## c\nCAT3(x, , z)\n").text == "xz");
+}
+
+TEST_CASE("## that does not make one token is reported", "[cparser][expand]") {
+    const Expansion expansion("#define CAT(a, b) a ## b\nCAT(+, x)\n");
+
+    REQUIRE(expansion.text == "+ x");
+    REQUIRE(expansion.diagnostics.size() == 1);
+}
+
+TEST_CASE("# makes a string of the argument as written", "[cparser][expand]") {
+    const Expansion expansion("#define TWO 2\n#define S(x) #x\nS(TWO  + \"a\\\\b\")\n");
+
+    const std::string expected = R"("TWO + \"a\\\\b\"")";
+    REQUIRE(expansion.text == expected);
+}
+
+TEST_CASE("GNU's comma paste drops the comma before no arguments", "[cparser][expand]") {
+    const std::string definition = "#define F(fmt, ...) f(fmt, ## __VA_ARGS__)\n";
+
+    REQUIRE(Expansion(definition + "F(1)\n").text == "f ( 1 )");
+    REQUIRE(Expansion(definition + "F(1, 2)\n").text == "f ( 1 , 2 )");
+}
+
+TEST_CASE("without somewhere to keep text, # and ## are reported", "[cparser][expand]") {
+    const Expansion expansion("#define CAT(a, b) a ## b\nCAT(x, y)\n");
+    REQUIRE(expansion.diagnostics.empty());
+
+    const cparser::MacroTable base;
+    cparser::TranslationUnit unit =
+        cparser::preprocessText(base, "memory.c", "#define CAT(a, b) a ## b\nCAT(x, y)\n", {});
+    std::vector<base::Diagnostic> diagnostics;
+    const std::vector<cparser::Token> tokens =
+        cparser::expand(std::span(unit.tokens).first(unit.tokens.size() - 1),
+                        cparser::ExpandOptions{.macros = &unit.macros}, diagnostics);
+    REQUIRE(tokens.size() == 2);
+    REQUIRE(diagnostics.size() == 1);
 }

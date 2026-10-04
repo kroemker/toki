@@ -44,15 +44,19 @@ file that does not exist — the build generates it from a `.png`.
 4. **`Expand`** — on-demand macro expansion of a token range, with a stop-list. Every
    token carries a hide set, as the standard describes, and a replacement is rescanned
    together with the tokens after it, so `#define F G` then `F(1)` reaches `G(1)`.
-   Variadic macros, both `...` and GNU's `args...`, are supported. `#` and `##` are
-   diagnosed, not implemented.
+   Variadic macros, both `...` and GNU's `args...`, are supported, and so are `#`, `##`
+   and GNU's `, ## __VA_ARGS__`. A token they make has text no file spelled, so it is kept
+   in a `Spellings` the caller owns; without one, both operators are diagnosed and skipped.
 5. **`Value` and `Expression`** — a constant expression evaluator over the C operators the
    decomp uses, including casts that truncate the way the named type does. Integer and
    floating point both, because `DEG_TO_BINANG` is `(s16)(s32)((degrees) * (0x8000 /
    180.0f))`, and `float` stays `float`. Which type names a cast may use, and how wide
    they are, comes from the caller's `Dialect`, which also answers `sizeof` of a type name
    (a pointer is 4 bytes on both targets): prerendered rooms size their backgrounds with
-   `/ sizeof(u64)`. `sizeof` of an expression is not answered. `ARRAY_COUNT` and
+   `/ sizeof(u64)`. Type names may take several words (`unsigned int`, `long long`), and a
+   dialect may name aggregates that only `sizeof` and pointer casts use. `sizeof` of an
+   expression is not answered. A symbol the caller's `findSymbol` answers is its address,
+   and adding to it moves by whole elements, as C's pointer arithmetic does. `ARRAY_COUNT` and
    `TEX_LEN` are builtins of the decomp's dialect (`z64::getDecompDialect`) rather than
    expansions: their real definitions take `sizeof` of an array, which needs the array's
    declaration.

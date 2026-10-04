@@ -95,7 +95,13 @@ constexpr std::array Builtins = {
     cparser::Builtin{.name = "TEX_LEN", .evaluate = &textureLength},
 };
 
-constexpr cparser::Dialect Decomp{.types = Types, .builtins = Builtins};
+constexpr std::array Aggregates = {
+    ScalarType{.name = "Gfx", .size = 8},    ScalarType{.name = "Vtx", .size = 16},
+    ScalarType{.name = "Mtx", .size = 64},   ScalarType{.name = "Vp", .size = 16},
+    ScalarType{.name = "Light", .size = 16}, ScalarType{.name = "uSprite", .size = 24},
+};
+
+constexpr cparser::Dialect Decomp{.types = Types, .builtins = Builtins, .aggregates = Aggregates};
 
 } // namespace
 
