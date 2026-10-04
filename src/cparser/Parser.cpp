@@ -113,6 +113,7 @@ void readInitializer(std::span<const Token> initializer, Declaration& declaratio
         return;
     }
     declaration.initializer = *body;
+    declaration.isBraced = true;
     const bool embeds =
         std::ranges::any_of(splitElements(*body), [](std::span<const Token> element) {
             return element.size() == 1 && element.front().kind == TokenKind::Embedded;
@@ -254,6 +255,7 @@ void Parser::readArray(std::span<const Token> head, usize bracket, Declaration& 
         ++close;
     }
     declaration.arrayLength = evaluateLength(head.subspan(bracket + 1, close - bracket - 1));
+    declaration.hasDeclaredLength = declaration.arrayLength.has_value();
 }
 
 std::optional<std::vector<Token>>

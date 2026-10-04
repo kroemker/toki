@@ -5,6 +5,7 @@
 #include "cparser/IncludeResolver.h"
 #include "cparser/MacroTable.h"
 #include "cparser/SourceSet.h"
+#include "cparser/Spellings.h"
 #include "cparser/Token.h"
 #include "cparser/Types.h"
 
@@ -40,9 +41,19 @@ struct EmbeddedFile {
 struct TranslationUnit {
     SourceSet sources;
     MacroTable macros;
+
+    /// The text of tokens no file spelled, made while expanding as the unit
+    /// was read (`PreprocessOptions::expandMacros`).
+    Spellings spellings;
+
     std::vector<Token> tokens;
     std::vector<EmbeddedFile> embedded;
     std::vector<base::Diagnostic> diagnostics;
+
+    /// The spellings of quoted includes that resolved to no file the unit may
+    /// follow, each once, in the order first met. A caller that reads those
+    /// headers another way knows from them which.
+    std::vector<std::string> unresolvedIncludes;
 };
 
 struct PreprocessOptions {
@@ -67,6 +78,13 @@ struct PreprocessOptions {
     /// Identifiers an `#if` may use that are not macros, such as the enum
     /// constants the ordinal tables generate.
     std::function<std::optional<Value>(std::string_view)> resolve;
+
+    /// Expands text as it is read, against the macros defined at that point,
+    /// as a compiler's preprocessor does. Headers that define a macro, include
+    /// an X-macro table with it and undefine it again read right only this
+    /// way. Asset reading leaves it off, because which macros to expand there
+    /// is the consumer's decision.
+    bool expandMacros = false;
 
     /// Raises an unresolved identifier in a conditional from a note to a
     /// warning. Ordinal tables set it: there, a condition read wrongly shifts

@@ -11,9 +11,11 @@
 
 namespace hackeroot {
 
-/// The macros a HackerOoT build compiles every file with: what MIPS GCC
-/// defines on its own (`_LANGUAGE_C`, which `gbi.h` wraps its C half in, and
-/// the target's widths), the build's own `-D` definitions, and everything
+/// The macros a HackerOoT build compiles every file with: what the MIPS GCC
+/// it builds with (`mips-linux-gnu-gcc` 10, `-std=gnu11`, `-march=vr4300`)
+/// defines on its own, such as `_LANGUAGE_C`, which `gbi.h` wraps its C half
+/// in, and `__GNUC__`, which headers choose GCC's syntax by, then the
+/// build's own `-D` definitions, and everything
 /// `include/config.h` defines under them,
 /// read with real conditionals. `macros` is a layer over the scraped headers,
 /// so asset files and tables read against it see the configured value of a

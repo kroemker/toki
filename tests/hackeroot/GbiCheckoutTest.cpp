@@ -9,6 +9,7 @@
 #include "hackeroot/AssetSource.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/Gbi.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/Workspace.h"
 #include "z64/DecompDialect.h"
 #include "z64/DisplayList.h"
@@ -47,7 +48,7 @@ struct Checkout {
             hackeroot::Workspace::load(repository, {});
         REQUIRE(loaded.has_value());
         workspace.emplace(std::move(*loaded));
-        std::expected<hackeroot::Gbi, base::Diagnostic> read = hackeroot::readGbi(*workspace);
+        std::expected<hackeroot::Prelude, base::Diagnostic> read = hackeroot::readGbi(*workspace);
         INFO((read ? std::string() : read.error().message));
         REQUIRE(read.has_value());
         gbi.emplace(std::move(*read));
@@ -58,7 +59,7 @@ struct Checkout {
     }
 
     std::optional<hackeroot::Workspace> workspace;
-    std::optional<hackeroot::Gbi> gbi;
+    std::optional<hackeroot::Prelude> gbi;
 };
 
 std::vector<u32> readWords(const z64::DisplayList& list) {

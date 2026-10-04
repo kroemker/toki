@@ -31,9 +31,17 @@ struct Declaration {
     /// element is an embedded file: its count is the file's, not its tokens'.
     std::optional<usize> arrayLength;
 
+    /// Whether `arrayLength` is the one the source wrote, rather than a count
+    /// of the initializer's elements, which brace elision can make too high.
+    bool hasDeclaredLength = false;
+
     /// The interior of the outermost braces, or the whole expression when the
     /// initializer is not a brace list.
     std::span<const Token> initializer;
+
+    /// Whether the source wrote the braces, rather than a macro that may
+    /// expand to them, as `Mtx m = gdSPDefMtx(...)` does.
+    bool isBraced = false;
 
     base::SourceLocation location;
 };

@@ -1,6 +1,7 @@
 #include "Preprocessor.h"
 
 #include "base/Diagnostic.h"
+#include "cparser/Expand.h"
 #include "cparser/Expression.h"
 #include "cparser/IncludeResolver.h"
 #include "cparser/MacroTable.h"
@@ -49,6 +50,8 @@ public:
 
     void run(const SourceFile& file, usize depth);
 
+    void flushPending();
+
 private:
     [[nodiscard]] bool isActive() const {
         return conditionals.empty() || conditionals.back().active;
@@ -76,7 +79,19 @@ private:
     std::unordered_map<const SourceFile*, std::vector<Token>> scanned;
     std::vector<const SourceFile*> stack;
     std::vector<Conditional> conditionals;
+    std::vector<Token> pending;
 };
+
+void Preprocessor::flushPending() {
+    if (pending.empty()) {
+        return;
+    }
+    const std::vector<Token> expanded =
+        expand(pending, ExpandOptions{.macros = &unit.macros, .spellings = &unit.spellings},
+               unit.diagnostics);
+    unit.tokens.insert(unit.tokens.end(), expanded.begin(), expanded.end());
+    pending.clear();
+}
 
 const std::vector<Token>& Preprocessor::getTokens(const SourceFile& file) {
     const auto found = scanned.find(&file);
@@ -238,6 +253,9 @@ void Preprocessor::doInclude(const Token& directive, std::span<const Token> line
         resolver.resolve(spelling, target.file->path.parent_path());
     if (!resolved) {
         unit.diagnostics.push_back(base::makeNote(location, resolved.error()));
+        if (std::ranges::find(unit.unresolvedIncludes, spelling) == unit.unresolvedIncludes.end()) {
+            unit.unresolvedIncludes.push_back(spelling);
+        }
         return;
     }
 
@@ -322,13 +340,18 @@ void Preprocessor::run(const SourceFile& file, usize depth) {
                    tokens[end].kind != TokenKind::EndOfFile) {
                 ++end;
             }
+            flushPending();
             applyDirective(std::span(tokens).subspan(cursor + 1, end - cursor - 1), depth);
             cursor = end - 1;
             continue;
         }
 
         if (isActive()) {
-            unit.tokens.push_back(token);
+            if (options.expandMacros) {
+                pending.push_back(token);
+            } else {
+                unit.tokens.push_back(token);
+            }
         }
     }
 
@@ -342,7 +365,9 @@ void Preprocessor::run(const SourceFile& file, usize depth) {
 
 void preprocessInto(TranslationUnit& unit, const SourceFile& entry,
                     const PreprocessOptions& options) {
-    Preprocessor(unit, options).run(entry, 0);
+    Preprocessor preprocessor(unit, options);
+    preprocessor.run(entry, 0);
+    preprocessor.flushPending();
     unit.tokens.push_back(Token{.kind = TokenKind::EndOfFile, .startsLine = true, .file = &entry});
 }
 

@@ -98,3 +98,44 @@ TEST_CASE("a macro that pastes tokens evaluates", "[cparser][address]") {
     REQUIRE(evaluation.getInteger() == 16);
     REQUIRE(evaluation.diagnostics.empty());
 }
+
+TEST_CASE("a value derived from an address remembers its symbol", "[cparser][address]") {
+    const Evaluation offset("(unsigned int)(&sVertices[2]) + 4\n");
+    REQUIRE(offset.value.has_value());
+    REQUIRE(offset.value->symbol == "sVertices");
+    REQUIRE(offset.getInteger() == 0x06000124);
+    REQUIRE(offset.diagnostics.empty());
+
+    const Evaluation difference("&sVertices[5] - sVertices\n");
+    REQUIRE(difference.value->symbol.empty());
+    REQUIRE(difference.diagnostics.empty());
+}
+
+TEST_CASE("arithmetic an address cannot survive is reported", "[cparser][address]") {
+    const Evaluation shifted("(unsigned int)sVertices >> 4\n");
+    REQUIRE(shifted.value->symbol.empty());
+    REQUIRE(shifted.diagnostics.size() == 1);
+    REQUIRE(shifted.diagnostics.front().message.contains("sVertices"));
+
+    const Evaluation narrowed("(unsigned short)sVertices\n");
+    REQUIRE(narrowed.diagnostics.size() == 1);
+}
+
+TEST_CASE("a pointer to a type the caller sizes steps by that size", "[cparser][address]") {
+    cparser::MacroTable base;
+    const cparser::TranslationUnit unit =
+        cparser::preprocessText(base, "memory.c", "(Room*)sVertices + 2\n", {});
+    const cparser::EvalContext context{
+        .dialect = &TestDialect,
+        .findSymbol = &findSymbol,
+        .findTypeSize = [](const std::string_view name) -> std::optional<cparser::usize> {
+            return name == "Room" ? std::optional<cparser::usize>(300) : std::nullopt;
+        }};
+    std::vector<base::Diagnostic> diagnostics;
+    const std::expected<cparser::Value, base::Diagnostic> value = cparser::evaluate(
+        std::span(unit.tokens).first(unit.tokens.size() - 1), context, diagnostics);
+
+    REQUIRE(value.has_value());
+    REQUIRE(cparser::getInteger(*value) == 0x06000100 + 600);
+    REQUIRE(value->symbol == "sVertices");
+}

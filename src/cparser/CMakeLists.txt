@@ -12,7 +12,10 @@ target_sources(toki_core PRIVATE
         Scanner.cpp
         Scrape.cpp
         SourceSet.cpp
+        StringLiteral.cpp
         TableReader.cpp
         Token.cpp
         TypeName.cpp
+        TypeParser.cpp
+        TypeTable.cpp
         Value.cpp)

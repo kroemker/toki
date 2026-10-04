@@ -35,6 +35,20 @@ they are `-D` arguments the Makefile builds. So conditions are answered against 
   the config headers define in some arm but not in this configuration is hidden, so the
   scrape's first-seen arm can never answer for it.
 
+The compiler's own predefines come first in that layer, because headers branch on them and
+no Makefile spells them: `_LANGUAGE_C` (which `gbi.h` wraps its C half in), `__GNUC__`
+(which `cutscene_commands.h` picks its float encoding by), `__STDC_VERSION__` and the MIPS
+target macros, as `mips-linux-gnu-gcc` 10 defines them under the Makefile's flags. Without
+them a cutscene encodes its floats as integers and the gbi defines nothing.
+
+**Some files must be read the way the compiler reads them, not against the scrape.** The
+scrape is a cheap stand-in for headers a unit does not follow, and it has seen everything,
+`stdbool.h`'s `true` included. When the bytes must match the build, as the memory image's
+must, a file's system headers are read in full under the configuration alone, as a
+*prelude* (`hackeroot::readPrelude`), and expanded as they are read, the way a compiler's
+preprocessor does, so X-macro enumerations come out right. See
+[memory-image.md](memory-image.md).
+
 The user's build settings (`VERSION`, `DEBUG_FEATURES`, ...) are make's command line, and
 flow through exactly as they would in `make VERSION=...`. The same settings must reach the
 build runner, or the viewer and the build disagree about every scene ID.

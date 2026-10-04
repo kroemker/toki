@@ -5,6 +5,7 @@
 #include "cparser/Expression.h"
 #include "cparser/MacroTable.h"
 #include "cparser/Preprocessor.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/Workspace.h"
 #include "z64/DisplayList.h"
 #include "z64/DisplayListEncoder.h"
@@ -44,7 +45,7 @@ struct Emission {
             hackeroot::Workspace::load(getCheckout(), {});
         REQUIRE(loaded.has_value());
         workspace.emplace(std::move(*loaded));
-        std::expected<hackeroot::Gbi, base::Diagnostic> read = hackeroot::readGbi(*workspace);
+        std::expected<hackeroot::Prelude, base::Diagnostic> read = hackeroot::readGbi(*workspace);
         INFO((read ? std::string() : read.error().message));
         REQUIRE(read.has_value());
         gbi.emplace(std::move(*read));
@@ -55,7 +56,7 @@ struct Emission {
     }
 
     std::optional<hackeroot::Workspace> workspace;
-    std::optional<hackeroot::Gbi> gbi;
+    std::optional<hackeroot::Prelude> gbi;
     cparser::MacroTable empty;
     cparser::TranslationUnit source;
     z64::DisplayList list;
@@ -76,6 +77,9 @@ TEST_CASE("the checkout's gbi.h encodes the commands under the build's GBI_DEFIN
                                        0xDF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                    });
     REQUIRE(emission.list.commands.size() == 3);
+    REQUIRE(emission.list.relocations.size() == 1);
+    REQUIRE(emission.list.relocations.front().offset == 4);
+    REQUIRE(emission.list.relocations.front().symbol == "sVtx");
     REQUIRE(emission.list.commands[1].macro == "gsSP2Triangles");
     REQUIRE(emission.list.commands[1].location.line == 2);
 }
@@ -164,7 +168,7 @@ TEST_CASE("a checkout that enables F3DEX3 is refused", "[hackeroot][gbi]") {
         hackeroot::Workspace::load(getCheckout(), {{"CPP_DEFINES", "-DENABLE_F3DEX3=1"}});
     REQUIRE(workspace.has_value());
 
-    const std::expected<hackeroot::Gbi, base::Diagnostic> gbi = hackeroot::readGbi(*workspace);
+    const std::expected<hackeroot::Prelude, base::Diagnostic> gbi = hackeroot::readGbi(*workspace);
 
     REQUIRE_FALSE(gbi.has_value());
     REQUIRE(gbi.error().message.contains("F3DEX3"));

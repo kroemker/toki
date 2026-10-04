@@ -64,9 +64,20 @@ file that does not exist — the build generates it from a `.png`.
    token span}`, one per declarator in a list. Typedefs, struct definitions, functions
    and function prototypes are stepped over; anything else it cannot read is a note. The
    initializer stays *unevaluated tokens*, because the memory image and the scene reader
-   want different things out of it and neither should pay for the other's reading.
+   want different things out of it and neither should pay for the other's reading. A
+   declaration says whether its length was written (`hasDeclaredLength`), since a count of
+   initializer elements is wrong under brace elision, and whether the source braced its
+   initializer (`isBraced`), since `Mtx m = gdSPDefMtx(...)` gets its braces from a macro.
 7. **`TableReader`** — X-macro tables read into ordinal rows, preprocessed so that an
    `#if` around an entry is answered rather than guessed.
+8. **`TypeParser` and `TypeTable`** — typedef, struct, union and enum definitions read out
+   of a unit and laid out for the target as MIPS o32 GCC lays them out: natural alignment,
+   eight for `long long` and `double`, padding, bitfields packed from the most significant
+   bit, `__attribute__((aligned))`. Headers spell whole enumerations through X-macro
+   tables whose macro is undefined right after, so a unit read for its types is expanded
+   as it is read (`PreprocessOptions::expandMacros`); the lazy reading would see each such
+   macro only as the file left it. `sizeof` of a type a header defines is answered through
+   `EvalContext::findTypeSize`.
 
 ## Ownership is layered
 

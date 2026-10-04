@@ -1,6 +1,7 @@
 #include "Value.h"
 
 #include "cparser/ScalarType.h"
+#include "cparser/StringLiteral.h"
 #include "cparser/Token.h"
 #include "cparser/Types.h"
 
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -91,31 +93,11 @@ constexpr usize PointerSize = 4;
     if (text.size() < 3 || text.front() != '\'' || text.back() != '\'') {
         return std::nullopt;
     }
-    const std::string_view body = text.substr(1, text.size() - 2);
-    if (body.size() == 1) {
-        return makeInteger(static_cast<u8>(body[0]));
-    }
-    if (body.size() != 2 || body[0] != '\\') {
+    const std::string decoded = decodeEscapes(text.substr(1, text.size() - 2));
+    if (decoded.size() != 1) {
         return std::nullopt;
     }
-    switch (body[1]) {
-    case '0':
-        return makeInteger(0);
-    case 'n':
-        return makeInteger('\n');
-    case 't':
-        return makeInteger('\t');
-    case 'r':
-        return makeInteger('\r');
-    case '\\':
-        return makeInteger('\\');
-    case '\'':
-        return makeInteger('\'');
-    case '"':
-        return makeInteger('"');
-    default:
-        return std::nullopt;
-    }
+    return makeInteger(static_cast<u8>(decoded.front()));
 }
 
 [[nodiscard]] Value compare(std::string_view op, bool less, bool equal) {
@@ -292,7 +274,9 @@ std::optional<Value> parseLiteral(const Token& token) {
     }
 }
 
-Value applyOperator(std::string_view op, const Value& left, const Value& right) {
+namespace {
+
+Value applyArithmetic(std::string_view op, const Value& left, const Value& right) {
     const bool leftPointer = left.stride != 0 && !isReal(left);
     const bool rightPointer = right.stride != 0 && !isReal(right);
     if (op == "-" && leftPointer && rightPointer && left.stride == right.stride) {
@@ -313,11 +297,31 @@ Value applyOperator(std::string_view op, const Value& left, const Value& right) 
     return apply(op, left, right);
 }
 
+} // namespace
+
+Value applyOperator(std::string_view op, const Value& left, const Value& right) {
+    Value result = applyArithmetic(op, left, right);
+    const bool leftSymbol = !left.symbol.empty();
+    const bool rightSymbol = !right.symbol.empty();
+    if (op == "+" && leftSymbol != rightSymbol) {
+        result.symbol = leftSymbol ? left.symbol : right.symbol;
+    } else if (op == "-" && leftSymbol && !rightSymbol) {
+        result.symbol = left.symbol;
+    }
+    return result;
+}
+
 Value castTo(const ScalarType& type, const usize pointerDepth, const Value& operand) {
     if (pointerDepth > 0) {
         Value pointer = makeInteger(getInteger(operand));
         pointer.stride = pointerDepth > 1 ? PointerSize : type.size;
+        pointer.symbol = operand.symbol;
         return pointer;
+    }
+    if (!type.isReal && type.size >= PointerSize) {
+        Value address = makeInteger(truncateTo(type, getInteger(operand)));
+        address.symbol = operand.symbol;
+        return address;
     }
     if (type.isReal) {
         return type.size == 4 ? makeFloat(getReal(operand)) : makeDouble(getReal(operand));

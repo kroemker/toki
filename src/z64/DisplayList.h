@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base/Diagnostic.h"
+#include "z64/Relocation.h"
 #include "z64/Types.h"
 
 #include <string>
@@ -19,10 +20,12 @@ struct GbiCommand {
 };
 
 /// A display list as the N64 reads it: big-endian words, eight bytes per
-/// command, and which element of the source each command came from.
+/// command, which element of the source each command came from, and which
+/// words hold an address.
 struct DisplayList {
     std::vector<u8> bytes;
     std::vector<GbiCommand> commands;
+    std::vector<Relocation> relocations;
     std::vector<base::Diagnostic> diagnostics;
 };
 

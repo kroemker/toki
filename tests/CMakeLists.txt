@@ -17,14 +17,18 @@ add_executable(toki_tests
         cparser/ScannerTest.cpp
         cparser/ScrapeTest.cpp
         cparser/TableReaderTest.cpp
+        cparser/TypeParserTest.cpp
+        hackeroot/AssetImageCheckoutTest.cpp
+        hackeroot/AssetImageTest.cpp
         hackeroot/BuildCommandTest.cpp
         hackeroot/BuildDefinesTest.cpp
         hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp
-        hackeroot/GbiCheckoutTest.cpp
-        hackeroot/GbiTest.cpp
         hackeroot/ConfigurationTest.cpp
         hackeroot/FilePollerTest.cpp
+        hackeroot/GbiCheckoutTest.cpp
+        hackeroot/GbiTest.cpp
+        hackeroot/PreludeCheckoutTest.cpp
         hackeroot/WorkspaceTest.cpp
         hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
@@ -37,6 +41,7 @@ add_executable(toki_tests
         n64/SegmentTest.cpp
         n64/TextureMemoryTest.cpp
         n64/TexturePackingTest.cpp
+        z64/DataEncoderTest.cpp
         z64/DecompDialectTest.cpp
         z64/TextureCheckoutTest.cpp
         z64/TextureEncoderTest.cpp

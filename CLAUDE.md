@@ -126,7 +126,9 @@ HackerOoT concern, only what is read out of HackerOoT's is.
 (`getDecompDialect`: the N64's type widths, the `u8`..`f64` typedefs, `TEX_LEN` and
 `ARRAY_COUNT`), its rule for generated texture includes (`resolveTextureInclude`), texture
 encoding as the build does it (`TextureEncoder`), gbi word emission
-(`DisplayListEncoder`), and later the memory image. It holds no domain structs.
+(`DisplayListEncoder`), type-directed data encoding (`DataEncoder`), the memory image and
+its layout (`MemoryImage`), and the game code's data assets point at (`getCodeSymbols`). It
+holds no domain structs.
 
 `n64/` is the hardware, and what is true of every N64 game: segment addressing, the
 physical address space (`Memory`), fixed-point matrices, and F3DEX2 running on the RSP
@@ -227,6 +229,13 @@ listed below is only what no change may break.
   - Nothing runs make, or any other process, to learn the configuration.
 - **[gbi words](docs/gbi.md)** — where gbi constants and the words of `gs*` macros come
   from.
+- **[The memory image](docs/memory-image.md)** — how asset C becomes per-segment buffers,
+  byte for byte as the build compiles it.
+  - An object's bytes are checked against the build's own object files. "Close" is a bug.
+  - An address is a relocation with its addend in place, so data is encoded before it is
+    laid out, and arithmetic an address cannot survive is a diagnostic.
+  - Files that must match the build read their system headers as a prelude, under the
+    configuration alone and expanded as read, not against the scrape.
 - **[The workspace](docs/workspace.md)** — how one checkout is read, kept current off the
   UI thread, and watched for changes.
   - Nothing on the UI thread reads the checkout. A read takes seconds over

@@ -22,6 +22,11 @@ struct Dialect;
 struct SymbolAddress {
     s64 address = 0;
 
+    /// The name a value derived from the address carries in `Value::symbol`,
+    /// in storage that outlives the evaluation. The spelling that named the
+    /// symbol when empty.
+    std::string_view name;
+
     /// The size of one element, so `&vertices[3]` and `vertices + 3` both move
     /// by three of them.
     usize elementSize = 1;
@@ -45,6 +50,10 @@ struct EvalContext {
     /// Symbols an expression may take the address of. A symbol names its
     /// first element, as an array does in C.
     std::function<std::optional<SymbolAddress>(std::string_view)> findSymbol;
+
+    /// The sizes of types beyond the dialect's, such as the structs a header
+    /// defines, for `sizeof` and pointer casts.
+    std::function<std::optional<usize>(std::string_view)> findTypeSize;
 
     /// Declared element counts, for builtins that count an array.
     std::function<std::optional<usize>(std::string_view)> findArrayLength;

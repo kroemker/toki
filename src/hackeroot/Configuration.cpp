@@ -21,7 +21,14 @@ constexpr std::string_view CompilerPredefines = "#define _LANGUAGE_C 1\n"
                                                 "#define __mips__ 1\n"
                                                 "#define _MIPS_SZINT 32\n"
                                                 "#define _MIPS_SZLONG 32\n"
-                                                "#define _MIPS_SZPTR 32\n";
+                                                "#define _MIPS_SZPTR 32\n"
+                                                "#define __mips 3\n"
+                                                "#define _MIPSEB 1\n"
+                                                "#define __MIPSEB__ 1\n"
+                                                "#define __GNUC__ 10\n"
+                                                "#define __GNUC_MINOR__ 0\n"
+                                                "#define __STDC__ 1\n"
+                                                "#define __STDC_VERSION__ 201112L\n";
 
 } // namespace
 

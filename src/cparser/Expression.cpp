@@ -104,12 +104,14 @@ private:
 
     [[nodiscard]] std::expected<Value, base::Diagnostic> parseAddress();
 
-    [[nodiscard]] std::expected<Value, base::Diagnostic> parseCast(const TypeName& cast);
+    [[nodiscard]] std::expected<Value, base::Diagnostic> parseCast(const TypeName& type);
+
+    void checkRelocation(const Value& operand, const Value& result);
 
     [[nodiscard]] std::optional<Value> parseSizeof();
 
     [[nodiscard]] std::optional<TypeName> findTypeName(usize open) const {
-        return cparser::findTypeName(tokens, open, getDialect(context));
+        return cparser::findTypeName(tokens, open, getDialect(context), context.findTypeSize);
     }
 
     [[nodiscard]] std::expected<Value, base::Diagnostic> parseBuiltin(const Builtin& builtin,
@@ -201,6 +203,7 @@ Value Evaluator::resolveIdentifier(const Token& token) {
         if (const std::optional<SymbolAddress> symbol = context.findSymbol(token.text)) {
             Value address = makeInteger(symbol->address);
             address.stride = symbol->elementSize;
+            address.symbol = symbol->name.empty() ? token.text : symbol->name;
             return address;
         }
     }
@@ -280,11 +283,11 @@ std::optional<Value> Evaluator::parseSizeof() {
     if (type->pointerDepth > 0) {
         return makeInteger(PointerSize);
     }
-    if (type->type.size == 0) {
+    if (type->size == 0) {
         report(base::makeWarning(
             locateHere(), std::format("'{}' has no size, reading it as 0", type->type.name)));
     }
-    return makeInteger(type->type.size);
+    return makeInteger(static_cast<s64>(type->size));
 }
 
 std::expected<Value, base::Diagnostic> Evaluator::parseAddress() {
@@ -312,17 +315,31 @@ std::expected<Value, base::Diagnostic> Evaluator::parseAddress() {
     return applyOperator("+", array, *index);
 }
 
-std::expected<Value, base::Diagnostic> Evaluator::parseCast(const TypeName& cast) {
-    if (cast.isAggregate && cast.pointerDepth == 0) {
-        return std::unexpected(
-            base::makeError(locateHere(), std::format("'{}' cannot be cast to", cast.type.name)));
+void Evaluator::checkRelocation(const Value& operand, const Value& result) {
+    if (!operand.symbol.empty() && result.symbol.empty()) {
+        report(base::makeWarning(
+            locateHere(), std::format("the address of '{}' is used in arithmetic that cannot be "
+                                      "patched once it is laid out",
+                                      operand.symbol)));
     }
-    cursor = cast.end;
+}
+
+std::expected<Value, base::Diagnostic> Evaluator::parseCast(const TypeName& type) {
+    if (type.isAggregate && type.pointerDepth == 0) {
+        return std::unexpected(
+            base::makeError(locateHere(), std::format("'{}' cannot be cast to", type.type.name)));
+    }
+    cursor = type.end;
     const std::expected<Value, base::Diagnostic> operand = parseUnary();
     if (!operand) {
         return operand;
     }
-    return castTo(cast.type, cast.pointerDepth, *operand);
+    Value cast = castTo(type.type, type.pointerDepth, *operand);
+    if (type.pointerDepth == 1 && type.size > 0) {
+        cast.stride = type.size;
+    }
+    checkRelocation(*operand, cast);
+    return cast;
 }
 
 std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
@@ -403,6 +420,7 @@ std::expected<Value, base::Diagnostic> Evaluator::parseUnary() {
     if (op == "+" || op == "&") {
         return *operand;
     }
+    checkRelocation(*operand, Value{});
     if (op == "-") {
         if (isReal(*operand)) {
             Value negated = *operand;
@@ -441,7 +459,12 @@ std::expected<Value, base::Diagnostic> Evaluator::parseBinary(int minPrecedence)
         if (integerDivision && getInteger(*right) == 0) {
             report(base::makeWarning(location, std::format("'{}' by zero, reading it as 0", op)));
         }
-        left = applyOperator(op, *left, *right);
+        const Value result = applyOperator(op, *left, *right);
+        const bool sameSymbol = op == "-" && left->symbol == right->symbol;
+        if (!sameSymbol) {
+            checkRelocation(left->symbol.empty() ? *right : *left, result);
+        }
+        left = result;
     }
     return left;
 }

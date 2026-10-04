@@ -27,7 +27,9 @@ struct DisplayListContext {
     const cparser::MacroTable* macros = nullptr;
 
     /// The addresses of the symbols the list points at: vertices, textures,
-    /// palettes, matrices and other lists.
+    /// palettes, matrices and other lists. Every word an address went into
+    /// is a relocation, so with addresses of zero the bytes hold what is added
+    /// to each address, and the list can be encoded before it is laid out.
     std::function<std::optional<cparser::SymbolAddress>(std::string_view)> findSymbol;
 
     /// Declared element counts, for `ARRAY_COUNT` in a command's arguments.
@@ -54,16 +56,21 @@ public:
 private:
     void encodeElement(std::span<const cparser::Token> element, DisplayList& list);
 
-    [[nodiscard]] std::optional<u32> evaluateWord(std::span<const cparser::Token> word,
-                                                  DisplayList& list) const;
+    struct Word {
+        u32 value = 0;
+        std::string symbol;
+    };
 
-    [[nodiscard]] std::optional<std::vector<u32>>
+    [[nodiscard]] std::optional<Word> evaluateWord(std::span<const cparser::Token> word,
+                                                   DisplayList& list) const;
+
+    [[nodiscard]] std::optional<std::vector<Word>>
     evaluateWords(std::span<const cparser::Token> expanded, const std::string& name,
                   const base::SourceLocation& location, DisplayList& list) const;
 
     DisplayListContext context;
     cparser::EvalContext evalContext;
-    std::unordered_map<std::string, std::vector<u32>> remembered;
+    std::unordered_map<std::string, std::vector<Word>> remembered;
 };
 
 } // namespace z64

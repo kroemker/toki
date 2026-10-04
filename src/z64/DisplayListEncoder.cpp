@@ -10,6 +10,7 @@
 #include "cparser/Value.h"
 #include "z64/DecompDialect.h"
 #include "z64/DisplayList.h"
+#include "z64/Relocation.h"
 #include "z64/Types.h"
 
 #include <expected>
@@ -83,7 +84,7 @@ void DisplayListEncoder::encodeElement(const std::span<const cparser::Token> ele
     const std::string name = describeElement(element);
     std::string spelling = makeSpelling(element);
 
-    std::optional<std::vector<u32>> words;
+    std::optional<std::vector<Word>> words;
     if (const auto found = remembered.find(spelling); found != remembered.end()) {
         words = found->second;
     } else {
@@ -103,8 +104,12 @@ void DisplayListEncoder::encodeElement(const std::span<const cparser::Token> ele
         return;
     }
     const usize first = list.bytes.size() / BytesPerCommand;
-    for (const u32 word : *words) {
-        appendWord(list.bytes, word);
+    for (const Word& word : *words) {
+        if (!word.symbol.empty()) {
+            list.relocations.push_back(
+                Relocation{.offset = list.bytes.size(), .symbol = word.symbol});
+        }
+        appendWord(list.bytes, word.value);
     }
     const bool isNamed = element.front().kind == cparser::TokenKind::Identifier;
     list.commands.push_back(GbiCommand{.macro = isNamed ? name : std::string(),
@@ -113,26 +118,28 @@ void DisplayListEncoder::encodeElement(const std::span<const cparser::Token> ele
                                        .location = location});
 }
 
-std::optional<u32> DisplayListEncoder::evaluateWord(const std::span<const cparser::Token> word,
-                                                    DisplayList& list) const {
+std::optional<DisplayListEncoder::Word>
+DisplayListEncoder::evaluateWord(const std::span<const cparser::Token> word,
+                                 DisplayList& list) const {
     const std::expected<cparser::Value, base::Diagnostic> value =
         cparser::evaluate(word, evalContext, list.diagnostics);
     if (!value) {
         list.diagnostics.push_back(value.error());
         return std::nullopt;
     }
-    return static_cast<u32>(cparser::getInteger(*value));
+    return Word{.value = static_cast<u32>(cparser::getInteger(*value)),
+                .symbol = std::string(value->symbol)};
 }
 
-std::optional<std::vector<u32>>
+std::optional<std::vector<DisplayListEncoder::Word>>
 DisplayListEncoder::evaluateWords(const std::span<const cparser::Token> expanded,
                                   const std::string& name, const base::SourceLocation& location,
                                   DisplayList& list) const {
-    const auto fail = [&](std::string message) -> std::optional<std::vector<u32>> {
+    const auto fail = [&](std::string message) -> std::optional<std::vector<Word>> {
         list.diagnostics.push_back(base::makeError(location, std::move(message)));
         return std::nullopt;
     };
-    std::vector<u32> words;
+    std::vector<Word> words;
     for (const std::span<const cparser::Token> element : cparser::splitElements(expanded)) {
         if (isCall(element)) {
             return fail(
@@ -140,11 +147,11 @@ DisplayListEncoder::evaluateWords(const std::span<const cparser::Token> expanded
         }
         const std::optional<std::span<const cparser::Token>> body = cparser::getBraceBody(element);
         if (!body) {
-            const std::optional<u32> word = evaluateWord(element, list);
+            std::optional<Word> word = evaluateWord(element, list);
             if (!word) {
                 return std::nullopt;
             }
-            words.push_back(*word);
+            words.push_back(std::move(*word));
             continue;
         }
         const std::vector<std::span<const cparser::Token>> halves = cparser::splitElements(*body);
@@ -152,11 +159,11 @@ DisplayListEncoder::evaluateWords(const std::span<const cparser::Token> expanded
             return fail(std::format("{} does not come out as pairs of words", name));
         }
         for (const std::span<const cparser::Token> half : halves) {
-            const std::optional<u32> word = evaluateWord(half, list);
+            std::optional<Word> word = evaluateWord(half, list);
             if (!word) {
                 return std::nullopt;
             }
-            words.push_back(*word);
+            words.push_back(std::move(*word));
         }
     }
     if (words.empty() || words.size() % WordsPerCommand != 0) {

@@ -31,6 +31,12 @@ struct Value {
     /// For a pointer, the size of what it points at, so adding an integer
     /// moves it by whole elements as C does. Zero for anything else.
     usize stride = 0;
+
+    /// The symbol whose address this value is, plus or minus a constant, as a
+    /// compiler would emit a relocation for it. Empty for a plain number.
+    /// Adding, subtracting and casts that keep 32 bits carry it along; any
+    /// other arithmetic on an address drops it.
+    std::string_view symbol;
 };
 
 [[nodiscard]] Value makeInteger(s64 value);
@@ -61,7 +67,8 @@ struct Value {
 /// operator or shift on a real, which C rejects, truncates it to an integer.
 /// Integer division by zero is 0 here; the evaluator is what reports it.
 /// Adding to or subtracting from a pointer scales the integer by its stride,
-/// and the difference of two pointers counts elements.
+/// and the difference of two pointers counts elements. A sum or difference
+/// with one symbol keeps it.
 [[nodiscard]] Value applyOperator(std::string_view op, const Value& left, const Value& right);
 
 /// Applies a cast the way `type` converts: an integer type wraps to its size

@@ -1,6 +1,9 @@
 target_sources(toki_core PRIVATE
+        CodeSymbols.cpp
+        DataEncoder.cpp
         DecompDialect.cpp
         DisplayListEncoder.cpp
+        MemoryImage.cpp
         PngImage.cpp
         TextureEncoder.cpp
         TextureIncludes.cpp

@@ -333,6 +333,17 @@ in the prototype to copy.
 Done when a fast64 room's C files and a vanilla room's C and PNG files both produce a
 segment buffer and a display list entry offset, with byte-level tests.
 
+*Done:* `hackeroot::readAssetImage` reads each file's system headers as a prelude under the
+configuration (`readPrelude`, expanded as read), lays out their types (`cparser::parseTypes`),
+encodes every object by its type (`z64::DataEncoder`, `Gfx` through `DisplayListEncoder`)
+with addresses as relocations, and lays segments out and patches them
+(`z64::layOutImage`); `z64::mapImage` hands the result to the RSP. A fixture fast64 room is
+checked byte for byte. Against the checkout, every scene and room (500 files, vanilla and
+the checkout's own) and every object is byte-identical to the `.data` of the object file
+the build made, the address-named extracted symbols sit at the offsets their names record,
+and the RSP runs a room's display list from the image. See
+[docs/memory-image.md](docs/memory-image.md).
+
 ## 9. Viewport
 
 The app's window still draws ImGui through OpenGL, while the renderer draws through SDL3's

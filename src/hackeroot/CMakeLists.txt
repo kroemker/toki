@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        AssetImage.cpp
         AssetSource.cpp
         Assets.cpp
         BuildCommand.cpp
@@ -7,6 +8,7 @@ target_sources(toki_core PRIVATE
         Configuration.cpp
         FilePoller.cpp
         Gbi.cpp
+        Prelude.cpp
         Tables.cpp
         Workspace.cpp
         WslPath.cpp)
