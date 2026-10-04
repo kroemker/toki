@@ -88,7 +88,8 @@ on a visited set: the same `.inc.c` is legitimately included by two different ar
 
 **A `.inc.c` that does not exist is a texture.** `X.rgba16.inc.c` resolves to the
 `X.rgba16.png` the build would have generated it from, as an `EmbeddedFile` tagged with
-the format its name spells. It also stands in the token stream as an `Embedded` token
+what the build makes of it: an image, a palette (`Y.tlut.rgba16.inc.c` resolves to an image
+using palette `Y`), a JPEG or a binary. It also stands in the token stream as an `Embedded` token
 where the include was, so the declaration it fills holds it in its initializer. A
 paletted texture's image also carries the palette it was extracted against, so the
 include's spelling is only a prefix of the filename. Never parse a vanilla texture as C:
@@ -96,6 +97,16 @@ the PNG is both faster and the only thing actually on disk.
 
 The rule is `z64::resolveTextureInclude`, passed to the preprocessor as its
 `resolveMissingInclude`; `cparser` itself knows only that some includes embed a file.
+
+Turning an embedded file into the bytes the build would generate is `z64::TextureEncoder`.
+Its output is the whole array the `.inc.c` fills, padding included: an image to its element
+type, a palette to eight bytes, a JPEG to the 320×240 background buffer. It follows the
+build's `build_from_png` byte for byte, which a checkout test verifies against the build's own
+output. A shared palette is gathered from `assets/<dir>` and `extracted/<version>/assets/<dir>`
+together, the first winning a name both hold, because a mod's texture may share a palette with
+an extracted one. What the build hands to libimagequant (a truecolour PNG named as
+colour-indexed, or images that share a palette and disagree on it) is refused with a
+reason, not approximated.
 
 **Every filesystem question is answered from a cached directory listing.** A checkout on
 `\\wsl.localhost` charges milliseconds per `stat` and a vanilla scene asks hundreds:

@@ -29,7 +29,7 @@ TEST_CASE("a generated texture include resolves to the image it comes from", "[z
     REQUIRE(resolved.has_value());
     REQUIRE(resolved->embedded);
     REQUIRE(resolved->path.filename() == "sFloorTex.rgba16.png");
-    REQUIRE(resolved->tag == "rgba16");
+    REQUIRE(resolved->tag == z64::ImageTag);
 }
 
 TEST_CASE("a paletted image names its palette, so the include is only a prefix",
@@ -38,7 +38,7 @@ TEST_CASE("a paletted image names its palette, so the include is only a prefix",
 
     REQUIRE(resolved.has_value());
     REQUIRE(resolved->path.filename() == "sPalette.ci8.tlut_sRoomTlut.png");
-    REQUIRE(resolved->tag == "ci8");
+    REQUIRE(resolved->tag == z64::ImageTag);
 }
 
 TEST_CASE("a generated binary include resolves to the binary", "[z64][textures]") {
@@ -46,7 +46,37 @@ TEST_CASE("a generated binary include resolves to the binary", "[z64][textures]"
 
     REQUIRE(resolved.has_value());
     REQUIRE(resolved->path.filename() == "sData.bin");
-    REQUIRE(resolved->tag == "bin");
+    REQUIRE(resolved->tag == z64::BinaryTag);
+}
+
+TEST_CASE("a palette include resolves to an image that uses the palette", "[z64][textures]") {
+    const std::optional<cparser::ResolvedInclude> shared = resolve("sShared.tlut.rgba16.inc.c");
+    const std::optional<cparser::ResolvedInclude> own = resolve("sCrate.tlut.rgba16.inc.c");
+
+    REQUIRE(shared.has_value());
+    REQUIRE(shared->tag == z64::PaletteTag);
+    REQUIRE(shared->path.filename().string().contains("tlut_sShared"));
+    REQUIRE(own.has_value());
+    REQUIRE(own->path.filename() == "sCrate.ci4.png");
+    REQUIRE_FALSE(resolve("sNobody.tlut.rgba16.inc.c").has_value());
+}
+
+TEST_CASE("a u32 palette include belongs to the images naming a u32 palette", "[z64][textures]") {
+    const std::optional<cparser::ResolvedInclude> narrow = resolve("sOdd.tlut.rgba16.u32.inc.c");
+    const std::optional<cparser::ResolvedInclude> wide = resolve("sOdd.tlut.rgba16.inc.c");
+
+    REQUIRE(narrow.has_value());
+    REQUIRE(narrow->path.filename() == "sHalfB.ci8.tlut_sOdd_u32.png");
+    REQUIRE(wide.has_value());
+    REQUIRE(wide->path.filename() == "sHalfA.ci8.tlut_sOdd.png");
+}
+
+TEST_CASE("a generated JPEG include resolves to the JPEG", "[z64][textures]") {
+    const std::optional<cparser::ResolvedInclude> resolved = resolve("sBackground.jpg.inc.c");
+
+    REQUIRE(resolved.has_value());
+    REQUIRE(resolved->path.filename() == "sBackground.jpg");
+    REQUIRE(resolved->tag == z64::JpegTag);
 }
 
 TEST_CASE("a name that only extends the spelling is not its image", "[z64][textures]") {
@@ -67,5 +97,5 @@ TEST_CASE("the preprocessor embeds a texture the rule resolves", "[z64][textures
 
     REQUIRE(unit.embedded.size() == 1);
     REQUIRE(unit.embedded.front().path.filename() == "sFloorTex.rgba16.png");
-    REQUIRE(unit.embedded.front().tag == "rgba16");
+    REQUIRE(unit.embedded.front().tag == z64::ImageTag);
 }

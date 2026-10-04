@@ -8,6 +8,7 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/Workspace.h"
 #include "z64/DecompDialect.h"
+#include "z64/TextureIncludes.h"
 
 #include <algorithm>
 #include <chrono>
@@ -29,7 +30,8 @@ FileReport readFile(const hackeroot::Workspace& workspace, const std::filesystem
         report.diagnostics.push_back(unit.error());
         return report;
     }
-    report.images = unit->embedded.size();
+    report.images = static_cast<usize>(
+        std::ranges::count(unit->embedded, z64::ImageTag, &cparser::EmbeddedFile::tag));
     report.diagnostics = unit->diagnostics;
     const cparser::ParseResult parsed = cparser::parseDeclarations(
         *unit, cparser::EvalContext{.dialect = &z64::getDecompDialect()});

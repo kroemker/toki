@@ -17,6 +17,7 @@
       ]
     },
     "catch2",
+    "libspng",
     "tomlplusplus"
   ]
 }

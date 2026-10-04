@@ -33,8 +33,12 @@ add_executable(toki_tests
         n64/RspTest.cpp
         n64/SegmentTest.cpp
         n64/TextureMemoryTest.cpp
+        n64/TexturePackingTest.cpp
         z64/DecompDialectTest.cpp
-        z64/TextureIncludesTest.cpp)
+        z64/TextureCheckoutTest.cpp
+        z64/TextureEncoderTest.cpp
+        z64/TextureIncludesTest.cpp
+        z64/TextureNameTest.cpp)
 target_link_libraries(toki_tests PRIVATE toki_core Catch2::Catch2WithMain toki_warnings)
 
 set(TOKI_HACKEROOT "" CACHE PATH

@@ -96,7 +96,7 @@ void requireImagesLinked(const cparser::MacroTable& macros,
             if (token.kind == cparser::TokenKind::Embedded) {
                 REQUIRE(token.embedded < uses.size());
                 ++uses[token.embedded];
-                fromImage = true;
+                fromImage = unit->embedded[token.embedded].tag == z64::ImageTag;
             }
         }
         if (fromImage) {

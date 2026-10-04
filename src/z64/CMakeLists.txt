@@ -1,3 +1,6 @@
 target_sources(toki_core PRIVATE
         DecompDialect.cpp
-        TextureIncludes.cpp)
+        PngImage.cpp
+        TextureEncoder.cpp
+        TextureIncludes.cpp
+        TextureName.cpp)

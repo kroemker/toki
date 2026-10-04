@@ -35,6 +35,7 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(tomlplusplus CONFIG REQUIRED)
+find_package(SPNG CONFIG REQUIRED)
 
 add_library(toki_warnings INTERFACE)
 if(MSVC)
@@ -47,7 +48,8 @@ endif()
 # device. See the dependency rules in CLAUDE.md.
 add_library(toki_core OBJECT)
 target_include_directories(toki_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(toki_core PUBLIC glm::glm PRIVATE tomlplusplus::tomlplusplus toki_warnings)
+target_link_libraries(toki_core PUBLIC glm::glm PRIVATE tomlplusplus::tomlplusplus
+        $<IF:$<TARGET_EXISTS:spng::spng>,spng::spng,spng::spng_static> toki_warnings)
 
 # The GPU side of the renderer. It is linked beside toki_core rather than on top
 # of it, so that a test binary built from toki_core alone never needs a GPU.

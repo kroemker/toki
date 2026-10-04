@@ -308,6 +308,14 @@ the extracted assets use, ci4 and ci8 included, with the palette the image's nam
 records. The build does this with its own tools; match their output byte for byte, and
 test against files the build produced.
 
+*Done:* libspng reads the PNG; `n64::packTexels`, `packColorIndices` and `packPalette` pack;
+`z64::parseTextureName` reads the build's suffix grammar (format, `.u32`, `tlut_<name>[_u32]`,
+`split_lo`/`split_hi`); `z64::TextureEncoder` makes images, shared and unshared palettes,
+JPEGs and binaries, padded as the build pads them, with shared palettes gathered across the
+`assets/` and `extracted/` overlay. A checkout test compares 519 generated files across eight
+asset folders with the build's output: all identical. Quantization is refused with a
+diagnostic.
+
 **Memory image** — per-segment buffers, a symbol table, laying out `Vtx[]`, `Gfx[]` and
 texture data, and patching symbol references into segment addresses.
 
