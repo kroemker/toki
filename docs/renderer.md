@@ -150,6 +150,62 @@ mode, combine mode, colour registers, key and convert constants, scissor, tile
 descriptors, and a copy of texture memory. Primitives that share a state share one entry,
 and texture memory is copied only when a load changed it.
 
+## The GPU stage
+
+`gfx::makeDrawBatches` turns `runRdp`'s output into vertices and draw calls. Triangles
+keep their clip-space positions; texture and fill rectangles become two triangles in
+screen pixels. Each draw carries the RDP state it needs as uniforms — combiner selectors,
+colour registers, key and convert constants, other mode flags, the two tiles it samples,
+and where its texture memory starts — and consecutive primitives with the same uniforms,
+pipeline and scissor share a call. Every texture memory copy the frame needs goes up as one
+storage buffer.
+
+The vertex shader applies the viewport the RSP recorded with each triangle in clip space,
+`x * scale + translate * w`, so the GPU still clips and still interpolates with
+perspective. Depth is the N64's screen depth over its 0..1023 range; primitive depth
+replaces it when the other mode says so.
+
+The fragment shader repeats `n64/` in the same integer arithmetic: `findTileCoordinate`,
+`wrapTexel` and `fetchTexel` against the raw texture memory, the RDP's three-point and
+average filters, `evaluateCombiner`, the alpha compare, and the blender's first cycle and
+any final cycle that reads no memory. A final cycle that reads memory is one of three
+fixed-function blends (`gfx::makeBlendSetup`); anything else is drawn unblended and
+reported.
+
+Pipelines differ only in blend and depth state, and are created on first use. The device
+settles the depth format once, so render targets and pipelines cannot disagree on it.
+The renderer keeps its vertex, texture memory and upload buffers between frames, growing
+them when a frame needs more, and submits without waiting; reading a target back waits.
+
+Fill colours follow the colour image's pixel size: one RGBA5551 pixel of the register for
+a 16-bit image, the whole register as RGBA8888 for a 32-bit one. In copy mode the alpha
+compare drops a texel whose alpha bit is clear, and only for a 16-bit image, as
+parallel-rdp does.
+
+`toki_gpu_tests` renders small hand-written display lists and compares pixels with the CPU
+reference. On D3D12 and on Vulkan the combiner matches `evaluateCombiner` exactly; texture
+rectangles match `sampleTexture` pixel for pixel across point, bilinear and average
+filtering, RGBA16 and 32, IA8, IA16 through a tile load's odd rows, and a mirrored,
+wrapped 4-bit paletted texture; the shader-side blender matches `evaluateBlender`; and
+translucency over memory is within three steps, as expected of the GPU's blending against
+the RDP's five-bit weights.
+
+Not reproduced yet:
+
+- Level of detail. The LOD fraction is zero, texel 1 always comes from the next tile, and
+  mipmaps are not selected.
+- Texture conversion (`G_TC_CONV`) and YUV. Every texel is filtered, never converted.
+- Copy mode decodes texels by their format rather than copying their raw bits into the
+  framebuffer, which differs for formats other than RGBA16.
+- Dither, coverage and anti-aliased edges, as on the CPU side.
+- With texture perspective off, coordinates are halved, as RT64 does to match hardware;
+  not yet checked against a reference.
+- Rectangle texture coordinates carry a 256th-of-a-texel bias, so interpolation cannot
+  floor a whole texel into the one before. Temporary, until rectangles step coordinates
+  the way the RDP does.
+- A fill rectangle into the depth buffer is skipped; the target's depth is cleared before
+  every frame instead.
+
 ## Scope
 
 In: one and two cycle combining, blender modes (fog, translucency, decal, alpha compare),

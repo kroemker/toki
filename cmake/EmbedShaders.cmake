@@ -1,0 +1,22 @@
+# Writes OUTPUT, a header holding each compiled shader as a byte array.
+# INPUTS is a list of name=path pairs separated by '|'. A pair with no path
+# becomes an empty array, for a format this platform's build does not compile.
+string(REPLACE "|" ";" inputs "${INPUTS}")
+set(content "#pragma once\n\n#include \"base/Types.h\"\n\n#include <array>\n\nnamespace gfx::shaders {\n")
+foreach(input IN LISTS inputs)
+    string(FIND "${input}" "=" separator)
+    string(SUBSTRING "${input}" 0 ${separator} name)
+    math(EXPR start "${separator} + 1")
+    string(SUBSTRING "${input}" ${start} -1 path)
+    if(path STREQUAL "")
+        string(APPEND content "\ninline constexpr std::array<base::u8, 0> ${name}{};\n")
+        continue()
+    endif()
+    file(READ "${path}" hex HEX)
+    string(LENGTH "${hex}" length)
+    math(EXPR size "${length} / 2")
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+    string(APPEND content "\ninline constexpr std::array<base::u8, ${size}> ${name}{${bytes}};\n")
+endforeach()
+string(APPEND content "\n} // namespace gfx::shaders\n")
+file(WRITE "${OUTPUT}" "${content}")

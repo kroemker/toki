@@ -46,6 +46,13 @@ struct RdpState {
     /// The six 9-bit `G_SETCONVERT` constants.
     std::array<u16, 6> convert{};
     Scissor scissor;
+    /// Physical addresses of `G_SETCIMG` and `G_SETZIMG`. A fill rectangle drawn
+    /// while both are the same address clears the depth buffer.
+    u32 colorImage = 0;
+    u32 depthImage = 0;
+    /// The colour image's pixel size. Fill colours and copy-mode alpha depend on
+    /// whether pixels are 16 or 32 bits.
+    TexelSize colorImageSize = TexelSize::Bits16;
     std::array<TileDescriptor, TileCount> tiles{};
     /// Index into `RdpResult::textureMemories`.
     usize textureMemory = 0;

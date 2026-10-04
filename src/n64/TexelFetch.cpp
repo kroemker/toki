@@ -1,6 +1,7 @@
 #include "TexelFetch.h"
 
 #include "n64/Color.h"
+#include "n64/OtherMode.h"
 #include "n64/TextureMemory.h"
 #include "n64/TileDescriptor.h"
 #include "n64/Types.h"
@@ -19,11 +20,11 @@ constexpr u32 HalfMask = 0x07FF;
 constexpr u32 PaletteBase = 0x0800;
 constexpr u8 MaxMask = 10;
 
-f32 getShiftScale(const u8 shift) {
+s32 shiftCoordinate(const s32 value, const u8 shift) {
     if (shift <= 10) {
-        return 1.0F / static_cast<f32>(1U << shift);
+        return value >> shift;
     }
-    return static_cast<f32>(1U << (16U - shift));
+    return static_cast<s32>(static_cast<u32>(value) << (16U - shift));
 }
 
 s32 wrapModulo(const s32 value, const s32 size) {
@@ -128,15 +129,19 @@ Color decode32(const TileDescriptor& tile, const std::array<u8, 4>& values, cons
 
 } // namespace
 
-Texel findTileTexel(const TileDescriptor& tile, const std::array<f32, 2> coordinate) {
-    Texel texel{};
+Texel findTileCoordinate(const TileDescriptor& tile, const std::array<f32, 2> coordinate) {
+    Texel result{};
     for (usize axis = 0; axis < 2; ++axis) {
         const TileAxis& tileAxis = tile.axes[axis];
-        const f32 shifted = (coordinate[axis] * getShiftScale(tileAxis.shift)) -
-                            (static_cast<f32>(tileAxis.low) / 4.0F);
-        texel[axis] = static_cast<s32>(std::floor(shifted));
+        const auto fixedPoint = static_cast<s32>(std::floor(coordinate[axis] * 32.0F));
+        result[axis] = shiftCoordinate(fixedPoint, tileAxis.shift) - (s32{tileAxis.low} << 3);
     }
-    return texel;
+    return result;
+}
+
+Texel findTileTexel(const TileDescriptor& tile, const std::array<f32, 2> coordinate) {
+    const Texel fixedPoint = findTileCoordinate(tile, coordinate);
+    return {fixedPoint[0] >> 5, fixedPoint[1] >> 5};
 }
 
 Texel wrapTexel(const TileDescriptor& tile, const Texel texel) {
@@ -194,6 +199,43 @@ Color fetchTexel(const std::span<const u8, TextureMemorySize> memory, const Tile
 Color sampleTexel(const std::span<const u8, TextureMemorySize> memory, const TileDescriptor& tile,
                   const std::array<f32, 2> coordinate, const TlutMode tlut) {
     return fetchTexel(memory, tile, wrapTexel(tile, findTileTexel(tile, coordinate)), tlut);
+}
+
+Color sampleTexture(const std::span<const u8, TextureMemorySize> memory, const TileDescriptor& tile,
+                    const std::array<f32, 2> coordinate, const TlutMode tlut,
+                    const TextureFilter filter) {
+    const Texel fixedPoint = findTileCoordinate(tile, coordinate);
+    const Texel base{fixedPoint[0] >> 5, fixedPoint[1] >> 5};
+    const Texel fraction{fixedPoint[0] & 31, fixedPoint[1] & 31};
+    const auto fetchAt = [&](const s32 x, const s32 y) {
+        return fetchTexel(memory, tile, wrapTexel(tile, {base[0] + x, base[1] + y}), tlut);
+    };
+    const Color t00 = fetchAt(0, 0);
+    if (filter == TextureFilter::Point) {
+        return t00;
+    }
+    const Color t10 = fetchAt(1, 0);
+    const Color t01 = fetchAt(0, 1);
+    const Color t11 = fetchAt(1, 1);
+    Color result{};
+    if (filter == TextureFilter::Average && fraction[0] == 16 && fraction[1] == 16) {
+        for (usize channel = 0; channel < result.size(); ++channel) {
+            result[channel] = static_cast<u8>(
+                (t00[channel] + t10[channel] + t01[channel] + t11[channel] + 2) >> 2);
+        }
+        return result;
+    }
+    const bool upper = fraction[0] + fraction[1] >= 32;
+    const Color& origin = upper ? t11 : t00;
+    const s32 weightS = upper ? 32 - fraction[1] : fraction[0];
+    const s32 weightT = upper ? 32 - fraction[0] : fraction[1];
+    for (usize channel = 0; channel < result.size(); ++channel) {
+        const s32 base0 = origin[channel];
+        const s32 accumulated =
+            ((t10[channel] - base0) * weightS) + ((t01[channel] - base0) * weightT) + 0x10;
+        result[channel] = static_cast<u8>(base0 + (accumulated >> 5));
+    }
+    return result;
 }
 
 } // namespace n64

@@ -8,6 +8,7 @@
 #include "n64/OtherMode.h"
 #include "n64/RspResult.h"
 #include "n64/TextureMemory.h"
+#include "n64/TileDescriptor.h"
 #include "n64/Types.h"
 
 #include <algorithm>
@@ -102,6 +103,13 @@ void RdpInterpreter::apply(const RdpCommand& command) {
         break;
     case Opcode::SetConvert:
         setConvert(word0, word1);
+        break;
+    case Opcode::SetColorImage:
+        state.colorImage = word1;
+        state.colorImageSize = static_cast<TexelSize>((word0 >> 19) & 0x03);
+        break;
+    case Opcode::SetDepthImage:
+        state.depthImage = word1;
         break;
     case Opcode::SetTextureImage:
     case Opcode::SetTile:

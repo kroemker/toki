@@ -1,7 +1,9 @@
 #include "n64/TextureMemory.h"
 
 #include "base/Types.h"
+#include "n64/Color.h"
 #include "n64/Memory.h"
+#include "n64/OtherMode.h"
 #include "n64/RspResult.h"
 #include "n64/TexelFetch.h"
 #include "n64/TileDescriptor.h"
@@ -242,4 +244,24 @@ TEST_CASE("a load outside mapped memory is reported", "[n64][tmem]") {
 
     REQUIRE(diagnostic.has_value());
     REQUIRE(diagnostic->message.contains("G_LOADBLOCK"));
+}
+
+TEST_CASE("bilinear filtering takes three texels by the fraction's half", "[n64][tmem]") {
+    Fixture fixture(makeIntensityAlphaTexture(8));
+    fixture.apply({
+        setTextureImage(TextureFormat::IntensityAlpha, TexelSize::Bits16, 4, TextureAddress),
+        setTile(LoadTile, IntensityAlpha16),
+        loadTile(4, 2),
+        setTile(0, IntensityAlpha16),
+        setTileSize(0, 4, 2),
+    });
+    const auto sample = [&](const float s, const float t, const n64::TextureFilter filter) {
+        return n64::sampleTexture(fixture.textureMemory.getBytes(),
+                                  fixture.textureMemory.getTile(0), {s, t}, TlutMode::None, filter);
+    };
+
+    REQUIRE(sample(1.25F, 0.0F, n64::TextureFilter::Point) == fixture.fetch(0, {1, 0}));
+    REQUIRE(sample(1.25F, 0.0F, n64::TextureFilter::Bilinear)[0] == 21);
+    REQUIRE(sample(1.75F, 0.75F, n64::TextureFilter::Bilinear)[0] == 77);
+    REQUIRE(sample(0.5F, 0.5F, n64::TextureFilter::Average)[0] == 41);
 }

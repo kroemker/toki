@@ -163,9 +163,14 @@ shared parser module.
 
 - `toki_core` — OBJECT library: `base/`, `cparser/`, `makeparser/`, `n64/`, `z64/`,
   `hackeroot/`, and every `app/**/domain/**`.
-- `toki_gfx` — static library: `gfx/` and its compiled shaders. Does not exist yet.
+- `toki_gfx` — static library: `gfx/` and the ubershader, compiled at build time from
+  `gfx/shaders/Ubershader.hlsl` by `shadercross` into the formats the platform's backends
+  read (DXIL and SPIR-V on Windows, MSL and SPIR-V on Apple, SPIR-V elsewhere) and
+  embedded.
 - `toki` — executable: `Main.cpp` plus every `app/**/ui/**`.
 - `toki_tests` — links `toki_core` only.
+- `toki_gpu_tests` — links `toki_core` and `toki_gfx`, draws on a real GPU, and skips every
+  test when there is none.
 
 `gfx/` is kept out of `toki_core` on purpose. An object library propagates its usage
 requirements, so folding it in would drag a GPU device into the test binary and break the
@@ -185,6 +190,7 @@ the build graph.
 | Build | CMake + vcpkg manifest mode + Ninja + CMakePresets |
 | Renderer | Our own: F3DEX2 in `n64/`, GPU side in `gfx/` |
 | GFX backend | SDL3 GPU (D3D12, Vulkan, Metal) |
+| Shaders | HLSL, compiled by SDL_shadercross at build time |
 | Window/input | SDL3 |
 | UI | Dear ImGui (docking) + ImGuizmo |
 | Math | glm |
@@ -324,6 +330,10 @@ limit. The prototype had 1200-line files; that is what we are avoiding.
 
 Every parser and every table reader gets tests. They link the object library and must
 never require SDL, ImGui or a GPU.
+
+What only a GPU can check — that the ubershader computes what `n64/` computes — lives in
+`toki_gpu_tests`, which compares rendered pixels against the CPU reference functions.
+Changing either side of that pair means running both test binaries.
 
 ---
 

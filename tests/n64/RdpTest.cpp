@@ -6,6 +6,7 @@
 #include "n64/Memory.h"
 #include "n64/OtherMode.h"
 #include "n64/RspResult.h"
+#include "n64/TileDescriptor.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -121,4 +122,17 @@ TEST_CASE("a texture load that cannot be read is reported", "[n64][rdp]") {
     });
 
     REQUIRE(result.diagnostics.size() == 1);
+}
+
+TEST_CASE("the colour and depth images are recorded with the colour image's size", "[n64][rdp]") {
+    const n64::RdpResult result = runOutputs({
+        makeCommand(0xFF18'013F, 0x0020'0000),
+        makeCommand(0xFE00'0000, 0x0030'0000),
+        makeTriangle(),
+    });
+
+    const n64::RdpState& state = result.states.at(0);
+    REQUIRE(state.colorImage == 0x0020'0000);
+    REQUIRE(state.depthImage == 0x0030'0000);
+    REQUIRE(state.colorImageSize == n64::TexelSize::Bits32);
 }

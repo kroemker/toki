@@ -193,22 +193,23 @@ Tests build their words with a small helper of their own, not with `gbi.h`.
   CPU evaluation of the same equations for tests. `runRdp` pairs every primitive with
   the RDP state and the texture memory it is drawn under, which is what the GPU stage
   uploads.
-- **GPU** (`gfx/`, `toki_gfx`) — SDL3 GPU device, one ubershader compiled at build time
-  for each backend, N64 three-point filtering, depth modes, fog. Texture memory reaches
-  the shader raw, as a storage buffer, and is decoded there by the rules of `fetchTexel`.
-  Blending that reads the framebuffer maps onto the GPU's fixed-function blend modes;
-  blender cycles that do not read it run in the shader. Draws a hand-written display
-  list into an offscreen texture.
+- **GPU** (`gfx/`, `toki_gfx`, done) — SDL3 GPU device, one ubershader compiled at build
+  time for each backend, N64 three-point filtering, depth modes, fog. Texture memory
+  reaches the shader raw, as a storage buffer, and is decoded there by the rules of
+  `fetchTexel`. Blending that reads the framebuffer maps onto the GPU's fixed-function
+  blend modes; blender cycles that do not read it run in the shader.
 
-Done when a hand-written display list covering textures, lighting and two-cycle
-combining renders offscreen, the CPU stages are under tests, and docs/renderer.md says
-what matches the references and what does not yet.
+Package 5 is done. A hand-written display list with a lit, textured, fogged two-cycle
+triangle renders offscreen on D3D12 and on Vulkan, and `toki_gpu_tests` compares the
+shader with the CPU reference: the combiner, texel decoding and filtering (every format
+family, palettes, wrap, mirror, clamp and the odd-row swap) and the shader-side blender
+match it exactly, and translucency over the framebuffer comes within three steps of it.
+docs/renderer.md lists what is not reproduced yet.
 
-Open, settle while building: how shaders are compiled for each backend at build time
-(`SDL_shadercross`, or DXC plus SPIRV-Cross directly); where the shader is tested
-against `evaluateCombiner` and `evaluateBlender`, which needs a GPU and so a test target
-apart from `toki_tests`; and which reference renders the pixel comparison uses (RT64 or
-an emulator screenshot until a parallel-rdp harness exists).
+How the open questions were settled: shaders are compiled by `shadercross` from
+vcpkg's `sdl3-shadercross`; the shader is tested in `toki_gpu_tests`, apart from
+`toki_tests`; and the pixel reference for now is the CPU reference itself. A comparison
+against RT64 or an emulator needs real scenes, and moves to packages 9 and 10.
 
 ## 6. Build runner
 
@@ -280,6 +281,10 @@ Done when a fast64 room's C files and a vanilla room's C and PNG files both prod
 segment buffer and a display list entry offset, with byte-level tests.
 
 ## 9. Viewport
+
+The app's window still draws ImGui through OpenGL, while the renderer draws through SDL3's
+GPU API. Showing a render target in a panel needs ImGui on the same device, which is its
+SDL GPU backend (`imgui` feature `sdlgpu3-binding`): the window moves off OpenGL first.
 
 - The renderer drawing a memory image
 - Segment table set from the image

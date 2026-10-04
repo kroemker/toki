@@ -42,3 +42,18 @@ target_compile_definitions(toki_tests PRIVATE
 
 include(Catch)
 catch_discover_tests(toki_tests)
+
+# Tests that draw on a real GPU, apart from toki_tests so that binary never
+# needs one. Each test skips when no GPU device can be created.
+add_executable(toki_gpu_tests
+        gpu/BlendSetupTest.cpp
+        gpu/RendererTest.cpp)
+target_include_directories(toki_gpu_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(toki_gpu_tests PRIVATE toki_core toki_gfx Catch2::Catch2WithMain toki_warnings)
+target_compile_definitions(toki_gpu_tests PRIVATE
+        TOKI_GPU_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}")
+add_custom_command(TARGET toki_gpu_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:toki_gpu_tests>
+            $<TARGET_FILE_DIR:toki_gpu_tests>
+    COMMAND_EXPAND_LISTS)
+catch_discover_tests(toki_gpu_tests)

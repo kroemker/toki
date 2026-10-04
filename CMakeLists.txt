@@ -43,16 +43,22 @@ else()
     target_compile_options(toki_warnings INTERFACE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
-# toki_core deliberately excludes gfx/ so the test binary never pulls in a GL
-# context. See the dependency rules in CLAUDE.md.
+# toki_core deliberately excludes gfx/ so the test binary never pulls in a GPU
+# device. See the dependency rules in CLAUDE.md.
 add_library(toki_core OBJECT)
 target_include_directories(toki_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(toki_core PUBLIC glm::glm PRIVATE tomlplusplus::tomlplusplus toki_warnings)
 
+# The GPU side of the renderer. It is linked beside toki_core rather than on top
+# of it, so that a test binary built from toki_core alone never needs a GPU.
+add_library(toki_gfx STATIC)
+target_include_directories(toki_gfx PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(toki_gfx PUBLIC SDL3::SDL3 PRIVATE toki_warnings)
+
 # Console subsystem while the tool is in early development, so startup failures
 # and diagnostics are visible without a log panel to put them in.
 add_executable(toki)
-target_link_libraries(toki PRIVATE toki_core SDL3::SDL3 imgui::imgui OpenGL::GL toki_warnings)
+target_link_libraries(toki PRIVATE toki_core toki_gfx SDL3::SDL3 imgui::imgui OpenGL::GL toki_warnings)
 
 # Fonts are the only files the executable reads from beside itself; everything
 # else comes from the user's decomp checkout.
