@@ -22,6 +22,8 @@ namespace cparser {
 
 namespace {
 
+constexpr s64 PointerSize = 4;
+
 [[nodiscard]] const Dialect& getDialect(const EvalContext& context) {
     return context.dialect == nullptr ? getStandardC() : *context.dialect;
 }
@@ -103,6 +105,7 @@ private:
     [[nodiscard]] std::expected<Value, base::Diagnostic> parseUnary();
 
     [[nodiscard]] std::expected<Value, base::Diagnostic> parsePrimary();
+    [[nodiscard]] std::optional<Value> parseSizeof();
 
     [[nodiscard]] std::optional<Cast> findCast(usize at) const;
 
@@ -273,6 +276,27 @@ std::optional<Cast> Evaluator::findCast(usize at) const {
     return Cast{.type = type, .pointer = after != at + 2, .after = after + 1};
 }
 
+std::optional<Value> Evaluator::parseSizeof() {
+    const Token& token = peek();
+    if (token.kind != TokenKind::Identifier || token.text != "sizeof" ||
+        cursor + 1 >= tokens.size() || !isPunctuator(tokens[cursor + 1], "(")) {
+        return std::nullopt;
+    }
+    const std::optional<Cast> type = findCast(cursor + 1);
+    if (!type) {
+        return std::nullopt;
+    }
+    cursor = type->after;
+    if (type->pointer) {
+        return makeInteger(PointerSize);
+    }
+    if (type->type->size == 0) {
+        report(base::makeWarning(
+            locateHere(), std::format("'{}' has no size, reading it as 0", type->type->name)));
+    }
+    return makeInteger(type->type->size);
+}
+
 std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
     const Token& token = peek();
     if (isAtEnd()) {
@@ -299,6 +323,10 @@ std::expected<Value, base::Diagnostic> Evaluator::parsePrimary() {
         }
         ++cursor;
         return inner;
+    }
+
+    if (const std::optional<Value> size = parseSizeof()) {
+        return *size;
     }
 
     if (token.kind == TokenKind::Identifier) {

@@ -42,7 +42,7 @@ public:
 using BuiltinFunction = std::expected<Value, base::Diagnostic> (*)(const BuiltinCall& call);
 
 /// A name the evaluator answers itself instead of expanding, for macros whose
-/// real definitions need something it cannot do, such as `sizeof`.
+/// real definitions need something it cannot do, such as `sizeof` of an array.
 struct Builtin {
     std::string_view name;
     BuiltinFunction evaluate = nullptr;

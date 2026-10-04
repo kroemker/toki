@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base/Diagnostic.h"
+#include "hackeroot/Types.h"
 
 #include <filesystem>
 #include <string>
@@ -16,6 +17,9 @@ struct AssetDirectory {
     std::string name;
     std::filesystem::path directory;
     bool isExtracted = false;
+    /// For a scene, how many rooms its folder holds: distinct `<scene>_room_<n>`
+    /// files, however many files each room is split into. Zero for an object.
+    usize roomCount = 0;
 };
 
 struct Assets {

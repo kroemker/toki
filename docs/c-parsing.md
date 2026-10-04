@@ -50,9 +50,12 @@ file that does not exist — the build generates it from a `.png`.
    decomp uses, including casts that truncate the way the named type does. Integer and
    floating point both, because `DEG_TO_BINANG` is `(s16)(s32)((degrees) * (0x8000 /
    180.0f))`, and `float` stays `float`. Which type names a cast may use, and how wide
-   they are, comes from the caller's `Dialect`. `ARRAY_COUNT` and `TEX_LEN` are builtins
-   of the decomp's dialect (`z64::getDecompDialect`) rather than expansions: their real
-   definitions are written with `sizeof`, which nothing here can answer.
+   they are, comes from the caller's `Dialect`, which also answers `sizeof` of a type name
+   (a pointer is 4 bytes on both targets): prerendered rooms size their backgrounds with
+   `/ sizeof(u64)`. `sizeof` of an expression is not answered. `ARRAY_COUNT` and
+   `TEX_LEN` are builtins of the decomp's dialect (`z64::getDecompDialect`) rather than
+   expansions: their real definitions take `sizeof` of an array, which needs the array's
+   declaration.
 6. **`Parser`** — file-scope declarations only, as `{name, type, arrayLength, initializer
    token span}`, one per declarator in a list. Typedefs, struct definitions, functions
    and function prototypes are stepped over; anything else it cannot read is a note. The

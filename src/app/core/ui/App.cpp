@@ -1,5 +1,8 @@
 #include "App.h"
 
+#include "app/assets/domain/AssetReader.h"
+#include "app/assets/domain/AssetReport.h"
+#include "app/assets/ui/AssetBrowserPanel.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/build/ui/BuildPanel.h"
 #include "app/core/domain/Log.h"
@@ -20,6 +23,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
@@ -92,6 +96,7 @@ std::expected<void, std::string> App::initialize() {
 
 void App::registerPanels() {
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
+    panels.add(std::make_unique<assets::AssetBrowserPanel>(workspaceService, assetReader));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
@@ -120,6 +125,7 @@ void App::run() {
 void App::drawFrame() {
     workspaceService.update();
     updateBuild();
+    updateAssets();
     const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
     panels.draw();
 
@@ -171,6 +177,43 @@ void App::startBuild(const hackeroot::BuildTarget target) {
     }
     if (Panel* panel = panels.find("build")) {
         panel->setOpen(true);
+    }
+}
+
+void App::updateAssets() {
+    const std::optional<assets::AssetReport> report = assetReader.update();
+    if (!report) {
+        return;
+    }
+    for (const assets::FileReport& file : report->files) {
+        logDebug("{}: {} declarations, {} images", encodeUtf8(file.file.filename()),
+                 file.declarations, file.images);
+        for (const base::Diagnostic& diagnostic : file.diagnostics) {
+            switch (diagnostic.severity) {
+            case base::Severity::Note:
+                logDebug("{}", base::describe(diagnostic));
+                break;
+            case base::Severity::Warning:
+                logWarn("{}", base::describe(diagnostic));
+                break;
+            case base::Severity::Error:
+                logError("{}", base::describe(diagnostic));
+                break;
+            }
+        }
+    }
+    const assets::ReportCounts counts = assets::countReport(*report);
+    const std::string summary = std::format(
+        "opened {} in {} ms: {} files, {} declarations, {} images; {} errors, {} warnings, "
+        "{} notes",
+        report->name, report->elapsed.count(), counts.files, counts.declarations, counts.images,
+        counts.errors, counts.warnings, counts.notes);
+    if (counts.errors > 0) {
+        logError("{}", summary);
+    } else if (counts.warnings > 0) {
+        logWarn("{}", summary);
+    } else {
+        logOk("{}", summary);
     }
 }
 

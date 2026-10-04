@@ -46,6 +46,12 @@ public:
         return workspace.get();
     }
 
+    /// The current workspace for work that outlives a frame, such as reading
+    /// an asset on another thread; it stays valid after a newer one replaces it.
+    [[nodiscard]] std::shared_ptr<const hackeroot::Workspace> getSharedWorkspace() const {
+        return workspace;
+    }
+
     [[nodiscard]] bool isLoading() const;
 
 private:
@@ -59,7 +65,10 @@ private:
     [[nodiscard]] std::optional<hackeroot::FilePoller> readCheckout(const Request& request);
 
     std::chrono::milliseconds pollInterval;
-    std::unique_ptr<hackeroot::Workspace> workspace;
+    // Shared, not owned: a workspace is immutable once read, and background
+    // reads of its assets must keep it alive when the checkout is read again
+    // and the UI moves on to the new one.
+    std::shared_ptr<const hackeroot::Workspace> workspace;
 
     mutable std::mutex mutex;
     std::condition_variable_any wake;

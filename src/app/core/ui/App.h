@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/assets/domain/AssetReader.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Fonts.h"
@@ -39,6 +40,7 @@ private:
     void openCheckout(const std::filesystem::path& path);
     void startBuild(hackeroot::BuildTarget target);
     void updateBuild();
+    void updateAssets();
     void saveState();
 
     std::unique_ptr<Window> window;
@@ -52,6 +54,7 @@ private:
     SetupWizard setupWizard{fonts};
     workspace::WorkspaceService workspaceService;
     build::BuildRunner buildRunner;
+    assets::AssetReader assetReader;
 };
 
 } // namespace toki::core

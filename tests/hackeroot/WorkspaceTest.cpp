@@ -105,6 +105,17 @@ TEST_CASE("asset folders come from the checkout and from its extracted version",
             std::vector<std::string>{"gameplay_keep (extracted)", "object_custom"});
 }
 
+TEST_CASE("a scene folder counts its rooms, not their files", "[hackeroot][workspace]") {
+    const hackeroot::Workspace workspace = loadCheckout();
+    const std::vector<hackeroot::AssetDirectory>& scenes = workspace.getAssets().scenes;
+
+    const auto spot00 =
+        std::ranges::find(scenes, std::string("spot00"), &hackeroot::AssetDirectory::name);
+
+    REQUIRE(spot00 != scenes.end());
+    REQUIRE(spot00->roomCount == 1);
+}
+
 TEST_CASE("a version that was never extracted is a warning, not a failure",
           "[hackeroot][workspace]") {
     const hackeroot::Assets assets = hackeroot::listAssets(getCheckout(), "pal-1.0");

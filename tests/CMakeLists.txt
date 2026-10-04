@@ -1,6 +1,7 @@
 find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
+        app/assets/AssetReportTest.cpp
         app/build/BuildRunnerTest.cpp
         app/build/BuildTextTest.cpp
         app/core/LogTest.cpp

@@ -241,7 +241,7 @@ that.
 
 Ports from `toki64/src/build_runner.rs`, `ui/{build_log_panel,ansi}.rs`.
 
-## 7. Asset browser
+## 7. Asset browser (done)
 
 - Browse scenes, objects, textures from the workspace enumeration
 - Display names from the scene table
@@ -259,6 +259,28 @@ Done when opening any scene in the checkout logs its file set and diagnostic cou
 without a crash, and `CheckoutTest` does the same for every scene.
 
 Ports from `toki64/src/ui/asset_browser.rs`.
+
+What was built: an Assets panel with Scenes and Objects tabs, each a sortable tree-table
+over a details pane. Scenes are grouped by their folder and named from the scene table
+(`SCENE_HYRULE_FIELD` reads "Hyrule Field"), with columns for folder, scene ID, room
+count and source (vanilla or fast64); the pane shows the enum, path, title card and draw
+config, the entrances that lead in, and the last open's counts. The filter matches names,
+folders and enums. Room counts come from the folder listing the workspace already makes.
+Double-clicking opens an asset: `AssetReader`
+preprocesses and parses every C file of its folder on a worker thread, through
+`hackeroot::preprocessAsset`, which holds the checkout's include conventions, and the
+log gets each file's declarations and images, every diagnostic, and a summary. The
+workspace is now shared, so a read keeps the workspace it started with alive when the
+checkout is read again.
+
+Against the real checkout all 103 scenes open: 500 files, 48,807 declarations, 3,951
+images, no errors and no warnings, which the checkout test now holds. Getting there
+found one front-end gap: prerendered rooms size their backgrounds with `sizeof(u64)`, so
+the evaluator now answers `sizeof` of a type name from the dialect. The remaining ~9,900
+notes are the includes the parser deliberately does not follow, such as `ultra64.h`.
+
+Textures are not browsable yet: the workspace does not list them, and showing one needs
+the PNG reader of package 8. Opening an object reports it the same way as a scene.
 
 ## 8. gbi word emission, texture encoding and the memory image
 

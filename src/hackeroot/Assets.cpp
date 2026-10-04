@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <format>
 #include <iterator>
+#include <set>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -43,6 +44,23 @@ listDirectory(const std::filesystem::path& directory) {
     });
 }
 
+[[nodiscard]] usize countRooms(const std::vector<std::filesystem::directory_entry>& entries,
+                               const std::string& name) {
+    const std::string prefix = name + "_room_";
+    std::set<std::string> rooms;
+    for (const std::filesystem::directory_entry& entry : entries) {
+        const std::string file = entry.path().filename().string();
+        if (isFolder(entry) || !file.starts_with(prefix)) {
+            continue;
+        }
+        const usize digits = file.find_first_not_of("0123456789", prefix.size());
+        if (digits > prefix.size()) {
+            rooms.insert(file.substr(prefix.size(), digits - prefix.size()));
+        }
+    }
+    return rooms.size();
+}
+
 [[nodiscard]] std::vector<AssetDirectory>
 collectScenes(const std::vector<std::filesystem::directory_entry>& entries, usize depth,
               bool isExtracted) {
@@ -54,8 +72,10 @@ collectScenes(const std::vector<std::filesystem::directory_entry>& entries, usiz
         const std::string name = entry.path().filename().string();
         const std::vector<std::filesystem::directory_entry> inside = listDirectory(entry.path());
         if (holdsSceneFile(inside, name)) {
-            scenes.push_back(AssetDirectory{
-                .name = name, .directory = entry.path(), .isExtracted = isExtracted});
+            scenes.push_back(AssetDirectory{.name = name,
+                                            .directory = entry.path(),
+                                            .isExtracted = isExtracted,
+                                            .roomCount = countRooms(inside, name)});
         } else if (depth + 1 < MaxSceneDepth) {
             std::vector<AssetDirectory> deeper = collectScenes(inside, depth + 1, isExtracted);
             scenes.insert(scenes.end(), std::make_move_iterator(deeper.begin()),

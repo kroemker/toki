@@ -106,6 +106,15 @@ TEST_CASE("a cast truncates the way its type does", "[cparser][expression]") {
     REQUIRE(harness.evaluateInteger("(short)((((1) / 4) << 10) | (970))") == 970);
 }
 
+TEST_CASE("sizeof a type name is the dialect's size for it", "[cparser][expression]") {
+    Harness harness;
+
+    REQUIRE(harness.evaluateInteger("sizeof(int)") == 4);
+    REQUIRE(harness.evaluateInteger("sizeof(short)") == 2);
+    REQUIRE(harness.evaluateInteger("sizeof(char*)") == 4);
+    REQUIRE(harness.evaluateInteger("320 * 240 * 2 / sizeof(double)") == 19200);
+}
+
 TEST_CASE("a type the dialect does not name is not a cast", "[cparser][expression]") {
     Harness harness;
     const Expression expression("(s16)1");
