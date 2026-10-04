@@ -1,11 +1,13 @@
 #pragma once
 
+#include "app/build/domain/BuildRunner.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "hackeroot/BuildCommand.h"
 
 #include <expected>
 #include <filesystem>
@@ -35,6 +37,8 @@ private:
     void drawFrame();
     void setHackerootPath(const std::filesystem::path& path);
     void openCheckout(const std::filesystem::path& path);
+    void startBuild(hackeroot::BuildTarget target);
+    void updateBuild();
     void saveState();
 
     std::unique_ptr<Window> window;
@@ -47,6 +51,7 @@ private:
     PanelManager panels;
     SetupWizard setupWizard{fonts};
     workspace::WorkspaceService workspaceService;
+    build::BuildRunner buildRunner;
 };
 
 } // namespace toki::core

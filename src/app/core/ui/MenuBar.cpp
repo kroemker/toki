@@ -35,6 +35,22 @@ void drawFileMenu(const Settings& settings, MenuActions& actions) {
     ImGui::EndMenu();
 }
 
+void drawBuildMenu(const bool buildRunning, MenuActions& actions) {
+    if (!ImGui::BeginMenu("Build")) {
+        return;
+    }
+    if (ImGui::MenuItem("Build", "Ctrl+B", false, !buildRunning)) {
+        actions.build = true;
+    }
+    if (ImGui::MenuItem("Build and run", "F5", false, !buildRunning)) {
+        actions.run = true;
+    }
+    if (ImGui::MenuItem("Stop", nullptr, false, buildRunning)) {
+        actions.stopBuild = true;
+    }
+    ImGui::EndMenu();
+}
+
 void drawViewMenu(PanelManager& panels) {
     if (!ImGui::BeginMenu("View")) {
         return;
@@ -57,7 +73,7 @@ void drawViewMenu(PanelManager& panels) {
 
 } // namespace
 
-MenuActions drawMenuBar(PanelManager& panels, const Settings& settings) {
+MenuActions drawMenuBar(PanelManager& panels, const Settings& settings, const bool buildRunning) {
     MenuActions actions;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(space::Medium, space::Medium));
@@ -68,6 +84,7 @@ MenuActions drawMenuBar(PanelManager& panels, const Settings& settings) {
     }
 
     drawFileMenu(settings, actions);
+    drawBuildMenu(buildRunning, actions);
     drawViewMenu(panels);
 
     ImGui::EndMainMenuBar();

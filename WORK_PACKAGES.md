@@ -211,18 +211,33 @@ vcpkg's `sdl3-shadercross`; the shader is tested in `toki_gpu_tests`, apart from
 `toki_tests`; and the pixel reference for now is the CPU reference itself. A comparison
 against RT64 or an emulator needs real scenes, and moves to packages 9 and 10.
 
-## 6. Build runner
+## 6. Build runner (done)
 
 Self-contained, and the highest day-to-day value in the plan. Also the second consumer of
 the panel infrastructure, which is when its design gets tested.
 
-- `wsl.exe -- make` and `make run`, streamed
-- Make's command line built from the same persisted build settings the configuration
-  layer reads
-- Lossy UTF-8 decoding so non-UTF-8 output is not dropped
-- Build log panel with ANSI colour
+- `hackeroot::makeBuildCommand` — `wsl.exe --exec make -jN SETTINGS... [run]`: a checkout
+  on a WSL share runs in its distribution with `--cd` to its Linux path, any other path in
+  the default distribution. `--exec` runs make without a shell, so no setting is expanded
+  or split. The settings are the persisted `[build]` table, the same one the workspace
+  reads.
+- `toki::build::Process` — a child process whose output and errors share one pipe, in a
+  Windows job object so stopping it ends everything it started; killing `wsl.exe` was
+  checked to end the Linux side too. `WSL_UTF8` makes `wsl.exe`'s own messages UTF-8.
+- `LineDecoder` — lines as they arrive in any chunking, `\r` redraws collapsed, and every
+  byte that is not UTF-8 replaced by U+FFFD rather than dropped.
+- `parseAnsiLine` — SGR colour (16, 256, 24-bit), bold, italic, underline; other escapes
+  and control characters dropped.
+- `BuildRunner` — one build at a time on a worker thread, output moved into a capped
+  `BuildLog` once a frame, an outcome with exit code and time when it ends.
+- `BuildPanel` and a Build menu: Build (Ctrl+B), Build and run (F5), Stop; the outcome
+  also goes to the log.
 
-Done when a build can be started from the app and its output read as it arrives.
+Tests run real processes through `cmd.exe`, and `CheckoutTest`'s configuration runs
+`make --version` through `wsl.exe` in the checkout's distribution.
+
+Known limit: processes are only implemented on Windows; elsewhere starting a build reports
+that.
 
 Ports from `toki64/src/build_runner.rs`, `ui/{build_log_panel,ansi}.rs`.
 

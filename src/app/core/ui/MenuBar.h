@@ -7,9 +7,13 @@ namespace toki::core {
 
 struct MenuActions {
     bool changeHackerootPath = false;
+    bool build = false;
+    bool run = false;
+    bool stopBuild = false;
     bool quit = false;
 };
 
-[[nodiscard]] MenuActions drawMenuBar(PanelManager& panels, const Settings& settings);
+[[nodiscard]] MenuActions drawMenuBar(PanelManager& panels, const Settings& settings,
+                                      bool buildRunning);
 
 } // namespace toki::core

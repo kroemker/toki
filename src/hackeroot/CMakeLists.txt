@@ -1,5 +1,6 @@
 target_sources(toki_core PRIVATE
         Assets.cpp
+        BuildCommand.cpp
         BuildDefines.cpp
         Checkout.cpp
         Configuration.cpp

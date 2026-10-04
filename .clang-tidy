@@ -78,4 +78,6 @@ CheckOptions:
   readability-function-cognitive-complexity.Threshold: 25
   # Umbrella and single-header third-party includes: include-cleaner wants the
   # individual SDL headers and cannot see through imgui's and toml++'s inlining.
-  misc-include-cleaner.IgnoreHeaders: 'SDL3.*;imgui.*;toml.*;catch2.*'
+  # <windows.h> likewise spreads the Win32 API over internal SDK headers (um/,
+  # shared/) that nobody includes directly.
+  misc-include-cleaner.IgnoreHeaders: 'SDL3.*;imgui.*;toml.*;catch2.*;windows\.h;.*[/\\]um[/\\].*;.*[/\\]shared[/\\].*'

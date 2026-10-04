@@ -1,6 +1,8 @@
 find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
+        app/build/BuildRunnerTest.cpp
+        app/build/BuildTextTest.cpp
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
@@ -13,6 +15,7 @@ add_executable(toki_tests
         cparser/ScannerTest.cpp
         cparser/ScrapeTest.cpp
         cparser/TableReaderTest.cpp
+        hackeroot/BuildCommandTest.cpp
         hackeroot/BuildDefinesTest.cpp
         hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp

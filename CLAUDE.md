@@ -103,6 +103,7 @@ src/
   gfx/         The GPU side of the renderer: upload, ubershader, viewport, camera.
   app/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
+    build/     ui/ = build panel   domain/ = process, output decoding, build runner
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/

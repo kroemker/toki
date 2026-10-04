@@ -1,15 +1,19 @@
 #include "App.h"
 
+#include "app/build/domain/BuildRunner.h"
+#include "app/build/ui/BuildPanel.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/LogPanel.h"
 #include "app/core/ui/MenuBar.h"
+#include "app/core/ui/Panel.h"
 #include "app/core/ui/Paths.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
+#include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
 
 #include <imgui.h>
@@ -89,6 +93,8 @@ std::expected<void, std::string> App::initialize() {
 void App::registerPanels() {
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
+    panels.add(std::make_unique<build::BuildPanel>(
+        buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
 }
 
 void App::restoreLayout() {
@@ -113,7 +119,8 @@ void App::run() {
 
 void App::drawFrame() {
     workspaceService.update();
-    const MenuActions actions = drawMenuBar(panels, settings);
+    updateBuild();
+    const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
     panels.draw();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {
@@ -123,8 +130,61 @@ void App::drawFrame() {
     if (actions.changeHackerootPath && !setupWizard.isActive()) {
         setupWizard.beginChangePath(settings.hackerootPath);
     }
+    if (actions.build || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B, ImGuiInputFlags_RouteGlobal)) {
+        startBuild(hackeroot::BuildTarget::Build);
+    }
+    if (actions.run || ImGui::Shortcut(ImGuiKey_F5, ImGuiInputFlags_RouteGlobal)) {
+        startBuild(hackeroot::BuildTarget::Run);
+    }
+    if (actions.stopBuild) {
+        buildRunner.stop();
+    }
     if (actions.quit) {
         window->requestClose();
+    }
+}
+
+void App::startBuild(const hackeroot::BuildTarget target) {
+    if (buildRunner.isRunning()) {
+        return;
+    }
+    if (!settings.hackerootPath) {
+        logError("set the HackerOoT folder before building");
+        return;
+    }
+    const std::expected<std::filesystem::path, base::Diagnostic> root =
+        hackeroot::findCheckoutRoot(*settings.hackerootPath);
+    if (!root) {
+        logError("{}", base::describe(root.error()));
+        return;
+    }
+    const std::expected<void, base::Diagnostic> started = buildRunner.start(
+        *root, makeparser::MakeOverrides(settings.build.begin(), settings.build.end()), target);
+    if (!started) {
+        logError("{}", base::describe(started.error()));
+        return;
+    }
+    if (target == hackeroot::BuildTarget::Run) {
+        logInfo("building and running {}", encodeUtf8(*root));
+    } else {
+        logInfo("building {}", encodeUtf8(*root));
+    }
+    if (Panel* panel = panels.find("build")) {
+        panel->setOpen(true);
+    }
+}
+
+void App::updateBuild() {
+    const std::optional<build::BuildOutcome> outcome = buildRunner.update();
+    if (!outcome) {
+        return;
+    }
+    if (outcome->status == build::BuildStatus::Succeeded) {
+        logOk("{}", outcome->summary);
+    } else if (outcome->status == build::BuildStatus::Stopped) {
+        logWarn("{}", outcome->summary);
+    } else {
+        logError("{}", outcome->summary);
     }
 }
 
