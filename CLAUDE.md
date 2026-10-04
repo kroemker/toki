@@ -71,14 +71,15 @@ cheap reload of a single room.
 The renderer is written here, not vendored. It reads F3DEX2 display lists straight out of
 the memory image, the way the N64 does, and is split where the hardware splits:
 
-- **`n64/`** is the RSP running F3DEX2 and the RDP's state: matrices, vertex transform and
-  lighting in the N64's fixed point, clipping and culling, segments, texture memory loads
-  and tile descriptors, combiner and blender settings. Its output is a list of triangles,
-  each carrying the full RDP state it is drawn with. It is plain CPU code, tested like a
-  parser.
-- **`gfx/`** draws that list through SDL3's GPU API (D3D12, Vulkan, Metal). One fixed
-  ubershader reads combiner and blender settings as data, so no shader is ever generated
-  or compiled at runtime.
+- **`n64/`** is the RSP running F3DEX2 and the RDP's state: matrices in the N64's fixed
+  point, vertex transform, lighting, culling, segments, texture memory loads and tile
+  descriptors, combiner and blender settings. Its output is a list of triangles in clip
+  space, each carrying the full RDP state it is drawn with. It is plain CPU code, tested
+  like a parser.
+- **`gfx/`** draws that list through SDL3's GPU API (D3D12, Vulkan, Metal), clipping
+  included. One fixed ubershader reads combiner and blender settings as data, so no shader
+  is ever generated or compiled at runtime. Blender cycles that read the framebuffer map
+  onto the GPU's own blend modes; a mode with no equivalent is a diagnostic.
 
 Accuracy is the goal and F3DEX2 is the scope. F3DEX3 is not supported: a checkout that
 enables it is told so, not drawn wrong.
@@ -126,8 +127,9 @@ later gbi word emission and the memory image. It holds no domain structs.
 
 `n64/` is the hardware, and what is true of every N64 game: segment addressing, the
 physical address space (`Memory`), fixed-point matrices, and F3DEX2 running on the RSP
-(`runTask`), and the RDP's texture memory (`TextureMemory`, `fetchTexel`). The combiner and
-blender follow.
+(`runTask`), and the RDP: its texture memory (`TextureMemory`, `fetchTexel`), its combiner
+and blender (`evaluateCombiner`, `evaluateBlender`), and the pass that pairs every primitive
+with the state it is drawn under (`runRdp`).
 
 `cparser/` reads files, because a preprocessor that follows includes has to, but only in
 three places: `SourceSet` opens files, `IncludeResolver` lists directories, and `Scrape`

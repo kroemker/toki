@@ -46,6 +46,8 @@ struct TileAxis {
     u8 shift = 0;
     u16 low = 0;
     u16 high = 0;
+
+    friend bool operator==(const TileAxis&, const TileAxis&) = default;
 };
 
 /// One of the RDP's eight tile descriptors, as `G_SETTILE` and
@@ -60,6 +62,8 @@ struct TileDescriptor {
     u8 palette = 0;
     /// S, then T.
     std::array<TileAxis, 2> axes{};
+
+    friend bool operator==(const TileDescriptor&, const TileDescriptor&) = default;
 };
 
 } // namespace n64

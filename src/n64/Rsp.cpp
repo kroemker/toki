@@ -6,13 +6,13 @@
 #include "n64/Lighting.h"
 #include "n64/Memory.h"
 #include "n64/Opcode.h"
-#include "n64/RspInterpreter.h"
 #include "n64/RspResult.h"
 #include "n64/Types.h"
 #include "n64/Viewport.h"
+#include "n64/detail/RspInterpreter.h"
 
 #include <algorithm>
-#include <cstddef>
+#include <array>
 #include <format>
 #include <optional>
 #include <span>
@@ -213,6 +213,7 @@ void RspInterpreter::runMoveWord(const u32 word0, const u32 word1) {
         break;
     case 0x02:
         lightCount = std::min<usize>(word1 / LightSize, MaxLights);
+        lightSetup.reset();
         break;
     case 0x04:
     case 0x0E:
@@ -226,9 +227,10 @@ void RspInterpreter::runMoveWord(const u32 word0, const u32 word1) {
         break;
     case 0x0A:
         if (LightBase + offset + 4 <= lightMemory.size()) {
-            for (usize i = 0; i < 4; ++i) {
-                lightMemory[LightBase + offset + i] = static_cast<u8>(word1 >> (24 - (i * 8)));
-            }
+            const std::array<u8, 4> color{static_cast<u8>(word1 >> 24),
+                                          static_cast<u8>(word1 >> 16), static_cast<u8>(word1 >> 8),
+                                          static_cast<u8>(word1)};
+            writeLightMemory(LightBase + offset, color);
         }
         break;
     case 0x0C:
@@ -259,7 +261,7 @@ void RspInterpreter::runMoveMemory(const u32 word0, const u32 word1) {
                        "G_MOVEMEM writes {} bytes of lights at offset {}, past the light buffer",
                        size, offset));
         } else if (const auto bytes = readDma(word1, size, "a light")) {
-            std::ranges::copy(*bytes, lightMemory.begin() + static_cast<std::ptrdiff_t>(offset));
+            writeLightMemory(offset, *bytes);
         }
         break;
     case 14:
@@ -289,7 +291,14 @@ bool RspInterpreter::runDisplayList(const u32 word0, const u32 word1) {
 
 void RspInterpreter::runOtherMode(const u32 word0, const u32 word1, const bool high) {
     const u32 length = (word0 & 0xFF) + 1;
-    const u32 shift = 32 - ((word0 >> 8) & 0xFF) - length;
+    const u32 field = (word0 >> 8) & 0xFF;
+    if (field + length > 32) {
+        report(base::Severity::Warning,
+               std::format("G_SETOTHERMODE sets {} bits from position {}, past the 32-bit word",
+                           length, 32 - std::min<u32>(field, 32)));
+        return;
+    }
+    const u32 shift = 32 - field - length;
     const auto mask = static_cast<u32>(((u64{1} << length) - 1) << shift);
     u32& mode = high ? otherModeHigh : otherModeLow;
     mode = (mode & ~mask) | word1;

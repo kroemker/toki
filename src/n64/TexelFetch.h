@@ -1,5 +1,6 @@
 #pragma once
 
+#include "n64/Color.h"
 #include "n64/TextureMemory.h"
 #include "n64/TileDescriptor.h"
 #include "n64/Types.h"
@@ -10,7 +11,6 @@
 namespace n64 {
 
 using Texel = std::array<s32, 2>;
-using Color = std::array<u8, 4>;
 
 /// Where a texture coordinate falls in a tile: shifted by the tile's shift,
 /// moved by its upper-left corner, and floored to a whole texel. `coordinate`

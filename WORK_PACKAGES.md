@@ -189,20 +189,26 @@ Tests build their words with a small helper of their own, not with `gbi.h`.
 - **Texture memory** (`n64/`, done) — `LoadBlock`, `LoadTile`, `LoadTLUT`, tile
   descriptors, the swapped odd rows, wrap, mirror, clamp and masks. Load commands in,
   texels out. Filtering and level-of-detail selection belong with the GPU stage.
-- **Combiner and blender** (`n64/`) — one and two cycle, as data a shader can read; a CPU
-  evaluation of the same equations for tests.
+- **Combiner and blender** (`n64/`, done) — one and two cycle, as data a shader can read; a
+  CPU evaluation of the same equations for tests. `runRdp` pairs every primitive with
+  the RDP state and the texture memory it is drawn under, which is what the GPU stage
+  uploads.
 - **GPU** (`gfx/`, `toki_gfx`) — SDL3 GPU device, one ubershader compiled at build time
-  for each backend, N64 three-point filtering, depth modes, fog. Draws a hand-written
-  display list into an offscreen texture.
+  for each backend, N64 three-point filtering, depth modes, fog. Texture memory reaches
+  the shader raw, as a storage buffer, and is decoded there by the rules of `fetchTexel`.
+  Blending that reads the framebuffer maps onto the GPU's fixed-function blend modes;
+  blender cycles that do not read it run in the shader. Draws a hand-written display
+  list into an offscreen texture.
 
 Done when a hand-written display list covering textures, lighting and two-cycle
 combining renders offscreen, the CPU stages are under tests, and docs/renderer.md says
 what matches the references and what does not yet.
 
 Open, settle while building: how shaders are compiled for each backend at build time
-(`SDL_shadercross`, or DXC plus SPIRV-Cross directly), and which reference renders the
-pixel comparison uses (RT64 or an emulator screenshot until a parallel-rdp harness
-exists).
+(`SDL_shadercross`, or DXC plus SPIRV-Cross directly); where the shader is tested
+against `evaluateCombiner` and `evaluateBlender`, which needs a GPU and so a test target
+apart from `toki_tests`; and which reference renders the pixel comparison uses (RT64 or
+an emulator screenshot until a parallel-rdp harness exists).
 
 ## 6. Build runner
 

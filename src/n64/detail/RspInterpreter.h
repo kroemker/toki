@@ -21,7 +21,7 @@ namespace n64 {
 
 /// F3DEX2's state and command handlers for one task. Private to `runTask`:
 /// the handlers for vertices and triangles are in RspGeometry.cpp, the rest in
-/// Rsp.cpp.
+/// Rsp.cpp. Nothing outside those two files includes this header.
 class RspInterpreter {
 public:
     RspInterpreter(const Memory& memory, const RspTask& task)
@@ -47,6 +47,7 @@ private:
     struct VertexSlot {
         ShadedVertex vertex;
         usize viewport = 0;
+        bool loaded = false;
     };
 
     struct LightSetup {
@@ -79,7 +80,8 @@ private:
 
     [[nodiscard]] ShadedVertex shadeVertex(std::span<const u8> bytes,
                                            const LightSetup& setup) const;
-    [[nodiscard]] LightSetup makeLightSetup() const;
+    [[nodiscard]] const LightSetup& getLightSetup();
+    void writeLightMemory(usize offset, std::span<const u8> bytes);
     [[nodiscard]] usize findViewportIndex();
 
     [[nodiscard]] const Viewport& getViewport(const VertexSlot& slot) const {
@@ -112,6 +114,7 @@ private:
     std::array<VertexSlot, VertexBufferSize> vertices{};
     std::array<u8, LightMemorySize> lightMemory{};
     usize lightCount = 1;
+    std::optional<LightSetup> lightSetup;
     Viewport viewport = makeDefaultViewport();
     std::optional<usize> viewportIndex;
     s16 fogMultiplier = 0;

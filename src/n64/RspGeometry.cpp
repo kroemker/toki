@@ -3,13 +3,14 @@
 #include "n64/FixedMatrix.h"
 #include "n64/Lighting.h"
 #include "n64/Opcode.h"
-#include "n64/RspInterpreter.h"
 #include "n64/RspResult.h"
 #include "n64/Types.h"
 #include "n64/Viewport.h"
+#include "n64/detail/RspInterpreter.h"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <format>
 #include <optional>
 #include <span>
@@ -46,12 +47,13 @@ void RspInterpreter::runVertex(const u32 word0, const u32 word1) {
         modelviewProjection = multiply(modelview, projection);
         modelviewProjectionStale = false;
     }
-    const LightSetup setup = makeLightSetup();
+    const LightSetup& setup = getLightSetup();
     const usize viewportSlot = findViewportIndex();
     for (usize i = 0; i < count; ++i) {
         vertices[end - count + i] = VertexSlot{
             .vertex = shadeVertex(bytes->subspan(i * VertexSize, VertexSize), setup),
             .viewport = viewportSlot,
+            .loaded = true,
         };
     }
 }
@@ -106,11 +108,14 @@ ShadedVertex RspInterpreter::shadeVertex(const std::span<const u8> bytes,
     return vertex;
 }
 
-RspInterpreter::LightSetup RspInterpreter::makeLightSetup() const {
+const RspInterpreter::LightSetup& RspInterpreter::getLightSetup() {
+    if (lightSetup) {
+        return *lightSetup;
+    }
     const auto readSlot = [this](const usize offset) {
         return readLight(std::span<const u8, LightSize>(lightMemory.data() + offset, LightSize));
     };
-    LightSetup setup;
+    LightSetup& setup = lightSetup.emplace();
     for (usize i = 0; i < lightCount; ++i) {
         setup.lights.push_back(readSlot(LightBase + (i * LightSize)));
     }
@@ -118,6 +123,11 @@ RspInterpreter::LightSetup RspInterpreter::makeLightSetup() const {
     setup.lookAtX = readSlot(0).direction;
     setup.lookAtY = readSlot(LightSize).direction;
     return setup;
+}
+
+void RspInterpreter::writeLightMemory(const usize offset, const std::span<const u8> bytes) {
+    std::ranges::copy(bytes, lightMemory.begin() + static_cast<std::ptrdiff_t>(offset));
+    lightSetup.reset();
 }
 
 usize RspInterpreter::findViewportIndex() {
@@ -195,6 +205,13 @@ void RspInterpreter::drawTriangle(const u32 indices) {
     const std::optional<usize> c = findVertexIndex((indices & 0xFF) / 2);
     if (!a || !b || !c) {
         return;
+    }
+    for (const usize index : {*a, *b, *c}) {
+        if (!vertices[index].loaded) {
+            report(base::Severity::Warning,
+                   std::format("a triangle uses vertex {}, which no G_VTX has loaded", index));
+            return;
+        }
     }
     const u32 cull = geometryMode & (geometry::CullFront | geometry::CullBack);
     if (cull == (geometry::CullFront | geometry::CullBack)) {

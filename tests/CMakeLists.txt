@@ -22,8 +22,10 @@ add_executable(toki_tests
         hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
         makeparser/ShellWordsTest.cpp
+        n64/CombinerTest.cpp
         n64/FixedMatrixTest.cpp
         n64/MemoryTest.cpp
+        n64/RdpTest.cpp
         n64/RspTest.cpp
         n64/SegmentTest.cpp
         n64/TextureMemoryTest.cpp

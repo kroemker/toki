@@ -397,3 +397,51 @@ TEST_CASE("a display list that never ends is stopped", "[n64][rsp]") {
     REQUIRE(result.diagnostics.size() == 1);
     REQUIRE(result.diagnostics[0].severity == base::Severity::Error);
 }
+
+TEST_CASE("a triangle using a vertex no G_VTX loaded is reported", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.drawTriangle(0, 1, 5);
+    builder.endDisplayList();
+
+    const n64::RspResult result = runDisplayList(builder, start);
+
+    REQUIRE(result.outputs.empty());
+    REQUIRE(result.diagnostics.size() == 1);
+    REQUIRE(result.diagnostics[0].message.contains("vertex 5"));
+}
+
+TEST_CASE("an other mode field past the word is reported, not applied", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 start = builder.addWords(0xE300'2004, 0xFFFF'FFFF);
+    builder.endDisplayList();
+
+    const n64::RspResult result = runDisplayList(builder, start);
+
+    REQUIRE(result.outputs.empty());
+    REQUIRE(result.diagnostics.size() == 1);
+}
+
+TEST_CASE("a light changed between vertex loads lights the later ones", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 ambient = builder.addBytes({10, 10, 10, 0, 10, 10, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    const u32 vertices = builder.addVertex({0, 0, 0}, {0, 0}, {0, 0, 127, 255});
+    builder.addVertex({10, 0, 0}, {0, 0}, {0, 0, 127, 255});
+    builder.addVertex({0, 10, 0}, {0, 0}, {0, 0, 127, 255});
+    const u32 start = builder.moveWord(0x02, 0, 0);
+    builder.moveMemory(ambient, 16, 10, 0x30);
+    builder.setGeometryMode(0, Lighting | Smooth);
+    builder.loadVertices(vertices, 3, 0);
+    builder.drawTriangle(0, 1, 2);
+    builder.moveWord(0x0A, 0, 0x4040'4000);
+    builder.loadVertices(vertices, 3, 0);
+    builder.drawTriangle(0, 1, 2);
+    builder.endDisplayList();
+
+    const std::vector<n64::Triangle> triangles = findTriangles(runDisplayList(builder, start));
+
+    REQUIRE(triangles.size() == 2);
+    REQUIRE(triangles[0].vertices[0].color == std::array<u8, 4>{10, 10, 10, 255});
+    REQUIRE(triangles[1].vertices[0].color == std::array<u8, 4>{0x40, 0x40, 0x40, 255});
+}

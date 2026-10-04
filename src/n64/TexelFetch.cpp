@@ -1,5 +1,6 @@
 #include "TexelFetch.h"
 
+#include "n64/Color.h"
 #include "n64/TextureMemory.h"
 #include "n64/TileDescriptor.h"
 #include "n64/Types.h"

@@ -61,6 +61,16 @@ The N64 renders in two processors, and so does this.
    the combiner and blender settings as data, so nothing is generated or compiled at
    runtime and the shader is compiled once per backend at build time.
 
+**Blending that reads the framebuffer uses the GPU's own blend modes.** SDL3's GPU API
+cannot read the framebuffer from a shader, and the blender's memory colour is exactly
+that. The modes games use (translucency, additive, opaque over memory) have exact
+fixed-function equivalents; a blender cycle that reads no memory, such as fog in the
+first cycle, runs in the shader with the RDP's arithmetic. What is lost is the last bit
+of exactness in the memory blend: five-bit weights and wrap-around become the GPU's
+blending. A mode with no equivalent is a diagnostic, not a guess. Copying the framebuffer
+before every translucent draw, or rasterising in compute as parallel-rdp does, would be
+exact, and were turned down as too costly for a viewer.
+
 Stages 1 and 2 are in `toki_core` and are tested the way parsers are. Only the shader's
 arithmetic needs a pixel comparison, against RT64 or an emulator screenshot until a
 parallel-rdp harness exists.
@@ -112,6 +122,33 @@ reach the GPU as it is, and be read there the same way.
 Format and size pairs the hardware has no decoder for (8-bit RGBA, 16-bit intensity,
 32-bit intensity and the like) read as RT64 observed the hardware reading them. YUV is
 not decoded.
+
+## Combiner, blender and the RDP pass
+
+`makeCombineMode` decodes `G_SETCOMBINE` into one name per input, `CombinerInput`, so a
+selector no longer means different things in different slots; that table is what the
+shader will read. `OtherMode` decodes the other mode's fields, the blender's among them.
+
+`evaluateCombiner` and `evaluateBlender` are the reference the shader is tested against,
+written in the RDP's own arithmetic as parallel-rdp reproduces it: the combiner's 9-bit
+signed adders, so a sum past 255 clamps and a sum far enough past it wraps to black; the
+second cycle reading the first's unclamped result and its texels swapped; one-cycle mode
+combining with cycle 1 and blending with cycle 0; blender weights cut to five bits and a
+result that wraps rather than saturates.
+
+What they leave out, because it needs per-pixel state the CPU stages do not have:
+
+- Coverage. Every pixel is taken as fully covered, so the final blender cycle blends only
+  under `FORCE_BL`, which is how the interior of an opaque anti-aliased surface behaves,
+  and colour-on-coverage never applies. Alpha-to-coverage takes the coverage it is given.
+- Dither, for colour and for alpha. The noise input and the level-of-detail fraction are
+  taken as given; the GPU stage computes them.
+
+`runRdp` runs what the RSP produced through the RDP's state in order and emits every
+triangle, texture rectangle and fill rectangle with the state it is drawn under: other
+mode, combine mode, colour registers, key and convert constants, scissor, tile
+descriptors, and a copy of texture memory. Primitives that share a state share one entry,
+and texture memory is copied only when a load changed it.
 
 ## Scope
 
