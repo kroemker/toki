@@ -32,6 +32,14 @@ ctest --preset debug
 
 The executable lands in `build/debug/toki.exe`.
 
+The tests that read a real HackerOoT checkout skip unless one is configured. To run them
+against a checkout in WSL, copied to the Windows filesystem first because every file open
+over `\\wsl.localhost` costs milliseconds:
+
+```
+tools\run_checkout_tests.ps1 -Distro Ubuntu -Checkout ~/HackerOoT
+```
+
 ## CLion
 
 CLion configures by calling `cmake` directly rather than through `CMakePresets.json`, so
