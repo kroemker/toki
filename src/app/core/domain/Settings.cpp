@@ -6,6 +6,7 @@
 
 #include <toml++/toml.hpp>
 
+#include <algorithm>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -144,6 +145,91 @@ void readBuild(const toml::table& root, const std::filesystem::path& path, Setti
     }
 }
 
+template <typename Node>
+[[nodiscard]] std::optional<f32> readFloat(const Node& node) {
+    if (const std::optional<f64> value = node.template value<f64>()) {
+        return static_cast<f32>(*value);
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] std::optional<CameraPose> readCamera(const toml::table& camera) {
+    const toml::array* target = camera["target"].as_array();
+    const std::optional<f32> yaw = readFloat(camera["yaw"]);
+    const std::optional<f32> pitch = readFloat(camera["pitch"]);
+    const std::optional<f32> distance = readFloat(camera["distance"]);
+    if (target == nullptr || target->size() != 3 || !yaw || !pitch || !distance) {
+        return std::nullopt;
+    }
+    CameraPose pose{.yaw = *yaw, .pitch = *pitch, .distance = *distance};
+    for (usize axis = 0; axis < pose.target.size(); ++axis) {
+        const std::optional<f32> value = readFloat((*target)[axis]);
+        if (!value) {
+            return std::nullopt;
+        }
+        pose.target[axis] = *value;
+    }
+    return pose;
+}
+
+void readSession(const toml::table& root, Settings& settings) {
+    const toml::table* session = root["session"].as_table();
+    if (session == nullptr) {
+        return;
+    }
+    const std::optional<std::string> scene = (*session)["scene"].value<std::string>();
+    if (!scene) {
+        return;
+    }
+    SceneSession read{.directory = decodeUtf8(*scene)};
+    read.layer = static_cast<usize>(std::max<s64>((*session)["layer"].value_or(s64{0}), 0));
+    read.lightSetting =
+        static_cast<usize>(std::max<s64>((*session)["light_setting"].value_or(s64{0}), 0));
+    read.marksActors = (*session)["marks_actors"].value_or(true);
+    if (const toml::array* hidden = (*session)["hidden_rooms"].as_array()) {
+        for (const toml::node& room : *hidden) {
+            if (const std::optional<s64> index = room.value<s64>(); index && *index >= 0) {
+                read.hiddenRooms.push_back(static_cast<usize>(*index));
+            }
+        }
+    }
+    if (const toml::table* camera = (*session)["camera"].as_table()) {
+        read.camera = readCamera(*camera);
+    }
+    settings.session = std::move(read);
+}
+
+void writeSession(toml::table& root, const Settings& settings) {
+    if (!settings.session) {
+        root.erase("session");
+        return;
+    }
+    const SceneSession& session = *settings.session;
+    toml::table written;
+    written.insert_or_assign("scene", encodeUtf8(session.directory));
+    written.insert_or_assign("layer", static_cast<s64>(session.layer));
+    written.insert_or_assign("light_setting", static_cast<s64>(session.lightSetting));
+    written.insert_or_assign("marks_actors", session.marksActors);
+    toml::array hidden;
+    for (const usize room : session.hiddenRooms) {
+        hidden.push_back(static_cast<s64>(room));
+    }
+    written.insert_or_assign("hidden_rooms", std::move(hidden));
+    if (session.camera) {
+        toml::array target;
+        for (const f32 value : session.camera->target) {
+            target.push_back(static_cast<f64>(value));
+        }
+        toml::table camera;
+        camera.insert_or_assign("target", std::move(target));
+        camera.insert_or_assign("yaw", static_cast<f64>(session.camera->yaw));
+        camera.insert_or_assign("pitch", static_cast<f64>(session.camera->pitch));
+        camera.insert_or_assign("distance", static_cast<f64>(session.camera->distance));
+        written.insert_or_assign("camera", std::move(camera));
+    }
+    root.insert_or_assign("session", std::move(written));
+}
+
 void writeBuild(toml::table& root, const Settings& settings) {
     if (settings.build.empty()) {
         root.erase("build");
@@ -198,6 +284,12 @@ void writePanels(toml::table& root, const Settings& settings) {
 
 } // namespace
 
+bool isSamePath(const std::filesystem::path& first, const std::filesystem::path& second) {
+    std::filesystem::path left = first.lexically_normal();
+    std::filesystem::path right = second.lexically_normal();
+    return left.make_preferred() == right.make_preferred();
+}
+
 std::expected<Settings, std::string> loadSettings(const std::filesystem::path& path) {
     std::error_code status;
     if (!std::filesystem::is_regular_file(path, status)) {
@@ -219,6 +311,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readWindow(*root, settings);
     readPanels(*root, settings);
     readBuild(*root, path, settings);
+    readSession(*root, settings);
 
     return settings;
 }
@@ -250,6 +343,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeWindow(root, settings);
     writePanels(root, settings);
     writeBuild(root, settings);
+    writeSession(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

@@ -29,6 +29,11 @@ void drawFileMenu(const Settings& settings, MenuActions& actions) {
     ImGui::EndDisabled();
 
     ImGui::Separator();
+    if (ImGui::MenuItem("Settings…", "Ctrl+,")) {
+        actions.openSettings = true;
+    }
+
+    ImGui::Separator();
     if (ImGui::MenuItem("Quit", "Alt+F4")) {
         actions.quit = true;
     }

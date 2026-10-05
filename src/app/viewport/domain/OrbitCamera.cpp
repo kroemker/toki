@@ -45,6 +45,12 @@ void OrbitCamera::pan(const f32 rightFraction, const f32 upFraction) {
     target += ((right * rightFraction) + (up * upFraction)) * viewHeight;
 }
 
+void OrbitCamera::setAngles(const f32 yawDegrees, const f32 pitchDegrees) {
+    yaw = 0.0F;
+    pitch = 0.0F;
+    rotate(yawDegrees, pitchDegrees);
+}
+
 void OrbitCamera::setDistance(const f32 value) {
     distance = std::clamp(value, MinimumDistance, MaximumDistance);
 }

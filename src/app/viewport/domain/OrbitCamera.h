@@ -31,6 +31,17 @@ public:
     /// Moves to `value` from the target, within the distances zooming allows.
     void setDistance(f32 value);
 
+    [[nodiscard]] f32 getYaw() const {
+        return yaw;
+    }
+
+    [[nodiscard]] f32 getPitch() const {
+        return pitch;
+    }
+
+    /// Faces the angles given, in degrees, within the pitch `rotate` allows.
+    void setAngles(f32 yawDegrees, f32 pitchDegrees);
+
     [[nodiscard]] glm::vec3 getEye() const;
 
     /// Turns by angles in degrees. Pitch stops short of straight up and down.

@@ -7,6 +7,7 @@ namespace toki::core {
 
 struct MenuActions {
     bool changeHackerootPath = false;
+    bool openSettings = false;
     bool build = false;
     bool run = false;
     bool stopBuild = false;

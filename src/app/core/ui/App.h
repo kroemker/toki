@@ -5,6 +5,7 @@
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/PanelManager.h"
+#include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
 #include "app/scene/domain/SceneLoader.h"
@@ -46,6 +47,8 @@ private:
     void updateBuild();
     void updateAssets();
     void updateScene();
+    void openRestoredScene();
+    void applySettings(const Settings& applied);
     void saveState();
 
     std::unique_ptr<gfx::Device> device;
@@ -58,10 +61,13 @@ private:
     Fonts fonts;
     PanelManager panels;
     SetupWizard setupWizard{fonts};
+    SettingsWindow settingsWindow;
     workspace::WorkspaceService workspaceService;
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;
+    /// The scene last open, still to be opened again once the checkout is read.
+    std::optional<std::filesystem::path> restoringScene;
     viewport::ViewportPanel* viewportPanel = nullptr;
     scene::ScenePanel* scenePanel = nullptr;
 };

@@ -1,5 +1,6 @@
 #include "SceneView.h"
 
+#include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorMarkers.h"
 #include "app/scene/domain/Scene.h"
@@ -130,6 +131,38 @@ SceneView keepSceneView(const Scene& scene, SceneView view) {
     }
     view.hiddenRooms.resize(layer.rooms.size(), false);
     return view;
+}
+
+SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session) {
+    SceneView view = makeSceneView(scene);
+    const auto layer = std::ranges::find(scene.layers, session.layer, &SceneLayer::index);
+    if (layer != scene.layers.end()) {
+        view.layer = static_cast<usize>(layer - scene.layers.begin());
+    }
+    view.lightSetting = session.lightSetting;
+    view.showsActors = session.marksActors;
+    view = keepSceneView(scene, std::move(view));
+    for (const usize room : session.hiddenRooms) {
+        if (room < view.hiddenRooms.size()) {
+            view.hiddenRooms[room] = true;
+        }
+    }
+    return view;
+}
+
+core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
+    core::SceneSession session{.directory = scene.directory,
+                               .lightSetting = view.lightSetting,
+                               .marksActors = view.showsActors};
+    if (view.layer < scene.layers.size()) {
+        session.layer = scene.layers[view.layer].index;
+    }
+    for (usize room = 0; room < view.hiddenRooms.size(); ++room) {
+        if (view.hiddenRooms[room]) {
+            session.hiddenRooms.push_back(room);
+        }
+    }
+    return session;
 }
 
 viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view) {

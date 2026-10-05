@@ -7,6 +7,7 @@ target_sources(toki PRIVATE
         Panel.cpp
         PanelManager.cpp
         Paths.cpp
+        SettingsWindow.cpp
         SetupWizard.cpp
         Theme.cpp
         Window.cpp)

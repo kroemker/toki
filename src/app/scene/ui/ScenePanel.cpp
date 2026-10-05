@@ -1,5 +1,6 @@
 #include "ScenePanel.h"
 
+#include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -37,19 +38,41 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
       workspaceService(workspaceService), viewportPanel(viewportPanel) {}
 
 void ScenePanel::setScene(Scene read) {
-    const bool isNew = !scene || scene->directory != read.directory;
-    sceneView = isNew ? makeSceneView(read) : keepSceneView(read, std::move(sceneView));
+    const bool isNew = !scene || !core::isSamePath(scene->directory, read.directory);
+    const bool isRestored =
+        isNew && pendingSession && core::isSamePath(pendingSession->directory, read.directory);
+    if (isRestored) {
+        sceneView = restoreSceneView(read, *pendingSession);
+    } else {
+        sceneView = isNew ? makeSceneView(read) : keepSceneView(read, std::move(sceneView));
+    }
     scene = std::move(read);
 
     std::optional<glm::vec3> target;
-    if (isNew && !scene->layers.empty() && !scene->layers.front().header.playerEntries.empty()) {
+    if (isNew && !isRestored && !scene->layers.empty() &&
+        !scene->layers.front().header.playerEntries.empty()) {
         target = makePoint(scene->layers.front().header.playerEntries.front().position);
     }
     viewportPanel.setContent(makeSceneContent(*scene, sceneView), target);
+    if (isRestored && pendingSession->camera) {
+        viewportPanel.setCameraPose(*pendingSession->camera);
+    }
+    if (isNew) {
+        pendingSession.reset();
+    }
     if (isNew) {
         viewportPanel.setOpen(true);
         setOpen(true);
     }
+}
+
+std::optional<core::SceneSession> ScenePanel::makeSession() const {
+    if (!scene || sceneView.layer >= scene->layers.size()) {
+        return std::nullopt;
+    }
+    core::SceneSession session = makeSceneSession(*scene, sceneView);
+    session.camera = viewportPanel.getCameraPose();
+    return session;
 }
 
 void ScenePanel::showScene() {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -26,6 +27,14 @@ struct SceneView {
 
 /// `view` carried over to a scene read again, kept within what it has.
 [[nodiscard]] SceneView keepSceneView(const Scene& scene, SceneView view);
+
+/// How `scene` is shown when it opens as `session` last left it: the same
+/// layer of the game, light setting and rooms, kept within what it has now.
+[[nodiscard]] SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session);
+
+/// What `view` of `scene` is to open it again the same way. The camera is not
+/// the view's to know, and is left out.
+[[nodiscard]] core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view);
 
 /// What the viewport draws of a scene shown as `view`: for the opaque pass and
 /// then the translucent one, what `Room_Draw` sets up, the default draw

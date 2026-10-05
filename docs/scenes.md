@@ -102,6 +102,12 @@ room, and each room's actors by name from the checkout's actor table. Choosing a
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
+The scene open when the app closes is saved in `config.toml` under `[session]`, with its
+view and the camera, and opened again once the checkout has been read. The layer is saved as
+the game's layer number rather than a position in the scene's list, so it means the same
+layer after the scene gains or loses one; anything the scene no longer has falls back as
+`keepSceneView` keeps a view. A folder that is gone is a warning in the log.
+
 ## Reloading
 
 `toki::scene::SceneLoader` reads the open scene on a worker thread and polls its files'

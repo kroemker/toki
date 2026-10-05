@@ -1,5 +1,6 @@
 #include "app/scene/domain/SceneView.h"
 
+#include "app/core/domain/Settings.h"
 #include "app/scene/domain/ActorMarkers.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -140,4 +141,34 @@ TEST_CASE("light settings are named by the time of day where it picks them", "[s
     REQUIRE(toki::scene::makeLightSettingName(header, 7) == "Setting 7");
     REQUIRE(toki::scene::makeLayerName(2) == "Adult day");
     REQUIRE(toki::scene::makeLayerName(5) == "Cutscene 1");
+}
+
+TEST_CASE("a session opens the scene again on the same layer of the game", "[scene][view]") {
+    const toki::scene::Scene scene = makeScene();
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.layer = 1;
+    view.lightSetting = 0;
+    view.hiddenRooms[0] = true;
+    view.showsActors = false;
+
+    const toki::core::SceneSession session = toki::scene::makeSceneSession(scene, view);
+    REQUIRE(session.layer == 1);
+    REQUIRE(session.hiddenRooms == std::vector<usize>{0});
+
+    const toki::scene::SceneView restored = toki::scene::restoreSceneView(scene, session);
+    REQUIRE(restored.layer == 1);
+    REQUIRE(restored.lightSetting == 0);
+    REQUIRE(restored.hiddenRooms == std::vector<bool>{true, false});
+    REQUIRE_FALSE(restored.showsActors);
+}
+
+TEST_CASE("a session's layer the scene no longer has opens the main one", "[scene][view]") {
+    const toki::scene::Scene scene = makeScene();
+    const toki::core::SceneSession session{.layer = 7, .lightSetting = 9, .hiddenRooms = {5}};
+
+    const toki::scene::SceneView restored = toki::scene::restoreSceneView(scene, session);
+
+    REQUIRE(restored.layer == 0);
+    REQUIRE(restored.lightSetting == 1);
+    REQUIRE(restored.hiddenRooms == std::vector<bool>{false, false});
 }

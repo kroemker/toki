@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/OrbitCamera.h"
@@ -28,6 +29,10 @@ public:
     /// Replaces what is drawn. When `target` is given, the camera turns to
     /// look at it.
     void setContent(ViewportContent content, std::optional<glm::vec3> target = std::nullopt);
+
+    [[nodiscard]] core::CameraPose getCameraPose() const;
+
+    void setCameraPose(const core::CameraPose& pose);
 
     /// Turns the camera to look at `point`, coming close enough to make out
     /// what stands there.

@@ -3,6 +3,7 @@
 #include "app/core/Types.h"
 #include "app/core/domain/Log.h"
 
+#include <array>
 #include <expected>
 #include <filesystem>
 #include <functional>
@@ -26,6 +27,28 @@ struct LogSettings {
     usize maxEntries = Log::DefaultMaxEntries;
 };
 
+/// Where an orbit camera stood: the point it circles, its angles in degrees,
+/// and how far it is from the point.
+struct CameraPose {
+    std::array<f32, 3> target{};
+    f32 yaw = 0.0F;
+    f32 pitch = 0.0F;
+    f32 distance = 0.0F;
+};
+
+/// The scene open when the app last closed, and how it was shown, to open it
+/// again the same way.
+struct SceneSession {
+    std::filesystem::path directory;
+    /// The game's scene layer, not a position in a list, so that it means the
+    /// same layer however many the scene has when it is read again.
+    usize layer = 0;
+    usize lightSetting = 0;
+    std::vector<usize> hiddenRooms;
+    bool marksActors = true;
+    std::optional<CameraPose> camera;
+};
+
 struct Settings {
     std::optional<std::filesystem::path> hackerootPath;
 
@@ -43,10 +66,18 @@ struct Settings {
     /// has never seen, which opens as its default says rather than closed.
     std::vector<std::string> closedPanels;
 
+    std::optional<SceneSession> session;
+
     [[nodiscard]] bool isConfigured() const {
         return hackerootPath.has_value();
     }
 };
+
+/// Whether two paths name the same file or folder however they were written:
+/// with either separator, as the checkout's own paths and the ones read back
+/// from the config are. Nothing on disk is asked.
+[[nodiscard]] bool isSamePath(const std::filesystem::path& first,
+                              const std::filesystem::path& second);
 
 /// A missing file is not a failure: it yields defaults, and `isConfigured()`
 /// is what tells the caller there is still a setup wizard to run.

@@ -13,6 +13,7 @@
 #include "app/core/ui/MenuBar.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Paths.h"
+#include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
 #include "app/scene/domain/Scene.h"
@@ -25,9 +26,11 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
+#include "hackeroot/Workspace.h"
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -36,6 +39,7 @@
 #include <string>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 namespace toki::core {
 
@@ -100,6 +104,10 @@ std::expected<void, std::string> App::initialize() {
 
     if (settings.hackerootPath) {
         openCheckout(*settings.hackerootPath);
+        if (settings.session && scenePanel != nullptr) {
+            restoringScene = settings.session->directory;
+            scenePanel->restoreSession(*settings.session);
+        }
     } else {
         setupWizard.beginFirstRun();
     }
@@ -147,6 +155,7 @@ void App::run() {
 
 void App::drawFrame() {
     workspaceService.update();
+    openRestoredScene();
     updateBuild();
     updateAssets();
     updateScene();
@@ -160,7 +169,16 @@ void App::drawFrame() {
         setHackerootPath(*chosen);
     }
 
-    if (actions.changeHackerootPath && !setupWizard.isActive()) {
+    if (actions.openSettings ||
+        ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Comma, ImGuiInputFlags_RouteGlobal)) {
+        settingsWindow.open(settings);
+    }
+    const SettingsActions edited = settingsWindow.draw();
+    if (edited.applied) {
+        applySettings(*edited.applied);
+    }
+
+    if ((actions.changeHackerootPath || edited.changeHackerootPath) && !setupWizard.isActive()) {
         setupWizard.beginChangePath(settings.hackerootPath);
     }
     if (actions.build || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B, ImGuiInputFlags_RouteGlobal)) {
@@ -271,6 +289,37 @@ void App::updateScene() {
     }
 }
 
+void App::openRestoredScene() {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (!restoringScene || workspace == nullptr) {
+        return;
+    }
+    const std::vector<hackeroot::AssetDirectory>& scenes = workspace->getAssets().scenes;
+    const auto found = std::ranges::find_if(scenes, [this](const hackeroot::AssetDirectory& scene) {
+        return isSamePath(scene.directory, *restoringScene);
+    });
+    if (found == scenes.end()) {
+        logWarn("the scene open last time, {}, is not in the checkout any more",
+                encodeUtf8(*restoringScene));
+    } else {
+        logInfo("opening {} again, as it was left", found->name);
+        sceneLoader.open(workspaceService.getSharedWorkspace(), *found);
+    }
+    restoringScene.reset();
+}
+
+void App::applySettings(const Settings& applied) {
+    const bool rebuildsCheckout = applied.build != settings.build;
+    settings.build = applied.build;
+    settings.log = applied.log;
+    log().setMaxEntries(settings.log.maxEntries);
+    saveState();
+    if (rebuildsCheckout && settings.hackerootPath) {
+        logInfo("build settings changed, reading the checkout again");
+        openCheckout(*settings.hackerootPath);
+    }
+}
+
 void App::updateBuild() {
     const std::optional<build::BuildOutcome> outcome = buildRunner.update();
     if (!outcome) {
@@ -317,6 +366,12 @@ void App::saveState() {
     settings.window = window->getGeometry();
     settings.openPanels = panels.getOpenIds();
     settings.closedPanels = panels.getClosedIds();
+    if (std::optional<SceneSession> session =
+            scenePanel != nullptr ? scenePanel->makeSession() : std::nullopt) {
+        settings.session = std::move(session);
+    } else if (!restoringScene) {
+        settings.session.reset();
+    }
 
     if (const std::expected<void, std::string> saved = saveSettings(settings, settingsPath);
         !saved) {

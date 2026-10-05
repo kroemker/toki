@@ -201,3 +201,50 @@ TEST_CASE("closed panels round-trip beside open ones", "[core][settings]") {
     REQUIRE(loaded->openPanels == std::vector<std::string>{"log"});
     REQUIRE(loaded->closedPanels == std::vector<std::string>{"workspace"});
 }
+
+TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
+    const TempDir dir("session");
+    Settings written;
+    written.session = toki::core::SceneSession{
+        .directory = std::filesystem::path("//wsl.localhost/Ubuntu/home/leo/HackerOoT/spot04"),
+        .layer = 2,
+        .lightSetting = 3,
+        .hiddenRooms = {1, 4},
+        .marksActors = false,
+        .camera = toki::core::CameraPose{
+            .target = {1522.0F, -8.5F, 105.0F}, .yaw = 30.0F, .pitch = 12.5F, .distance = 400.0F}};
+
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    const auto loaded = loadSettings(dir.getFile());
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->session.has_value());
+    const toki::core::SceneSession& session = *loaded->session;
+    REQUIRE(session.directory == written.session->directory);
+    REQUIRE(session.layer == 2);
+    REQUIRE(session.lightSetting == 3);
+    REQUIRE(session.hiddenRooms == std::vector<base::usize>{1, 4});
+    REQUIRE_FALSE(session.marksActors);
+    REQUIRE(session.camera.has_value());
+    REQUIRE(session.camera->target[1] == -8.5F);
+    REQUIRE(session.camera->distance == 400.0F);
+}
+
+TEST_CASE("a session without its scene is dropped, a broken camera only loses the camera",
+          "[core][settings]") {
+    const TempDir dir("broken_session");
+    writeFile(dir.getFile(), "[session]\nlayer = 1\n");
+    REQUIRE_FALSE(loadSettings(dir.getFile())->session.has_value());
+
+    writeFile(dir.getFile(), "[session]\nscene = \"x\"\ncamera = { yaw = 1.0 }\n");
+    const auto loaded = loadSettings(dir.getFile());
+    REQUIRE(loaded->session.has_value());
+    REQUIRE_FALSE(loaded->session->camera.has_value());
+}
+
+TEST_CASE("a path is the same written with either separator", "[core][settings]") {
+    REQUIRE(toki::core::isSamePath(R"(//wsl.localhost/Ubuntu/home/leo/HackerOoT/assets/scenes/x)",
+                                   R"(//wsl.localhost/Ubuntu/home/leo/HackerOoT\assets\scenes\x)"));
+    REQUIRE(toki::core::isSamePath(R"(D:/a/b/../c)", R"(D:\a\c)"));
+    REQUIRE_FALSE(toki::core::isSamePath(R"(D:/a/b)", R"(D:/a/c)"));
+}

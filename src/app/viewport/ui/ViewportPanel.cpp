@@ -1,6 +1,7 @@
 #include "ViewportPanel.h"
 
 #include "app/core/domain/Log.h"
+#include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -60,6 +61,21 @@ void ViewportPanel::setContent(ViewportContent content, const std::optional<glm:
     }
     stale = true;
     reported = false;
+}
+
+core::CameraPose ViewportPanel::getCameraPose() const {
+    const glm::vec3 target = orbitCamera.getTarget();
+    return core::CameraPose{.target = {target[0], target[1], target[2]},
+                            .yaw = orbitCamera.getYaw(),
+                            .pitch = orbitCamera.getPitch(),
+                            .distance = orbitCamera.getDistance()};
+}
+
+void ViewportPanel::setCameraPose(const core::CameraPose& pose) {
+    orbitCamera.setTarget(glm::vec3(pose.target[0], pose.target[1], pose.target[2]));
+    orbitCamera.setAngles(pose.yaw, pose.pitch);
+    orbitCamera.setDistance(pose.distance);
+    stale = true;
 }
 
 void ViewportPanel::draw() {
