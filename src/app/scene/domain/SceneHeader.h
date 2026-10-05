@@ -19,6 +19,16 @@ struct ActorPlacement {
     s16 params = 0;
 };
 
+/// A `TransitionActorEntry`: an actor between two rooms, a door or a loading
+/// plane, with the room on its front and on its back side.
+struct TransitionActorPlacement {
+    std::array<s8, 2> rooms{};
+    s16 id = 0;
+    std::array<s16, 3> position{};
+    s16 rotationY = 0;
+    s16 params = 0;
+};
+
 /// One of a scene's `EnvLightSettings`: the ambient colour, two directional
 /// lights, and fog, for one time of day or one area.
 struct LightSetting {
@@ -40,14 +50,18 @@ enum class LightMode : u8 {
 };
 
 /// What a scene's header says, read from the scene's bytes in the memory
-/// image the way `Scene_ExecuteCommands` reads them: from the start of
-/// segment 2, command by command until `SCENE_CMD_END`.
+/// image the way `Scene_ExecuteCommands` reads them: command by command until
+/// `SCENE_CMD_END`.
 struct SceneHeader {
     usize roomCount = 0;
     u8 skyboxId = 0;
     LightMode lightMode = LightMode::Time;
     std::vector<ActorPlacement> playerEntries;
+    std::vector<TransitionActorPlacement> transitionActors;
     std::vector<LightSetting> lightSettings;
+    /// The headers of the scene's other layers, from layer 1 on, as segmented
+    /// addresses: zero where a layer has none of its own.
+    std::vector<u32> alternateHeaders;
     std::vector<base::Diagnostic> diagnostics;
 };
 
@@ -64,19 +78,29 @@ struct RoomDisplayLists {
     u32 translucent = 0;
 };
 
-/// What a room's header says, read from the start of segment 3.
+/// What a room's header says.
 struct RoomHeader {
     RoomShapeType shapeType = RoomShapeType::Normal;
     std::vector<RoomDisplayLists> displayLists;
     std::vector<ActorPlacement> actors;
+    /// As for a scene: the headers of the room's other layers, from layer 1.
+    std::vector<u32> alternateHeaders;
     std::vector<base::Diagnostic> diagnostics;
 };
 
-/// Reads the main header of the scene in `image`'s segment 2. Alternate
-/// headers, for other ages and times of day, are not read yet.
-[[nodiscard]] SceneHeader readSceneHeader(const z64::MemoryImage& image);
+/// Where the game reads a scene's main header: the start of segment 2.
+inline constexpr u32 SceneHeaderAddress = u32{hackeroot::SceneSegment} << 24;
 
-/// Reads the main header of the room in `image`'s segment 3.
-[[nodiscard]] RoomHeader readRoomHeader(const z64::MemoryImage& image);
+/// Where the game reads a room's main header: the start of segment 3.
+inline constexpr u32 RoomHeaderAddress = u32{hackeroot::RoomSegment} << 24;
+
+/// Reads the scene header at `address` in `image`. The main header lists the
+/// alternate ones; an alternate header lists none.
+[[nodiscard]] SceneHeader readSceneHeader(const z64::MemoryImage& image,
+                                          u32 address = SceneHeaderAddress);
+
+/// Reads the room header at `address` in `image`.
+[[nodiscard]] RoomHeader readRoomHeader(const z64::MemoryImage& image,
+                                        u32 address = RoomHeaderAddress);
 
 } // namespace toki::scene

@@ -181,15 +181,16 @@ TEST_CASE("an open scene is read again when one of its files changes", "[scene][
         described += base::describe(diagnostic) + "\n";
     }
     INFO(described);
-    REQUIRE(first->rooms.size() == 1);
-    REQUIRE(first->rooms[0].displayLists.size() == 1);
-    REQUIRE(first->header.playerEntries.size() == 1);
-    REQUIRE(first->header.playerEntries[0].position == std::array<base::s16, 3>{100, 0, -200});
+    REQUIRE(first->layers.front().rooms.size() == 1);
+    REQUIRE(first->layers.front().rooms[0].displayLists.size() == 1);
+    REQUIRE(first->layers.front().header.playerEntries.size() == 1);
+    REQUIRE(first->layers.front().header.playerEntries[0].position ==
+            std::array<base::s16, 3>{100, 0, -200});
 
     checkout.writeRoom(3);
     const std::optional<toki::scene::Scene> second = waitForScene(loader);
 
     REQUIRE(second.has_value());
-    REQUIRE(second->rooms.size() == 1);
-    REQUIRE(second->rooms[0].displayLists.size() == 3);
+    REQUIRE(second->layers.front().rooms.size() == 1);
+    REQUIRE(second->layers.front().rooms[0].displayLists.size() == 3);
 }

@@ -63,6 +63,9 @@ struct MemoryImage {
     /// The segmented address of a symbol.
     [[nodiscard]] std::optional<u32> findAddress(std::string_view name) const;
 
+    /// The symbol that starts at a segmented address, if one does.
+    [[nodiscard]] std::optional<ImageSymbol> findSymbolAt(u32 address) const;
+
     /// The `size` bytes at a segmented address, if one segment holds all of
     /// them.
     [[nodiscard]] std::optional<std::span<const u8>> findBytes(u32 address, usize size) const;

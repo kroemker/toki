@@ -1,5 +1,6 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneView.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Diagnostic.h"
@@ -73,25 +74,29 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         hackeroot::AssetImageReader reader(shared);
         const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
         const toki::scene::Scene again = toki::scene::readScene(reader, *asset);
-        CHECK(again.content.draws.size() == scene.content.draws.size());
+        CHECK(again.layers.size() == scene.layers.size());
         INFO(name << ": " << describe(scene.diagnostics));
         CHECK(std::ranges::none_of(scene.diagnostics, [](const base::Diagnostic& diagnostic) {
             return diagnostic.severity == base::Severity::Error;
         }));
-        REQUIRE(scene.rooms.size() == asset->roomCount);
-        REQUIRE(scene.header.roomCount == scene.rooms.size());
-        REQUIRE_FALSE(scene.header.playerEntries.empty());
-        REQUIRE_FALSE(scene.header.lightSettings.empty());
-        for (const toki::scene::RoomHeader& room : scene.rooms) {
+        REQUIRE_FALSE(scene.layers.empty());
+        const toki::scene::SceneLayer& main = scene.layers.front();
+        REQUIRE(main.rooms.size() == asset->roomCount);
+        REQUIRE(main.header.roomCount == main.rooms.size());
+        REQUIRE_FALSE(main.header.playerEntries.empty());
+        REQUIRE_FALSE(main.header.lightSettings.empty());
+        for (const toki::scene::RoomHeader& room : main.rooms) {
             CHECK_FALSE(room.displayLists.empty());
         }
 
+        const toki::viewport::ViewportContent content =
+            toki::scene::makeSceneContent(scene, toki::scene::makeSceneView(scene));
         const toki::viewport::Frame frame = toki::viewport::runFrame(
-            scene.content, toki::viewport::OrbitCamera{}, {.width = 640, .height = 480});
+            content, toki::viewport::OrbitCamera{}, {.width = 640, .height = 480});
         INFO("frame: " << describe(frame.diagnostics));
-        WARN(name << ": " << scene.rooms.size() << " rooms, " << scene.content.draws.size()
-                  << " draws, " << countTriangles(frame.rspResult) << " triangles, "
-                  << frame.diagnostics.size() << " frame diagnostics, read in "
+        WARN(name << ": " << main.rooms.size() << " rooms, " << scene.layers.size() << " layers, "
+                  << content.draws.size() << " draws, " << countTriangles(frame.rspResult)
+                  << " triangles, " << frame.diagnostics.size() << " frame diagnostics, read in "
                   << scene.elapsed.count() << " ms, again in " << again.elapsed.count() << " ms");
         CHECK(countTriangles(frame.rspResult) > 100);
         if (name == "ydan") {

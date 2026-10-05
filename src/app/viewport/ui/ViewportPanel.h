@@ -10,6 +10,7 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
@@ -27,6 +28,15 @@ public:
     /// Replaces what is drawn. When `target` is given, the camera turns to
     /// look at it.
     void setContent(ViewportContent content, std::optional<glm::vec3> target = std::nullopt);
+
+    /// Turns the camera to look at `point`, coming close enough to make out
+    /// what stands there.
+    void focus(const glm::vec3& point) {
+        constexpr f32 CloseUp = 400.0F;
+        orbitCamera.setTarget(point);
+        orbitCamera.setDistance(std::min(orbitCamera.getDistance(), CloseUp));
+        stale = true;
+    }
 
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.

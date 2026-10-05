@@ -16,8 +16,8 @@
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
 #include "app/scene/domain/Scene.h"
-#include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneLoader.h"
+#include "app/scene/ui/ScenePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
@@ -26,10 +26,8 @@
 #include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
 
-#include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
 
-#include <array>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -113,7 +111,10 @@ std::expected<void, std::string> App::initialize() {
 void App::registerPanels() {
     auto viewport = std::make_unique<viewport::ViewportPanel>(*device);
     viewportPanel = viewport.get();
+    auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport);
+    scenePanel = sceneView.get();
     panels.add(std::move(viewport));
+    panels.add(std::move(sceneView));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader, [this](const hackeroot::AssetDirectory& asset) {
@@ -257,31 +258,16 @@ void App::updateScene() {
             logWarn("{}", base::describe(diagnostic));
         }
     }
-    usize displayLists = 0;
-    for (const scene::RoomHeader& room : loaded->rooms) {
-        displayLists += room.displayLists.size();
-    }
-    const std::string summary = std::format(
-        "read {} in {} ms: {} rooms, {} room meshes, {} draws", loaded->name,
-        loaded->elapsed.count(), loaded->rooms.size(), displayLists, loaded->content.draws.size());
+    const usize rooms = loaded->layers.empty() ? 0 : loaded->layers.front().rooms.size();
+    const std::string summary = std::format("read {} in {} ms: {} rooms, {} layers", loaded->name,
+                                            loaded->elapsed.count(), rooms, loaded->layers.size());
     if (errors > 0) {
         logError("{}; {} errors", summary, errors);
     } else {
         logOk("{}", summary);
     }
-
-    const bool isNew = loaded->directory != shownScene;
-    shownScene = loaded->directory;
-    std::optional<glm::vec3> target;
-    if (isNew && !loaded->header.playerEntries.empty()) {
-        const std::array<s16, 3>& position = loaded->header.playerEntries.front().position;
-        target = glm::vec3(position[0], position[1], position[2]);
-    }
-    if (viewportPanel != nullptr) {
-        viewportPanel->setContent(std::move(loaded->content), target);
-        if (isNew) {
-            viewportPanel->setOpen(true);
-        }
+    if (scenePanel != nullptr) {
+        scenePanel->setScene(std::move(*loaded));
     }
 }
 

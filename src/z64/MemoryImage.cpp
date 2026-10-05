@@ -69,6 +69,14 @@ std::optional<u32> MemoryImage::findAddress(const std::string_view name) const {
                                          .offset = static_cast<u32>(symbol->offset)});
 }
 
+std::optional<ImageSymbol> MemoryImage::findSymbolAt(const u32 address) const {
+    const n64::SegmentAddress segmented = n64::unpack(address);
+    const auto found = std::ranges::find_if(symbols, [&segmented](const auto& entry) {
+        return entry.second.segment == segmented.segment && entry.second.offset == segmented.offset;
+    });
+    return found == symbols.end() ? std::nullopt : std::optional(found->second);
+}
+
 std::optional<std::span<const u8>> MemoryImage::findBytes(const u32 address,
                                                           const usize size) const {
     const n64::SegmentAddress segmented = n64::unpack(address);

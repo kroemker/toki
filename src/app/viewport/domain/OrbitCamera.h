@@ -28,6 +28,9 @@ public:
         return distance;
     }
 
+    /// Moves to `value` from the target, within the distances zooming allows.
+    void setDistance(f32 value);
+
     [[nodiscard]] glm::vec3 getEye() const;
 
     /// Turns by angles in degrees. Pitch stops short of straight up and down.

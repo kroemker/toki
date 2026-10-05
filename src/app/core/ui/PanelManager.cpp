@@ -74,6 +74,10 @@ void PanelManager::draw() {
     const ImGuiID dockspaceId =
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_None);
 
+    if (!checkedSavedLayout) {
+        checkedSavedLayout = true;
+        rebuildLayout = rebuildLayout || hasUnplacedPanel();
+    }
     if (rebuildLayout) {
         buildDefaultLayout(dockspaceId);
         rebuildLayout = false;
@@ -91,6 +95,12 @@ void PanelManager::draw() {
         ImGui::End();
         panel->setOpen(open);
     }
+}
+
+bool PanelManager::hasUnplacedPanel() const {
+    return std::ranges::any_of(panels, [](const std::unique_ptr<Panel>& panel) {
+        return ImGui::FindWindowSettingsByID(ImHashStr(panel->getWindowTitle().c_str())) == nullptr;
+    });
 }
 
 void PanelManager::buildDefaultLayout(ImGuiID dockspaceId) const {

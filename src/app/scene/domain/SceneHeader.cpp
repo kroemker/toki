@@ -2,9 +2,7 @@
 
 #include "app/scene/Types.h"
 #include "base/Diagnostic.h"
-#include "hackeroot/SceneFiles.h"
 #include "n64/BigEndian.h"
-#include "n64/Segment.h"
 #include "z64/MemoryImage.h"
 
 #include <array>
@@ -25,6 +23,9 @@ constexpr usize LightSettingSize = 0x16;
 constexpr usize DisplayListsEntrySize = 0x08;
 constexpr usize CullableEntrySize = 0x10;
 constexpr usize RoomShapeSize = 0x08;
+constexpr usize TransitionActorEntrySize = 0x10;
+constexpr usize PointerSize = 4;
+constexpr usize UnsizedAlternateHeaders = 3;
 constexpr u16 FogNearMask = 0x03FF;
 
 enum class CommandCode : u8 {
@@ -32,9 +33,11 @@ enum class CommandCode : u8 {
     ActorList = 0x01,
     RoomList = 0x04,
     RoomShape = 0x0A,
+    TransitionActorList = 0x0E,
     LightSettingsList = 0x0F,
     SkyboxSettings = 0x11,
     End = 0x14,
+    AlternateHeaderList = 0x18,
 };
 
 struct Command {
@@ -65,9 +68,14 @@ class HeaderReader {
 public:
     explicit HeaderReader(const z64::MemoryImage& image) : image(image) {}
 
-    [[nodiscard]] std::vector<Command> readCommands(u8 segment);
+    [[nodiscard]] std::vector<Command> readCommands(u32 start);
 
     [[nodiscard]] std::vector<ActorPlacement> readActors(const Command& command);
+
+    [[nodiscard]] std::vector<TransitionActorPlacement>
+    readTransitionActors(const Command& command);
+
+    [[nodiscard]] std::vector<u32> readAlternateHeaders(const Command& command);
 
     [[nodiscard]] std::vector<LightSetting> readLightSettings(const Command& command);
 
@@ -88,17 +96,16 @@ private:
     std::vector<base::Diagnostic> diagnostics;
 };
 
-std::vector<Command> HeaderReader::readCommands(const u8 segment) {
+std::vector<Command> HeaderReader::readCommands(const u32 start) {
     std::vector<Command> commands;
     for (usize i = 0; i < MaximumCommands; ++i) {
-        const u32 address = n64::pack(
-            n64::SegmentAddress{.segment = segment, .offset = static_cast<u32>(i * CommandSize)});
+        const u32 address = start + static_cast<u32>(i * CommandSize);
         const std::optional<std::span<const u8>> bytes = image.findBytes(address, CommandSize);
         if (!bytes) {
             diagnostics.push_back(base::makeError(
-                {}, std::format("the header in segment {} runs past its end at 0x{:08X} without "
+                {}, std::format("the header at 0x{:08X} runs past its segment at 0x{:08X} without "
                                 "SCENE_CMD_END",
-                                segment, address)));
+                                start, address)));
             return commands;
         }
         const Command command{
@@ -109,8 +116,8 @@ std::vector<Command> HeaderReader::readCommands(const u8 segment) {
         commands.push_back(command);
     }
     diagnostics.push_back(base::makeError(
-        {}, std::format("the header in segment {} has no SCENE_CMD_END in its first {} commands",
-                        segment, MaximumCommands)));
+        {}, std::format("the header at 0x{:08X} has no SCENE_CMD_END in its first {} commands",
+                        start, MaximumCommands)));
     return commands;
 }
 
@@ -144,6 +151,43 @@ std::vector<ActorPlacement> HeaderReader::readActors(const Command& command) {
                                         .params = n64::readS16(entry, 14)});
     }
     return actors;
+}
+
+std::vector<TransitionActorPlacement> HeaderReader::readTransitionActors(const Command& command) {
+    std::vector<TransitionActorPlacement> actors;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, command.data1, TransitionActorEntrySize, "transition actor list");
+    if (!bytes) {
+        return actors;
+    }
+    for (usize i = 0; i < command.data1; ++i) {
+        const std::span<const u8> entry =
+            bytes->subspan(i * TransitionActorEntrySize, TransitionActorEntrySize);
+        actors.push_back(TransitionActorPlacement{
+            .rooms = {static_cast<s8>(entry[0]), static_cast<s8>(entry[2])},
+            .id = n64::readS16(entry, 4),
+            .position = readVector(entry, 6),
+            .rotationY = n64::readS16(entry, 12),
+            .params = n64::readS16(entry, 14)});
+    }
+    return actors;
+}
+
+std::vector<u32> HeaderReader::readAlternateHeaders(const Command& command) {
+    usize count = UnsizedAlternateHeaders;
+    if (const std::optional<z64::ImageSymbol> list = image.findSymbolAt(command.data2)) {
+        count = list->size / PointerSize;
+    }
+    std::vector<u32> headers;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, count, PointerSize, "alternate header list");
+    if (!bytes) {
+        return headers;
+    }
+    for (usize i = 0; i < count; ++i) {
+        headers.push_back(n64::readU32(*bytes, i * PointerSize));
+    }
+    return headers;
 }
 
 std::vector<LightSetting> HeaderReader::readLightSettings(const Command& command) {
@@ -221,14 +265,18 @@ RoomHeader HeaderReader::readRoomShape(const u32 address) {
 
 } // namespace
 
-SceneHeader readSceneHeader(const z64::MemoryImage& image) {
+SceneHeader readSceneHeader(const z64::MemoryImage& image, const u32 address) {
     HeaderReader reader(image);
     SceneHeader scene;
-    for (const Command& command : reader.readCommands(hackeroot::SceneSegment)) {
+    for (const Command& command : reader.readCommands(address)) {
         if (isCode(command, CommandCode::RoomList)) {
             scene.roomCount = command.data1;
         } else if (isCode(command, CommandCode::PlayerEntryList)) {
             scene.playerEntries = reader.readActors(command);
+        } else if (isCode(command, CommandCode::TransitionActorList)) {
+            scene.transitionActors = reader.readTransitionActors(command);
+        } else if (isCode(command, CommandCode::AlternateHeaderList)) {
+            scene.alternateHeaders = reader.readAlternateHeaders(command);
         } else if (isCode(command, CommandCode::LightSettingsList)) {
             scene.lightSettings = reader.readLightSettings(command);
         } else if (isCode(command, CommandCode::SkyboxSettings)) {
@@ -241,20 +289,24 @@ SceneHeader readSceneHeader(const z64::MemoryImage& image) {
     return scene;
 }
 
-RoomHeader readRoomHeader(const z64::MemoryImage& image) {
+RoomHeader readRoomHeader(const z64::MemoryImage& image, const u32 address) {
     HeaderReader reader(image);
     RoomHeader room;
     bool hasShape = false;
     std::vector<ActorPlacement> actors;
-    for (const Command& command : reader.readCommands(hackeroot::RoomSegment)) {
+    std::vector<u32> alternateHeaders;
+    for (const Command& command : reader.readCommands(address)) {
         if (isCode(command, CommandCode::RoomShape)) {
             room = reader.readRoomShape(command.data2);
             hasShape = true;
         } else if (isCode(command, CommandCode::ActorList)) {
             actors = reader.readActors(command);
+        } else if (isCode(command, CommandCode::AlternateHeaderList)) {
+            alternateHeaders = reader.readAlternateHeaders(command);
         }
     }
     room.actors = std::move(actors);
+    room.alternateHeaders = std::move(alternateHeaders);
     room.diagnostics = reader.takeDiagnostics();
     if (!hasShape) {
         room.diagnostics.push_back(base::makeWarning(

@@ -16,6 +16,7 @@
 #include <glm/vec4.hpp>
 
 #include <array>
+#include <memory>
 #include <variant>
 #include <vector>
 
@@ -49,7 +50,7 @@ z64::MemoryImage makeImage(const u8 segment, const n64::DisplayListWriter& write
 
 ViewportContent makeContent(const n64::DisplayListWriter& writer, const u32 start) {
     ViewportContent content;
-    content.images.push_back(makeImage(Segment, writer));
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(makeImage(Segment, writer)));
     content.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
     return content;
 }
@@ -122,7 +123,8 @@ TEST_CASE("an image that uses the frame's own segment is refused", "[viewport]")
     n64::DisplayListWriter writer(toki::viewport::FrameSegment);
     const u32 start = writer.endDisplayList();
     ViewportContent content;
-    content.images.push_back(makeImage(toki::viewport::FrameSegment, writer));
+    content.images.push_back(
+        std::make_shared<const z64::MemoryImage>(makeImage(toki::viewport::FrameSegment, writer)));
     content.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
 
     const toki::viewport::Frame frame =
@@ -147,7 +149,8 @@ TEST_CASE("each draw sees its own image in the segments they share", "[viewport]
         writer.drawTriangle({0, 1, 2});
         writer.endDisplayList();
         content.draws.push_back(ViewportDraw{.image = content.images.size(), .displayList = start});
-        content.images.push_back(makeImage(Shared, writer));
+        content.images.push_back(
+            std::make_shared<const z64::MemoryImage>(makeImage(Shared, writer)));
     }
     REQUIRE(content.draws[0].displayList == content.draws[1].displayList);
 

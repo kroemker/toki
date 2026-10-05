@@ -45,6 +45,10 @@ void OrbitCamera::pan(const f32 rightFraction, const f32 upFraction) {
     target += ((right * rightFraction) + (up * upFraction)) * viewHeight;
 }
 
+void OrbitCamera::setDistance(const f32 value) {
+    distance = std::clamp(value, MinimumDistance, MaximumDistance);
+}
+
 void OrbitCamera::zoom(const f32 steps) {
     distance =
         std::clamp(distance * std::pow(1.0F - ZoomStep, steps), MinimumDistance, MaximumDistance);

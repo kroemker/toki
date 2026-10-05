@@ -7,6 +7,7 @@
 #include "z64/MemoryImage.h"
 
 #include <array>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -46,7 +47,9 @@ struct ViewportDraw {
 /// pointed at it with `gSPSegment`, as the game points segment 3 at each room
 /// in turn.
 struct ViewportContent {
-    std::vector<z64::MemoryImage> images;
+    /// Shared with whatever the content was made from, a scene that makes its
+    /// content again whenever how it is shown changes; an image never changes.
+    std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     std::vector<ViewportDraw> draws;
     std::optional<ViewportLighting> lighting;
 };

@@ -21,6 +21,7 @@
 #include <expected>
 #include <format>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -125,12 +126,12 @@ FrameList writeFrameList(const ViewportContent& content,
     writer.setGeometryMode(0x00FF'FFFF, n64::geometry::ZBuffer | n64::geometry::Shade |
                                             n64::geometry::SmoothShading);
     for (usize image = content.images.size(); image-- > 0;) {
-        setSegments(writer, content.images[image], mapped[image]);
+        setSegments(writer, *content.images[image], mapped[image]);
     }
     usize current = 0;
     for (const ViewportDraw& draw : content.draws) {
         if (draw.image != current) {
-            setSegments(writer, content.images[draw.image], mapped[draw.image]);
+            setSegments(writer, *content.images[draw.image], mapped[draw.image]);
             current = draw.image;
         }
         writer.callDisplayList(draw.displayList);
@@ -140,8 +141,8 @@ FrameList writeFrameList(const ViewportContent& content,
 }
 
 [[nodiscard]] std::optional<base::Diagnostic> checkContent(const ViewportContent& content) {
-    for (const z64::MemoryImage& image : content.images) {
-        if (image.findSegment(FrameSegment) != nullptr) {
+    for (const std::shared_ptr<const z64::MemoryImage>& image : content.images) {
+        if (image == nullptr || image->findSegment(FrameSegment) != nullptr) {
             return base::makeError(
                 {}, std::format("an image uses segment {}, which the viewport draws its frame from",
                                 FrameSegment));
@@ -171,9 +172,9 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
     n64::Memory memory;
     std::vector<z64::MappedImage> mapped;
     u32 physical = FirstPhysicalAddress;
-    for (const z64::MemoryImage& image : content.images) {
+    for (const std::shared_ptr<const z64::MemoryImage>& image : content.images) {
         std::expected<z64::MappedImage, base::Diagnostic> placed =
-            z64::mapImageAt(image, memory, physical);
+            z64::mapImageAt(*image, memory, physical);
         if (!placed) {
             frame.diagnostics.push_back(std::move(placed.error()));
             return frame;

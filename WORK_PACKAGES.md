@@ -414,6 +414,12 @@ makes this panel worth more than the prototype's.
 
 **Scene properties** — env lighting picker, fog, live updates.
 
+*Done in part:* the Scene panel picks the layer (ages, times of day, cutscenes, read from the
+alternate headers) and the light setting, shows and hides rooms, lists every room's actors
+by name, and turns the camera to one. Actors, player entries and transition actors are
+marked in the viewport. See [docs/scenes.md](docs/scenes.md#showing-it). Editing fog and
+light settings is still to do.
+
 **Tools** — Configure, Create Actor, Register Scene. All depend on the workspace tables.
 `scene_registry.rs` is the largest single file in the prototype (~1200 lines) and ports
 close to as-is.

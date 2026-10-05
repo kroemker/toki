@@ -9,6 +9,7 @@ add_executable(toki_tests
         app/scene/SceneCheckoutTest.cpp
         app/scene/SceneHeaderTest.cpp
         app/scene/SceneLoaderTest.cpp
+        app/scene/SceneViewTest.cpp
         app/viewport/ViewportFrameTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
         cparser/AddressTest.cpp

@@ -153,3 +153,38 @@ TEST_CASE("a room without a shape has nothing to draw", "[scene][header]") {
     REQUIRE(header.diagnostics.size() == 1);
     REQUIRE(header.diagnostics[0].severity == base::Severity::Warning);
 }
+
+TEST_CASE("an alternate header list is as long as the array it points at", "[scene][header]") {
+    SegmentBuilder scene(hackeroot::SceneSegment);
+    scene.addCommand(0x18, 0, 0x0200'0010);
+    scene.addCommand(0x14, 0, 0);
+    scene.addWord(0);
+    scene.addWord(0x0200'0020);
+    scene.addWord(0);
+    scene.addWord(0);
+    scene.addCommand(0x0E, 1, 0x0200'0030);
+    scene.addCommand(0x14, 0, 0);
+    scene.addBytes({1, 0xFF, 0xFE, 0xFF});
+    for (const s16 half : {s16{0x0009}, s16{10}, s16{-20}, s16{30}, s16{0x4000}, s16{0x003F}}) {
+        scene.addHalf(half);
+    }
+    z64::MemoryImage image = scene.makeImage();
+    image.symbols.emplace(
+        "sceneAlternateHeaders",
+        z64::ImageSymbol{.segment = hackeroot::SceneSegment, .offset = 0x10, .size = 8});
+
+    const toki::scene::SceneHeader main = toki::scene::readSceneHeader(image);
+    REQUIRE(main.diagnostics.empty());
+    REQUIRE(main.alternateHeaders == std::vector<u32>{0, 0x0200'0020});
+
+    const toki::scene::SceneHeader alternate =
+        toki::scene::readSceneHeader(image, main.alternateHeaders[1]);
+    REQUIRE(alternate.diagnostics.empty());
+    REQUIRE(alternate.alternateHeaders.empty());
+    REQUIRE(alternate.transitionActors.size() == 1);
+    REQUIRE(alternate.transitionActors[0].rooms == std::array<s8, 2>{1, -2});
+    REQUIRE(alternate.transitionActors[0].id == 0x0009);
+    REQUIRE(alternate.transitionActors[0].position == std::array<s16, 3>{10, -20, 30});
+    REQUIRE(alternate.transitionActors[0].rotationY == 0x4000);
+    REQUIRE(alternate.transitionActors[0].params == 0x003F);
+}

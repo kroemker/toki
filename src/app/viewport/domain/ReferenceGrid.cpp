@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -97,7 +98,7 @@ ViewportContent makeReferenceGrid() {
                                            .offset = start & 0x00FF'FFFFU,
                                            .size = size - (start & 0x00FF'FFFFU)});
     ViewportContent grid;
-    grid.images.push_back(std::move(image));
+    grid.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(image)));
     grid.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
     return grid;
 }

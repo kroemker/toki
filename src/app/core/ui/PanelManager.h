@@ -40,9 +40,11 @@ public:
 
 private:
     void buildDefaultLayout(ImGuiID dockspaceId) const;
+    [[nodiscard]] bool hasUnplacedPanel() const;
 
     std::vector<std::unique_ptr<Panel>> panels;
     bool rebuildLayout = false;
+    bool checkedSavedLayout = false;
 };
 
 } // namespace toki::core

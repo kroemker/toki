@@ -8,6 +8,7 @@
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
 #include "app/scene/domain/SceneLoader.h"
+#include "app/scene/ui/ScenePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "gfx/Device.h"
@@ -61,8 +62,8 @@ private:
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;
-    std::filesystem::path shownScene;
     viewport::ViewportPanel* viewportPanel = nullptr;
+    scene::ScenePanel* scenePanel = nullptr;
 };
 
 } // namespace toki::core
