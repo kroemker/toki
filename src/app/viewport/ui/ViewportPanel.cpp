@@ -15,6 +15,7 @@
 #include "gfx/Renderer.h"
 
 #include <SDL3/SDL_gpu.h>
+#include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
 
 #include <algorithm>
@@ -23,6 +24,7 @@
 #include <expected>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -41,7 +43,7 @@ constexpr usize ReportedDiagnostics = 8;
 
 ViewportPanel::ViewportPanel(const gfx::Device& device)
     : Panel("viewport", "Viewport", core::icons::Cube, core::DockSlot::Centre), device(device),
-      viewportImage(makeReferenceGrid()) {
+      viewportContent(makeReferenceGrid()) {
     std::expected<gfx::Renderer, base::Diagnostic> created = gfx::Renderer::create(device);
     if (created) {
         renderer.emplace(std::move(*created));
@@ -51,8 +53,11 @@ ViewportPanel::ViewportPanel(const gfx::Device& device)
     }
 }
 
-void ViewportPanel::setImage(ViewportImage image) {
-    viewportImage = std::move(image);
+void ViewportPanel::setContent(ViewportContent content, const std::optional<glm::vec3> target) {
+    viewportContent = std::move(content);
+    if (target) {
+        orbitCamera.setTarget(*target);
+    }
     stale = true;
     reported = false;
 }
@@ -105,10 +110,15 @@ void ViewportPanel::draw() {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     const auto texture = static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(color));
     drawList->AddImage(texture, origin, end);
+    ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
+    if (readingName) {
+        const std::string note = std::format("Reading {}…", *readingName);
+        drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::TextMuted), note.c_str());
+        notePosition.y += ImGui::GetTextLineHeightWithSpacing();
+    }
     if (diagnosticCount > 0) {
         const std::string note = std::format("{} diagnostics, see the log", diagnosticCount);
-        drawList->AddText(ImVec2{origin.x + 8.0F, origin.y + 6.0F},
-                          ImGui::GetColorU32(core::palette::Warning), note.c_str());
+        drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::Warning), note.c_str());
     }
 }
 
@@ -141,7 +151,8 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     }
     const u32 width = target.getWidth();
     const u32 height = target.getHeight();
-    Frame frame = runFrame(viewportImage, orbitCamera, FrameSize{.width = width, .height = height});
+    Frame frame =
+        runFrame(viewportContent, orbitCamera, FrameSize{.width = width, .height = height});
     std::vector<base::Diagnostic> drawn =
         renderer->render(frame.rspResult, frame.rdpResult, target,
                          gfx::ScreenSize{.width = width, .height = height});

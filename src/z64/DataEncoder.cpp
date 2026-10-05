@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <expected>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
@@ -354,11 +355,48 @@ bool DataEncoder::isDisplayList(const cparser::CType& type) const {
     return gfx != nullptr && type.kind == cparser::TypeKind::Array && type.element == gfx;
 }
 
+EncodedData DataEncoder::encodeDisplayLists(const cparser::CType& type,
+                                            const std::span<const cparser::Token> initializer) {
+    EncodedData data;
+    std::span<const cparser::Token> body = initializer;
+    if (const std::optional<std::span<const cparser::Token>> inner =
+            cparser::getBraceBody(initializer)) {
+        body = *inner;
+    }
+    const usize elementSize = type.element->size;
+    for (const std::span<const cparser::Token> element : cparser::splitElements(body)) {
+        const usize offset = data.bytes.size();
+        const std::optional<std::span<const cparser::Token>> commands =
+            cparser::getBraceBody(element);
+        DisplayList list = displayLists.encode(commands ? *commands : element);
+        if (list.bytes.size() > elementSize) {
+            data.diagnostics.push_back(base::makeWarning(
+                cparser::locate(element.front()),
+                std::format("a display list of {} bytes is cut to the {} of an element of '{}'",
+                            list.bytes.size(), elementSize, type.name)));
+            list.bytes.resize(elementSize);
+        }
+        data.bytes.insert(data.bytes.end(), list.bytes.begin(), list.bytes.end());
+        data.bytes.resize(offset + elementSize, 0);
+        for (Relocation& relocation : list.relocations) {
+            if (relocation.offset < elementSize) {
+                relocation.offset += offset;
+                data.relocations.push_back(std::move(relocation));
+            }
+        }
+        std::ranges::move(list.diagnostics, std::back_inserter(data.diagnostics));
+    }
+    return data;
+}
+
 EncodedData DataEncoder::encode(const cparser::CType& type,
                                 const std::span<const cparser::Token> initializer,
                                 const bool isBraced) {
     EncodedData data;
-    if (isDisplayList(type)) {
+    if (type.kind == cparser::TypeKind::Array && type.element != nullptr &&
+        isDisplayList(*type.element)) {
+        data = encodeDisplayLists(type, initializer);
+    } else if (isDisplayList(type)) {
         DisplayList list = displayLists.encode(initializer);
         data.bytes = std::move(list.bytes);
         data.relocations = std::move(list.relocations);

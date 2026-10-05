@@ -24,6 +24,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace toki::assets {
@@ -94,9 +95,10 @@ std::string findRelativePath(const hackeroot::Workspace& workspace,
 } // namespace
 
 AssetBrowserPanel::AssetBrowserPanel(const workspace::WorkspaceService& workspaceService,
-                                     AssetReader& assetReader)
+                                     AssetReader& assetReader, OpenScene openScene)
     : Panel("assets", "Assets", core::icons::FolderOpen, core::DockSlot::Left),
-      workspaceService(workspaceService), assetReader(assetReader) {}
+      workspaceService(workspaceService), assetReader(assetReader),
+      openScene(std::move(openScene)) {}
 
 void AssetBrowserPanel::draw() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
@@ -342,6 +344,9 @@ void AssetBrowserPanel::drawActions(const hackeroot::AssetDirectory& asset) {
 
 void AssetBrowserPanel::openAsset(const hackeroot::AssetDirectory& asset) {
     assetReader.open(workspaceService.getSharedWorkspace(), asset);
+    if (kind == Kind::Scenes && openScene) {
+        openScene(asset);
+    }
 }
 
 } // namespace toki::assets

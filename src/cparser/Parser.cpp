@@ -256,6 +256,25 @@ void Parser::readArray(std::span<const Token> head, usize bracket, Declaration& 
     }
     declaration.arrayLength = evaluateLength(head.subspan(bracket + 1, close - bracket - 1));
     declaration.hasDeclaredLength = declaration.arrayLength.has_value();
+
+    while (close + 1 < head.size() && isPunctuator(head[close + 1], "[")) {
+        const usize open = close + 1;
+        close = open + 1;
+        nesting = 0;
+        while (close < head.size() && (nesting != 0 || !isPunctuator(head[close], "]"))) {
+            nesting += getNestingDelta(head[close]);
+            ++close;
+        }
+        const std::optional<usize> length =
+            evaluateLength(head.subspan(open + 1, close - open - 1));
+        if (!length) {
+            result.diagnostics.push_back(base::makeError(
+                locate(head[open]),
+                std::format("the inner length of '{}' could not be read", declaration.name)));
+            return;
+        }
+        declaration.innerLengths.push_back(*length);
+    }
 }
 
 std::optional<std::vector<Token>>

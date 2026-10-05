@@ -12,6 +12,7 @@
 #include <format>
 #include <map>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -68,6 +69,17 @@ std::optional<u32> MemoryImage::findAddress(const std::string_view name) const {
                                          .offset = static_cast<u32>(symbol->offset)});
 }
 
+std::optional<std::span<const u8>> MemoryImage::findBytes(const u32 address,
+                                                          const usize size) const {
+    const n64::SegmentAddress segmented = n64::unpack(address);
+    const ImageSegment* segment = findSegment(segmented.segment);
+    if (segment == nullptr || segmented.offset > segment->bytes.size() ||
+        size > segment->bytes.size() - segmented.offset) {
+        return std::nullopt;
+    }
+    return std::span<const u8>(segment->bytes).subspan(segmented.offset, size);
+}
+
 MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& options) {
     MemoryImage image;
     std::map<u8, std::vector<const ImageObject*>> owners;
@@ -120,25 +132,43 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
     return image;
 }
 
-std::expected<std::array<u32, n64::SegmentCount>, base::Diagnostic>
-mapImage(const MemoryImage& image, n64::Memory& memory) {
-    std::array<u32, n64::SegmentCount> table{};
-    u32 physical = FirstPhysicalAddress;
+std::expected<MappedImage, base::Diagnostic>
+mapImageAt(const MemoryImage& image, n64::Memory& memory, const u32 physicalAddress) {
+    MappedImage mapped;
+    u32 physical = static_cast<u32>(alignUp(physicalAddress, SegmentRegionAlignment));
     for (const ImageSegment& segment : image.segments) {
         if (segment.number >= n64::SegmentCount) {
             return std::unexpected(base::makeError(
                 {}, std::format("segment {} is not one the RSP has", segment.number)));
         }
-        if (const std::expected<void, base::Diagnostic> mapped =
-                memory.map(physical, segment.bytes);
-            !mapped) {
-            return std::unexpected(mapped.error());
+        if (segment.number == 0) {
+            if (const std::expected<void, base::Diagnostic> placed = memory.map(0, segment.bytes);
+                !placed) {
+                return std::unexpected(placed.error());
+            }
+            continue;
         }
-        table[segment.number] = physical;
+        if (const std::expected<void, base::Diagnostic> placed =
+                memory.map(physical, segment.bytes);
+            !placed) {
+            return std::unexpected(placed.error());
+        }
+        mapped.segments[segment.number] = physical;
         physical = static_cast<u32>(
             alignUp(physical + std::max<usize>(segment.bytes.size(), 1), SegmentRegionAlignment));
     }
-    return table;
+    mapped.end = physical;
+    return mapped;
+}
+
+std::expected<std::array<u32, n64::SegmentCount>, base::Diagnostic>
+mapImage(const MemoryImage& image, n64::Memory& memory) {
+    std::expected<MappedImage, base::Diagnostic> mapped =
+        mapImageAt(image, memory, FirstPhysicalAddress);
+    if (!mapped) {
+        return std::unexpected(std::move(mapped.error()));
+    }
+    return mapped->segments;
 }
 
 } // namespace z64

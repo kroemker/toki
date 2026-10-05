@@ -1,0 +1,106 @@
+#include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneHeader.h"
+#include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ViewportFrame.h"
+#include "base/Diagnostic.h"
+#include "base/Types.h"
+#include "hackeroot/AssetImage.h"
+#include "hackeroot/Assets.h"
+#include "hackeroot/Workspace.h"
+#include "n64/RspResult.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <expected>
+#include <filesystem>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <variant>
+
+using base::usize;
+
+namespace {
+
+std::optional<hackeroot::Workspace> loadCheckout() {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        return std::nullopt;
+    }
+    std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+    return std::move(*workspace);
+}
+
+usize countTriangles(const n64::RspResult& result) {
+    return static_cast<usize>(
+        std::ranges::count_if(result.outputs, [](const n64::RspOutput& output) {
+            return std::holds_alternative<n64::Triangle>(output);
+        }));
+}
+
+std::string describe(const std::vector<base::Diagnostic>& diagnostics) {
+    std::map<std::string, usize> kinds;
+    for (const base::Diagnostic& diagnostic : diagnostics) {
+        ++kinds[diagnostic.message];
+    }
+    std::string described;
+    for (const auto& [message, count] : kinds) {
+        if (described.size() < 4000) {
+            described += std::to_string(count) + "x " + message + "\n";
+        }
+    }
+    return described;
+}
+
+} // namespace
+
+TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][checkout]") {
+    std::optional<hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto shared = std::make_shared<const hackeroot::Workspace>(std::move(*workspace));
+    for (const std::string name : {"spot04", "ydan", "example"}) {
+        const auto& scenes = shared->getAssets().scenes;
+        const auto asset = std::ranges::find(scenes, name, &hackeroot::AssetDirectory::name);
+        REQUIRE(asset != scenes.end());
+
+        hackeroot::AssetImageReader reader(shared);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+        const toki::scene::Scene again = toki::scene::readScene(reader, *asset);
+        CHECK(again.content.draws.size() == scene.content.draws.size());
+        INFO(name << ": " << describe(scene.diagnostics));
+        CHECK(std::ranges::none_of(scene.diagnostics, [](const base::Diagnostic& diagnostic) {
+            return diagnostic.severity == base::Severity::Error;
+        }));
+        REQUIRE(scene.rooms.size() == asset->roomCount);
+        REQUIRE(scene.header.roomCount == scene.rooms.size());
+        REQUIRE_FALSE(scene.header.playerEntries.empty());
+        REQUIRE_FALSE(scene.header.lightSettings.empty());
+        for (const toki::scene::RoomHeader& room : scene.rooms) {
+            CHECK_FALSE(room.displayLists.empty());
+        }
+
+        const toki::viewport::Frame frame = toki::viewport::runFrame(
+            scene.content, toki::viewport::OrbitCamera{}, {.width = 640, .height = 480});
+        INFO("frame: " << describe(frame.diagnostics));
+        WARN(name << ": " << scene.rooms.size() << " rooms, " << scene.content.draws.size()
+                  << " draws, " << countTriangles(frame.rspResult) << " triangles, "
+                  << frame.diagnostics.size() << " frame diagnostics, read in "
+                  << scene.elapsed.count() << " ms, again in " << again.elapsed.count() << " ms");
+        CHECK(countTriangles(frame.rspResult) > 100);
+        if (name == "ydan") {
+            // Its draw config points segment 8 at the entrance's day or night
+            // texture, which the default draw config the viewport stands in
+            // with cannot: one load reads past gEmptyDL until draw configs run.
+            CHECK(frame.diagnostics.size() <= 1);
+        } else {
+            CHECK(frame.diagnostics.empty());
+        }
+    }
+}

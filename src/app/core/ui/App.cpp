@@ -5,6 +5,7 @@
 #include "app/assets/ui/AssetBrowserPanel.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/build/ui/BuildPanel.h"
+#include "app/core/Types.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
@@ -14,15 +15,21 @@
 #include "app/core/ui/Paths.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
+#include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneLoader.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
+#include "hackeroot/Assets.h"
 #include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
 
+#include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
 
+#include <array>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -104,9 +111,14 @@ std::expected<void, std::string> App::initialize() {
 }
 
 void App::registerPanels() {
-    panels.add(std::make_unique<viewport::ViewportPanel>(*device));
+    auto viewport = std::make_unique<viewport::ViewportPanel>(*device);
+    viewportPanel = viewport.get();
+    panels.add(std::move(viewport));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
-    panels.add(std::make_unique<assets::AssetBrowserPanel>(workspaceService, assetReader));
+    panels.add(std::make_unique<assets::AssetBrowserPanel>(
+        workspaceService, assetReader, [this](const hackeroot::AssetDirectory& asset) {
+            sceneLoader.open(workspaceService.getSharedWorkspace(), asset);
+        }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
@@ -136,6 +148,10 @@ void App::drawFrame() {
     workspaceService.update();
     updateBuild();
     updateAssets();
+    updateScene();
+    if (viewportPanel != nullptr) {
+        viewportPanel->setReadingName(sceneLoader.findReadingName());
+    }
     const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
     panels.draw();
 
@@ -224,6 +240,48 @@ void App::updateAssets() {
         logWarn("{}", summary);
     } else {
         logOk("{}", summary);
+    }
+}
+
+void App::updateScene() {
+    std::optional<scene::Scene> loaded = sceneLoader.update();
+    if (!loaded) {
+        return;
+    }
+    usize errors = 0;
+    for (const base::Diagnostic& diagnostic : loaded->diagnostics) {
+        if (diagnostic.severity == base::Severity::Error) {
+            ++errors;
+            logError("{}", base::describe(diagnostic));
+        } else if (diagnostic.severity == base::Severity::Warning) {
+            logWarn("{}", base::describe(diagnostic));
+        }
+    }
+    usize displayLists = 0;
+    for (const scene::RoomHeader& room : loaded->rooms) {
+        displayLists += room.displayLists.size();
+    }
+    const std::string summary = std::format(
+        "read {} in {} ms: {} rooms, {} room meshes, {} draws", loaded->name,
+        loaded->elapsed.count(), loaded->rooms.size(), displayLists, loaded->content.draws.size());
+    if (errors > 0) {
+        logError("{}; {} errors", summary, errors);
+    } else {
+        logOk("{}", summary);
+    }
+
+    const bool isNew = loaded->directory != shownScene;
+    shownScene = loaded->directory;
+    std::optional<glm::vec3> target;
+    if (isNew && !loaded->header.playerEntries.empty()) {
+        const std::array<s16, 3>& position = loaded->header.playerEntries.front().position;
+        target = glm::vec3(position[0], position[1], position[2]);
+    }
+    if (viewportPanel != nullptr) {
+        viewportPanel->setContent(std::move(loaded->content), target);
+        if (isNew) {
+            viewportPanel->setOpen(true);
+        }
     }
 }
 

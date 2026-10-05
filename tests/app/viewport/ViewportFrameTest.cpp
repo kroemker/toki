@@ -24,7 +24,8 @@ using base::u32;
 using base::u8;
 using toki::viewport::FrameSize;
 using toki::viewport::OrbitCamera;
-using toki::viewport::ViewportImage;
+using toki::viewport::ViewportContent;
+using toki::viewport::ViewportDraw;
 
 namespace {
 
@@ -40,15 +41,20 @@ std::vector<n64::Triangle> findTriangles(const n64::RspResult& result) {
     return triangles;
 }
 
-ViewportImage makeImage(const n64::DisplayListWriter& writer, const u32 start) {
-    ViewportImage image;
-    image.image.segments.push_back(
-        z64::ImageSegment{.number = Segment, .bytes = writer.getBytes()});
-    image.displayLists.push_back(start);
+z64::MemoryImage makeImage(const u8 segment, const n64::DisplayListWriter& writer) {
+    z64::MemoryImage image;
+    image.segments.push_back(z64::ImageSegment{.number = segment, .bytes = writer.getBytes()});
     return image;
 }
 
-ViewportImage makeTriangleAt(const glm::vec3& corner) {
+ViewportContent makeContent(const n64::DisplayListWriter& writer, const u32 start) {
+    ViewportContent content;
+    content.images.push_back(makeImage(Segment, writer));
+    content.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
+    return content;
+}
+
+ViewportContent makeTriangleAt(const glm::vec3& corner) {
     const auto x = static_cast<base::s16>(corner.x);
     const auto y = static_cast<base::s16>(corner.y);
     const auto z = static_cast<base::s16>(corner.z);
@@ -61,7 +67,7 @@ ViewportImage makeTriangleAt(const glm::vec3& corner) {
     const u32 start = writer.loadVertices(vertices, 3, 0);
     writer.drawTriangle({0, 1, 2});
     writer.endDisplayList();
-    return makeImage(writer, start);
+    return makeContent(writer, start);
 }
 
 } // namespace
@@ -115,15 +121,43 @@ TEST_CASE("the reference grid draws every cell and nothing else", "[viewport]") 
 TEST_CASE("an image that uses the frame's own segment is refused", "[viewport]") {
     n64::DisplayListWriter writer(toki::viewport::FrameSegment);
     const u32 start = writer.endDisplayList();
-    ViewportImage image;
-    image.image.segments.push_back(
-        z64::ImageSegment{.number = toki::viewport::FrameSegment, .bytes = writer.getBytes()});
-    image.displayLists.push_back(start);
+    ViewportContent content;
+    content.images.push_back(makeImage(toki::viewport::FrameSegment, writer));
+    content.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
 
-    const toki::viewport::Frame frame = toki::viewport::runFrame(image, OrbitCamera{}, FrameSize{});
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, OrbitCamera{}, FrameSize{});
 
     REQUIRE(frame.diagnostics.size() == 1);
     REQUIRE(frame.rspResult.outputs.empty());
+}
+
+TEST_CASE("each draw sees its own image in the segments they share", "[viewport]") {
+    constexpr u8 Shared = 0x03;
+    ViewportContent content;
+    for (const base::s16 x : {base::s16{0}, base::s16{300}}) {
+        n64::DisplayListWriter writer(Shared);
+        const u32 vertices =
+            writer.addVertex({.position = {x, 0, 0}, .color = {255, 255, 255, 255}});
+        static_cast<void>(writer.addVertex(
+            {.position = {static_cast<base::s16>(x + 50), 0, 0}, .color = {255, 255, 255, 255}}));
+        static_cast<void>(
+            writer.addVertex({.position = {x, 50, 0}, .color = {255, 255, 255, 255}}));
+        const u32 start = writer.loadVertices(vertices, 3, 0);
+        writer.drawTriangle({0, 1, 2});
+        writer.endDisplayList();
+        content.draws.push_back(ViewportDraw{.image = content.images.size(), .displayList = start});
+        content.images.push_back(makeImage(Shared, writer));
+    }
+    REQUIRE(content.draws[0].displayList == content.draws[1].displayList);
+
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, OrbitCamera{}, FrameSize{.width = 640, .height = 480});
+
+    REQUIRE(frame.diagnostics.empty());
+    const std::vector<n64::Triangle> triangles = findTriangles(frame.rspResult);
+    REQUIRE(triangles.size() == 2);
+    REQUIRE(triangles[0].vertices[0].position != triangles[1].vertices[0].position);
 }
 
 TEST_CASE("orbiting keeps the distance and stops short of the poles", "[viewport]") {

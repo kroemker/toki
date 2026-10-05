@@ -9,14 +9,17 @@
 
 #include <array>
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 namespace toki::assets {
 
 class AssetBrowserPanel : public core::Panel {
 public:
-    AssetBrowserPanel(const workspace::WorkspaceService& workspaceService,
-                      AssetReader& assetReader);
+    using OpenScene = std::function<void(const hackeroot::AssetDirectory&)>;
+
+    AssetBrowserPanel(const workspace::WorkspaceService& workspaceService, AssetReader& assetReader,
+                      OpenScene openScene);
 
     void draw() override;
 
@@ -37,6 +40,7 @@ private:
 
     const workspace::WorkspaceService& workspaceService;
     AssetReader& assetReader;
+    OpenScene openScene;
     std::array<char, 128> filter{};
     Kind kind = Kind::Scenes;
     std::filesystem::path selected;

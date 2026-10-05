@@ -243,6 +243,12 @@ listed below is only what no change may break.
     `\\wsl.localhost`.
   - Change detection polls modification times. Windows sends no change notifications for
     the WSL share, so a watcher built on them would silently never fire.
+- **[Scenes](docs/scenes.md)** — how a scene folder becomes images, how its headers are read
+  out of them, and how it is drawn and reloaded.
+  - Headers are read out of the memory image's bytes, as `Scene_ExecuteCommands` reads them,
+    never out of the C: the bytes are what the game sees.
+  - What the game draws a room with comes from the checkout's own code (`sSetupDL`,
+    `sDefaultDisplayList`), not from constants written down here.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only

@@ -4,6 +4,7 @@
 #include "z64/MemoryImage.h"
 
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -34,5 +35,41 @@ struct SegmentFiles {
 /// defines are diagnostics in the image.
 [[nodiscard]] z64::MemoryImage readAssetImage(const Workspace& workspace,
                                               std::span<const SegmentFiles> segments);
+
+/// Reads images as `readAssetImage` does, again and again against one
+/// workspace, and several at once, as the game loads a scene and then each of
+/// its rooms into the same segment: every image is laid out on its own, and a
+/// symbol one image does not define resolves to where an earlier image laid it
+/// out, so each room may use its scene. Only the first image holds the game
+/// code's data.
+///
+/// The system headers each file is read against are kept between reads: they
+/// are most of the cost of reading a fast64 export, and a re-export does not
+/// change them. Everything else, the files, their textures and the folders
+/// they list, is read afresh every time.
+class AssetImageReader {
+public:
+    explicit AssetImageReader(std::shared_ptr<const Workspace> workspace);
+    AssetImageReader(const AssetImageReader&) = delete;
+    AssetImageReader& operator=(const AssetImageReader&) = delete;
+    AssetImageReader(AssetImageReader&&) noexcept;
+    AssetImageReader& operator=(AssetImageReader&&) noexcept;
+    ~AssetImageReader();
+
+    [[nodiscard]] const Workspace& getWorkspace() const {
+        return *workspace;
+    }
+
+    [[nodiscard]] std::vector<z64::MemoryImage>
+    read(std::span<const std::vector<SegmentFiles>> images);
+
+private:
+    struct Preludes;
+
+    // Shared with whoever else reads the workspace: it is replaced, not
+    // changed, when the checkout is read again.
+    std::shared_ptr<const Workspace> workspace;
+    std::unique_ptr<Preludes> preludes;
+};
 
 } // namespace hackeroot

@@ -9,6 +9,7 @@ target_sources(toki_core PRIVATE
         FilePoller.cpp
         Gbi.cpp
         Prelude.cpp
+        SceneFiles.cpp
         Tables.cpp
         Workspace.cpp
         WslPath.cpp)

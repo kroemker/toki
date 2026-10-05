@@ -10,6 +10,7 @@ why it is shaped that way, and what was measured.
 | [build-configuration.md](build-configuration.md) | Why `#if` must be answered as the build answers it, and how the Makefile and `config.h` become a macro layer. |
 | [gbi.md](gbi.md) | Where gbi constants and the words of `gs*` macros come from. |
 | [memory-image.md](memory-image.md) | How asset C becomes per-segment buffers byte for byte as the build compiles it: preludes, type layouts, initializers, relocations, layout. |
+| [scenes.md](scenes.md) | How a scene is read from its folder, its headers out of the memory image, and drawn the way `Play_Draw` draws it, and how a fast64 export reloads. |
 | [workspace.md](workspace.md) | How one checkout is read, kept current off the UI thread, and watched for changes. |
 | [renderer.md](renderer.md) | Why the renderer is our own, what it takes from Fast3D, RT64 and parallel-rdp, and how its stages divide the work. |
 

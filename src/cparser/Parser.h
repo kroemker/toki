@@ -35,6 +35,10 @@ struct Declaration {
     /// of the initializer's elements, which brace elision can make too high.
     bool hasDeclaredLength = false;
 
+    /// The length of every dimension after the first, outermost first, as
+    /// `Gfx sSetupDL[SETUPDL_MAX][6]` has one of 6.
+    std::vector<usize> innerLengths;
+
     /// The interior of the outermost braces, or the whole expression when the
     /// initializer is not a brace list.
     std::span<const Token> initializer;

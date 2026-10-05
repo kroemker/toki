@@ -77,6 +77,8 @@ public:
 
 private:
     [[nodiscard]] bool isDisplayList(const cparser::CType& type) const;
+    [[nodiscard]] EncodedData encodeDisplayLists(const cparser::CType& type,
+                                                 std::span<const cparser::Token> initializer);
 
     DataContext context;
     DisplayListEncoder displayLists;

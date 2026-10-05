@@ -61,16 +61,32 @@ Symbols nothing in the image defines:
   no ROM.
 - **The game code's data** that assets point at, such as `gIdentityMtx`, is written down in
   `z64::getCodeSymbols` with its contents and placed in segment 0, which the game reads
-  physical addresses through.
+  physical addresses through. Code whose data a viewer needs whole, such as the setup
+  display lists in `z_rcp.c`, is read like an asset file into segment 0 instead: the
+  parser steps over its functions, and an array of display lists (`Gfx sSetupDL[71][6]`)
+  encodes each inner list.
 - **Anything else**, an object's reference into gameplay_keep when gameplay_keep is not in
   the image, is an error naming the symbol. A scene's image should hold the keep objects
   its rooms use.
+
+## Several images
+
+The game loads a scene into segment 2 and then each room in turn into segment 3, so a
+scene's rooms cannot share one image: they would all claim segment 3.
+`hackeroot::AssetImageReader` reads several images in one pass, each laid out on its own,
+and a symbol one image does not define resolves to where an earlier image laid it out, so a
+room's palette in its scene is found. It reads again and again against one workspace and
+keeps the preludes between reads, which are most of the cost of reading a fast64 export;
+the files, their textures and the folders they list are read afresh every time.
 
 ## Rendering from it
 
 `z64::mapImage` maps every segment into an `n64::Memory` and returns the segment table,
 which is an `n64::RspTask` together with a display list's segmented address
-(`MemoryImage::findAddress`).
+(`MemoryImage::findAddress`). `z64::mapImageAt` maps one image after another into the same
+memory. Segment 0 always maps at physical address 0, so an address in the game's code is
+physical, as on the N64, and a `gsSPSegment(0x08, gEmptyDL)` in code data points where it
+should.
 
 ## Measured
 

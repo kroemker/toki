@@ -6,6 +6,9 @@ add_executable(toki_tests
         app/build/BuildTextTest.cpp
         app/core/LogTest.cpp
         app/core/SettingsTest.cpp
+        app/scene/SceneCheckoutTest.cpp
+        app/scene/SceneHeaderTest.cpp
+        app/scene/SceneLoaderTest.cpp
         app/viewport/ViewportFrameTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
         cparser/AddressTest.cpp
@@ -30,6 +33,7 @@ add_executable(toki_tests
         hackeroot/GbiCheckoutTest.cpp
         hackeroot/GbiTest.cpp
         hackeroot/PreludeCheckoutTest.cpp
+        hackeroot/SceneFilesTest.cpp
         hackeroot/WorkspaceTest.cpp
         hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
@@ -45,6 +49,7 @@ add_executable(toki_tests
         n64/TexturePackingTest.cpp
         z64/DataEncoderTest.cpp
         z64/DecompDialectTest.cpp
+        z64/MemoryImageTest.cpp
         z64/TextureCheckoutTest.cpp
         z64/TextureEncoderTest.cpp
         z64/TextureIncludesTest.cpp

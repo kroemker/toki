@@ -12,6 +12,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace toki::viewport {
 
@@ -23,7 +24,15 @@ public:
         return ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
     }
 
-    void setImage(ViewportImage image);
+    /// Replaces what is drawn. When `target` is given, the camera turns to
+    /// look at it.
+    void setContent(ViewportContent content, std::optional<glm::vec3> target = std::nullopt);
+
+    /// The scene being read for the panel, shown over what is drawn until it
+    /// arrives.
+    void setReadingName(std::optional<std::string> name) {
+        readingName = std::move(name);
+    }
 
     void draw() override;
 
@@ -35,8 +44,9 @@ private:
     std::optional<gfx::Renderer> renderer;
     std::optional<gfx::RenderTarget> renderTarget;
     std::string failure;
+    std::optional<std::string> readingName;
     OrbitCamera orbitCamera;
-    ViewportImage viewportImage;
+    ViewportContent viewportContent;
     bool stale = true;
     bool reported = false;
     usize diagnosticCount = 0;

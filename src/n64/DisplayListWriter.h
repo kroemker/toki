@@ -19,6 +19,15 @@ struct VertexData {
 
 inline constexpr usize VertexDataSize = 16;
 
+/// One `Light`: a colour and the direction it shines from. The ambient light
+/// is written as one too, with no direction.
+struct LightData {
+    std::array<u8, 3> color{};
+    std::array<s8, 3> direction{};
+};
+
+inline constexpr usize LightDataSize = 16;
+
 /// What `G_MTX` does with the matrix it reads.
 enum class MatrixLoad : u8 {
     /// Replaces the projection matrix.
@@ -49,6 +58,8 @@ public:
 
     [[nodiscard]] u32 addVertex(const VertexData& vertex);
 
+    [[nodiscard]] u32 addLight(const LightData& light);
+
     u32 addCommand(u32 word0, u32 word1);
 
     u32 setViewport(u32 address);
@@ -71,6 +82,21 @@ public:
 
     /// `G_SETCOMBINE` with both of its words already packed.
     u32 setCombine(u32 word0, u32 word1);
+
+    /// `gSPNumLights`: how many directional lights shine, besides the ambient.
+    u32 setLightCount(u32 count);
+
+    /// `gSPLight`: loads the light at `address` as light `index`, counting from
+    /// one; the ambient light is the one after the last directional light.
+    u32 setLight(u32 address, u32 index);
+
+    u32 setFogColor(const std::array<u8, 4>& color);
+
+    /// `gSPFogFactor`: the RSP's fog multiplier and offset.
+    u32 setFogFactor(s16 multiplier, s16 offset);
+
+    /// `gSPSegment`: points segment `number` at `physicalAddress`.
+    u32 setSegment(u8 number, u32 physicalAddress);
 
     u32 syncPipe();
 

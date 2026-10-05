@@ -24,7 +24,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -32,6 +31,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -46,6 +46,7 @@ constexpr usize WordAlignment = 4;
 constexpr std::array<std::string_view, 1> AlsoHidden{"ultra64/gbi.f3dex3.h"};
 
 struct FileRead {
+    usize image = 0;
     u8 segment = 0;
     cparser::TranslationUnit unit;
     const Prelude* prelude = nullptr;
@@ -79,6 +80,10 @@ const cparser::CType* findDeclaredType(Prelude& prelude, const cparser::Declarat
         type = prelude.types.getPointer(type);
     }
     if (declaration.isArray) {
+        for (auto inner = declaration.innerLengths.rbegin();
+             inner != declaration.innerLengths.rend(); ++inner) {
+            type = prelude.types.getArray(type, *inner);
+        }
         type = prelude.types.getArray(type, declaration.hasDeclaredLength ? declaration.arrayLength
                                                                           : std::nullopt);
     }
@@ -121,21 +126,23 @@ usize findAlignment(const cparser::CType& type) {
     return isAggregate ? std::max(type.alignment, WordAlignment) : type.alignment;
 }
 
+using PreludeCache = std::map<std::vector<std::string>, std::unique_ptr<Prelude>>;
+
 class ImageReader {
 public:
-    explicit ImageReader(const Workspace& workspace)
+    ImageReader(const Workspace& workspace, PreludeCache& preludes)
         : workspace(workspace), options(makeAssetPreprocessOptions(
                                     workspace.getRoot(), workspace.getBuildDefines().version)),
-          textures(directories, options.allowedRoots) {
+          textures(directories, options.allowedRoots), preludes(preludes) {
         for (const z64::CodeSymbol& symbol : z64::getCodeSymbols()) {
             elementSizes.emplace(std::string(symbol.name), symbol.elementSize);
         }
     }
 
-    z64::MemoryImage read(std::span<const SegmentFiles> segments);
+    std::vector<z64::MemoryImage> read(std::span<const std::vector<SegmentFiles>> images);
 
 private:
-    void readFile(u8 segment, const std::filesystem::path& file);
+    void readFile(usize image, u8 segment, const std::filesystem::path& file);
     cparser::ParseResult parseFile(FileRead& read);
     void keepLoud(std::vector<base::Diagnostic>& found);
     void placeObjects(FileRead& read, Prelude& prelude,
@@ -147,33 +154,38 @@ private:
     cparser::PreprocessOptions options;
     cparser::DirectoryCache directories;
     z64::TextureEncoder textures;
-    std::map<std::vector<std::string>, std::unique_ptr<Prelude>> preludes;
+    PreludeCache& preludes;
+    std::set<const Prelude*> reported;
     std::vector<std::unique_ptr<FileRead>> files;
     std::map<std::string, usize, std::less<>> elementSizes;
-    std::vector<base::Diagnostic> diagnostics;
+    std::vector<std::vector<base::Diagnostic>> imageDiagnostics;
+    std::vector<base::Diagnostic>* diagnostics = nullptr;
 };
 
 Prelude& ImageReader::findPrelude(const std::vector<std::string>& includes) {
     std::unique_ptr<Prelude>& prelude = preludes[includes];
     if (!prelude) {
         prelude = std::make_unique<Prelude>(readPrelude(workspace, includes, AlsoHidden));
+    }
+    if (reported.insert(prelude.get()).second) {
         for (const base::Diagnostic& diagnostic : prelude->diagnostics) {
             if (diagnostic.severity != base::Severity::Note) {
-                diagnostics.push_back(diagnostic);
+                diagnostics->push_back(diagnostic);
             }
         }
     }
     return *prelude;
 }
 
-void ImageReader::readFile(const u8 segment, const std::filesystem::path& file) {
+void ImageReader::readFile(const usize image, const u8 segment, const std::filesystem::path& file) {
     std::expected<cparser::TranslationUnit, base::Diagnostic> unit =
         cparser::preprocess(workspace.getMacros(), file, options);
     if (!unit) {
-        diagnostics.push_back(unit.error());
+        diagnostics->push_back(unit.error());
         return;
     }
-    auto read = std::make_unique<FileRead>(FileRead{.segment = segment, .unit = std::move(*unit)});
+    auto read = std::make_unique<FileRead>(
+        FileRead{.image = image, .segment = segment, .unit = std::move(*unit)});
     Prelude& prelude = findPrelude(read->unit.unresolvedIncludes);
     read->prelude = &prelude;
     read->macros = std::make_unique<cparser::MacroTable>(&prelude.macros);
@@ -208,7 +220,7 @@ cparser::ParseResult ImageReader::parseFile(FileRead& read) {
 void ImageReader::keepLoud(std::vector<base::Diagnostic>& found) {
     for (base::Diagnostic& diagnostic : found) {
         if (diagnostic.severity != base::Severity::Note) {
-            diagnostics.push_back(std::move(diagnostic));
+            diagnostics->push_back(std::move(diagnostic));
         }
     }
 }
@@ -221,7 +233,7 @@ void ImageReader::placeObjects(FileRead& read, Prelude& prelude,
         const cparser::CType* type = findDeclaredType(prelude, declaration);
         if (type == nullptr) {
             if (declaration.hasInitializer) {
-                diagnostics.push_back(base::makeError(
+                diagnostics->push_back(base::makeError(
                     declaration.location,
                     std::format("'{}' has the type '{}', which no header it includes defines",
                                 declaration.name, declaration.type)));
@@ -308,38 +320,82 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
     }
 }
 
-z64::MemoryImage ImageReader::read(const std::span<const SegmentFiles> segments) {
-    for (const SegmentFiles& segment : segments) {
-        for (const std::filesystem::path& file : segment.files) {
-            readFile(segment.segment, file);
+std::vector<z64::MemoryImage>
+ImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
+    imageDiagnostics.resize(images.size());
+    for (usize image = 0; image < images.size(); ++image) {
+        diagnostics = &imageDiagnostics[image];
+        for (const SegmentFiles& segment : images[image]) {
+            for (const std::filesystem::path& file : segment.files) {
+                readFile(image, segment.segment, file);
+            }
         }
     }
-    std::vector<z64::ImageObject> objects;
-    for (const z64::CodeSymbol& symbol : z64::getCodeSymbols()) {
-        objects.push_back(z64::ImageObject{
-            .segment = 0,
-            .name = std::string(symbol.name),
-            .alignment = WordAlignment,
-            .data = z64::EncodedData{.bytes = {symbol.bytes.begin(), symbol.bytes.end()}},
-        });
+
+    std::vector<std::vector<z64::ImageObject>> objects(images.size());
+    if (!objects.empty()) {
+        for (const z64::CodeSymbol& symbol : z64::getCodeSymbols()) {
+            objects.front().push_back(z64::ImageObject{
+                .segment = 0,
+                .name = std::string(symbol.name),
+                .alignment = WordAlignment,
+                .data = z64::EncodedData{.bytes = {symbol.bytes.begin(), symbol.bytes.end()}},
+            });
+        }
     }
     for (const std::unique_ptr<FileRead>& file : files) {
-        encodeFile(*file, objects);
+        diagnostics = &imageDiagnostics[file->image];
+        encodeFile(*file, objects[file->image]);
     }
-    z64::MemoryImage image = z64::layOutImage(
-        std::move(objects),
-        z64::LayoutOptions{.findExternal = [](const std::string_view name) -> std::optional<u32> {
-            return isLinkerSymbol(name) ? std::optional<u32>(0) : std::nullopt;
-        }});
-    image.diagnostics.insert(image.diagnostics.begin(), diagnostics.begin(), diagnostics.end());
-    return image;
+
+    std::vector<z64::MemoryImage> laidOut;
+    laidOut.reserve(images.size());
+    for (usize image = 0; image < images.size(); ++image) {
+        z64::MemoryImage memoryImage = z64::layOutImage(
+            std::move(objects[image]),
+            z64::LayoutOptions{
+                .findExternal = [&laidOut](const std::string_view name) -> std::optional<u32> {
+                    for (const z64::MemoryImage& earlier : laidOut) {
+                        if (const std::optional<u32> address = earlier.findAddress(name)) {
+                            return address;
+                        }
+                    }
+                    return isLinkerSymbol(name) ? std::optional<u32>(0) : std::nullopt;
+                }});
+        memoryImage.diagnostics.insert(memoryImage.diagnostics.begin(),
+                                       imageDiagnostics[image].begin(),
+                                       imageDiagnostics[image].end());
+        laidOut.push_back(std::move(memoryImage));
+    }
+    return laidOut;
 }
 
 } // namespace
 
+struct AssetImageReader::Preludes {
+    PreludeCache cache;
+};
+
+AssetImageReader::AssetImageReader(std::shared_ptr<const Workspace> workspace)
+    : workspace(std::move(workspace)), preludes(std::make_unique<Preludes>()) {}
+
+AssetImageReader::AssetImageReader(AssetImageReader&&) noexcept = default;
+
+AssetImageReader& AssetImageReader::operator=(AssetImageReader&&) noexcept = default;
+
+AssetImageReader::~AssetImageReader() = default;
+
+std::vector<z64::MemoryImage>
+AssetImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
+    return ImageReader(*workspace, preludes->cache).read(images);
+}
+
 z64::MemoryImage readAssetImage(const Workspace& workspace,
                                 const std::span<const SegmentFiles> segments) {
-    return ImageReader(workspace).read(segments);
+    const std::array<std::vector<SegmentFiles>, 1> images{
+        std::vector<SegmentFiles>(segments.begin(), segments.end())};
+    PreludeCache preludes;
+    return std::move(ImageReader(workspace, preludes).read(images).front());
 }
 
 } // namespace hackeroot

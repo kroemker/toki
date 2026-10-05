@@ -54,8 +54,8 @@ glm::mat4 OrbitCamera::makeViewMatrix() const {
     return glm::lookAt(getEye(), target, Up);
 }
 
-glm::mat4 OrbitCamera::makeProjectionMatrix(const f32 aspect) {
-    return glm::perspective(glm::radians(FieldOfView), aspect, Near, Far);
+glm::mat4 OrbitCamera::makeProjectionMatrix(const f32 aspect, const f32 zFar) {
+    return glm::perspective(glm::radians(FieldOfView), aspect, Near, zFar);
 }
 
 } // namespace toki::viewport

@@ -30,6 +30,7 @@ constexpr std::string_view Types = "typedef short s16;\n"
                                    "typedef struct { u32 flag : 1; u32 kind : 7; u8 rest; } Bits;\n"
                                    "typedef struct { u8 low : 4; u8 : 2; u8 high : 2; } Gap;\n"
                                    "typedef struct Undefined Undefined;\n"
+                                   "typedef struct { u32 w0, w1; } Gfx;\n"
                                    "#define NULL ((void*)0)\n"
                                    "#define ENTRY(x, dl) { { x, x, x }, x, dl, NULL }\n";
 
@@ -58,6 +59,10 @@ struct Encoding {
         const cparser::CType* type = types.types.findTypedef(declaration.type);
         REQUIRE(type != nullptr);
         if (declaration.isArray) {
+            for (auto inner = declaration.innerLengths.rbegin();
+                 inner != declaration.innerLengths.rend(); ++inner) {
+                type = types.types.getArray(type, *inner);
+            }
             type = types.types.getArray(
                 type, declaration.hasDeclaredLength ? declaration.arrayLength : std::nullopt);
         }
@@ -140,4 +145,30 @@ TEST_CASE("an object of a type never defined is reported, not encoded", "[z64][d
 
     REQUIRE_FALSE(encoding.data.diagnostics.empty());
     REQUIRE(encoding.data.bytes.empty());
+}
+
+TEST_CASE("an array of display lists encodes each list into its own element", "[z64][data]") {
+    const Encoding encoding("Gfx lists[2][2] = {\n"
+                            "    { { 0xE7000000, 0 }, { 0xDF000000, 0 } },\n"
+                            "    { { 0xDF000000, 0 } },\n"
+                            "};\n");
+
+    REQUIRE(encoding.data.diagnostics.empty());
+    REQUIRE(encoding.data.bytes.size() == 32);
+    REQUIRE(encoding.data.bytes[0] == 0xE7);
+    REQUIRE(encoding.data.bytes[8] == 0xDF);
+    REQUIRE(encoding.data.bytes[16] == 0xDF);
+    REQUIRE(encoding.data.bytes[24] == 0x00);
+}
+
+TEST_CASE("a display list longer than its element is cut, saying so", "[z64][data]") {
+    const Encoding encoding("Gfx lists[2][1] = {\n"
+                            "    { { 0xE7000000, 0 }, { 0xDF000000, 0 } },\n"
+                            "    { { 0xDF000000, 0 } },\n"
+                            "};\n");
+
+    REQUIRE(encoding.data.diagnostics.size() == 1);
+    REQUIRE(encoding.data.bytes.size() == 16);
+    REQUIRE(encoding.data.bytes[0] == 0xE7);
+    REQUIRE(encoding.data.bytes[8] == 0xDF);
 }

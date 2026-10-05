@@ -20,6 +20,10 @@ public:
         return target;
     }
 
+    void setTarget(const glm::vec3& point) {
+        target = point;
+    }
+
     [[nodiscard]] f32 getDistance() const {
         return distance;
     }
@@ -39,7 +43,7 @@ public:
 
     [[nodiscard]] glm::mat4 makeViewMatrix() const;
 
-    [[nodiscard]] static glm::mat4 makeProjectionMatrix(f32 aspect);
+    [[nodiscard]] static glm::mat4 makeProjectionMatrix(f32 aspect, f32 zFar = Far);
 
 private:
     glm::vec3 target{0.0F};

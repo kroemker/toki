@@ -10,8 +10,7 @@ inline constexpr u8 ReferenceGridSegment = 0x06;
 
 /// A checkerboard floor on the XZ plane, centred on the origin, as a memory
 /// image of one display list built by hand. It is what the viewport shows
-/// before anything is opened, and the scale a scene is read against: each
-/// cell is 100 units, two of Link's heights.
-[[nodiscard]] ViewportImage makeReferenceGrid();
+/// before anything is opened. Each cell is 100 units.
+[[nodiscard]] ViewportContent makeReferenceGrid();
 
 } // namespace toki::viewport

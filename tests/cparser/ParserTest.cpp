@@ -258,3 +258,15 @@ TEST_CASE("what the parser cannot read is noted, never dropped silently", "[cpar
     const cparser::TranslationUnit unclosed = preprocessSource(base, "s32 sValue = 1\n");
     REQUIRE(notes(parseText(unclosed), "never closed"));
 }
+
+TEST_CASE("every dimension of an array is read, the first as its length", "[cparser][parser]") {
+    const cparser::MacroTable base;
+    const cparser::TranslationUnit unit =
+        preprocessSource(base, "#define ROWS 3\nu8 sTable[ROWS][2][4] = { 0 };\n");
+    const cparser::ParseResult parsed = parseText(unit);
+
+    REQUIRE(parsed.diagnostics.empty());
+    REQUIRE(parsed.declarations.size() == 1);
+    REQUIRE(parsed.declarations.front().arrayLength == 3);
+    REQUIRE(parsed.declarations.front().innerLengths == std::vector<cparser::usize>{2, 4});
+}

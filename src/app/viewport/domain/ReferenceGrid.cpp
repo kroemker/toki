@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <utility>
 #include <vector>
 
 namespace toki::viewport {
@@ -62,7 +63,7 @@ u32 addCellVertices(n64::DisplayListWriter& writer, const Cell& cell) {
 
 } // namespace
 
-ViewportImage makeReferenceGrid() {
+ViewportContent makeReferenceGrid() {
     const std::vector<Cell> cells = makeCells();
     n64::DisplayListWriter writer(ReferenceGridSegment);
     std::vector<u32> batches;
@@ -88,14 +89,16 @@ ViewportImage makeReferenceGrid() {
     writer.endDisplayList();
 
     const usize size = writer.getBytes().size();
-    ViewportImage grid;
-    grid.image.segments.push_back(
+    z64::MemoryImage image;
+    image.segments.push_back(
         z64::ImageSegment{.number = ReferenceGridSegment, .bytes = writer.getBytes()});
-    grid.image.symbols.emplace("referenceGridDL",
-                               z64::ImageSymbol{.segment = ReferenceGridSegment,
-                                                .offset = start & 0x00FF'FFFFU,
-                                                .size = size - (start & 0x00FF'FFFFU)});
-    grid.displayLists.push_back(start);
+    image.symbols.emplace("referenceGridDL",
+                          z64::ImageSymbol{.segment = ReferenceGridSegment,
+                                           .offset = start & 0x00FF'FFFFU,
+                                           .size = size - (start & 0x00FF'FFFFU)});
+    ViewportContent grid;
+    grid.images.push_back(std::move(image));
+    grid.draws.push_back(ViewportDraw{.image = 0, .displayList = start});
     return grid;
 }
 

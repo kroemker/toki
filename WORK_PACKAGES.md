@@ -381,6 +381,24 @@ export in fast64 re-renders it without a restart.
 
 Ports from `z64-parser/{scene,room,lib}.rs`.
 
+*Done:* opening a scene in the asset browser reads it on `toki::scene::SceneLoader`'s
+worker: `hackeroot::findSceneFiles` groups the folder into the scene's and each room's
+files, and `hackeroot::AssetImageReader` reads them as one image each, the game's
+`z_rcp.c` and `z_scene_table.c` first as segment 0, keeping the preludes between reads.
+`readSceneHeader` and `readRoomHeader` read the headers out of the image's bytes as
+`Scene_ExecuteCommands` does: rooms, player entries, light settings and light mode, room
+shapes of all three types, actor lists. The viewport draws every room the way `Play_Draw`
+does: `gSPSegment` to each room in turn, projection times view with an identity modelview,
+lights and fog from the light setting, `sDefaultDisplayList` and `sSetupDL[SETUPDL_25]` from
+the checkout's code, the opaque pass then the translucent one. Kokiri Forest, the Deku Tree
+and a fast64 export render textured and lit. The loader polls the scene's files and reads
+it again when one changes; a test edits a scene in a copy of the fixture checkout and sees
+it read again, and a fast64 scene reads again in 0.4 s. See [docs/scenes.md](docs/scenes.md).
+
+Left for later, each named where it stands in for the real thing: the spec instead of
+file names for a segment's files, draw configs other than the default, alternate headers,
+a choice of light setting, and actors and spawns drawn in the viewport.
+
 ---
 
 ## Remaining, after the vertical slice closes

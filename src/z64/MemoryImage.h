@@ -12,6 +12,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -61,6 +62,10 @@ struct MemoryImage {
 
     /// The segmented address of a symbol.
     [[nodiscard]] std::optional<u32> findAddress(std::string_view name) const;
+
+    /// The `size` bytes at a segmented address, if one segment holds all of
+    /// them.
+    [[nodiscard]] std::optional<std::span<const u8>> findBytes(u32 address, usize size) const;
 };
 
 struct LayoutOptions {
@@ -79,6 +84,22 @@ struct LayoutOptions {
 /// address of its symbol.
 [[nodiscard]] MemoryImage layOutImage(std::vector<ImageObject> objects,
                                       const LayoutOptions& options);
+
+/// Where `mapImageAt` put an image: the physical address of each segment it
+/// has, zero for those it lacks, and the first free address after it.
+struct MappedImage {
+    std::array<u32, n64::SegmentCount> segments{};
+    u32 end = 0;
+};
+
+/// Maps every segment of `image` into `memory`, one after another from
+/// `physicalAddress`, each on a 64 KiB boundary, except segment 0: the game
+/// code's data, which is mapped at physical address 0, so that an address in it
+/// is physical, as the game's own code addresses are, and segment 0 points at 0
+/// as on the N64. The image must outlive the memory. Several images map into
+/// one memory when each starts where the previous one ended.
+[[nodiscard]] std::expected<MappedImage, base::Diagnostic>
+mapImageAt(const MemoryImage& image, n64::Memory& memory, u32 physicalAddress);
 
 /// Maps every segment of `image` into `memory` at its own physical address,
 /// and gives the segment table that points each segment number at it. The

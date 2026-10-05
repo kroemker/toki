@@ -1,5 +1,6 @@
 add_subdirectory(assets)
 add_subdirectory(build)
 add_subdirectory(core)
+add_subdirectory(scene)
 add_subdirectory(viewport)
 add_subdirectory(workspace)

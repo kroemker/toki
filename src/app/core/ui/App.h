@@ -7,6 +7,8 @@
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
+#include "app/scene/domain/SceneLoader.h"
+#include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "gfx/Device.h"
 #include "hackeroot/BuildCommand.h"
@@ -42,6 +44,7 @@ private:
     void startBuild(hackeroot::BuildTarget target);
     void updateBuild();
     void updateAssets();
+    void updateScene();
     void saveState();
 
     std::unique_ptr<gfx::Device> device;
@@ -57,6 +60,9 @@ private:
     workspace::WorkspaceService workspaceService;
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
+    scene::SceneLoader sceneLoader;
+    std::filesystem::path shownScene;
+    viewport::ViewportPanel* viewportPanel = nullptr;
 };
 
 } // namespace toki::core
