@@ -79,12 +79,6 @@ std::vector<std::filesystem::path> SceneFiles::getAllFiles() const {
     return files;
 }
 
-SegmentFiles findSceneCodeFiles(const std::filesystem::path& repository) {
-    return SegmentFiles{.segment = 0,
-                        .files = {repository / "src" / "code" / "z_rcp.c",
-                                  repository / "src" / "code" / "z_scene_table.c"}};
-}
-
 SceneFiles findSceneFiles(const AssetDirectory& asset) {
     SceneFiles found;
     const std::string sceneHeader = asset.name + "_scene";

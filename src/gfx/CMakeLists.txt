@@ -59,6 +59,7 @@ target_sources(toki_gfx PRIVATE
         BlendSetup.cpp
         Device.cpp
         DrawBatches.cpp
+        ImageTexture.cpp
         PipelineCache.cpp
         RenderTarget.cpp
         Renderer.cpp

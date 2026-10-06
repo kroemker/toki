@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using base::u8;
@@ -50,6 +51,16 @@ TEST_CASE("an image packs into its format, padded to its element type", "[z64][t
             std::vector<u8>{0xF8, 0x01, 0x08, 0x86, 0, 0, 0, 0});
     REQUIRE(requireEncoded("sGlow.ia8.inc.c") == std::vector<u8>{0xFF, 0x08, 0, 0, 0, 0, 0, 0});
     REQUIRE(requireEncoded("sGrey.i4.inc.c") == std::vector<u8>{0xF8, 0, 0, 0, 0, 0, 0, 0});
+}
+
+TEST_CASE("an encoded image's size is kept", "[z64][texture-encoder]") {
+    cparser::DirectoryCache directories;
+    z64::TextureEncoder encoder(directories);
+    const std::filesystem::path image = getFixtures() / "textures/sCheck.rgba16.png";
+
+    REQUIRE_FALSE(encoder.findImageSize(image).has_value());
+    REQUIRE(encoder.encode(image, z64::ImageTag).has_value());
+    REQUIRE(encoder.findImageSize(image) == std::optional(std::pair<base::u32, base::u32>(2, 1)));
 }
 
 TEST_CASE("a colour-indexed image keeps the PNG's own indices", "[z64][texture-encoder]") {

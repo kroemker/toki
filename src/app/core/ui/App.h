@@ -8,8 +8,11 @@
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
+#include "app/object/domain/ObjectLoader.h"
+#include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/ScenePanel.h"
+#include "app/texture/ui/TexturePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "gfx/Device.h"
@@ -47,6 +50,7 @@ private:
     void updateBuild();
     void updateAssets();
     void updateScene();
+    void updateObject();
     void openRestoredScene();
     void applySettings(const Settings& applied);
     void saveState();
@@ -68,8 +72,11 @@ private:
     scene::SceneLoader sceneLoader;
     /// The scene last open, still to be opened again once the checkout is read.
     std::optional<std::filesystem::path> restoringScene;
+    object::ObjectLoader objectLoader;
     viewport::ViewportPanel* viewportPanel = nullptr;
     scene::ScenePanel* scenePanel = nullptr;
+    object::ObjectPanel* objectPanel = nullptr;
+    texture::TexturePanel* texturePanel = nullptr;
 };
 
 } // namespace toki::core

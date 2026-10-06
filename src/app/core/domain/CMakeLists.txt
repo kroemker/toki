@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
         Log.cpp
         Settings.cpp
-        SettingsSearch.cpp)
+        SettingsSearch.cpp
+        TextSearch.cpp)

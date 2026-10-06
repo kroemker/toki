@@ -1,7 +1,9 @@
 #include "AssetRows.h"
 
 #include "app/assets/Types.h"
+#include "app/assets/domain/ObjectNames.h"
 #include "app/assets/domain/SceneNames.h"
+#include "app/core/domain/TextSearch.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -9,6 +11,7 @@
 #include <algorithm>
 #include <cctype>
 #include <compare>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,12 +23,6 @@ namespace {
 
 char makeLower(const char c) {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-}
-
-bool containsIgnoringCase(const std::string_view text, const std::string_view wanted) {
-    return wanted.empty() || !std::ranges::search(text, wanted, [](const char a, const char b) {
-                                  return makeLower(a) == makeLower(b);
-                              }).empty();
 }
 
 std::strong_ordering compareNames(const std::string& a, const std::string& b) {
@@ -66,12 +63,14 @@ std::strong_ordering compareScenes(const SceneRow& a, const SceneRow& b, const A
 std::strong_ordering compareObjects(const ObjectRow& a, const ObjectRow& b,
                                     const AssetColumn column) {
     std::strong_ordering order = std::strong_ordering::equal;
-    if (column == AssetColumn::Id) {
+    if (column == AssetColumn::Folder) {
+        order = compareNames(a.asset->name, b.asset->name);
+    } else if (column == AssetColumn::Id) {
         order = getIdKey(a.entry) <=> getIdKey(b.entry);
     } else if (column == AssetColumn::Source) {
         order = static_cast<int>(a.asset->isExtracted) <=> static_cast<int>(b.asset->isExtracted);
     }
-    return order != 0 ? order : compareNames(a.asset->name, b.asset->name);
+    return order != 0 ? order : compareNames(a.name, b.name);
 }
 
 } // namespace
@@ -88,9 +87,10 @@ std::vector<SceneRow> makeSceneRows(const hackeroot::Workspace& workspace,
             .category = getAssetCategory(scene),
             .entry = entry,
         };
-        const bool matches = containsIgnoringCase(row.name, filter) ||
-                             containsIgnoringCase(scene.name, filter) ||
-                             (entry != nullptr && containsIgnoringCase(entry->enumName, filter));
+        const bool matches =
+            core::containsIgnoringCase(row.name, filter) ||
+            core::containsIgnoringCase(scene.name, filter) ||
+            (entry != nullptr && core::containsIgnoringCase(entry->enumName, filter));
         if (!matches) {
             continue;
         }
@@ -110,10 +110,15 @@ std::vector<ObjectRow> makeObjectRows(const hackeroot::Workspace& workspace,
     for (const hackeroot::AssetDirectory& object : workspace.getAssets().objects) {
         const auto found = std::ranges::find(entries, object.name, &hackeroot::ObjectEntry::name);
         const hackeroot::ObjectEntry* entry = found != entries.end() ? &*found : nullptr;
-        const bool matches = containsIgnoringCase(object.name, filter) ||
-                             (entry != nullptr && containsIgnoringCase(entry->enumName, filter));
+        const std::optional<std::string_view> readable = findObjectName(object.name);
+        ObjectRow row{
+            .asset = &object, .name = std::string(readable.value_or(object.name)), .entry = entry};
+        const bool matches =
+            core::containsIgnoringCase(row.name, filter) ||
+            core::containsIgnoringCase(object.name, filter) ||
+            (entry != nullptr && core::containsIgnoringCase(entry->enumName, filter));
         if (matches) {
-            rows.push_back(ObjectRow{.asset = &object, .entry = entry});
+            rows.push_back(std::move(row));
         }
     }
     return rows;

@@ -7,7 +7,9 @@ target_sources(toki_core PRIVATE
         Checkout.cpp
         Configuration.cpp
         FilePoller.cpp
+        GameCode.cpp
         Gbi.cpp
+        ObjectFiles.cpp
         Prelude.cpp
         SceneFiles.cpp
         Tables.cpp

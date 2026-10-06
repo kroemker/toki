@@ -33,17 +33,6 @@ namespace {
 constexpr u32 FirstPhysicalAddress = 0x0010'0000;
 constexpr f32 DepthHalfRange = 511.0F;
 
-n64::FixedMatrix makeMatrix(const glm::mat4& matrix) {
-    std::array<f32, 16> elements{};
-    for (int row = 0; row < 4; ++row) {
-        for (int column = 0; column < 4; ++column) {
-            elements[(static_cast<usize>(row) * 4) + static_cast<usize>(column)] =
-                matrix[row][column];
-        }
-    }
-    return n64::makeFixedMatrix(elements);
-}
-
 struct FrameList {
     std::vector<u8> bytes;
     u32 start = 0;
@@ -111,7 +100,7 @@ FrameList writeFrameList(const ViewportContent& content,
     });
     const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
     const u32 projection = writer.addMatrix(
-        makeMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * camera.makeViewMatrix()));
+        makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * camera.makeViewMatrix()));
     const std::optional<LightAddresses> lights =
         content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
     const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
@@ -158,6 +147,17 @@ FrameList writeFrameList(const ViewportContent& content,
 }
 
 } // namespace
+
+n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix) {
+    std::array<f32, 16> elements{};
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) {
+            elements[(static_cast<usize>(row) * 4) + static_cast<usize>(column)] =
+                matrix[row][column];
+        }
+    }
+    return n64::makeFixedMatrix(elements);
+}
 
 Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size) {
     Frame frame;

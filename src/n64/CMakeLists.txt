@@ -12,6 +12,7 @@ target_sources(toki_core PRIVATE
         RspGeometry.cpp
         Segment.cpp
         TexturePacking.cpp
+        TextureUnpacking.cpp
         TexelFetch.cpp
         TextureMemory.cpp
         Viewport.cpp)

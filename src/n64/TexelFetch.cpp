@@ -3,6 +3,7 @@
 #include "n64/Color.h"
 #include "n64/OtherMode.h"
 #include "n64/TextureMemory.h"
+#include "n64/TextureUnpacking.h"
 #include "n64/TileDescriptor.h"
 #include "n64/Types.h"
 
@@ -45,20 +46,6 @@ s32 wrapAxis(const TileAxis& axis, s32 value) {
         return size - 1 - wrapModulo(value, size);
     }
     return wrapModulo(value, size);
-}
-
-u8 expandFive(const u32 value) {
-    return static_cast<u8>((value << 3) | (value >> 2));
-}
-
-Color decodeRgba16(const u32 value) {
-    return {expandFive((value >> 11) & 0x1F), expandFive((value >> 6) & 0x1F),
-            expandFive((value >> 1) & 0x1F), static_cast<u8>((value & 1) != 0 ? 0xFF : 0)};
-}
-
-Color decodeIntensityAlpha16(const u32 value) {
-    const auto intensity = static_cast<u8>(value >> 8);
-    return {intensity, intensity, intensity, static_cast<u8>(value)};
 }
 
 Color makeGray(const u32 intensity) {

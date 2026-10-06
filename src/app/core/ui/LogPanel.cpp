@@ -3,6 +3,7 @@
 #include "app/core/Types.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
+#include "app/core/domain/TextSearch.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -10,7 +11,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <format>
 #include <optional>
 #include <string>
@@ -48,16 +48,6 @@ static_assert(areLevelsComplete(), "Levels must hold one style per LogLevel, in 
 
 [[nodiscard]] const LevelStyle& getStyle(LogLevel level) {
     return Levels.at(static_cast<usize>(std::to_underlying(level)));
-}
-
-[[nodiscard]] char makeLowercase(char c) {
-    return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-}
-
-[[nodiscard]] bool containsIgnoringCase(std::string_view haystack, std::string_view needle) {
-    const auto found = std::ranges::search(
-        haystack, needle, [](char a, char b) { return makeLowercase(a) == makeLowercase(b); });
-    return !found.empty();
 }
 
 [[nodiscard]] std::string formatEntry(const LogEntry& entry) {
@@ -116,7 +106,7 @@ void LogPanel::drawToolbar() {
     ImGui::InputTextWithHint("##filter", "Filter…", filter.data(), filter.size());
 
     ImGui::SameLine();
-    if (ImGui::SmallButton(icons::X)) {
+    if (ImGui::Button(icons::X)) {
         filter.fill('\0');
     }
     ImGui::SetItemTooltip("Clear the filter");

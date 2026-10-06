@@ -5,6 +5,7 @@ target_sources(toki_core PRIVATE
         DisplayListEncoder.cpp
         MemoryImage.cpp
         PngImage.cpp
+        ImageTexture.cpp
         TextureEncoder.cpp
         TextureIncludes.cpp
         TextureName.cpp)

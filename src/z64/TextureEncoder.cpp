@@ -107,6 +107,12 @@ std::optional<std::filesystem::path> findRelative(const std::filesystem::path& d
 
 } // namespace
 
+std::optional<std::pair<u32, u32>>
+TextureEncoder::findImageSize(const std::filesystem::path& path) const {
+    const auto found = imageSizes.find(path);
+    return found == imageSizes.end() ? std::nullopt : std::optional(found->second);
+}
+
 TextureEncoder::TextureEncoder(cparser::DirectoryCache& directories,
                                std::vector<std::filesystem::path> assetRoots)
     : directories(directories), assetRoots(std::move(assetRoots)) {}
@@ -139,6 +145,7 @@ TextureEncoder::encodeImage(const std::filesystem::path& path, const TextureName
     if (!image) {
         return std::unexpected(std::format("{}: {}", describe(path), image.error()));
     }
+    imageSizes.insert_or_assign(path, std::pair(image->width, image->height));
     if (name.format != n64::TextureFormat::ColorIndex) {
         return padBytes(n64::packTexels(image->texels, name.format, name.size), name.elementSize);
     }

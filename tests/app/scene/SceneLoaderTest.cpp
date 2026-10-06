@@ -147,9 +147,11 @@ private:
     std::filesystem::path root;
 };
 
-[[nodiscard]] std::optional<toki::scene::Scene> waitForScene(toki::scene::SceneLoader& loader) {
+[[nodiscard]] std::optional<toki::scene::Scene>
+waitForScene(toki::scene::SceneLoader& loader,
+             const std::chrono::steady_clock::duration patience = Patience) {
     const std::chrono::steady_clock::time_point deadline =
-        std::chrono::steady_clock::now() + Patience;
+        std::chrono::steady_clock::now() + patience;
     while (std::chrono::steady_clock::now() < deadline) {
         if (std::optional<toki::scene::Scene> scene = loader.update()) {
             return scene;
@@ -193,4 +195,25 @@ TEST_CASE("an open scene is read again when one of its files changes", "[scene][
     REQUIRE(second.has_value());
     REQUIRE(second->layers.front().rooms.size() == 1);
     REQUIRE(second->layers.front().rooms[0].displayLists.size() == 3);
+}
+
+TEST_CASE("a closed scene is not read again when its files change", "[scene][loader]") {
+    const CheckoutCopy checkout;
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(checkout.getRoot(), {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("reload"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+
+    toki::scene::SceneLoader loader;
+    loader.open(workspace, *asset);
+    REQUIRE(waitForScene(loader).has_value());
+    loader.close();
+    checkout.writeRoom(3);
+
+    REQUIRE_FALSE(waitForScene(loader, std::chrono::seconds(2)).has_value());
+    REQUIRE_FALSE(loader.findReadingName().has_value());
 }

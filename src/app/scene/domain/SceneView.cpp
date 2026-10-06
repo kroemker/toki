@@ -7,7 +7,7 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ViewportFrame.h"
-#include "n64/Segment.h"
+#include "hackeroot/GameCode.h"
 #include "z64/MemoryImage.h"
 
 #include <algorithm>
@@ -24,26 +24,8 @@ namespace toki::scene {
 
 namespace {
 
-constexpr usize SetupDisplayListSize = usize{6} * 8;
 constexpr usize SettingsPerDay = 4;
 constexpr usize Midday = 1;
-
-struct RoomSetup {
-    std::optional<u32> drawConfig;
-    std::optional<u32> setupDisplayList;
-};
-
-[[nodiscard]] RoomSetup findRoomSetup(const z64::MemoryImage& code) {
-    RoomSetup setup{.drawConfig = code.findAddress("sDefaultDisplayList")};
-    const std::optional<z64::ImageSymbol> setups = code.findSymbol("sSetupDL");
-    if (setups && setups->size >= (RoomSetupDisplayList + 1) * SetupDisplayListSize) {
-        setup.setupDisplayList = n64::pack(n64::SegmentAddress{
-            .segment = setups->segment,
-            .offset =
-                static_cast<u32>(setups->offset + (RoomSetupDisplayList * SetupDisplayListSize))});
-    }
-    return setup;
-}
 
 [[nodiscard]] bool isShown(const SceneView& view, const usize room) {
     return room >= view.hiddenRooms.size() || !view.hiddenRooms[room];
@@ -71,7 +53,7 @@ struct RoomSetup {
 struct PassSource {
     const SceneLayer& layer;
     const SceneView& view;
-    const RoomSetup& setup;
+    const hackeroot::GameSetup& setup;
     usize imageCount = 0;
 };
 
@@ -171,7 +153,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         return content;
     }
     const SceneLayer& layer = scene.layers[view.layer];
-    const RoomSetup setup = findRoomSetup(*scene.images.front());
+    const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const PassSource source{
         .layer = layer, .view = view, .setup = setup, .imageCount = scene.images.size()};
 

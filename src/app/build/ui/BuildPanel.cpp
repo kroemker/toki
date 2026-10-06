@@ -122,12 +122,12 @@ void BuildPanel::drawToolbar() {
     ImGui::TextColored(status.color, "%s", status.label);
 
     ImGui::SameLine(0.0F, core::space::Huge);
-    if (ImGui::SmallButton(core::icons::Copy)) {
+    if (ImGui::Button(core::icons::Copy)) {
         copyLines();
     }
     ImGui::SetItemTooltip("Copy the output");
     ImGui::SameLine();
-    if (ImGui::SmallButton(core::icons::Broom)) {
+    if (ImGui::Button(core::icons::Broom)) {
         buildRunner.getLog().clear();
     }
     ImGui::SetItemTooltip("Clear the output");

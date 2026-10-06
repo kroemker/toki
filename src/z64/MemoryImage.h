@@ -4,6 +4,7 @@
 #include "n64/Memory.h"
 #include "n64/Segment.h"
 #include "z64/DataEncoder.h"
+#include "z64/ImageTexture.h"
 #include "z64/Relocation.h"
 #include "z64/Types.h"
 
@@ -23,11 +24,17 @@ namespace z64 {
 struct ImageObject {
     u8 segment = 0;
     std::string name;
+    /// The type the object was declared with, as the C spells it before any
+    /// array bound: `Gfx` for `Gfx sDL[]`, `FlexSkeletonHeader`, `u64`.
+    std::string type;
+    bool isArray = false;
     usize alignment = 1;
 
     /// The object is the first of its file, which starts on the boundary the
     /// linker gives every file.
     bool startsFile = false;
+    /// The texture an embedded image or palette made of the object.
+    std::optional<ImageTexture> texture;
     EncodedData data;
     base::SourceLocation location;
 };
@@ -38,6 +45,10 @@ struct ImageSymbol {
     u8 segment = 0;
     usize offset = 0;
     usize size = 0;
+    /// As `ImageObject::type` and `ImageObject::isArray` declared it.
+    std::string type;
+    bool isArray = false;
+    std::optional<ImageTexture> texture;
 };
 
 /// One segment's bytes with every address patched in, and the relocations
@@ -77,8 +88,9 @@ struct LayoutOptions {
     usize fileAlignment = 0x10;
 
     /// Addresses for symbols no object defines, such as data in the game's
-    /// code. A symbol neither defines is an error naming it, and its words
-    /// keep only what was added to the address.
+    /// code. A symbol neither defines is a warning naming it, since an
+    /// object may point into one that is not in the image, and its words keep
+    /// only what was added to the address.
     std::function<std::optional<u32>(std::string_view)> findExternal;
 };
 

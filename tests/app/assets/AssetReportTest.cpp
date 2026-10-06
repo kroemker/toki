@@ -2,6 +2,7 @@
 
 #include "app/assets/domain/AssetReader.h"
 #include "app/assets/domain/AssetRows.h"
+#include "app/assets/domain/ObjectNames.h"
 #include "app/assets/domain/SceneNames.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/Assets.h"
@@ -162,6 +163,19 @@ TEST_CASE("object rows sort by ID with unlisted folders last", "[assets][rows]")
     const std::vector<toki::assets::ObjectRow> descending = toki::assets::sortObjectRows(
         toki::assets::makeObjectRows(*workspace, ""), toki::assets::AssetColumn::Id, false);
     REQUIRE(descending[0].asset->name == "object_custom");
+}
+
+TEST_CASE("vanilla objects are named as a person would, others by their folder", "[assets][rows]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+
+    const std::vector<toki::assets::ObjectRow> rows = toki::assets::sortObjectRows(
+        toki::assets::makeObjectRows(*workspace, ""), toki::assets::AssetColumn::Id, true);
+
+    REQUIRE(rows[0].name == "Global Gameplay Objects");
+    REQUIRE(rows[1].name == "object_custom");
+    REQUIRE(toki::assets::makeObjectRows(*workspace, "global gameplay").size() == 1);
+    REQUIRE(toki::assets::findObjectName("object_kw1") == "Red-Haired Kokiri Girl");
+    REQUIRE_FALSE(toki::assets::findObjectName("object_bg_ocean").has_value());
 }
 
 TEST_CASE("every scene of a real checkout opens", "[assets][checkout]") {

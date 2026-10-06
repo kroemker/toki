@@ -407,6 +407,14 @@ a choice of light setting, and actors and spawns drawn in the viewport.
 animation transport panel. Ports from `z64-data/object.rs`,
 `toki64/src/editor/animation_player.rs`.
 
+*Done in part:* opening an object in the asset browser reads it on
+`toki::object::ObjectLoader`'s worker with `gameplay_keep` and the game code, and reads it
+again when a file changes. The Object panel lists every asset by the kind its declared type
+gives it, and draws a skeleton at rest or animated (play, pause, scrub at 20 fps) or a
+display list on its own, posed as `SkelAnime_DrawFlex` poses it with limb matrices in
+segment 13. See [docs/objects.md](docs/objects.md). Left: per-instance segments set by
+actor code (eyes, mouths), Link's animations, skin limbs.
+
 **Display list inspector** — the RSP in `n64/` already decodes every word, so the
 disassembler is a printer over its decoder rather than new work. What the renderer knows
 on top (the RDP state behind a triangle, the combiner a material resolves to) is what

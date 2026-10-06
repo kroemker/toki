@@ -276,7 +276,7 @@ void SettingsWindow::drawBuildRows() {
             ImGui::SetNextItemWidth(-FLT_MIN);
             ImGui::InputTextWithHint("##value", "value", row.value.data(), row.value.size());
             ImGui::TableNextColumn();
-            if (ImGui::SmallButton(icons::X)) {
+            if (ImGui::Button(icons::X)) {
                 removed = i;
             }
             ImGui::PopID();

@@ -7,6 +7,10 @@ add_executable(toki_tests
         app/core/LogTest.cpp
         app/core/SettingsSearchTest.cpp
         app/core/SettingsTest.cpp
+        app/object/ObjectCheckoutTest.cpp
+        app/object/ObjectTest.cpp
+        app/texture/TextureCatalogCheckoutTest.cpp
+        app/texture/TextureCatalogTest.cpp
         app/scene/SceneCheckoutTest.cpp
         app/scene/SceneHeaderTest.cpp
         app/scene/SceneLoaderTest.cpp
@@ -49,10 +53,12 @@ add_executable(toki_tests
         n64/SegmentTest.cpp
         n64/TextureMemoryTest.cpp
         n64/TexturePackingTest.cpp
+        n64/TextureUnpackingTest.cpp
         z64/DataEncoderTest.cpp
         z64/DecompDialectTest.cpp
         z64/MemoryImageTest.cpp
         z64/TextureCheckoutTest.cpp
+        z64/ImageTextureTest.cpp
         z64/TextureEncoderTest.cpp
         z64/TextureIncludesTest.cpp
         z64/TextureNameTest.cpp)

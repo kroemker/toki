@@ -103,7 +103,7 @@ src/
   gfx/         The GPU side of the renderer: device, upload, ubershader, render targets.
   app/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
-    assets/    ui/ = asset browser   domain/ = asset reports, scene names, background reads
+    assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
@@ -249,6 +249,16 @@ listed below is only what no change may break.
     never out of the C: the bytes are what the game sees.
   - What the game draws a room with comes from the checkout's own code (`sSetupDL`,
     `sDefaultDisplayList`), not from constants written down here.
+- **[Objects](docs/objects.md)** — how an object folder becomes a catalog of assets, and how
+  a skeleton is posed and drawn.
+  - An object is a catalog, not a model. What is drawn is picked from it; nothing assumes
+    one skeleton per object.
+  - Asset kinds come from the declared type of each symbol, not from guessing at bytes.
+- **[Textures](docs/textures.md)** — how textures are found in an image, paired with their
+  palettes and decoded.
+  - A texture's format, size and palette come from the file its include resolved to, as the
+    build reads the name, recorded on the image symbol. Never guessed from a symbol name.
+  - What is shown is decoded from the image's bytes, not read from the PNG.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only

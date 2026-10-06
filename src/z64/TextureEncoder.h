@@ -8,6 +8,7 @@
 #include <expected>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -39,6 +40,10 @@ public:
     [[nodiscard]] std::expected<std::vector<u8>, std::string>
     encode(const std::filesystem::path& path, std::string_view tag);
 
+    /// The width and height of an image `encode` has read, or nothing.
+    [[nodiscard]] std::optional<std::pair<u32, u32>>
+    findImageSize(const std::filesystem::path& path) const;
+
 private:
     [[nodiscard]] std::expected<std::vector<u8>, std::string>
     encodeImage(const std::filesystem::path& path, const TextureName& name);
@@ -52,6 +57,7 @@ private:
     cparser::DirectoryCache& directories;
     std::vector<std::filesystem::path> assetRoots;
     std::map<std::pair<std::filesystem::path, std::string>, std::vector<n64::Color>> palettes;
+    std::map<std::filesystem::path, std::pair<u32, u32>> imageSizes;
 };
 
 } // namespace z64

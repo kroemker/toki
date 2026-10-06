@@ -1,5 +1,6 @@
 #include "WorkspacePanel.h"
 
+#include "app/core/domain/TextSearch.h"
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -14,7 +15,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <format>
 #include <span>
 #include <string>
@@ -28,20 +28,11 @@ namespace {
 template <usize Columns>
 using Row = std::array<std::string, Columns>;
 
-[[nodiscard]] char makeLower(char c) {
-    return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-}
-
-[[nodiscard]] bool containsIgnoringCase(std::string_view text, std::string_view wanted) {
-    return wanted.empty() || !std::ranges::search(text, wanted, [](char a, char b) {
-                                  return makeLower(a) == makeLower(b);
-                              }).empty();
-}
-
 template <usize Columns>
 [[nodiscard]] bool matchesFilter(const Row<Columns>& row, std::string_view filter) {
-    return std::ranges::any_of(
-        row, [filter](const std::string& cell) { return containsIgnoringCase(cell, filter); });
+    return std::ranges::any_of(row, [filter](const std::string& cell) {
+        return core::containsIgnoringCase(cell, filter);
+    });
 }
 
 template <usize Columns>

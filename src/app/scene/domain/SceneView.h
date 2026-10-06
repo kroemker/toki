@@ -51,8 +51,4 @@ struct SceneView {
 /// picks the setting, its number otherwise.
 [[nodiscard]] std::string makeLightSettingName(const SceneHeader& header, usize index);
 
-/// The index of `SETUPDL_25` among the setup display lists, which rooms are
-/// drawn with.
-inline constexpr usize RoomSetupDisplayList = 25;
-
 } // namespace toki::scene

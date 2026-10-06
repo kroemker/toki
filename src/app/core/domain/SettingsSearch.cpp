@@ -1,27 +1,13 @@
 #include "SettingsSearch.h"
 
 #include "app/core/Types.h"
+#include "app/core/domain/TextSearch.h"
 
 #include <algorithm>
-#include <cctype>
 #include <span>
 #include <string_view>
 
 namespace toki::core {
-
-namespace {
-
-[[nodiscard]] char makeLower(const char c) {
-    return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-}
-
-[[nodiscard]] bool containsWord(const std::string_view text, const std::string_view word) {
-    return !std::ranges::search(text, word, [](const char a, const char b) {
-                return makeLower(a) == makeLower(b);
-            }).empty();
-}
-
-} // namespace
 
 bool matchesSearch(const std::span<const std::string_view> texts, const std::string_view query) {
     usize start = 0;
@@ -32,8 +18,9 @@ bool matchesSearch(const std::span<const std::string_view> texts, const std::str
         }
         const usize end = std::min(query.find(' ', first), query.size());
         const std::string_view word = query.substr(first, end - first);
-        const bool found = std::ranges::any_of(
-            texts, [word](const std::string_view text) { return containsWord(text, word); });
+        const bool found = std::ranges::any_of(texts, [word](const std::string_view text) {
+            return containsIgnoringCase(text, word);
+        });
         if (!found) {
             return false;
         }

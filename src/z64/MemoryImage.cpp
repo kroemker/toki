@@ -108,7 +108,10 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
         const auto [found, isNew] =
             image.symbols.try_emplace(object.name, ImageSymbol{.segment = object.segment,
                                                                .offset = offset,
-                                                               .size = object.data.bytes.size()});
+                                                               .size = object.data.bytes.size(),
+                                                               .type = object.type,
+                                                               .isArray = object.isArray,
+                                                               .texture = object.texture});
         if (!isNew) {
             image.diagnostics.push_back(base::makeError(
                 object.location, std::format("'{}' is defined twice", object.name)));
@@ -128,7 +131,7 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
             }
             if (!address) {
                 const ImageObject& owner = *owners[segment.number][i];
-                image.diagnostics.push_back(base::makeError(
+                image.diagnostics.push_back(base::makeWarning(
                     owner.location, std::format("'{}' points at '{}', which is defined nowhere",
                                                 owner.name, relocation.symbol)));
                 continue;

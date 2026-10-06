@@ -27,6 +27,13 @@ public:
     /// entrance.
     void setScene(Scene read);
 
+    /// Forgets the open scene, when something else takes the viewport.
+    void clearScene() {
+        scene.reset();
+        sceneView = {};
+        pendingSession.reset();
+    }
+
     /// How the open scene is shown, to open it again the same way, or nothing
     /// when no scene is open.
     [[nodiscard]] std::optional<core::SceneSession> makeSession() const;

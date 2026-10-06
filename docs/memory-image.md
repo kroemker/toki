@@ -66,8 +66,9 @@ Symbols nothing in the image defines:
   parser steps over its functions, and an array of display lists (`Gfx sSetupDL[71][6]`)
   encodes each inner list.
 - **Anything else**, an object's reference into gameplay_keep when gameplay_keep is not in
-  the image, is an error naming the symbol. A scene's image should hold the keep objects
-  its rooms use.
+  the image, is a warning naming the symbol. Objects do point into one another (Link's
+  bottle into the bottle object) and into data that is not asset C at all (player
+  animations into `link_animetion`), so an image without them is still a good image.
 
 ## Several images
 

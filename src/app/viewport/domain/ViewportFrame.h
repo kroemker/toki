@@ -2,9 +2,12 @@
 
 #include "app/viewport/Types.h"
 #include "base/Diagnostic.h"
+#include "n64/FixedMatrix.h"
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
 #include "z64/MemoryImage.h"
+
+#include <glm/ext/matrix_float4x4.hpp>
 
 #include <array>
 #include <memory>
@@ -70,6 +73,10 @@ struct Frame {
 /// The segment the frame's own display list and matrices are written to.
 /// Content that uses it cannot be drawn.
 inline constexpr u8 FrameSegment = 0x01;
+
+/// A matrix as glm holds it, for column vectors, as the RSP's `Mtx` holds it,
+/// for row vectors, converted the way `guMtxF2L` converts.
+[[nodiscard]] n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix);
 
 /// Runs one frame the way the game sets one up: a display list of its own
 /// sets the viewport to `size`, loads the camera's view and projection as the

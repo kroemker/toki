@@ -38,10 +38,4 @@ struct SceneFiles {
 
 [[nodiscard]] SceneFiles findSceneFiles(const AssetDirectory& asset);
 
-/// The game's own C that holds the display lists every scene is drawn with:
-/// the setup display lists (`sSetupDL` in `z_rcp.c`) and the default draw
-/// config (`sDefaultDisplayList` in `z_scene_table.c`). Read as segment 0,
-/// where the game's code is addressed.
-[[nodiscard]] SegmentFiles findSceneCodeFiles(const std::filesystem::path& repository);
-
 } // namespace hackeroot

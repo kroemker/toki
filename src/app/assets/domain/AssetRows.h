@@ -35,6 +35,8 @@ struct SceneRow {
 
 struct ObjectRow {
     const hackeroot::AssetDirectory* asset = nullptr;
+    /// The readable name of a vanilla object, else the folder.
+    std::string name;
     /// Nothing for a folder the object table does not list.
     const hackeroot::ObjectEntry* entry = nullptr;
 };

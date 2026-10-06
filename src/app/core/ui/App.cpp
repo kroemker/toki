@@ -2,6 +2,7 @@
 
 #include "app/assets/domain/AssetReader.h"
 #include "app/assets/domain/AssetReport.h"
+#include "app/assets/domain/ObjectNames.h"
 #include "app/assets/ui/AssetBrowserPanel.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/build/ui/BuildPanel.h"
@@ -16,9 +17,13 @@
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
+#include "app/object/domain/Object.h"
+#include "app/object/domain/ObjectLoader.h"
+#include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/ScenePanel.h"
+#include "app/texture/ui/TexturePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
@@ -36,6 +41,7 @@
 #include <format>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -52,6 +58,23 @@ constexpr const char* ImGuiIniFile = "imgui.ini";
 [[nodiscard]] bool isFile(const std::filesystem::path& path) {
     std::error_code status;
     return std::filesystem::is_regular_file(path, status);
+}
+
+void logRead(const std::span<const base::Diagnostic> diagnostics, const std::string& summary) {
+    usize errors = 0;
+    for (const base::Diagnostic& diagnostic : diagnostics) {
+        if (diagnostic.severity == base::Severity::Error) {
+            ++errors;
+            logError("{}", base::describe(diagnostic));
+        } else if (diagnostic.severity == base::Severity::Warning) {
+            logWarn("{}", base::describe(diagnostic));
+        }
+    }
+    if (errors > 0) {
+        logError("{}; {} errors", summary, errors);
+    } else {
+        logOk("{}", summary);
+    }
 }
 
 } // namespace
@@ -121,12 +144,25 @@ void App::registerPanels() {
     viewportPanel = viewport.get();
     auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport);
     scenePanel = sceneView.get();
+    auto textures = std::make_unique<texture::TexturePanel>(*device);
+    texturePanel = textures.get();
+    auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
+    objectPanel = objectView.get();
     panels.add(std::move(viewport));
     panels.add(std::move(sceneView));
+    panels.add(std::move(objectView));
+    panels.add(std::move(textures));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
-        workspaceService, assetReader, [this](const hackeroot::AssetDirectory& asset) {
+        workspaceService, assetReader,
+        [this](const hackeroot::AssetDirectory& asset) {
+            objectLoader.close();
             sceneLoader.open(workspaceService.getSharedWorkspace(), asset);
+        },
+        [this](const hackeroot::AssetDirectory& asset) {
+            sceneLoader.close();
+            restoringScene.reset();
+            objectLoader.open(workspaceService.getSharedWorkspace(), asset);
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<build::BuildPanel>(
@@ -159,8 +195,13 @@ void App::drawFrame() {
     updateBuild();
     updateAssets();
     updateScene();
+    updateObject();
     if (viewportPanel != nullptr) {
-        viewportPanel->setReadingName(sceneLoader.findReadingName());
+        std::optional<std::string> reading = sceneLoader.findReadingName();
+        if (!reading) {
+            reading = objectLoader.findReadingName();
+        }
+        viewportPanel->setReadingName(std::move(reading));
     }
     const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
     panels.draw();
@@ -267,25 +308,48 @@ void App::updateScene() {
     if (!loaded) {
         return;
     }
-    usize errors = 0;
-    for (const base::Diagnostic& diagnostic : loaded->diagnostics) {
-        if (diagnostic.severity == base::Severity::Error) {
-            ++errors;
-            logError("{}", base::describe(diagnostic));
-        } else if (diagnostic.severity == base::Severity::Warning) {
-            logWarn("{}", base::describe(diagnostic));
-        }
-    }
     const usize rooms = loaded->layers.empty() ? 0 : loaded->layers.front().rooms.size();
-    const std::string summary = std::format("read {} in {} ms: {} rooms, {} layers", loaded->name,
-                                            loaded->elapsed.count(), rooms, loaded->layers.size());
-    if (errors > 0) {
-        logError("{}; {} errors", summary, errors);
-    } else {
-        logOk("{}", summary);
+    logRead(loaded->diagnostics,
+            std::format("read {} in {} ms: {} rooms, {} layers", loaded->name,
+                        loaded->elapsed.count(), rooms, loaded->layers.size()));
+    if (objectPanel != nullptr) {
+        objectPanel->clearObject();
+    }
+    if (texturePanel != nullptr) {
+        std::vector<texture::TextureGroup> groups;
+        for (usize i = scene::SceneImage; i < loaded->images.size(); ++i) {
+            groups.push_back(texture::TextureGroup{
+                .label = i == scene::SceneImage ? std::string("Scene")
+                                                : std::format("Room {}", i - scene::FirstRoomImage),
+                .image = loaded->images[i]});
+        }
+        texturePanel->setTextures(loaded->name, std::move(groups));
     }
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
+    }
+}
+
+void App::updateObject() {
+    std::optional<object::Object> loaded = objectLoader.update();
+    if (!loaded) {
+        return;
+    }
+    logRead(loaded->diagnostics, std::format("read {} in {} ms: {} assets", loaded->name,
+                                             loaded->elapsed.count(), loaded->assets.size()));
+    if (scenePanel != nullptr) {
+        scenePanel->clearScene();
+    }
+    if (texturePanel != nullptr && loaded->images.empty()) {
+        texturePanel->clearTextures();
+    } else if (texturePanel != nullptr) {
+        texturePanel->setTextures(
+            std::string(assets::findObjectName(loaded->name).value_or(loaded->name)),
+            {texture::TextureGroup{.label = loaded->name,
+                                   .image = loaded->images[loaded->objectImage]}});
+    }
+    if (objectPanel != nullptr) {
+        objectPanel->setObject(std::move(*loaded));
     }
 }
 

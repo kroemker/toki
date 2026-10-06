@@ -43,6 +43,15 @@ public:
         stale = true;
     }
 
+    /// Looks at a sphere around `center`, from far enough to see all of it,
+    /// from where the camera turns now.
+    void frameView(const glm::vec3& center, f32 radius) {
+        constexpr f32 DistancePerRadius = 2.6F;
+        orbitCamera.setTarget(center);
+        orbitCamera.setDistance(std::max(radius, 1.0F) * DistancePerRadius);
+        stale = true;
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {

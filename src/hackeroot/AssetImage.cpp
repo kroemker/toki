@@ -19,6 +19,7 @@
 #include "z64/CodeSymbols.h"
 #include "z64/DataEncoder.h"
 #include "z64/DecompDialect.h"
+#include "z64/ImageTexture.h"
 #include "z64/MemoryImage.h"
 #include "z64/TextureEncoder.h"
 
@@ -277,6 +278,7 @@ void ImageReader::placeObjects(FileRead& read, Prelude& prelude,
 
 void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& objects) {
     std::map<std::string_view, usize> lengths;
+    std::optional<z64::ImageTexture> texture;
     for (const cparser::Declaration& declaration : file.declarations) {
         if (declaration.arrayLength) {
             lengths.emplace(declaration.name, *declaration.arrayLength);
@@ -300,21 +302,32 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
             const auto found = lengths.find(name);
             return found == lengths.end() ? std::nullopt : std::optional(found->second);
         },
-        .encodeEmbedded = [this,
-                           &file](const u32 index) -> std::expected<std::vector<u8>, std::string> {
+        .encodeEmbedded = [this, &file, &texture](
+                              const u32 index) -> std::expected<std::vector<u8>, std::string> {
             const cparser::EmbeddedFile& embedded = file.unit.embedded[index];
-            return textures.encode(embedded.path, embedded.tag);
+            std::expected<std::vector<u8>, std::string> bytes =
+                textures.encode(embedded.path, embedded.tag);
+            const auto [width, height] =
+                textures.findImageSize(embedded.path).value_or(std::pair<u32, u32>(0, 0));
+            texture = z64::makeImageTexture(embedded.path.filename().string(), embedded.tag, width,
+                                            height);
+            return bytes;
         },
     });
     for (usize i = 0; i < file.declarations.size(); ++i) {
         const cparser::Declaration& declaration = file.declarations[i];
         const cparser::CType& type = *file.types[i];
+        texture.reset();
+        z64::EncodedData data = encoder.encode(type, declaration.initializer, declaration.isBraced);
         objects.push_back(z64::ImageObject{
             .segment = file.segment,
             .name = std::string(declaration.name),
+            .type = std::string(declaration.type),
+            .isArray = declaration.isArray,
             .alignment = findAlignment(type),
             .startsFile = i == 0,
-            .data = encoder.encode(type, declaration.initializer, declaration.isBraced),
+            .texture = std::move(texture),
+            .data = std::move(data),
             .location = declaration.location,
         });
     }

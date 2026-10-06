@@ -5,6 +5,7 @@
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/GameCode.h"
 #include "hackeroot/SceneFiles.h"
 #include "hackeroot/Workspace.h"
 #include "z64/MemoryImage.h"
@@ -110,7 +111,7 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
 
     std::vector<std::vector<hackeroot::SegmentFiles>> imageFiles = files.makeImageFiles();
     imageFiles.insert(imageFiles.begin(),
-                      {hackeroot::findSceneCodeFiles(reader.getWorkspace().getRoot())});
+                      {hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot())});
     std::vector<z64::MemoryImage> images = reader.read(imageFiles);
     images.front().diagnostics.clear();
     for (const char* symbol : {"sSetupDL", "sDefaultDisplayList"}) {

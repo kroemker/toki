@@ -95,10 +95,11 @@ std::string findRelativePath(const hackeroot::Workspace& workspace,
 } // namespace
 
 AssetBrowserPanel::AssetBrowserPanel(const workspace::WorkspaceService& workspaceService,
-                                     AssetReader& assetReader, OpenScene openScene)
+                                     AssetReader& assetReader, OpenAsset openScene,
+                                     OpenAsset openObject)
     : Panel("assets", "Assets", core::icons::FolderOpen, core::DockSlot::Left),
-      workspaceService(workspaceService), assetReader(assetReader),
-      openScene(std::move(openScene)) {}
+      workspaceService(workspaceService), assetReader(assetReader), openScene(std::move(openScene)),
+      openObject(std::move(openObject)) {}
 
 void AssetBrowserPanel::draw() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
@@ -218,12 +219,13 @@ void AssetBrowserPanel::drawScenes(const hackeroot::Workspace& workspace, const 
 }
 
 void AssetBrowserPanel::drawObjects(const hackeroot::Workspace& workspace, const float height) {
-    if (!ImGui::BeginTable("##objects", 3, TableFlags, ImVec2(0.0F, height))) {
+    if (!ImGui::BeginTable("##objects", 4, TableFlags, ImVec2(0.0F, height))) {
         return;
     }
     ImGui::TableSetupScrollFreeze(0, 1);
     setupColumn("Name", AssetColumn::Name,
                 ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthStretch);
+    setupColumn("Folder", AssetColumn::Folder, ImGuiTableColumnFlags_WidthFixed);
     setupColumn("ID", AssetColumn::Id, ImGuiTableColumnFlags_WidthFixed);
     setupColumn("Source", AssetColumn::Source, ImGuiTableColumnFlags_WidthFixed);
     ImGui::TableHeadersRow();
@@ -238,7 +240,9 @@ void AssetBrowserPanel::drawObjects(const hackeroot::Workspace& workspace, const
             const ObjectRow& row = rows[static_cast<usize>(index)];
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            drawAssetRow(*row.asset, row.asset->name.c_str());
+            drawAssetRow(*row.asset, row.name.c_str());
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(row.asset->name.c_str());
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(formatId(row.entry, 4).c_str());
             ImGui::TableNextColumn();
@@ -292,7 +296,11 @@ void AssetBrowserPanel::drawObjectDetails(const hackeroot::Workspace& workspace)
         ImGui::TextColored(core::palette::TextMuted, "Select an object to see its details.");
         return;
     }
-    ImGui::TextUnformatted(row->asset->name.c_str());
+    ImGui::TextUnformatted(row->name.c_str());
+    if (row->name != row->asset->name) {
+        ImGui::SameLine();
+        ImGui::TextColored(core::palette::TextMuted, "· %s", row->asset->name.c_str());
+    }
     if (ImGui::BeginTable("##objectDetails", 2, ImGuiTableFlags_SizingFixedFit)) {
         drawLabel("Enum");
         if (row->entry != nullptr) {
@@ -346,6 +354,8 @@ void AssetBrowserPanel::openAsset(const hackeroot::AssetDirectory& asset) {
     assetReader.open(workspaceService.getSharedWorkspace(), asset);
     if (kind == Kind::Scenes && openScene) {
         openScene(asset);
+    } else if (kind == Kind::Objects && openObject) {
+        openObject(asset);
     }
 }
 
