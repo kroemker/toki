@@ -22,6 +22,13 @@ them with the `AssetImageReader` as three images: the game code (segment 0, as f
 scene), `gameplay_keep` (segment 4), and the object (segment 6, or 4 for the keep itself).
 Objects point into `gameplay_keep` freely, so it is always in the image.
 
+The game code and `gameplay_keep` are shared images (`hackeroot::SharedImageFiles`): the
+`AssetImageReader` reads each once and hands the same image to every read after it, until
+one of its files changes or an image it was laid out against is read again. An object is
+then only its own files. Twenty objects in a row read in 1.2 s from a copy of the checkout
+on the Windows filesystem, release build: 0.5 s for the first, with the code and the keep,
+and 35 ms each for the rest, where each used to cost the whole half second.
+
 Objects point into other objects too (Link's bottle into the bottle's object), and player
 animations point into data that is not asset C at all. Such a symbol is a warning, not an
 error: the image is still good, and what points there draws nothing
@@ -93,4 +100,3 @@ and the closed one's loader stops watching its files.
 - Link's animations (`LinkAnimationHeader`) live in `link_animetion`, not in asset C.
 - Skin limbs.
 - What an actor draws of its object, which needs its C read.
-- `gameplay_keep` and the game code are read again for every object.

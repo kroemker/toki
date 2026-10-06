@@ -109,21 +109,22 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         return scene;
     }
 
-    std::vector<std::vector<hackeroot::SegmentFiles>> imageFiles = files.makeImageFiles();
-    imageFiles.insert(imageFiles.begin(),
-                      {hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot())});
-    std::vector<z64::MemoryImage> images = reader.read(imageFiles);
-    images.front().diagnostics.clear();
+    const hackeroot::SegmentFiles code =
+        hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot());
+    const std::array<hackeroot::SharedImageFiles, 1> shared{
+        {{.files = {code}, .watched = code.files}}};
+    hackeroot::ImageSet images = reader.read(shared, files.makeImageFiles());
     for (const char* symbol : {"sSetupDL", "sDefaultDisplayList"}) {
-        if (!images.front().findSymbol(symbol)) {
+        if (!images.shared.front()->findSymbol(symbol)) {
             scene.diagnostics.push_back(base::makeWarning(
-                {.file = imageFiles.front().front().files.front().parent_path()},
+                {.file = code.files.front().parent_path()},
                 std::format("'{}' could not be read from the game's code, so the rooms are drawn "
                             "without it",
                             symbol)));
         }
     }
-    for (z64::MemoryImage& image : images) {
+    scene.images = std::move(images.shared);
+    for (z64::MemoryImage& image : images.images) {
         std::ranges::move(image.diagnostics, std::back_inserter(scene.diagnostics));
         image.diagnostics.clear();
         scene.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(image)));

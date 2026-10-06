@@ -6,14 +6,17 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/ObjectFiles.h"
 #include "hackeroot/Workspace.h"
 #include "n64/RspResult.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <expected>
 #include <filesystem>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -87,4 +90,42 @@ TEST_CASE("objects of a real checkout read and draw what they first show", "[obj
                   << " frame diagnostics, read in " << object.elapsed.count() << " ms");
         CHECK(triangles > 0);
     }
+}
+
+TEST_CASE("objects read one after another share the game code and gameplay_keep",
+          "[object][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    hackeroot::AssetImageReader reader(workspace);
+
+    constexpr usize Count = 20;
+    std::vector<hackeroot::AssetDirectory> objects;
+    std::ranges::copy_if(workspace->getAssets().objects, std::back_inserter(objects),
+                         [](const hackeroot::AssetDirectory& asset) {
+                             return asset.name != hackeroot::KeepObjectName;
+                         });
+    REQUIRE(objects.size() >= Count);
+    objects.resize(Count);
+
+    std::optional<toki::object::Object> first;
+    std::chrono::milliseconds rest{};
+    for (const hackeroot::AssetDirectory& asset : objects) {
+        toki::object::Object object = toki::object::readObject(reader, asset);
+        REQUIRE(object.images.size() == 3);
+        if (!first) {
+            first = std::move(object);
+            continue;
+        }
+        CHECK(object.images[0] == first->images[0]);
+        CHECK(object.images[1] == first->images[1]);
+        rest += object.elapsed;
+    }
+    WARN(Count << " objects: the first read in " << first->elapsed.count() << " ms, the other "
+               << Count - 1 << " in " << rest.count() << " ms");
 }

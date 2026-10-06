@@ -16,7 +16,7 @@ still to do.
 
 `toki::scene::readScene` reads them with a `hackeroot::AssetImageReader` as one image per
 segment load ([memory-image.md](memory-image.md#several-images)): the game code the scene is
-drawn with, then the scene, then each room. Rooms resolve their scene's symbols, the room
+drawn with, shared between reads, then the scene, then each room. Rooms resolve their scene's symbols, the room
 lists' own textures included.
 
 ## Headers from bytes

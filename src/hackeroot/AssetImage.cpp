@@ -13,6 +13,7 @@
 #include "cparser/Types.h"
 #include "cparser/Value.h"
 #include "hackeroot/AssetSource.h"
+#include "hackeroot/FilePoller.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Types.h"
 #include "hackeroot/Workspace.h"
@@ -140,7 +141,8 @@ public:
         }
     }
 
-    std::vector<z64::MemoryImage> read(std::span<const std::vector<SegmentFiles>> images);
+    std::vector<z64::MemoryImage> read(std::span<const std::vector<SegmentFiles>> images,
+                                       std::span<const z64::MemoryImage* const> earlier);
 
 private:
     void readFile(usize image, u8 segment, const std::filesystem::path& file);
@@ -334,7 +336,8 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
 }
 
 std::vector<z64::MemoryImage>
-ImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
+ImageReader::read(const std::span<const std::vector<SegmentFiles>> images,
+                  const std::span<const z64::MemoryImage* const> earlier) {
     imageDiagnostics.resize(images.size());
     for (usize image = 0; image < images.size(); ++image) {
         diagnostics = &imageDiagnostics[image];
@@ -346,7 +349,7 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
     }
 
     std::vector<std::vector<z64::ImageObject>> objects(images.size());
-    if (!objects.empty()) {
+    if (!objects.empty() && earlier.empty()) {
         for (const z64::CodeSymbol& symbol : z64::getCodeSymbols()) {
             objects.front().push_back(z64::ImageObject{
                 .segment = 0,
@@ -366,15 +369,20 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
     for (usize image = 0; image < images.size(); ++image) {
         z64::MemoryImage memoryImage = z64::layOutImage(
             std::move(objects[image]),
-            z64::LayoutOptions{
-                .findExternal = [&laidOut](const std::string_view name) -> std::optional<u32> {
-                    for (const z64::MemoryImage& earlier : laidOut) {
-                        if (const std::optional<u32> address = earlier.findAddress(name)) {
-                            return address;
-                        }
+            z64::LayoutOptions{.findExternal = [&laidOut, earlier](const std::string_view name)
+                                   -> std::optional<u32> {
+                for (const z64::MemoryImage* const before : earlier) {
+                    if (const std::optional<u32> address = before->findAddress(name)) {
+                        return address;
                     }
-                    return isLinkerSymbol(name) ? std::optional<u32>(0) : std::nullopt;
-                }});
+                }
+                for (const z64::MemoryImage& before : laidOut) {
+                    if (const std::optional<u32> address = before.findAddress(name)) {
+                        return address;
+                    }
+                }
+                return isLinkerSymbol(name) ? std::optional<u32>(0) : std::nullopt;
+            }});
         memoryImage.diagnostics.insert(memoryImage.diagnostics.begin(),
                                        imageDiagnostics[image].begin(),
                                        imageDiagnostics[image].end());
@@ -385,12 +393,20 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
 
 } // namespace
 
-struct AssetImageReader::Preludes {
-    PreludeCache cache;
+struct AssetImageReader::Caches {
+    struct SharedImage {
+        std::vector<SegmentFiles> files;
+        std::vector<std::shared_ptr<const z64::MemoryImage>> earlier;
+        FilePoller poller;
+        std::shared_ptr<const z64::MemoryImage> image;
+    };
+
+    PreludeCache preludes;
+    std::vector<SharedImage> sharedImages;
 };
 
 AssetImageReader::AssetImageReader(std::shared_ptr<const Workspace> workspace)
-    : workspace(std::move(workspace)), preludes(std::make_unique<Preludes>()) {}
+    : workspace(std::move(workspace)), caches(std::make_unique<Caches>()) {}
 
 AssetImageReader::AssetImageReader(AssetImageReader&&) noexcept = default;
 
@@ -400,7 +416,35 @@ AssetImageReader::~AssetImageReader() = default;
 
 std::vector<z64::MemoryImage>
 AssetImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
-    return ImageReader(*workspace, preludes->cache).read(images);
+    return ImageReader(*workspace, caches->preludes).read(images, {});
+}
+
+ImageSet AssetImageReader::read(const std::span<const SharedImageFiles> shared,
+                                const std::span<const std::vector<SegmentFiles>> images) {
+    ImageSet set;
+    std::vector<const z64::MemoryImage*> earlier;
+    for (const SharedImageFiles& files : shared) {
+        auto cached =
+            std::ranges::find_if(caches->sharedImages, [&files](const Caches::SharedImage& image) {
+                return image.files == files.files;
+            });
+        if (cached == caches->sharedImages.end()) {
+            cached = caches->sharedImages.insert(
+                cached, Caches::SharedImage{.files = files.files, .poller = FilePoller({})});
+        }
+        if (!cached->image || cached->earlier != set.shared ||
+            !cached->poller.findChanges().empty()) {
+            cached->poller = FilePoller(files.watched);
+            const std::array<std::vector<SegmentFiles>, 1> image{files.files};
+            cached->image = std::make_shared<const z64::MemoryImage>(
+                std::move(ImageReader(*workspace, caches->preludes).read(image, earlier).front()));
+            cached->earlier = set.shared;
+        }
+        earlier.push_back(cached->image.get());
+        set.shared.push_back(cached->image);
+    }
+    set.images = ImageReader(*workspace, caches->preludes).read(images, earlier);
+    return set;
 }
 
 z64::MemoryImage readAssetImage(const Workspace& workspace,
@@ -408,7 +452,7 @@ z64::MemoryImage readAssetImage(const Workspace& workspace,
     const std::array<std::vector<SegmentFiles>, 1> images{
         std::vector<SegmentFiles>(segments.begin(), segments.end())};
     PreludeCache preludes;
-    return std::move(ImageReader(workspace, preludes).read(images).front());
+    return std::move(ImageReader(workspace, preludes).read(images, {}).front());
 }
 
 } // namespace hackeroot

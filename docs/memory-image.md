@@ -77,8 +77,12 @@ scene's rooms cannot share one image: they would all claim segment 3.
 `hackeroot::AssetImageReader` reads several images in one pass, each laid out on its own,
 and a symbol one image does not define resolves to where an earlier image laid it out, so a
 room's palette in its scene is found. It reads again and again against one workspace and
-keeps the preludes between reads, which are most of the cost of reading a fast64 export;
-the files, their textures and the folders they list are read afresh every time.
+keeps the preludes between reads, which are most of the cost of reading a fast64 export.
+Images that are under every read, the game code and `gameplay_keep`, can be asked for as
+shared images, each with the files it watches: one is read again only when a watched file
+changed or an image before it was read again, and is otherwise the same image the last read
+made. Everything else, the files, their textures and the folders they list, is read afresh
+every time.
 
 ## Rendering from it
 

@@ -10,6 +10,7 @@
 #include "z64/MemoryImage.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <iterator>
@@ -49,26 +50,29 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
         return object;
     }
 
-    std::vector<std::vector<hackeroot::SegmentFiles>> imageFiles{
-        {hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot())}};
+    const hackeroot::SegmentFiles code =
+        hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot());
+    std::vector<hackeroot::SharedImageFiles> shared{{.files = {code}, .watched = code.files}};
     const std::optional<hackeroot::AssetDirectory> keep =
         isKeep ? std::nullopt : findKeep(reader.getWorkspace());
     if (keep) {
-        imageFiles.push_back({hackeroot::SegmentFiles{
-            .segment = hackeroot::KeepSegment, .files = hackeroot::findObjectFiles(*keep).files}});
+        hackeroot::ObjectFiles keepFiles = hackeroot::findObjectFiles(*keep);
+        std::vector<std::filesystem::path> watched = keepFiles.getAllFiles();
+        watched.push_back(keep->directory);
+        shared.push_back(
+            {.files = {{.segment = hackeroot::KeepSegment, .files = std::move(keepFiles.files)}},
+             .watched = std::move(watched)});
     }
-    imageFiles.push_back(
-        {hackeroot::SegmentFiles{.segment = object.segment, .files = files.files}});
+    const std::array<std::vector<hackeroot::SegmentFiles>, 1> imageFiles{
+        {{{.segment = object.segment, .files = files.files}}}};
 
-    std::vector<z64::MemoryImage> images = reader.read(imageFiles);
-    object.objectImage = images.size() - 1;
-    for (usize i = 0; i < images.size(); ++i) {
-        if (i == object.objectImage) {
-            std::ranges::move(images[i].diagnostics, std::back_inserter(object.diagnostics));
-        }
-        images[i].diagnostics.clear();
-        object.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(images[i])));
-    }
+    hackeroot::ImageSet images = reader.read(shared, imageFiles);
+    object.images = std::move(images.shared);
+    object.objectImage = object.images.size();
+    z64::MemoryImage& objectImage = images.images.front();
+    std::ranges::move(objectImage.diagnostics, std::back_inserter(object.diagnostics));
+    objectImage.diagnostics.clear();
+    object.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(objectImage)));
     object.assets = listObjectAssets(*object.images[object.objectImage], object.segment);
     object.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);

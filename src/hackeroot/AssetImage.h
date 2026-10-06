@@ -18,6 +18,22 @@ class Workspace;
 struct SegmentFiles {
     u8 segment = 0;
     std::vector<std::filesystem::path> files;
+
+    [[nodiscard]] bool operator==(const SegmentFiles&) const = default;
+};
+
+/// An image read once and shared by the reads after it for as long as none of
+/// `watched` changes: the game code, or `gameplay_keep` under every object.
+struct SharedImageFiles {
+    std::vector<SegmentFiles> files;
+    std::vector<std::filesystem::path> watched;
+};
+
+/// The images one read made: the shared ones first, in the order asked for,
+/// then the rest.
+struct ImageSet {
+    std::vector<std::shared_ptr<const z64::MemoryImage>> shared;
+    std::vector<z64::MemoryImage> images;
 };
 
 /// Reads asset C into a memory image, as the build would compile and link it.
@@ -45,8 +61,9 @@ struct SegmentFiles {
 ///
 /// The system headers each file is read against are kept between reads: they
 /// are most of the cost of reading a fast64 export, and a re-export does not
-/// change them. Everything else, the files, their textures and the folders
-/// they list, is read afresh every time.
+/// change them. So are shared images, while their files do not change.
+/// Everything else, the files, their textures and the folders they list, is
+/// read afresh every time.
 class AssetImageReader {
 public:
     explicit AssetImageReader(std::shared_ptr<const Workspace> workspace);
@@ -63,13 +80,20 @@ public:
     [[nodiscard]] std::vector<z64::MemoryImage>
     read(std::span<const std::vector<SegmentFiles>> images);
 
+    /// Reads `images` after `shared`, as `read` reads them after the images
+    /// before them. A shared image is read again only when one of its watched
+    /// files changed or an image before it was read again; otherwise the one an
+    /// earlier read made is returned, with its diagnostics.
+    [[nodiscard]] ImageSet read(std::span<const SharedImageFiles> shared,
+                                std::span<const std::vector<SegmentFiles>> images);
+
 private:
-    struct Preludes;
+    struct Caches;
 
     // Shared with whoever else reads the workspace: it is replaced, not
     // changed, when the checkout is read again.
     std::shared_ptr<const Workspace> workspace;
-    std::unique_ptr<Preludes> preludes;
+    std::unique_ptr<Caches> caches;
 };
 
 } // namespace hackeroot
