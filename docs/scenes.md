@@ -32,11 +32,14 @@ at a time until `SCENE_CMD_END`, and follows each pointer into the image's bytes
 - the light settings list, an `EnvLightSettings` each, with the fog near value unpacked
   from the blend rate it shares a half with;
 - the skybox settings' light mode, which says whether the time of day picks the setting;
+- the special files' keep object, which the game loads into segment 5 for the whole scene
+  (`gameplay_field_keep`, `gameplay_dangeon_keep`);
 - the alternate header list.
 
 `readRoomHeader` does the same from the start of segment 3: the room shape, of any of the
 three types (normal, image, cullable), as each entry's opaque and translucent display list,
-the actor list, and the room's own alternate header list.
+the actor list, the object list (the objects loaded for the room's actors, by ID), and the
+room's own alternate header list.
 
 Reading the bytes rather than the C is the same decision as the memory image itself: the
 bytes are byte-identical to what the build makes, so every macro, cast and initializer

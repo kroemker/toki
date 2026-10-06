@@ -56,6 +56,9 @@ struct SceneHeader {
     usize roomCount = 0;
     u8 skyboxId = 0;
     LightMode lightMode = LightMode::Time;
+    /// The object the game loads into segment 5 for the whole scene, such as
+    /// `gameplay_dangeon_keep`, from `SCENE_CMD_SPECIAL_FILES`: zero for none.
+    s16 keepObjectId = 0;
     std::vector<ActorPlacement> playerEntries;
     std::vector<TransitionActorPlacement> transitionActors;
     std::vector<LightSetting> lightSettings;
@@ -83,6 +86,9 @@ struct RoomHeader {
     RoomShapeType shapeType = RoomShapeType::Normal;
     std::vector<RoomDisplayLists> displayLists;
     std::vector<ActorPlacement> actors;
+    /// The objects the game loads for the room's actors, by ID, from
+    /// `SCENE_CMD_OBJECT_LIST`.
+    std::vector<s16> objects;
     /// As for a scene: the headers of the room's other layers, from layer 1.
     std::vector<u32> alternateHeaders;
     std::vector<base::Diagnostic> diagnostics;

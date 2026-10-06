@@ -188,3 +188,31 @@ TEST_CASE("an alternate header list is as long as the array it points at", "[sce
     REQUIRE(alternate.transitionActors[0].rotationY == 0x4000);
     REQUIRE(alternate.transitionActors[0].params == 0x003F);
 }
+
+TEST_CASE("a room lists the objects it loads, and a scene its keep object", "[scene][header]") {
+    SegmentBuilder room(hackeroot::RoomSegment);
+    room.addCommand(0x0A, 0, 0);
+    room.addCommand(0x0B, 3, 0);
+    room.addCommand(0x14, 0, 0);
+    room.setWord(12, room.getAddress());
+    for (const s16 id : {s16{0x0015}, s16{0x00C8}, s16{0x0170}}) {
+        room.addHalf(id);
+    }
+    room.addHalf(0);
+    room.setWord(4, room.getAddress());
+    room.addBytes({0, 0, 0, 0});
+    room.addWord(0);
+
+    const toki::scene::RoomHeader roomHeader = toki::scene::readRoomHeader(room.makeImage());
+
+    REQUIRE(roomHeader.diagnostics.empty());
+    REQUIRE(roomHeader.objects == std::vector<s16>{0x0015, 0x00C8, 0x0170});
+
+    SegmentBuilder scene(hackeroot::SceneSegment);
+    scene.addCommand(0x07, 2, 0x0003);
+    scene.addCommand(0x14, 0, 0);
+
+    const toki::scene::SceneHeader sceneHeader = toki::scene::readSceneHeader(scene.makeImage());
+
+    REQUIRE(sceneHeader.keepObjectId == 3);
+}

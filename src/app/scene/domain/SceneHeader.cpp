@@ -25,6 +25,7 @@ constexpr usize CullableEntrySize = 0x10;
 constexpr usize RoomShapeSize = 0x08;
 constexpr usize TransitionActorEntrySize = 0x10;
 constexpr usize PointerSize = 4;
+constexpr usize ObjectIdSize = 2;
 constexpr usize UnsizedAlternateHeaders = 3;
 constexpr u16 FogNearMask = 0x03FF;
 
@@ -32,6 +33,8 @@ enum class CommandCode : u8 {
     PlayerEntryList = 0x00,
     ActorList = 0x01,
     RoomList = 0x04,
+    SpecialFiles = 0x07,
+    ObjectList = 0x0B,
     RoomShape = 0x0A,
     TransitionActorList = 0x0E,
     LightSettingsList = 0x0F,
@@ -76,6 +79,8 @@ public:
     readTransitionActors(const Command& command);
 
     [[nodiscard]] std::vector<u32> readAlternateHeaders(const Command& command);
+
+    [[nodiscard]] std::vector<s16> readObjects(const Command& command);
 
     [[nodiscard]] std::vector<LightSetting> readLightSettings(const Command& command);
 
@@ -190,6 +195,19 @@ std::vector<u32> HeaderReader::readAlternateHeaders(const Command& command) {
     return headers;
 }
 
+std::vector<s16> HeaderReader::readObjects(const Command& command) {
+    std::vector<s16> objects;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, command.data1, ObjectIdSize, "object list");
+    if (!bytes) {
+        return objects;
+    }
+    for (usize i = 0; i < command.data1; ++i) {
+        objects.push_back(n64::readS16(*bytes, i * ObjectIdSize));
+    }
+    return objects;
+}
+
 std::vector<LightSetting> HeaderReader::readLightSettings(const Command& command) {
     std::vector<LightSetting> settings;
     const std::optional<std::span<const u8>> bytes =
@@ -279,6 +297,8 @@ SceneHeader readSceneHeader(const z64::MemoryImage& image, const u32 address) {
             scene.alternateHeaders = reader.readAlternateHeaders(command);
         } else if (isCode(command, CommandCode::LightSettingsList)) {
             scene.lightSettings = reader.readLightSettings(command);
+        } else if (isCode(command, CommandCode::SpecialFiles)) {
+            scene.keepObjectId = static_cast<s16>(command.data2 & 0xFFFF);
         } else if (isCode(command, CommandCode::SkyboxSettings)) {
             scene.skyboxId = static_cast<u8>(command.data2 >> 24);
             scene.lightMode =
@@ -294,6 +314,7 @@ RoomHeader readRoomHeader(const z64::MemoryImage& image, const u32 address) {
     RoomHeader room;
     bool hasShape = false;
     std::vector<ActorPlacement> actors;
+    std::vector<s16> objects;
     std::vector<u32> alternateHeaders;
     for (const Command& command : reader.readCommands(address)) {
         if (isCode(command, CommandCode::RoomShape)) {
@@ -301,11 +322,14 @@ RoomHeader readRoomHeader(const z64::MemoryImage& image, const u32 address) {
             hasShape = true;
         } else if (isCode(command, CommandCode::ActorList)) {
             actors = reader.readActors(command);
+        } else if (isCode(command, CommandCode::ObjectList)) {
+            objects = reader.readObjects(command);
         } else if (isCode(command, CommandCode::AlternateHeaderList)) {
             alternateHeaders = reader.readAlternateHeaders(command);
         }
     }
     room.actors = std::move(actors);
+    room.objects = std::move(objects);
     room.alternateHeaders = std::move(alternateHeaders);
     room.diagnostics = reader.takeDiagnostics();
     if (!hasShape) {

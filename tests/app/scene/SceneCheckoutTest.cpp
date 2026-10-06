@@ -88,6 +88,9 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         for (const toki::scene::RoomHeader& room : main.rooms) {
             CHECK_FALSE(room.displayLists.empty());
         }
+        CHECK(main.header.keepObjectId != 0);
+        CHECK(std::ranges::any_of(
+            main.rooms, [](const toki::scene::RoomHeader& room) { return !room.objects.empty(); }));
 
         const toki::viewport::ViewportContent content =
             toki::scene::makeSceneContent(scene, toki::scene::makeSceneView(scene));

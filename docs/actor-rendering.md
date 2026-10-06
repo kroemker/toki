@@ -158,9 +158,11 @@ instead of only when something changes.
 ### Which objects to read
 
 The room header's object list (`SCENE_CMD_OBJECT_LIST`) is what the game loads, and an
-actor whose object is not in it does not spawn. The scene reader does not read that list
-yet, and it needs to. Objects reached only through an overlay's includes are read on
-demand. Each object is read once per scene, however many actors use it.
+actor whose object is not in it does not spawn. `readRoomHeader` reads it, and
+`readSceneHeader` reads the scene's keep object (`SCENE_CMD_SPECIAL_FILES`), which the
+game loads into segment 5 and some profiles name. Objects reached only through an
+overlay's includes are read on demand. Each object is read once per scene, however many
+actors use it.
 
 ## Cost
 
@@ -213,7 +215,7 @@ Left for later, each with a known reason given:
 | Step | What | Size |
 |---|---|---|
 | 1 | Share `gameplay_keep` and the code images across object reads, and measure a twenty-object read (done) | S |
-| 2 | Read the room object list in the scene header | S |
+| 2 | Read the room object list in the scene header (done) | S |
 | 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests | M |
 | 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test | M–L |
 | 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes | M |
