@@ -143,6 +143,8 @@ private:
 
     [[nodiscard]] usize readDeclarationList(std::span<const Token> head, usize stop);
 
+    [[nodiscard]] usize readFunction(usize begin, usize open);
+
     [[nodiscard]] std::optional<std::vector<Token>>
     readDeclaration(std::span<const Token> rawHead,
                     std::optional<std::span<const Token>> initializer);
@@ -370,6 +372,27 @@ usize Parser::readDeclarationList(std::span<const Token> head, usize stop) {
     }
 }
 
+usize Parser::readFunction(const usize begin, const usize open) {
+    const usize close = skipBalanced(open);
+    const std::vector<Token> head = stripAttributes(tokens.subspan(begin, open - begin));
+    const auto parameters =
+        std::ranges::find_if(head, [](const Token& token) { return isPunctuator(token, "("); });
+    const usize nameAt = findNameIn(std::span<const Token>(head.begin(), parameters));
+    if (parameters == head.end() || nameAt == static_cast<usize>(parameters - head.begin())) {
+        noteSkipped(tokens[begin], "cannot read a function definition's name");
+        return close;
+    }
+    result.functions.push_back(FunctionDefinition{
+        .name = head[nameAt].text,
+        .isStatic =
+            std::ranges::any_of(head.begin(), parameters,
+                                [](const Token& token) { return isIdentifier(token, "static"); }),
+        .body = tokens.subspan(open + 1, close - open - 2),
+        .location = locate(head[nameAt]),
+    });
+    return close;
+}
+
 ParseResult Parser::run() {
     static constexpr std::array StatementStops = {std::string_view(";")};
 
@@ -387,7 +410,7 @@ ParseResult Parser::run() {
             break;
         }
         if (isFunction) {
-            cursor = skipBalanced(stop);
+            cursor = readFunction(cursor, stop);
             continue;
         }
 

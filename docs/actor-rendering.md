@@ -216,7 +216,7 @@ Left for later, each with a known reason given:
 |---|---|---|
 | 1 | Share `gameplay_keep` and the code images across object reads, and measure a twenty-object read (done) | S |
 | 2 | Read the room object list in the scene header (done) | S |
-| 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests | M |
+| 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests (done) | M |
 | 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test | M–L |
 | 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes | M |
 | 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox | S |

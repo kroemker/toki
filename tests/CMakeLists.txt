@@ -18,6 +18,7 @@ add_executable(toki_tests
         app/viewport/ViewportFrameTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
         cparser/AddressTest.cpp
+        cparser/CallsTest.cpp
         cparser/ExpandTest.cpp
         cparser/ExpressionTest.cpp
         cparser/MacroTableTest.cpp

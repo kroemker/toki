@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        Calls.cpp
         Dialect.cpp
         DirectoryCache.cpp
         Expand.cpp

@@ -60,17 +60,23 @@ file that does not exist — the build generates it from a `.png`.
    `TEX_LEN` are builtins of the decomp's dialect (`z64::getDecompDialect`) rather than
    expansions: their real definitions take `sizeof` of an array, which needs the array's
    declaration.
-6. **`Parser`** — file-scope declarations only, as `{name, type, arrayLength, initializer
-   token span}`, one per declarator in a list. Typedefs, struct definitions, functions
+6. **`Parser`** — file-scope declarations, as `{name, type, arrayLength, initializer
+   token span}`, one per declarator in a list, and function definitions, as their name and
+   the token span of their body, which is not read further. Typedefs, struct definitions
    and function prototypes are stepped over; anything else it cannot read is a note. The
    initializer stays *unevaluated tokens*, because the memory image and the scene reader
    want different things out of it and neither should pay for the other's reading. A
    declaration says whether its length was written (`hasDeclaredLength`), since a count of
    initializer elements is wrong under brace elision, and whether the source braced its
    initializer (`isBraced`), since `Mtx m = gdSPDefMtx(...)` gets its braces from a macro.
-7. **`TableReader`** — X-macro tables read into ordinal rows, preprocessed so that an
+7. **`findCalls`** — the calls to a set of names in a function body, each argument as its
+   unexpanded tokens, split at top-level commas. It is pattern matching, not data flow: a
+   call through a pointer or hidden in a macro is not seen, and what an argument means is the
+   caller's to evaluate. Actor rendering reads an overlay's `Init` and `Draw` with it
+   ([actor-rendering.md](actor-rendering.md)).
+8. **`TableReader`** — X-macro tables read into ordinal rows, preprocessed so that an
    `#if` around an entry is answered rather than guessed.
-8. **`TypeParser` and `TypeTable`** — typedef, struct, union and enum definitions read out
+9. **`TypeParser` and `TypeTable`** — typedef, struct, union and enum definitions read out
    of a unit and laid out for the target as MIPS o32 GCC lays them out: natural alignment,
    eight for `long long` and `double`, padding, bitfields packed from the most significant
    bit, `__attribute__((aligned))`. Headers spell whole enumerations through X-macro

@@ -50,14 +50,25 @@ struct Declaration {
     base::SourceLocation location;
 };
 
+/// A function definition, as its name and the tokens between its braces. The
+/// body is not read: what to look for in it is the caller's question.
+struct FunctionDefinition {
+    std::string_view name;
+    bool isStatic = false;
+    std::span<const Token> body;
+    base::SourceLocation location;
+};
+
 struct ParseResult {
     std::vector<Declaration> declarations;
+    std::vector<FunctionDefinition> functions;
     std::vector<base::Diagnostic> diagnostics;
 };
 
-/// Reads every file-scope object out of a preprocessed unit. Typedefs, struct
-/// definitions and functions are stepped over: asset C has none, and the
-/// headers that get spliced in are full of them.
+/// Reads every file-scope object out of a preprocessed unit, and where each
+/// function definition's body is. Typedefs and struct definitions are stepped
+/// over: asset C has none, and the headers that get spliced in are full of
+/// them.
 ///
 /// Array bounds are evaluated against the unit's own macros, whatever
 /// `context.macros` says: a bound can only mean what the unit defined.
