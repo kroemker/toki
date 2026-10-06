@@ -1,6 +1,8 @@
 find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
+        app/actor/ActorModelCheckoutTest.cpp
+        app/actor/ModelRulesTest.cpp
         app/assets/AssetReportTest.cpp
         app/build/BuildRunnerTest.cpp
         app/build/BuildTextTest.cpp
@@ -39,6 +41,7 @@ add_executable(toki_tests
         hackeroot/FilePollerTest.cpp
         hackeroot/GbiCheckoutTest.cpp
         hackeroot/GbiTest.cpp
+        hackeroot/OverlayFilesTest.cpp
         hackeroot/PreludeCheckoutTest.cpp
         hackeroot/SceneFilesTest.cpp
         hackeroot/WorkspaceTest.cpp

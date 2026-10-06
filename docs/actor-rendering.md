@@ -89,26 +89,31 @@ Both of these are general C, and both stay out of Zelda:
    location. It does no data flow. An argument is just tokens, which the caller evaluates
    with the existing constant evaluator or gives up on.
 
-Actor files are preprocessed as scene files are: lazily, over the header scrape, with
-`#if`s answered under the build's configuration. The calls matched are functions, not
-macros, so nothing needs expanding.
+Actor files are preprocessed as scene files are, over the header scrape, with `#if`s
+answered under the build's configuration (`hackeroot::preprocessOverlay`). The overlay's own
+headers and the asset headers it includes are read; the game's headers are not. The calls
+matched are functions, not macros, so nothing needs expanding.
 
 ### The rules
 
 The rules are Zelda-specific, so they live in `app/actor/domain/`.
 
 - **Which functions.** The profile's initializer names `Init` and `Draw` (`EnAni_Init`,
-  `EnAni_Draw`). The rules search those functions and the static functions they call
-  directly in the same file, one level deep. That is a heuristic. It covers setup helpers
-  such as `EnXxx_InitSkel` without following everything.
+  `EnAni_Draw`). The rules search those functions and the functions of the main file they
+  call directly, one level deep. That is a heuristic. It covers setup helpers such as
+  `EnXxx_InitSkel` without following everything. A profile whose `Draw` is `NULL` draws
+  with the first function the overlay assigns to `actor.draw` anywhere, since an actor that
+  waits for an object to load sets it once the object is there.
 - **Skeleton.** The first `SkelAnime_Init*` call whose skeleton argument is `&symbol`,
-  possibly behind a cast. Flexible or not is checked against the symbol's declared type,
-  which the object catalog already knows. The name of the function called is not trusted
-  for this.
+  possibly behind a cast. Flexible or not is checked against the type the object header
+  declares the symbol with. The name of the function called is not trusted for this. An
+  actor whose `Init` sets up no skeleton is searched whole, for the same reason as its
+  `Draw`: `En_Ko` sets up its skeleton in an action function, once its objects have loaded.
 - **Animation.** The init's animation argument when it is a literal. If it is `NULL`, the
-  first `Animation_*` call in the same function that has a literal animation. If there is
-  neither, the skeleton is drawn at rest. Whether the animation plays is a setting
-  (see [Animation](#animation)).
+  first `Animation_*` call, in `Init`'s functions or the one the skeleton is set up in, whose
+  second argument is an `AnimationHeader` of an object. An `AnimationInfo` table is not one.
+  If there is neither, the skeleton is drawn at rest. Whether the animation plays is a
+  setting (see [Animation](#animation)).
 - **Display lists.** In `Draw`, every `Gfx_DrawDListOpa` / `Gfx_DrawDListXlu` call and
   every `gSPDisplayList(POLY_OPA_DISP++ | POLY_XLU_DISP++, symbol)` with a literal symbol,
   in source order. The pass comes from the call. Calls under a branch are all taken, so a
@@ -117,6 +122,10 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   `ICHAIN_VEC3F_DIV1000(scale, ...)`, else 0.01. The `InitChain` is a file-scope array,
   so the existing initializer reader handles it.
 - **Y offset.** The literal second argument of `ActorShape_Init`.
+
+A name that is not an object's symbol is one of three gaps: the overlay's own data (declared
+in a folder named as the overlay's is, its own or its extracted assets'), a file-scope
+symbol no object header declares, or a local variable.
 
 ### Finding a symbol's object
 
@@ -193,12 +202,34 @@ takes now. That gets measured before models are switched on by default.
 - **A pixel check in the viewport** on a few known actors (a Deku Baba, a sign, a pot)
   against the Object panel showing the same skeleton or display list.
 
-## Expected coverage
+## Coverage
 
-Of the 431 overlays, 162 have a skeleton and roughly 140 of those use a literal one.
-Another 169 draw display lists, most of them literal. Allowing for the overlays that do
-something else, roughly two in three overlays should draw as a model. It will be more for
-placed actors, since enemies, NPCs and props are the common ones and the literal cases.
+The estimate was two in three overlays. Measured over the 433 actors of a HackerOoT
+checkout's actor table (release build, from a copy on the Windows filesystem), all read in
+0.9 s:
+
+| Result | Actors |
+|---|---|
+| A skeleton | 149 |
+| Display lists only | 161 |
+| No model | 123 |
+
+That is 72%. The gaps behind the 123, and behind models that are partly read:
+
+| Gap | Count |
+|---|---|
+| Display list not a symbol (tables, locals, `this->dList`) | 76 |
+| The overlay's own data (effects, ocarina songs, the Arwing) | 55 |
+| Animation not a symbol (skeleton drawn at rest) | 33 |
+| No `Draw` anywhere | 31 |
+| Nothing drawn by name in `Init` or `Draw` | 27 |
+| Scale not a constant | 20 |
+| Skin skeleton | 11 |
+| Skeleton not a symbol | 9 |
+| No overlay (Player, `En_Item00`, `En_A_Obj`) | 3 |
+
+Placed actors should do better than the table as a whole, since enemies, NPCs and props
+are the common ones and the literal cases.
 
 Left for later, each with a known reason given:
 
@@ -217,7 +248,7 @@ Left for later, each with a known reason given:
 | 1 | Share `gameplay_keep` and the code images across object reads, and measure a twenty-object read (done) | S |
 | 2 | Read the room object list in the scene header (done) | S |
 | 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests (done) | M |
-| 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test | M–L |
+| 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test (done) | M–L |
 | 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes | M |
 | 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox | S |
 | 7 | The Animate actors setting: per-frame posing and continuous redraw while it is on | S |

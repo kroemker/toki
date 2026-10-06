@@ -10,6 +10,7 @@ target_sources(toki_core PRIVATE
         GameCode.cpp
         Gbi.cpp
         ObjectFiles.cpp
+        OverlayFiles.cpp
         Prelude.cpp
         SceneFiles.cpp
         Tables.cpp

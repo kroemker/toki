@@ -106,6 +106,7 @@ src/
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
+    actor/     domain/ = how an actor is drawn, read from its overlay's C
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/
@@ -259,6 +260,11 @@ listed below is only what no change may break.
   - A texture's format, size and palette come from the file its include resolved to, as the
     build reads the name, recorded on the image symbol. Never guessed from a symbol name.
   - What is shown is decoded from the image's bytes, not read from the PNG.
+- **[Actor rendering](docs/actor-rendering.md)** — how a placed actor's skeleton, animation,
+  display lists and scale are read from the literals in its overlay's `Init` and `Draw`.
+  - Only literals count. What is not one is a gap with its reason and location, never a
+    guess, and the actor keeps its marker.
+  - Actor code is never run.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only

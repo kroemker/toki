@@ -1,3 +1,4 @@
+add_subdirectory(actor)
 add_subdirectory(assets)
 add_subdirectory(build)
 add_subdirectory(core)
