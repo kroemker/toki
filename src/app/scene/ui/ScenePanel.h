@@ -10,6 +10,7 @@
 
 #include <array>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -51,7 +52,10 @@ private:
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
-    void drawActor(s16 actorId, const std::array<s16, 3>& position, const char* label);
+    void drawActor(s16 actorId, const std::array<s16, 3>& position, const char* label,
+                   std::optional<std::span<const std::string>> loadedObjects);
+    void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
+                          std::optional<std::span<const std::string>> loadedObjects) const;
     [[nodiscard]] std::string findActorName(s16 actorId) const;
 
     const workspace::WorkspaceService& workspaceService;

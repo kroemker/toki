@@ -101,8 +101,9 @@ The rest, and player entries, are marked by a small diamond each, coloured by ki
 display list built by hand into segment 15 (`makeActorMarkers`), drawn between the opaque
 and the translucent pass.
 
-The Scene panel is the view's controls: the layer and light pickers, a checkbox for each
-room, and each room's actors by name from the checkout's actor table. Choosing an actor
+The Scene panel is the view's controls: the layer and light pickers, whether actors are
+shown and drawn as their models, a checkbox for each room, and each room's actors by name
+from the checkout's actor table, with how each is drawn. Choosing an actor
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 

@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        ActorDescription.cpp
         ActorDraws.cpp
         ActorMarkers.cpp
         Scene.cpp

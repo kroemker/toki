@@ -46,6 +46,7 @@ struct SceneSession {
     usize lightSetting = 0;
     std::vector<usize> hiddenRooms;
     bool marksActors = true;
+    bool drawsModels = true;
     std::optional<CameraPose> camera;
 };
 

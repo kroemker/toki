@@ -155,6 +155,7 @@ SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session
     }
     view.lightSetting = session.lightSetting;
     view.showsActors = session.marksActors;
+    view.drawsModels = session.drawsModels;
     view = keepSceneView(scene, std::move(view));
     for (const usize room : session.hiddenRooms) {
         if (room < view.hiddenRooms.size()) {
@@ -167,7 +168,8 @@ SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session
 core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
     core::SceneSession session{.directory = scene.directory,
                                .lightSetting = view.lightSetting,
-                               .marksActors = view.showsActors};
+                               .marksActors = view.showsActors,
+                               .drawsModels = view.drawsModels};
     if (view.layer < scene.layers.size()) {
         session.layer = scene.layers[view.layer].index;
     }

@@ -186,6 +186,7 @@ void readSession(const toml::table& root, Settings& settings) {
     read.lightSetting =
         static_cast<usize>(std::max<s64>((*session)["light_setting"].value_or(s64{0}), 0));
     read.marksActors = (*session)["marks_actors"].value_or(true);
+    read.drawsModels = (*session)["draws_models"].value_or(true);
     if (const toml::array* hidden = (*session)["hidden_rooms"].as_array()) {
         for (const toml::node& room : *hidden) {
             if (const std::optional<s64> index = room.value<s64>(); index && *index >= 0) {
@@ -210,6 +211,7 @@ void writeSession(toml::table& root, const Settings& settings) {
     written.insert_or_assign("layer", static_cast<s64>(session.layer));
     written.insert_or_assign("light_setting", static_cast<s64>(session.lightSetting));
     written.insert_or_assign("marks_actors", session.marksActors);
+    written.insert_or_assign("draws_models", session.drawsModels);
     toml::array hidden;
     for (const usize room : session.hiddenRooms) {
         hidden.push_back(static_cast<s64>(room));

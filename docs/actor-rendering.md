@@ -174,7 +174,14 @@ A symbol is also checked against its role by its declared type: a display list m
 `AnimationHeader`.
 
 An actor without a drawing keeps its diamond. `SceneView::drawsModels` switches between
-models and markers. The overlays and objects read are watched with the scene's own files,
+models and markers.
+
+The Scene panel marks each placed actor with a cube when it is drawn as its model and a
+diamond when it is marked, and its tooltip says what it is drawn as and where in the overlay
+each answer was read, and every gap and drawing diagnostic (`describeActor`). An actor whose
+profile names an object that is neither a keep object nor in its room's object list is said
+not to be spawned by the game there. **Show actors** and **Draw models** are saved with the
+session. The overlays and objects read are watched with the scene's own files,
 so editing an actor's C or re-exporting its object reads the scene again.
 
 ### Animation
@@ -282,7 +289,7 @@ Left for later, each with a known reason given:
 | 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests (done) | M |
 | 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test (done) | M–L |
 | 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes, segments 8 to 12 (done) | M |
-| 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox | S |
+| 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox (done) | S |
 | 7 | The Animate actors setting: per-frame posing and continuous redraw while it is on | S |
 
 S is about a session, M two or three, L more. Steps 1 to 3 are independent of each other.
