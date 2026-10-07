@@ -138,7 +138,6 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         }
     }
     std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
-    scene.actors = readSceneActors(reader, scene.layers);
 
     if (scene.layers.front().header.roomCount != files.rooms.size()) {
         scene.diagnostics.push_back(base::makeWarning(

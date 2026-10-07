@@ -1,6 +1,8 @@
 #include "app/scene/domain/SceneLoader.h"
 
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneActorLoader.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/Assets.h"
@@ -216,4 +218,34 @@ TEST_CASE("a closed scene is not read again when its files change", "[scene][loa
 
     REQUIRE_FALSE(waitForScene(loader, std::chrono::seconds(2)).has_value());
     REQUIRE_FALSE(loader.findReadingName().has_value());
+}
+
+TEST_CASE("a scene's actors are read after it, on their own", "[scene][loader]") {
+    const CheckoutCopy checkout;
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(checkout.getRoot(), {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("reload"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    toki::scene::SceneLoader loader;
+    loader.open(workspace, *asset);
+    const std::optional<toki::scene::Scene> scene = waitForScene(loader);
+    REQUIRE(scene.has_value());
+    REQUIRE(scene->actors.models.empty());
+
+    toki::scene::SceneActorLoader actorLoader;
+    actorLoader.open(workspace,
+                     toki::scene::ActorRequest{.name = "reload's actors", .layers = scene->layers});
+    std::optional<toki::scene::SceneActors> actors;
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + Patience;
+    while (!actors && std::chrono::steady_clock::now() < deadline) {
+        actors = actorLoader.update();
+        std::this_thread::sleep_for(PollInterval);
+    }
+
+    REQUIRE(actors.has_value());
 }

@@ -38,7 +38,9 @@ struct Scene {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     /// The main layer first, then every alternate layer the scene has.
     std::vector<SceneLayer> layers;
-    /// The models of the actors the layers place, and the objects they are drawn from.
+    /// The models of the actors the layers place, and the objects they are
+    /// drawn from: read after the scene (`SceneActorLoader`), and empty until
+    /// they are.
     SceneActors actors;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
@@ -50,7 +52,8 @@ inline constexpr usize SceneImage = 1;
 inline constexpr usize FirstRoomImage = 2;
 
 /// Reads a scene and all its rooms into memory images, as the game loads them,
-/// and every layer's headers out of those images.
+/// and every layer's headers out of those images. Its actors are read
+/// separately (`readSceneActors`).
 [[nodiscard]] Scene readScene(hackeroot::AssetImageReader& reader,
                               const hackeroot::AssetDirectory& asset);
 

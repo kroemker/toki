@@ -28,6 +28,9 @@ public:
     /// entrance.
     void setScene(Scene read);
 
+    /// Draws the open scene's actors as `actors` says, when they have been read.
+    void setActors(SceneActors actors);
+
     /// Forgets the open scene, when something else takes the viewport.
     void clearScene() {
         scene.reset();

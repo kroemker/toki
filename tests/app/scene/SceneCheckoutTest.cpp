@@ -1,4 +1,5 @@
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/domain/OrbitCamera.h"
@@ -73,7 +74,8 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         REQUIRE(asset != scenes.end());
 
         hackeroot::AssetImageReader reader(shared);
-        const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+        toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+        scene.actors = toki::scene::readSceneActors(reader, scene.layers);
         const toki::scene::Scene again = toki::scene::readScene(reader, *asset);
         CHECK(again.layers.size() == scene.layers.size());
         INFO(name << ": " << describe(scene.diagnostics));

@@ -10,6 +10,7 @@
 #include "app/core/ui/Window.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
+#include "app/scene/domain/SceneActorLoader.h"
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
@@ -50,6 +51,7 @@ private:
     void updateBuild();
     void updateAssets();
     void updateScene();
+    void updateSceneActors();
     void updateObject();
     void openRestoredScene();
     void applySettings(const Settings& applied);
@@ -70,6 +72,7 @@ private:
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;
+    scene::SceneActorLoader sceneActorLoader;
     /// The scene last open, still to be opened again once the checkout is read.
     std::optional<std::filesystem::path> restoringScene;
     object::ObjectLoader objectLoader;

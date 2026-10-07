@@ -1,18 +1,22 @@
 #include "SceneLoader.h"
 
-#include "app/assets/domain/WatchedAssetReader.h"
+#include "app/assets/domain/WatchedReader.h"
 #include "app/scene/domain/Scene.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/SceneFiles.h"
 
+#include <filesystem>
+#include <vector>
+
 namespace toki::scene {
 
 SceneLoader::SceneLoader()
-    : WatchedAssetReader(
-          readScene,
-          [](const hackeroot::Workspace& /*workspace*/, const hackeroot::AssetDirectory& asset) {
-              return hackeroot::findSceneFiles(asset).getAllFiles();
-          },
-          [](const Scene& scene) { return scene.actors.watched; }) {}
+    : WatchedReader(readScene, [](const hackeroot::Workspace& /*workspace*/,
+                                  const hackeroot::AssetDirectory& asset) {
+          std::vector<std::filesystem::path> watched =
+              hackeroot::findSceneFiles(asset).getAllFiles();
+          watched.push_back(asset.directory);
+          return watched;
+      }) {}
 
 } // namespace toki::scene

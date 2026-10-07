@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/assets/domain/WatchedAssetReader.h"
+#include "app/assets/domain/WatchedReader.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 

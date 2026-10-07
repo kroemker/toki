@@ -63,6 +63,7 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
 std::vector<std::filesystem::path> listObjectWatched(const hackeroot::Workspace& workspace,
                                                      const hackeroot::AssetDirectory& asset) {
     std::vector<std::filesystem::path> watched = hackeroot::findObjectFiles(asset).getAllFiles();
+    watched.push_back(asset.directory);
     if (asset.name == hackeroot::KeepObjectName) {
         return watched;
     }

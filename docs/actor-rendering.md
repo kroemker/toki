@@ -136,7 +136,9 @@ and `gameplay_keep` without running code. A symbol found in neither is unresolve
 
 ### Drawing
 
-`toki::scene::readSceneActors` runs on the scene loader's worker, after the scene: it reads
+`toki::scene::readSceneActors` runs on a worker of its own, `SceneActorLoader`, started once
+the scene has arrived, so the scene shows with markers first and its actors turn into models
+when their objects have been read. It reads
 the model of every actor ID placed in any layer, rooms and transition actors both, the
 objects those models name, and poses each skeleton once, on frame 0 of its animation
 (`SceneActors`). Objects are shared images over the game code and `gameplay_keep`, so a
@@ -182,7 +184,9 @@ each answer was read, and every gap and drawing diagnostic (`describeActor`). An
 profile names an object that is neither a keep object nor in its room's object list is said
 not to be spawned by the game there. **Show actors** and **Draw models** are saved with the
 session. The overlays and objects read are watched with the scene's own files,
-so editing an actor's C or re-exporting its object reads the scene again.
+so editing an actor's C or re-exporting its object reads the actors again. A scene read
+again keeps the models it had until the new ones arrive. The actor loader keeps its own
+image cache, apart from the scene loader's.
 
 ### Animation
 
@@ -219,15 +223,16 @@ Two reads are new:
 
 Measured from a copy of the checkout on the Windows filesystem, release build:
 
-| Scene | Actors drawn | Objects | Actors read in | Whole scene, first read | Read again |
-|---|---|---|---|---|---|
-| `spot04` (Kokiri Forest) | 20 of 33 | 20 | 1.3 s | 1.8 s | 0.38 s |
-| `ydan` (Deku Tree) | 14 of 22 | 10 | 0.7 s | 1.4 s | 0.51 s |
+| Scene | Actors drawn | Objects | Scene read | Actors read after it |
+|---|---|---|---|---|
+| `spot04` (Kokiri Forest) | 20 of 33 | 20 | 0.52 s | 1.36 s |
+| `ydan` (Deku Tree) | 14 of 22 | 10 | 0.71 s | 0.71 s |
 
-The target was that a first read with models costs no more than twice one without. It does
-not meet it: Kokiri Forest's first read is about three and a half times what it was, most of
-it `gameplay_keep` and the twenty objects. Reading again, as after a fast64 export, is
-within it, since the objects are kept.
+The target was that a first read with models costs no more than twice one without. Read in
+one go, Kokiri Forest took about three and a half times as long, most of it `gameplay_keep`
+and the twenty objects. So the actors are read after the scene, on their own worker: the
+scene shows as fast as before, and its models follow. A second read of the actors, as after
+an export, finds the objects kept.
 
 ## Testing
 

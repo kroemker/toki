@@ -53,6 +53,9 @@ void ScenePanel::setScene(Scene read) {
     if (animatesActors && !sceneView.actorFrame) {
         sceneView.actorFrame = 0;
     }
+    if (!isNew) {
+        read.actors = std::move(scene->actors);
+    }
     scene = std::move(read);
 
     std::optional<glm::vec3> target;
@@ -85,6 +88,13 @@ std::optional<core::SceneSession> ScenePanel::makeSession() const {
 void ScenePanel::showScene() {
     if (scene) {
         viewportPanel.setContent(makeSceneContent(*scene, sceneView));
+    }
+}
+
+void ScenePanel::setActors(SceneActors actors) {
+    if (scene) {
+        scene->actors = std::move(actors);
+        showScene();
     }
 }
 

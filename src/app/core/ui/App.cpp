@@ -158,10 +158,12 @@ void App::registerPanels() {
         workspaceService, assetReader,
         [this](const hackeroot::AssetDirectory& asset) {
             objectLoader.close();
+            sceneActorLoader.close();
             sceneLoader.open(workspaceService.getSharedWorkspace(), asset);
         },
         [this](const hackeroot::AssetDirectory& asset) {
             sceneLoader.close();
+            sceneActorLoader.close();
             restoringScene.reset();
             objectLoader.open(workspaceService.getSharedWorkspace(), asset);
         }));
@@ -196,9 +198,13 @@ void App::drawFrame() {
     updateBuild();
     updateAssets();
     updateScene();
+    updateSceneActors();
     updateObject();
     if (viewportPanel != nullptr) {
         std::optional<std::string> reading = sceneLoader.findReadingName();
+        if (!reading) {
+            reading = sceneActorLoader.findReadingName();
+        }
         if (!reading) {
             reading = objectLoader.findReadingName();
         }
@@ -326,8 +332,25 @@ void App::updateScene() {
         }
         texturePanel->setTextures(loaded->name, std::move(groups));
     }
+    sceneActorLoader.open(workspaceService.getSharedWorkspace(),
+                          scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
+                                              .layers = loaded->layers});
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
+    }
+}
+
+void App::updateSceneActors() {
+    std::optional<scene::SceneActors> loaded = sceneActorLoader.update();
+    if (!loaded) {
+        return;
+    }
+    const auto drawn = std::ranges::count_if(
+        loaded->models, [](const auto& entry) { return entry.second.drawing.has_value(); });
+    logInfo("read the scene's actors in {} ms: {} of {} drawn as models, from {} objects",
+            loaded->elapsed.count(), drawn, loaded->models.size(), loaded->objects.size());
+    if (scenePanel != nullptr) {
+        scenePanel->setActors(std::move(*loaded));
     }
 }
 
