@@ -113,7 +113,7 @@ void ObjectPanel::showFrame() {
     if (!object) {
         return;
     }
-    viewportPanel.setContent(makeObjectContent(*object, selection, bounds).content);
+    viewportPanel.setNextFrame(makeObjectContent(*object, selection, bounds).content);
 }
 
 void ObjectPanel::selectAsset(const ObjectAsset& asset) {

@@ -202,6 +202,19 @@ TEST_CASE("closed panels round-trip beside open ones", "[core][settings]") {
     REQUIRE(loaded->closedPanels == std::vector<std::string>{"workspace"});
 }
 
+TEST_CASE("animating actors is off by default and round-trips", "[core][settings]") {
+    const TempDir dir("viewport");
+    REQUIRE_FALSE(Settings{}.viewport.animatesActors);
+    Settings written;
+    written.viewport.animatesActors = true;
+
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    const auto loaded = loadSettings(dir.getFile());
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->viewport.animatesActors);
+}
+
 TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
     const TempDir dir("session");
     Settings written;

@@ -144,6 +144,7 @@ void App::registerPanels() {
     viewportPanel = viewport.get();
     auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport);
     scenePanel = sceneView.get();
+    scenePanel->setAnimatesActors(settings.viewport.animatesActors);
     auto textures = std::make_unique<texture::TexturePanel>(*device);
     texturePanel = textures.get();
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
@@ -376,7 +377,11 @@ void App::applySettings(const Settings& applied) {
     const bool rebuildsCheckout = applied.build != settings.build;
     settings.build = applied.build;
     settings.log = applied.log;
+    settings.viewport = applied.viewport;
     log().setMaxEntries(settings.log.maxEntries);
+    if (scenePanel != nullptr) {
+        scenePanel->setAnimatesActors(settings.viewport.animatesActors);
+    }
     saveState();
     if (rebuildsCheckout && settings.hackerootPath) {
         logInfo("build settings changed, reading the checkout again");

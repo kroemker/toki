@@ -200,7 +200,8 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
             all.insert(all.end(), placed.transitionActors.begin(), placed.transitionActors.end());
             const ActorSetup actorSetup{.setupDisplayList = setup.setupDisplayList,
                                         .emptyDisplayList =
-                                            scene.images.front()->findAddress("gEmptyDL")};
+                                            scene.images.front()->findAddress("gEmptyDL"),
+                                        .frame = view.actorFrame};
             ActorDraws draws = makeActorDraws(scene.actors, all, content.images.size(), actorSetup);
             std::ranges::move(draws.images, std::back_inserter(content.images));
             std::ranges::move(draws.opaque, std::back_inserter(content.draws));

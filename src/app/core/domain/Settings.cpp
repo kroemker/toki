@@ -86,6 +86,13 @@ void readLog(const toml::table& root, const std::filesystem::path& path, Setting
     }
 }
 
+void readViewport(const toml::table& root, Settings& settings) {
+    if (const toml::table* viewport = root["viewport"].as_table()) {
+        settings.viewport.animatesActors =
+            (*viewport)["animate_actors"].value_or(settings.viewport.animatesActors);
+    }
+}
+
 void readWindow(const toml::table& root, Settings& settings) {
     const toml::table* window = root["window"].as_table();
     if (window == nullptr) {
@@ -251,6 +258,11 @@ void writeLog(toml::table& root, const Settings& settings) {
     log.insert_or_assign("max_entries", static_cast<s64>(settings.log.maxEntries));
 }
 
+void writeViewport(toml::table& root, const Settings& settings) {
+    toml::table& viewport = ensureSection(root, "viewport");
+    viewport.insert_or_assign("animate_actors", settings.viewport.animatesActors);
+}
+
 void writeWindow(toml::table& root, const Settings& settings) {
     if (!settings.window) {
         root.erase("window");
@@ -310,6 +322,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     }
 
     readLog(*root, path, settings);
+    readViewport(*root, settings);
     readWindow(*root, settings);
     readPanels(*root, settings);
     readBuild(*root, path, settings);
@@ -342,6 +355,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
         root.erase("hackeroot_path");
     }
     writeLog(root, settings);
+    writeViewport(root, settings);
     writeWindow(root, settings);
     writePanels(root, settings);
     writeBuild(root, settings);

@@ -6,6 +6,7 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/viewport/domain/ViewportFrame.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,9 @@ struct SceneView {
     std::vector<bool> hiddenRooms;
     bool showsActors = true;
     bool drawsModels = true;
+    /// The frame placed actors' animations are on while they play; nothing
+    /// while they stand on the first.
+    std::optional<usize> actorFrame;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of

@@ -187,13 +187,16 @@ so editing an actor's C or re-exporting its object reads the scene again.
 ### Animation
 
 Whether placed actors are animated is a setting, **Animate actors**, under Viewport in
-the Settings window, saved in `config.toml`. It is off by default, so each actor is
-posed once, on frame 0 of its animation, when the scene's content is made. When it is on,
-every animated actor loops its animation at the game's 20 frames a second. Each frame
-poses every skeleton again and rewrites its range of the limb-matrix segment. The rooms
-and the rest of the images stay as they are, so it is the same per-frame work the Object
-panel does for one skeleton, done once per actor. The viewport then redraws continuously
-instead of only when something changes.
+the Settings window, saved in `config.toml` as `viewport.animate_actors`. It is off by
+default, so each actor is posed once, on frame 0 of its animation, when the scene is read.
+When it is on, the Scene panel counts frames at the game's 20 a second into
+`SceneView::actorFrame`, and every actor whose skeleton and animation were read
+(`ActorAnimation`) is posed again on that frame, wrapped to its animation's length, as its
+image is written. The rooms and the objects stay the images they are; only the small
+per-actor images are made again, and the viewport takes them as the next frame of the same
+content (`ViewportPanel::setNextFrame`), so what it already reported is not reported on
+every frame. The viewport then redraws continuously instead of only when something
+changes. The Object panel's playback does the same.
 
 ### Which objects to read
 
@@ -290,7 +293,7 @@ Left for later, each with a known reason given:
 | 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test (done) | M–L |
 | 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes, segments 8 to 12 (done) | M |
 | 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox (done) | S |
-| 7 | The Animate actors setting: per-frame posing and continuous redraw while it is on | S |
+| 7 | The Animate actors setting: per-frame posing and continuous redraw while it is on (done) | S |
 
 S is about a session, M two or three, L more. Steps 1 to 3 are independent of each other.
 Step 4 needs step 3, and step 5 needs steps 1, 2 and 4. After step 4, the checkout test gives

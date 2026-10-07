@@ -1,7 +1,9 @@
 #pragma once
 
 #include "app/actor/domain/ActorModel.h"
+#include "app/object/domain/Animation.h"
 #include "app/object/domain/Pose.h"
+#include "app/object/domain/Skeleton.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
@@ -46,12 +48,19 @@ struct ActorDisplayList {
     std::vector<ActorSegment> segments;
 };
 
+/// A skeleton and the animation it plays, kept to pose it on any frame.
+struct ActorAnimation {
+    object::Skeleton skeleton;
+    object::Animation animation;
+};
+
 /// What an actor draws, made ready when the scene is read: a skeleton posed on
 /// the first frame of its animation, or at rest, with every limb's matrix from
 /// model space, or else its display lists.
 struct ActorDrawing {
     usize skeletonObject = 0;
     std::vector<object::PosedLimb> limbs;
+    std::optional<ActorAnimation> animation;
     std::vector<ActorDisplayList> displayLists;
     /// The segments a skeleton is drawn with.
     std::vector<ActorSegment> segments;
@@ -79,6 +88,9 @@ struct SceneActors {
 /// Reads the model of every actor `layers` place, the objects those models
 /// name, and poses every skeleton found. The scene keep object, when not zero,
 /// is read into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it.
+/// Whether any actor of `actors` plays an animation.
+[[nodiscard]] bool hasAnimatedActors(const SceneActors& actors);
+
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                                           const std::vector<SceneLayer>& layers);
 

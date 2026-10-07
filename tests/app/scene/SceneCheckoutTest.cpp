@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <variant>
@@ -108,6 +109,26 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         WARN(name << ": " << drawn << " of " << scene.actors.models.size()
                   << " actors drawn as models, from " << scene.actors.objects.size()
                   << " objects, read in " << scene.actors.elapsed.count() << " ms");
+        if (toki::scene::hasAnimatedActors(scene.actors)) {
+            toki::scene::SceneView playing = toki::scene::makeSceneView(scene);
+            playing.actorFrame = 7;
+            const toki::viewport::Frame played = toki::viewport::runFrame(
+                toki::scene::makeSceneContent(scene, playing), toki::viewport::OrbitCamera{},
+                {.width = 640, .height = 480});
+            CHECK(played.diagnostics.size() == frame.diagnostics.size());
+            CHECK(countTriangles(played.rspResult) > 100);
+            const toki::viewport::ViewportContent moved =
+                toki::scene::makeSceneContent(scene, playing);
+            REQUIRE(moved.images.size() == content.images.size());
+            const bool isAnyMoved = std::ranges::any_of(
+                std::views::iota(base::usize{0}, moved.images.size()), [&](const base::usize i) {
+                    return moved.images[i]->segments.front().bytes !=
+                           content.images[i]->segments.front().bytes;
+                });
+            if (name == "ydan") {
+                CHECK(isAnyMoved);
+            }
+        }
         if (name == "ydan") {
             // Its draw config points segment 8 at the entrance's day or night
             // texture, which the default draw config the viewport stands in

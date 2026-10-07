@@ -45,10 +45,14 @@ public:
         pendingSession = std::move(session);
     }
 
+    /// Whether placed actors play their animations.
+    void setAnimatesActors(bool animates);
+
     void draw() override;
 
 private:
     void showScene();
+    void advanceActors();
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
@@ -63,6 +67,8 @@ private:
     std::optional<Scene> scene;
     SceneView sceneView;
     std::optional<core::SceneSession> pendingSession;
+    bool animatesActors = false;
+    f32 frameTime = 0.0F;
 };
 
 } // namespace toki::scene

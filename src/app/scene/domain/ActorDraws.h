@@ -46,6 +46,9 @@ struct ActorDraws {
 struct ActorSetup {
     std::optional<u32> setupDisplayList;
     std::optional<u32> emptyDisplayList;
+    /// The frame animated actors are posed on, counted from when they started
+    /// playing; nothing to leave each on its first.
+    std::optional<usize> frame;
 };
 
 /// Draws every placed actor that has a drawing as `Actor_Draw` would: each

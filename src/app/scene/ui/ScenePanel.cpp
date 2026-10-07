@@ -50,6 +50,9 @@ void ScenePanel::setScene(Scene read) {
     } else {
         sceneView = isNew ? makeSceneView(read) : keepSceneView(read, std::move(sceneView));
     }
+    if (animatesActors && !sceneView.actorFrame) {
+        sceneView.actorFrame = 0;
+    }
     scene = std::move(read);
 
     std::optional<glm::vec3> target;
@@ -85,7 +88,33 @@ void ScenePanel::showScene() {
     }
 }
 
+void ScenePanel::setAnimatesActors(const bool animates) {
+    animatesActors = animates;
+    sceneView.actorFrame = animates ? std::optional<usize>(0) : std::nullopt;
+    frameTime = 0.0F;
+    showScene();
+}
+
+void ScenePanel::advanceActors() {
+    constexpr f32 SecondsPerFrame = 1.0F / 20.0F;
+    if (!animatesActors || !scene || !hasAnimatedActors(scene->actors)) {
+        return;
+    }
+    frameTime += ImGui::GetIO().DeltaTime;
+    if (frameTime < SecondsPerFrame) {
+        return;
+    }
+    usize frame = sceneView.actorFrame.value_or(0);
+    while (frameTime >= SecondsPerFrame) {
+        frameTime -= SecondsPerFrame;
+        ++frame;
+    }
+    sceneView.actorFrame = frame;
+    viewportPanel.setNextFrame(makeSceneContent(*scene, sceneView));
+}
+
 void ScenePanel::draw() {
+    advanceActors();
     if (!scene || scene->layers.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;

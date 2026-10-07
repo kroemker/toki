@@ -30,6 +30,13 @@ public:
     /// look at it.
     void setContent(ViewportContent content, std::optional<glm::vec3> target = std::nullopt);
 
+    /// Replaces what is drawn with the next frame of the same content, as an
+    /// animation plays: what the frame before reported is not reported again.
+    void setNextFrame(ViewportContent content) {
+        viewportContent = std::move(content);
+        stale = true;
+    }
+
     [[nodiscard]] core::CameraPose getCameraPose() const;
 
     void setCameraPose(const core::CameraPose& pose);

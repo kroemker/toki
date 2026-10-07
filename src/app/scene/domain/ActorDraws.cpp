@@ -1,5 +1,6 @@
 #include "ActorDraws.h"
 
+#include "app/object/domain/Animation.h"
 #include "app/object/domain/ObjectView.h"
 #include "app/object/domain/Pose.h"
 #include "app/scene/Types.h"
@@ -93,16 +94,26 @@ private:
 
 void ActorWriter::writeSkeleton(const ActorDrawing& drawing, const glm::mat4& actorMatrix,
                                 const ActorSetup& setup, ActorDraws& draws) {
+    std::vector<object::PosedLimb> posed;
+    if (setup.frame && drawing.animation && drawing.animation->animation.frameCount > 0) {
+        const ActorAnimation& animated = *drawing.animation;
+        posed = object::poseSkeleton(
+                    animated.skeleton,
+                    object::makeJointTable(animated.animation,
+                                           *setup.frame % animated.animation.frameCount))
+                    .drawn;
+    }
+    const std::vector<object::PosedLimb>& limbs = posed.empty() ? drawing.limbs : posed;
     std::vector<u32> matrices;
-    matrices.reserve(drawing.limbs.size());
-    for (const object::PosedLimb& limb : drawing.limbs) {
+    matrices.reserve(limbs.size());
+    for (const object::PosedLimb& limb : limbs) {
         matrices.push_back(writer.addMatrix(viewport::makeFixedMatrix(actorMatrix * limb.matrix)));
     }
     const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
     const u32 start = startList(setup.setupDisplayList);
-    for (usize i = 0; i < drawing.limbs.size(); ++i) {
+    for (usize i = 0; i < limbs.size(); ++i) {
         writer.loadMatrix(matrices[i], n64::MatrixLoad::ModelView);
-        writer.callDisplayList(drawing.limbs[i].displayList);
+        writer.callDisplayList(limbs[i].displayList);
     }
     endList(identity);
     draws.opaque.push_back(viewport::ViewportDraw{

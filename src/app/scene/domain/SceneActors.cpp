@@ -161,6 +161,7 @@ void ActorReader::prepareSkeleton(SceneActorModel& actor) {
         return;
     }
     object::JointTable joints = object::makeRestJointTable(skeleton);
+    std::optional<ActorAnimation> animated;
     if (model.animation) {
         const std::optional<usize> animationObject =
             findObject(model.animation->object, actor.diagnostics);
@@ -180,11 +181,13 @@ void ActorReader::prepareSkeleton(SceneActorModel& actor) {
                                 model.skeleton.name, skeleton.limbs.size())));
             } else {
                 joints = object::makeJointTable(*animation, 0);
+                animated = ActorAnimation{.skeleton = skeleton, .animation = *animation};
             }
         }
     }
     actor.drawing = ActorDrawing{.skeletonObject = *object,
-                                 .limbs = object::poseSkeleton(skeleton, joints).drawn};
+                                 .limbs = object::poseSkeleton(skeleton, joints).drawn,
+                                 .animation = std::move(animated)};
 }
 
 void ActorReader::prepareDisplayLists(SceneActorModel& actor) {
@@ -250,6 +253,12 @@ SceneActors ActorReader::read() && {
 }
 
 } // namespace
+
+bool hasAnimatedActors(const SceneActors& actors) {
+    return std::ranges::any_of(actors.models, [](const auto& entry) {
+        return entry.second.drawing && entry.second.drawing->animation;
+    });
+}
 
 SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                             const std::vector<SceneLayer>& layers) {
