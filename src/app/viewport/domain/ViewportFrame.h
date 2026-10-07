@@ -37,10 +37,23 @@ struct ViewportLighting {
     f32 zFar = 12800.0F;
 };
 
+/// A segment pointed at an address in one of the content's images, as an
+/// actor points segment 8 at its eye texture.
+struct SegmentPointer {
+    u8 segment = 0;
+    usize image = 0;
+    u32 address = 0;
+};
+
 /// One display list to run, from one of the content's images.
 struct ViewportDraw {
     usize image = 0;
     u32 displayList = 0;
+    /// Further images whose segments are pointed at before the draw's own, as
+    /// an actor's object is in segment 6 while the actor is drawn.
+    std::vector<usize> alsoImages;
+    /// Segments pointed at addresses after the images' segments are.
+    std::vector<SegmentPointer> pointedSegments;
 };
 
 /// What a viewport draws: memory images, such as a scene and each of its

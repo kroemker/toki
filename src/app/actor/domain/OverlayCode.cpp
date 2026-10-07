@@ -5,6 +5,7 @@
 #include "base/Diagnostic.h"
 #include "cparser/Calls.h"
 #include "cparser/Expression.h"
+#include "cparser/Initializer.h"
 #include "cparser/Parser.h"
 #include "cparser/Preprocessor.h"
 #include "cparser/Token.h"
@@ -51,14 +52,13 @@ namespace {
     });
 }
 
-[[nodiscard]] bool isWholeCall(const std::span<const cparser::Token> tokens,
-                               const std::string_view callee) {
+} // namespace
+
+bool isWholeCall(const std::span<const cparser::Token> tokens, const std::string_view callee) {
     return tokens.size() > 3 && cparser::isIdentifier(tokens[0], callee) &&
            cparser::isPunctuator(tokens[1], "(") &&
            findClose(tokens.subspan(1)) + 2 == tokens.size();
 }
-
-} // namespace
 
 OverlayCode::OverlayCode(const cparser::TranslationUnit& unit, std::filesystem::path main)
     : unit(unit), main(std::move(main)),
@@ -146,6 +146,41 @@ bool OverlayCode::isOverlayData(const std::string_view name) const {
         return declaration.name == name &&
                declaration.location.file.parent_path().filename() == main.parent_path().filename();
     });
+}
+
+std::vector<std::span<const cparser::Token>>
+OverlayCode::findArrayElements(const std::string_view name,
+                               const cparser::FunctionDefinition& within) const {
+    if (const cparser::Declaration* definition = findDefinition(name)) {
+        return cparser::splitElements(definition->initializer);
+    }
+    const std::span<const cparser::Token> body = within.body;
+    for (usize at = 0; at + 1 < body.size(); ++at) {
+        if (!cparser::isIdentifier(body[at], name) || !cparser::isPunctuator(body[at + 1], "[")) {
+            continue;
+        }
+        usize open = at + 1;
+        while (open < body.size() && !cparser::isPunctuator(body[open], "=") &&
+               !cparser::isPunctuator(body[open], ";")) {
+            ++open;
+        }
+        if (open + 1 >= body.size() || !cparser::isPunctuator(body[open], "=") ||
+            !cparser::isPunctuator(body[open + 1], "{")) {
+            continue;
+        }
+        const usize begin = open + 2;
+        usize close = begin;
+        int nesting = 1;
+        for (; close < body.size(); ++close) {
+            if (cparser::isPunctuator(body[close], "{")) {
+                ++nesting;
+            } else if (cparser::isPunctuator(body[close], "}") && --nesting == 0) {
+                break;
+            }
+        }
+        return cparser::splitElements(body.subspan(begin, close - begin));
+    }
+    return {};
 }
 
 std::optional<f64> OverlayCode::evaluateNumber(const std::span<const cparser::Token> tokens) const {

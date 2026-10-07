@@ -136,22 +136,46 @@ and `gameplay_keep` without running code. A symbol found in neither is unresolve
 
 ### Drawing
 
-Drawing follows `Actor_Draw`:
+`toki::scene::readSceneActors` runs on the scene loader's worker, after the scene: it reads
+the model of every actor ID placed in any layer, rooms and transition actors both, the
+objects those models name, and poses each skeleton once, on frame 0 of its animation
+(`SceneActors`). Objects are shared images over the game code and `gameplay_keep`, so a
+reload reads only what changed. `gameplay_keep` is in segment 4, the scene's keep object in
+segment 5, every other object in 6.
 
-- the room's objects are read once per scene, with the images shared as a scene's are, and
-  segment 6 is pointed at the actor's object before it is drawn;
+`makeSceneContent` then draws each placed actor as `Actor_Draw` does (`makeActorDraws`):
+
+- one small image per actor, in segment 13: a skeleton's limb matrices first, in the order
+  the limbs draw, as `SkelAnime_DrawFlexOpa` lays them out, then the list that loads each
+  one and calls its limb; or the actor's matrix and one list per display list;
 - the model matrix is `Matrix_SetTranslateRotateYXZ` on the actor's position, with the Y
-  offset times scale added, and its rotation, followed by `Matrix_Scale`;
-- a skeleton is posed with the existing `poseSkeleton`. Each actor's limb matrices get
-  their own range of one generated segment, and `gSPSegment(0x0D, ...)` points at that
-  range before the actor's limbs are drawn;
-- segments 8 to 12 stay at the default draw config's empty display list, as the Object
-  panel leaves them now. Eyes are missing until per-instance segments are done;
-- the light is the scene's current light setting;
-- actors are drawn in the scene's own opaque and translucent passes, after the rooms.
+  offset times scale added, and its rotation, followed by `Matrix_Scale`. It is multiplied
+  into each limb's matrix on the CPU;
+- each list starts with `sSetupDL[SETUPDL_25]` and ends by loading the identity, since the
+  rooms drawn after it assume the modelview is the identity;
+- before the draw, the actor's object is pointed at by its segment (`ViewportDraw::
+  alsoImages`), and segments 8 to 12 at what `Draw` points them at, or else at `gEmptyDL`
+  (`ViewportDraw::pointedSegments`, resolved to physical addresses when the frame runs);
+- opaque draws follow the rooms' opaque pass, translucent ones the rooms' translucent pass;
+- the light is the scene's current light setting.
 
-An actor that does not resolve keeps its diamond. A checkbox in the Scene panel switches
-between models and markers.
+**Segments 8 to 12.** `Draw` points them at eye and mouth textures and other per-instance
+data. A `gSPSegment(POLY_OPA_DISP++ | POLY_XLU_DISP++, 0x08..0x0C, x)` is read where `x`
+is a symbol, or a table the call indexes (`sEyeTextures[this->eyeIndex]`), at file scope or
+static in the function: then its first entry, which for eyes is the open one by the
+decomp's convention, a default state as frame 0 is. The opaque and the translucent pass
+each have their own setting, as the game's two display buffers do. A display list takes
+what the calls before it in its function set, since an effects actor such as
+`Object_Kankyo` points segment 8 at a different texture before each of its lists; a
+skeleton takes the first setting of each segment.
+
+A symbol is also checked against its role by its declared type: a display list must be a
+`Gfx`, a skeleton a `SkeletonHeader` or `FlexSkeletonHeader`, an animation an
+`AnimationHeader`.
+
+An actor without a drawing keeps its diamond. `SceneView::drawsModels` switches between
+models and markers. The overlays and objects read are watched with the scene's own files,
+so editing an actor's C or re-exporting its object reads the scene again.
 
 ### Animation
 
@@ -175,18 +199,25 @@ actors use it.
 
 ## Cost
 
-This has not been measured. Two reads are new:
+Two reads are new:
 
-- **Overlays.** Only the overlays placed in the open scene are read, which is usually a
-  few dozen, with one preprocessed unit each. A model is cached per overlay and keyed on
-  its files' modification times, so changing the layer or reopening the scene costs
-  nothing.
-- **Objects.** Every object read used to read `gameplay_keep` and the game code again.
-  They are shared images now ([objects.md](objects.md#files-to-images)): twenty objects
-  read in 1.2 s, 35 ms each after the first.
+- **Overlays.** Only the overlays placed in the open scene are read, a few dozen, with one
+  preprocessed unit each. They are read again on every read of the scene; at a few
+  milliseconds each, a cache per overlay has not been needed yet.
+- **Objects.** Shared images ([objects.md](objects.md#files-to-images)): `gameplay_keep`
+  once, then each object once, until its files change.
 
-The target is that opening a vanilla scene with models on takes no more than twice what it
-takes now. That gets measured before models are switched on by default.
+Measured from a copy of the checkout on the Windows filesystem, release build:
+
+| Scene | Actors drawn | Objects | Actors read in | Whole scene, first read | Read again |
+|---|---|---|---|---|---|
+| `spot04` (Kokiri Forest) | 20 of 33 | 20 | 1.3 s | 1.8 s | 0.38 s |
+| `ydan` (Deku Tree) | 14 of 22 | 10 | 0.7 s | 1.4 s | 0.51 s |
+
+The target was that a first read with models costs no more than twice one without. It does
+not meet it: Kokiri Forest's first read is about three and a half times what it was, most of
+it `gameplay_keep` and the twenty objects. Reading again, as after a fast64 export, is
+within it, since the objects are kept.
 
 ## Testing
 
@@ -236,7 +267,8 @@ Left for later, each with a known reason given:
 - skeletons and display lists picked through tables indexed by params (`sDLists[params]`).
   This is the clearest next step: the placed actor's params are known, and the table is
   file-scope data;
-- per-instance segments (eyes, mouths, tunic colours);
+- per-instance segments set to anything but a symbol or a table of them: colours built in
+  code, scrolling textures, matrices;
 - skin limbs;
 - Link, who is part of the game code and not an overlay;
 - geometry built in code.
@@ -249,7 +281,7 @@ Left for later, each with a known reason given:
 | 2 | Read the room object list in the scene header (done) | S |
 | 3 | `cparser`: function definitions in `ParseResult`, `findCalls`, with tests (done) | M |
 | 4 | `app/actor/domain`: the rules, symbol-to-object lookup, `ActorModel`, unit tests, checkout coverage test (done) | M–L |
-| 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes | M |
+| 5 | Scene drawing: per-actor segment 6 and limb-matrix ranges, the model matrix, opaque and translucent passes, segments 8 to 12 (done) | M |
 | 6 | Scene panel: model or marker per actor, where each answer came from, why it did not resolve; the checkbox | S |
 | 7 | The Animate actors setting: per-frame posing and continuous redraw while it is on | S |
 

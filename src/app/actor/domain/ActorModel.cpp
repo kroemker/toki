@@ -24,6 +24,8 @@ const char* getGapName(const GapKind kind) {
         return "overlay's own data";
     case GapKind::ScaleNotLiteral:
         return "scale not a constant";
+    case GapKind::SegmentNotLiteral:
+        return "segment not a symbol";
     case GapKind::NothingDrawn:
         return "nothing drawn";
     }

@@ -8,9 +8,11 @@
 namespace toki::scene {
 
 SceneLoader::SceneLoader()
-    : WatchedAssetReader(readScene, [](const hackeroot::Workspace& /*workspace*/,
-                                       const hackeroot::AssetDirectory& asset) {
-          return hackeroot::findSceneFiles(asset).getAllFiles();
-      }) {}
+    : WatchedAssetReader(
+          readScene,
+          [](const hackeroot::Workspace& /*workspace*/, const hackeroot::AssetDirectory& asset) {
+              return hackeroot::findSceneFiles(asset).getAllFiles();
+          },
+          [](const Scene& scene) { return scene.actors.watched; }) {}
 
 } // namespace toki::scene

@@ -22,21 +22,6 @@
 
 namespace toki::object {
 
-namespace {
-
-[[nodiscard]] std::optional<hackeroot::AssetDirectory>
-findKeep(const hackeroot::Workspace& workspace) {
-    const std::vector<hackeroot::AssetDirectory>& objects = workspace.getAssets().objects;
-    const auto keep = std::ranges::find(objects, std::string(hackeroot::KeepObjectName),
-                                        &hackeroot::AssetDirectory::name);
-    if (keep == objects.end()) {
-        return std::nullopt;
-    }
-    return *keep;
-}
-
-} // namespace
-
 Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirectory& asset) {
     const auto started = std::chrono::steady_clock::now();
     Object object{.name = asset.name, .directory = asset.directory};
@@ -50,18 +35,14 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
         return object;
     }
 
-    const hackeroot::SegmentFiles code =
-        hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot());
-    std::vector<hackeroot::SharedImageFiles> shared{{.files = {code}, .watched = code.files}};
+    std::vector<hackeroot::SharedImageFiles> shared{
+        hackeroot::makeSharedGameCode(reader.getWorkspace().getRoot())};
     const std::optional<hackeroot::AssetDirectory> keep =
-        isKeep ? std::nullopt : findKeep(reader.getWorkspace());
+        isKeep ? std::nullopt
+               : hackeroot::findObjectDirectory(reader.getWorkspace().getAssets(),
+                                                hackeroot::KeepObjectName);
     if (keep) {
-        hackeroot::ObjectFiles keepFiles = hackeroot::findObjectFiles(*keep);
-        std::vector<std::filesystem::path> watched = keepFiles.getAllFiles();
-        watched.push_back(keep->directory);
-        shared.push_back(
-            {.files = {{.segment = hackeroot::KeepSegment, .files = std::move(keepFiles.files)}},
-             .watched = std::move(watched)});
+        shared.push_back(hackeroot::makeSharedObject(*keep, hackeroot::KeepSegment));
     }
     const std::array<std::vector<hackeroot::SegmentFiles>, 1> imageFiles{
         {{{.segment = object.segment, .files = files.files}}}};
@@ -85,7 +66,8 @@ std::vector<std::filesystem::path> listObjectWatched(const hackeroot::Workspace&
     if (asset.name == hackeroot::KeepObjectName) {
         return watched;
     }
-    if (const std::optional<hackeroot::AssetDirectory> keep = findKeep(workspace)) {
+    if (const std::optional<hackeroot::AssetDirectory> keep =
+            hackeroot::findObjectDirectory(workspace.getAssets(), hackeroot::KeepObjectName)) {
         std::ranges::move(hackeroot::findObjectFiles(*keep).getAllFiles(),
                           std::back_inserter(watched));
         watched.push_back(keep->directory);

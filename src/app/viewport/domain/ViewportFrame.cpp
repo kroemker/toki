@@ -117,11 +117,20 @@ FrameList writeFrameList(const ViewportContent& content,
     for (usize image = content.images.size(); image-- > 0;) {
         setSegments(writer, *content.images[image], mapped[image]);
     }
-    usize current = 0;
+    std::optional<usize> current = 0;
     for (const ViewportDraw& draw : content.draws) {
+        for (const usize image : draw.alsoImages) {
+            setSegments(writer, *content.images[image], mapped[image]);
+            current.reset();
+        }
         if (draw.image != current) {
             setSegments(writer, *content.images[draw.image], mapped[draw.image]);
             current = draw.image;
+        }
+        for (const SegmentPointer& pointer : draw.pointedSegments) {
+            const n64::SegmentAddress address = n64::unpack(pointer.address);
+            writer.setSegment(pointer.segment,
+                              mapped[pointer.image].segments[address.segment] + address.offset);
         }
         writer.callDisplayList(draw.displayList);
     }
@@ -138,9 +147,17 @@ FrameList writeFrameList(const ViewportContent& content,
         }
     }
     for (const ViewportDraw& draw : content.draws) {
-        if (draw.image >= content.images.size()) {
-            return base::makeError(
-                {}, std::format("a draw names image {}, of {}", draw.image, content.images.size()));
+        const auto isImage = [&content](const usize image) {
+            return image < content.images.size();
+        };
+        const bool isKnown =
+            isImage(draw.image) && std::ranges::all_of(draw.alsoImages, isImage) &&
+            std::ranges::all_of(draw.pointedSegments, [&](const SegmentPointer& pointer) {
+                return isImage(pointer.image);
+            });
+        if (!isKnown) {
+            return base::makeError({}, std::format("a draw names an image past the content's {}",
+                                                   content.images.size()));
         }
     }
     return std::nullopt;

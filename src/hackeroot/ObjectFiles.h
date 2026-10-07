@@ -1,10 +1,13 @@
 #pragma once
 
 #include "base/Diagnostic.h"
+#include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/Types.h"
 
 #include <filesystem>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 namespace hackeroot {
@@ -31,5 +34,12 @@ struct ObjectFiles {
 };
 
 [[nodiscard]] ObjectFiles findObjectFiles(const AssetDirectory& asset);
+
+/// The folder of the object called `name`, if the checkout has one.
+[[nodiscard]] std::optional<AssetDirectory> findObjectDirectory(const Assets& assets,
+                                                                std::string_view name);
+
+/// An object as a shared image in `segment`, watching its files and its folder.
+[[nodiscard]] SharedImageFiles makeSharedObject(const AssetDirectory& asset, u8 segment);
 
 } // namespace hackeroot

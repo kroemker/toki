@@ -101,7 +101,9 @@ public:
             return std::move(model);
         }
         readSkeleton();
-        if (!model.skeleton) {
+        if (model.skeleton) {
+            readSegments();
+        } else {
             readDisplayLists();
         }
         readScale();
@@ -136,7 +138,12 @@ private:
     void readDisplayLists();
 
     void readDisplayList(const cparser::Call& call, std::span<const cparser::Token> argument,
-                         Pass pass);
+                         Pass pass, const std::vector<SegmentSetting>& segments);
+
+    void readSegments();
+
+    [[nodiscard]] std::optional<SegmentSetting>
+    readSegment(const cparser::Call& call, const cparser::FunctionDefinition& function);
 
     void readScale();
 
@@ -261,6 +268,12 @@ bool RuleReader::readSkeletonIn(const cparser::FunctionDefinition& function) {
         if (!skeleton) {
             continue;
         }
+        if (!skeleton->type.ends_with("SkeletonHeader")) {
+            addGap(GapKind::SkeletonNotLiteral, skeleton->location,
+                   std::format("the skeleton '{}' is declared a {}, not a skeleton header",
+                               skeleton->name, skeleton->type));
+            continue;
+        }
         const bool isFlexible =
             skeleton->type == "FlexSkeletonHeader" ||
             (skeleton->type != "SkeletonHeader" && call.callee == "SkelAnime_InitFlex");
@@ -276,8 +289,15 @@ bool RuleReader::readSkeletonIn(const cparser::FunctionDefinition& function) {
 void RuleReader::readAnimation(const cparser::Call& skeletonInit,
                                const cparser::FunctionDefinition& setUpIn) {
     if (const cparser::Token* name = findLiteralSymbol(skeletonInit.arguments[AnimationArgument])) {
-        model.skeleton->animation =
+        std::optional<ObjectSymbol> animation =
             findSymbol(*name, "the animation", GapKind::AnimationNotLiteral);
+        if (animation && animation->type != "AnimationHeader") {
+            addGap(GapKind::AnimationNotLiteral, animation->location,
+                   std::format("the animation '{}' is declared a {}, not an AnimationHeader",
+                               animation->name, animation->type));
+            animation.reset();
+        }
+        model.skeleton->animation = std::move(animation);
         return;
     }
     Functions searched = init;
@@ -293,29 +313,47 @@ void RuleReader::readAnimation(const cparser::Call& skeletonInit,
 }
 
 void RuleReader::readDisplayLists() {
-    constexpr std::array Draws = {std::string_view("Gfx_DrawDListOpa"),
-                                  std::string_view("Gfx_DrawDListXlu"),
-                                  std::string_view("gSPDisplayList")};
-    for (const cparser::Call& call : findCallsIn(draw, Draws)) {
-        if (call.arguments.size() != 2) {
-            continue;
-        }
-        if (call.callee == "gSPDisplayList") {
+    constexpr std::array Calls = {
+        std::string_view("Gfx_DrawDListOpa"), std::string_view("Gfx_DrawDListXlu"),
+        std::string_view("gSPDisplayList"), std::string_view("gSPSegment")};
+    for (const cparser::FunctionDefinition* function : draw) {
+        std::vector<SegmentSetting> segments;
+        const std::vector<cparser::Call> calls =
+            cparser::findCalls(function->body, [&Calls](const std::string_view callee) {
+                return std::ranges::contains(Calls, callee);
+            });
+        for (const cparser::Call& call : calls) {
+            if (call.callee == "gSPSegment") {
+                if (std::optional<SegmentSetting> setting = readSegment(call, *function)) {
+                    std::erase_if(segments, [&](const SegmentSetting& set) {
+                        return set.segment == setting->segment && set.pass == setting->pass;
+                    });
+                    segments.push_back(std::move(*setting));
+                }
+                continue;
+            }
+            if (call.arguments.size() != 2) {
+                continue;
+            }
+            if (call.callee != "gSPDisplayList") {
+                readDisplayList(
+                    call, call.arguments[1],
+                    call.callee == "Gfx_DrawDListXlu" ? Pass::Translucent : Pass::Opaque, segments);
+                continue;
+            }
             const std::string target = spell(call.arguments[0]);
             if (target.contains("POLY_OPA_DISP")) {
-                readDisplayList(call, call.arguments[1], Pass::Opaque);
+                readDisplayList(call, call.arguments[1], Pass::Opaque, segments);
             } else if (target.contains("POLY_XLU_DISP")) {
-                readDisplayList(call, call.arguments[1], Pass::Translucent);
+                readDisplayList(call, call.arguments[1], Pass::Translucent, segments);
             }
-            continue;
         }
-        readDisplayList(call, call.arguments[1],
-                        call.callee == "Gfx_DrawDListXlu" ? Pass::Translucent : Pass::Opaque);
     }
 }
 
 void RuleReader::readDisplayList(const cparser::Call& call,
-                                 const std::span<const cparser::Token> argument, const Pass pass) {
+                                 const std::span<const cparser::Token> argument, const Pass pass,
+                                 const std::vector<SegmentSetting>& segments) {
     const cparser::Token* name = findLiteralSymbol(argument);
     if (name == nullptr) {
         addGap(GapKind::DisplayListNotLiteral, call.location,
@@ -329,11 +367,79 @@ void RuleReader::readDisplayList(const cparser::Call& call,
     if (isDrawn) {
         return;
     }
-    if (std::optional<ObjectSymbol> symbol =
-            findSymbol(*name, "the display list", GapKind::DisplayListNotLiteral)) {
-        model.displayLists.push_back(
-            DisplayListDraw{.displayList = std::move(*symbol), .pass = pass});
+    std::optional<ObjectSymbol> symbol =
+        findSymbol(*name, "the display list", GapKind::DisplayListNotLiteral);
+    if (!symbol) {
+        return;
     }
+    if (symbol->type != "Gfx") {
+        addGap(GapKind::DisplayListNotLiteral, symbol->location,
+               std::format("the display list '{}' is declared a {}, not a Gfx", symbol->name,
+                           symbol->type));
+        return;
+    }
+    DisplayListDraw drawn{.displayList = std::move(*symbol), .pass = pass};
+    std::ranges::copy_if(segments, std::back_inserter(drawn.segments),
+                         [pass](const SegmentSetting& setting) { return setting.pass == pass; });
+    model.displayLists.push_back(std::move(drawn));
+}
+
+void RuleReader::readSegments() {
+    for (const cparser::FunctionDefinition* function : draw) {
+        const std::vector<cparser::Call> calls = cparser::findCalls(
+            function->body, [](const std::string_view callee) { return callee == "gSPSegment"; });
+        for (const cparser::Call& call : calls) {
+            std::optional<SegmentSetting> setting = readSegment(call, *function);
+            const bool isSet =
+                setting && std::ranges::any_of(model.segments, [&](const SegmentSetting& set) {
+                    return set.segment == setting->segment && set.pass == setting->pass;
+                });
+            if (setting && !isSet) {
+                model.segments.push_back(std::move(*setting));
+            }
+        }
+    }
+}
+
+std::optional<SegmentSetting> RuleReader::readSegment(const cparser::Call& call,
+                                                      const cparser::FunctionDefinition& function) {
+    constexpr f64 FirstSegment = 0x08;
+    constexpr f64 LastSegment = 0x0C;
+    if (call.arguments.size() != 3) {
+        return std::nullopt;
+    }
+    const std::string target = spell(call.arguments[0]);
+    const std::optional<f64> number = code.evaluateNumber(call.arguments[1]);
+    const bool isOpaque = target.contains("POLY_OPA_DISP");
+    if ((!isOpaque && !target.contains("POLY_XLU_DISP")) || !number || *number < FirstSegment ||
+        *number > LastSegment) {
+        return std::nullopt;
+    }
+    const u8 segment = static_cast<u8>(*number);
+    std::span<const cparser::Token> value = call.arguments[2];
+    if (isWholeCall(value, "SEGMENTED_TO_VIRTUAL")) {
+        value = value.subspan(2, value.size() - 3);
+    }
+    const cparser::Token* name = findLiteralSymbol(value);
+    if (name == nullptr && value.size() > 3 &&
+        value.front().kind == cparser::TokenKind::Identifier &&
+        cparser::isPunctuator(value[1], "[") && cparser::isPunctuator(value.back(), "]")) {
+        const std::vector<std::span<const cparser::Token>> elements =
+            code.findArrayElements(value.front().text, function);
+        name = elements.empty() ? nullptr : findLiteralSymbol(elements.front());
+    }
+    std::optional<ObjectSymbol> symbol =
+        name == nullptr ? std::nullopt : code.findObjectSymbol(*name);
+    if (!symbol) {
+        addGap(GapKind::SegmentNotLiteral, call.location,
+               std::format("segment {} is pointed at '{}', which is not a symbol of an object, so "
+                           "it is left empty",
+                           segment, spell(call.arguments[2])));
+        return std::nullopt;
+    }
+    return SegmentSetting{.segment = segment,
+                          .pass = isOpaque ? Pass::Opaque : Pass::Translucent,
+                          .symbol = std::move(*symbol)};
 }
 
 void RuleReader::readScale() {

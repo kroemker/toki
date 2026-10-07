@@ -6,6 +6,8 @@
 
 #include <filesystem>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace hackeroot {
 
@@ -19,6 +21,12 @@ SegmentFiles findGameCodeFiles(const std::filesystem::path& repository) {
     return SegmentFiles{.segment = 0,
                         .files = {repository / "src" / "code" / "z_rcp.c",
                                   repository / "src" / "code" / "z_scene_table.c"}};
+}
+
+SharedImageFiles makeSharedGameCode(const std::filesystem::path& repository) {
+    SegmentFiles code = findGameCodeFiles(repository);
+    std::vector<std::filesystem::path> watched = code.files;
+    return SharedImageFiles{.files = {std::move(code)}, .watched = std::move(watched)};
 }
 
 GameSetup findGameSetup(const z64::MemoryImage& code) {

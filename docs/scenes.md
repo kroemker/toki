@@ -95,10 +95,11 @@ what the viewport draws, without reading anything again: the images are shared, 
 between the scene and every content made from it, so changing the layer or the light only
 makes a new list of draws.
 
-Placed actors, player entries and transition actors are marked by a small diamond each,
-coloured by kind, from a display list built by hand into segment 15 (`makeActorMarkers`),
-drawn between the opaque and the translucent pass. Drawing an actor's own object instead is
-the actor render database, still to come.
+Placed actors and transition actors whose overlay says how they are drawn are drawn as
+their models, after the rooms of each pass ([actor-rendering.md](actor-rendering.md)).
+The rest, and player entries, are marked by a small diamond each, coloured by kind, from a
+display list built by hand into segment 15 (`makeActorMarkers`), drawn between the opaque
+and the translucent pass.
 
 The Scene panel is the view's controls: the layer and light pickers, a checkbox for each
 room, and each room's actors by name from the checkout's actor table. Choosing an actor

@@ -2,6 +2,7 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/ActorDraws.h"
 #include "app/scene/domain/ActorMarkers.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -16,6 +17,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,23 +33,53 @@ constexpr usize Midday = 1;
     return room >= view.hiddenRooms.size() || !view.hiddenRooms[room];
 }
 
-[[nodiscard]] std::vector<Marker> collectMarkers(const SceneLayer& layer, const SceneView& view) {
-    std::vector<Marker> markers;
+struct Placed {
+    std::vector<PlacedActor> actors;
+    std::vector<PlacedActor> transitionActors;
+};
+
+[[nodiscard]] Placed collectPlaced(const SceneLayer& layer, const SceneView& view) {
+    Placed placed;
     for (usize room = 0; room < layer.rooms.size(); ++room) {
         if (!isShown(view, room)) {
             continue;
         }
         for (const ActorPlacement& actor : layer.rooms[room].actors) {
-            markers.push_back(Marker{.position = actor.position, .kind = MarkerKind::Actor});
+            placed.actors.push_back(PlacedActor{
+                .id = actor.id, .position = actor.position, .rotation = actor.rotation});
         }
+    }
+    for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
+        placed.transitionActors.push_back(PlacedActor{
+            .id = actor.id, .position = actor.position, .rotation = {0, actor.rotationY, 0}});
+    }
+    return placed;
+}
+
+[[nodiscard]] std::vector<Marker> makeMarkers(const SceneLayer& layer,
+                                              const std::span<const PlacedActor> actors,
+                                              const std::span<const PlacedActor> transitionActors) {
+    std::vector<Marker> markers;
+    for (const PlacedActor& actor : actors) {
+        markers.push_back(Marker{.position = actor.position, .kind = MarkerKind::Actor});
     }
     for (const ActorPlacement& entry : layer.header.playerEntries) {
         markers.push_back(Marker{.position = entry.position, .kind = MarkerKind::PlayerEntry});
     }
-    for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
+    for (const PlacedActor& actor : transitionActors) {
         markers.push_back(Marker{.position = actor.position, .kind = MarkerKind::TransitionActor});
     }
     return markers;
+}
+
+void addMarkers(viewport::ViewportContent& content, const std::span<const Marker> markers) {
+    if (markers.empty()) {
+        return;
+    }
+    ActorMarkers made = makeActorMarkers(markers);
+    content.draws.push_back(
+        viewport::ViewportDraw{.image = content.images.size(), .displayList = made.displayList});
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(made.image)));
 }
 
 struct PassSource {
@@ -158,17 +190,30 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         .layer = layer, .view = view, .setup = setup, .imageCount = scene.images.size()};
 
     content.draws = makePass(source, true);
+    std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
-        const std::vector<Marker> markers = collectMarkers(layer, view);
-        if (!markers.empty()) {
-            ActorMarkers made = makeActorMarkers(markers);
-            content.draws.push_back(viewport::ViewportDraw{.image = content.images.size(),
-                                                           .displayList = made.displayList});
-            content.images.push_back(
-                std::make_shared<const z64::MemoryImage>(std::move(made.image)));
+        Placed placed = collectPlaced(layer, view);
+        if (view.drawsModels) {
+            std::vector<PlacedActor> all = placed.actors;
+            all.insert(all.end(), placed.transitionActors.begin(), placed.transitionActors.end());
+            const ActorSetup actorSetup{.setupDisplayList = setup.setupDisplayList,
+                                        .emptyDisplayList =
+                                            scene.images.front()->findAddress("gEmptyDL")};
+            ActorDraws draws = makeActorDraws(scene.actors, all, content.images.size(), actorSetup);
+            std::ranges::move(draws.images, std::back_inserter(content.images));
+            std::ranges::move(draws.opaque, std::back_inserter(content.draws));
+            translucentActors = std::move(draws.translucent);
+            Placed undrawn;
+            for (const usize index : draws.undrawn) {
+                (index < placed.actors.size() ? undrawn.actors : undrawn.transitionActors)
+                    .push_back(all[index]);
+            }
+            placed = std::move(undrawn);
         }
+        addMarkers(content, makeMarkers(layer, placed.actors, placed.transitionActors));
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
+    std::ranges::move(translucentActors, std::back_inserter(content.draws));
 
     if (view.lightSetting < layer.header.lightSettings.size()) {
         content.lighting = makeLighting(layer.header.lightSettings[view.lightSetting]);

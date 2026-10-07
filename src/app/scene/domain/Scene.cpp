@@ -109,15 +109,13 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         return scene;
     }
 
-    const hackeroot::SegmentFiles code =
-        hackeroot::findGameCodeFiles(reader.getWorkspace().getRoot());
     const std::array<hackeroot::SharedImageFiles, 1> shared{
-        {{.files = {code}, .watched = code.files}}};
+        hackeroot::makeSharedGameCode(reader.getWorkspace().getRoot())};
     hackeroot::ImageSet images = reader.read(shared, files.makeImageFiles());
     for (const char* symbol : {"sSetupDL", "sDefaultDisplayList"}) {
         if (!images.shared.front()->findSymbol(symbol)) {
             scene.diagnostics.push_back(base::makeWarning(
-                {.file = code.files.front().parent_path()},
+                {.file = shared.front().watched.front().parent_path()},
                 std::format("'{}' could not be read from the game's code, so the rooms are drawn "
                             "without it",
                             symbol)));
@@ -140,6 +138,7 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         }
     }
     std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
+    scene.actors = readSceneActors(reader, scene.layers);
 
     if (scene.layers.front().header.roomCount != files.rooms.size()) {
         scene.diagnostics.push_back(base::makeWarning(

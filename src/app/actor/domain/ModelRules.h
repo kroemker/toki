@@ -30,7 +30,9 @@ using FindObjectFolder = std::function<std::optional<std::string>(std::string_vi
 ///   `POLY_OPA_DISP` or `POLY_XLU_DISP`, branches and all;
 /// - the scale of the last `Actor_SetScale` with a constant, or else of the
 ///   `ICHAIN_VEC3F_DIV1000(scale, ...)` in the init chain `Init` processes;
-/// - the height offset `ActorShape_Init` is given.
+/// - the height offset `ActorShape_Init` is given;
+/// - what `Draw` points segments 8 to 12 at with `gSPSegment`: a symbol, or
+///   the first entry of a table it indexes, which for eyes is the open one.
 ///
 /// Only literals count: what a symbol is depends on nothing but its name. What
 /// is not a literal is a gap saying where and why.

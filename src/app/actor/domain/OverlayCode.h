@@ -49,6 +49,11 @@ public:
     /// than takes from an object.
     [[nodiscard]] bool isOverlayData(std::string_view name) const;
 
+    /// The elements of the array `name`, defined at file scope or as a static
+    /// in `within`, as `Draw` keeps its eye textures.
+    [[nodiscard]] std::vector<std::span<const cparser::Token>>
+    findArrayElements(std::string_view name, const cparser::FunctionDefinition& within) const;
+
     /// A constant expression's value, if every name in it is known.
     [[nodiscard]] std::optional<f64> evaluateNumber(std::span<const cparser::Token> tokens) const;
 
@@ -59,6 +64,9 @@ private:
     std::filesystem::path main;
     cparser::ParseResult parsed;
 };
+
+/// Whether `tokens` are one call to `callee` and nothing else.
+[[nodiscard]] bool isWholeCall(std::span<const cparser::Token> tokens, std::string_view callee);
 
 /// The symbol an argument names, if it names exactly one: `&gSkel`,
 /// `(SkeletonHeader*)&gSkel`, `gDL` or `SEGMENTED_TO_VIRTUAL(gDL)`. `NULL`

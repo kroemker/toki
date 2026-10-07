@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
@@ -37,6 +38,8 @@ struct Scene {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     /// The main layer first, then every alternate layer the scene has.
     std::vector<SceneLayer> layers;
+    /// The models of the actors the layers place, and the objects they are drawn from.
+    SceneActors actors;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
     std::chrono::milliseconds elapsed{};

@@ -22,8 +22,9 @@
 namespace toki::assets {
 
 /// Reads the open asset on a worker thread with `read`, and reads it again
-/// whenever one of the files `listWatched` names for it changes, so an export shows
-/// without a restart. The files are polled, because Windows sends no change
+/// whenever one of the files `listWatched` names for it changes, or one of
+/// those `listReadWatched` names for what was read, so an export shows without
+/// a restart. The files are polled, because Windows sends no change
 /// notifications for a checkout on `\\wsl.localhost`. Opening another asset
 /// replaces the one being watched. The system headers the reads need are kept
 /// between reads of one workspace.
@@ -36,11 +37,13 @@ public:
         std::function<Result(hackeroot::AssetImageReader&, const hackeroot::AssetDirectory&)>;
     using ListWatched = std::function<std::vector<std::filesystem::path>(
         const hackeroot::Workspace&, const hackeroot::AssetDirectory&)>;
+    using ListReadWatched = std::function<std::vector<std::filesystem::path>(const Result&)>;
 
     static constexpr std::chrono::milliseconds PollInterval{500};
 
-    WatchedAssetReader(Read read, ListWatched listWatched)
+    WatchedAssetReader(Read read, ListWatched listWatched, ListReadWatched listReadWatched = {})
         : read(std::move(read)), listWatched(std::move(listWatched)),
+          listReadWatched(std::move(listReadWatched)),
           worker([this](const std::stop_token& stop) { runWorker(stop); }) {}
 
     WatchedAssetReader(const WatchedAssetReader&) = delete;
@@ -114,6 +117,7 @@ private:
     void runWorker(const std::stop_token& stop) {
         std::optional<Request> watching;
         std::optional<hackeroot::FilePoller> poller;
+        std::optional<hackeroot::FilePoller> readPoller;
         std::optional<hackeroot::AssetImageReader> reader;
         while (!stop.stop_requested()) {
             std::optional<Request> request = waitForRequest(stop);
@@ -124,8 +128,12 @@ private:
                 if (watching && !isCurrent(*watching)) {
                     watching.reset();
                     poller.reset();
+                    readPoller.reset();
                 }
-                if (!watching || !poller || poller->findChanges().empty()) {
+                const bool changed = watching && poller &&
+                                     (!poller->findChanges().empty() ||
+                                      (readPoller && !readPoller->findChanges().empty()));
+                if (!changed) {
                     continue;
                 }
                 request = watching;
@@ -143,6 +151,10 @@ private:
                 reader.emplace(request->workspace);
             }
             Result result = read(*reader, request->asset);
+            readPoller.reset();
+            if (listReadWatched) {
+                readPoller.emplace(listReadWatched(result));
+            }
             watching = std::move(request);
 
             const std::scoped_lock lock(mutex);
@@ -155,6 +167,7 @@ private:
 
     Read read;
     ListWatched listWatched;
+    ListReadWatched listReadWatched;
     mutable std::mutex mutex;
     std::condition_variable_any wake;
     std::optional<Request> pending;

@@ -15,6 +15,9 @@ namespace hackeroot {
 /// 0, where the game's code is addressed.
 [[nodiscard]] SegmentFiles findGameCodeFiles(const std::filesystem::path& repository);
 
+/// The game code as a shared image, watching its files.
+[[nodiscard]] SharedImageFiles makeSharedGameCode(const std::filesystem::path& repository);
+
 /// What the game draws rooms and most actors after, found in an image of
 /// `findGameCodeFiles`: the default draw config, and `sSetupDL[SETUPDL_25]`,
 /// which `Gfx_SetupDL_25Opa` and `Gfx_SetupDL_25Xlu` call. Either is missing

@@ -12,13 +12,15 @@
 namespace toki::scene {
 
 /// How a scene is shown: which of its layers, under which light setting, which
-/// rooms, and whether placed actors are marked.
+/// rooms, whether placed actors are shown, and whether those with a model are
+/// drawn as it rather than marked.
 struct SceneView {
     /// Index into `Scene::layers`.
     usize layer = 0;
     usize lightSetting = 0;
     std::vector<bool> hiddenRooms;
     bool showsActors = true;
+    bool drawsModels = true;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of
@@ -39,8 +41,9 @@ struct SceneView {
 /// What the viewport draws of a scene shown as `view`: for the opaque pass and
 /// then the translucent one, what `Room_Draw` sets up, the default draw
 /// config's `sDefaultDisplayList` and `sSetupDL[SETUPDL_25]`, then that pass's
-/// display list of every part of every shown room. Actor markers are drawn
-/// between the two passes.
+/// display list of every part of every shown room, then that pass's placed
+/// actors drawn as their models (`makeActorDraws`). Actors without one, and
+/// player entries, are marked between the two passes.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view);
 
 /// The light and fog the game draws a scene under while `setting` is its
