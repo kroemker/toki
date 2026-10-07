@@ -446,6 +446,12 @@ arguments to calls inside function bodies (`SkelAnime_InitFlex(play, …, &gXxxS
 capability, matching call patterns inside function bodies, which is heuristic by nature
 and needs its own design and estimate before it is scheduled.
 
+*Done:* designed and built as [docs/actor-rendering.md](docs/actor-rendering.md) describes:
+the literal calls of each overlay's `Init` and `Draw` are read (`app/actor/domain`), and a
+scene's placed actors are drawn as their models, with eyes, and optionally animated. 72% of
+the checkout's actors resolve. Left: tables indexed by params, skin limbs, the overlays'
+own data, and an actor database for what the C does not say.
+
 **Message editor** — dialogue text with a live textbox preview.
 
 **Audio** — soundfonts and sequences. Backlog.
