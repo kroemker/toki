@@ -45,9 +45,9 @@ namespace {
             .name = "kind", .kind = toki::actor::FieldKind::Integer, .shift = 8, .width = 1}},
         .variants = {
             toki::actor::ActorVariant{
-                .match = {toki::actor::FieldMatch{.field = "kind", .value = s64{0}}}},
+                .match = {toki::actor::FieldMatch{.field = "kind", .values = {s64{0}}}}},
             toki::actor::ActorVariant{
-                .match = {toki::actor::FieldMatch{.field = "kind", .value = s64{1}}}},
+                .match = {toki::actor::FieldMatch{.field = "kind", .values = {s64{1}}}}},
         }};
     pot.variants = {makeListDrawing(toki::actor::Pass::Opaque),
                     makeListDrawing(toki::actor::Pass::Translucent)};

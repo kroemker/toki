@@ -9,4 +9,6 @@ target_sources(toki_core PRIVATE
         EntryWriter.cpp
         GuessedEntry.cpp
         ModelRules.cpp
-        OverlayCode.cpp)
+        OverlayCode.cpp
+        StepReader.cpp
+        StepWriter.cpp)

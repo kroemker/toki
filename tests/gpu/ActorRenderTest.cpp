@@ -81,21 +81,26 @@ void setField(u16& bits, const toki::actor::ParamField& field, const s64 value) 
     toki::actor::PlacementValues values{.params = variant.defaultParams.value_or(0),
                                         .age = toki::actor::Age::Child};
     for (const toki::actor::FieldMatch& match : variant.match) {
+        const toki::actor::MatchValue& first = match.values.front();
         if (match.field == "age") {
-            values.age = std::get<std::string>(match.value) == "adult" ? toki::actor::Age::Adult
-                                                                       : toki::actor::Age::Child;
+            values.age = std::get<std::string>(first) == "adult" ? toki::actor::Age::Adult
+                                                                 : toki::actor::Age::Child;
+            continue;
+        }
+        if (match.field == "scene") {
+            values.scene = std::get<std::string>(first);
             continue;
         }
         const auto field =
             std::ranges::find(entry.fields, match.field, &toki::actor::ParamField::name);
         REQUIRE(field != entry.fields.end());
         s64 value = 0;
-        if (const bool* flag = std::get_if<bool>(&match.value)) {
+        if (const bool* flag = std::get_if<bool>(&first)) {
             value = *flag ? 1 : 0;
-        } else if (const s64* number = std::get_if<s64>(&match.value)) {
+        } else if (const s64* number = std::get_if<s64>(&first)) {
             value = *number;
         } else {
-            const auto named = std::ranges::find(field->values, std::get<std::string>(match.value),
+            const auto named = std::ranges::find(field->values, std::get<std::string>(first),
                                                  &toki::actor::EnumValue::name);
             REQUIRE(named != field->values.end());
             value = named->value;
@@ -196,8 +201,9 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     layer.rooms.push_back(toki::scene::RoomHeader{
         .actors = {toki::scene::ActorPlacement{
             .id = *id, .rotation = values.rotation, .params = static_cast<s16>(values.params)}}});
-    const toki::scene::SceneActors actors =
-        toki::scene::readSceneActors(reader, {layer}, {.shipped = shipped});
+    toki::scene::SceneActors actors =
+        toki::scene::readSceneActors(reader, "", {layer}, {.shipped = shipped});
+    actors.scene = values.scene;
     const toki::scene::SceneActorModel& model = actors.models.at(*id);
     INFO(entry.actor << " variant " << index << ":\n" << describe(model.diagnostics));
     CHECK(model.diagnostics.empty());

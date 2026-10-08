@@ -33,28 +33,35 @@ namespace {
     return found == field.values.end() ? std::nullopt : std::optional(found->value);
 }
 
-[[nodiscard]] bool isAgeMatching(const FieldMatch& match, const PlacementValues& placement) {
-    const std::string* name = std::get_if<std::string>(&match.value);
-    if (name == nullptr || !placement.age) {
-        return false;
+[[nodiscard]] bool isBuiltInMatching(const FieldMatch& match, const PlacementValues& placement) {
+    std::optional<std::string> value;
+    if (match.field == "age" && placement.age) {
+        value = *placement.age == Age::Child ? "child" : "adult";
+    } else if (match.field == "scene") {
+        value = placement.scene;
     }
-    return *name == (*placement.age == Age::Child ? "child" : "adult");
+    return value && std::ranges::any_of(match.values, [&value](const MatchValue& candidate) {
+               const std::string* name = std::get_if<std::string>(&candidate);
+               return name != nullptr && *name == *value;
+           });
 }
 
-[[nodiscard]] bool isFieldMatching(const ParamField& field, const FieldMatch& match,
-                                   const PlacementValues& placement) {
-    const s64 value = readFieldValue(field, placement);
-    if (const bool* flag = std::get_if<bool>(&match.value)) {
+[[nodiscard]] bool isValueMatching(const ParamField& field, const MatchValue& candidate,
+                                   const s64 value) {
+    if (const bool* flag = std::get_if<bool>(&candidate)) {
         return (value != 0) == *flag;
     }
-    if (const s64* number = std::get_if<s64>(&match.value)) {
+    if (const s64* number = std::get_if<s64>(&candidate)) {
         return value == *number;
     }
-    const std::optional<s64> named = findEnumValue(field, std::get<std::string>(match.value));
-    return named == value;
+    return findEnumValue(field, std::get<std::string>(candidate)) == value;
 }
 
 } // namespace
+
+bool isBuiltInField(const std::string_view name) {
+    return name == "age" || name == "scene";
+}
 
 std::optional<FoundEntry> findActorEntry(const ActorDatabase& shipped,
                                          const ActorDatabase& checkout,
@@ -81,11 +88,17 @@ s64 readFieldValue(const ParamField& field, const PlacementValues& placement) {
 bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                 const PlacementValues& placement) {
     return std::ranges::all_of(variant.match, [&](const FieldMatch& match) {
-        if (match.field == "age") {
-            return isAgeMatching(match, placement);
+        if (isBuiltInField(match.field)) {
+            return isBuiltInMatching(match, placement);
         }
         const auto field = std::ranges::find(entry.fields, match.field, &ParamField::name);
-        return field != entry.fields.end() && isFieldMatching(*field, match, placement);
+        if (field == entry.fields.end()) {
+            return false;
+        }
+        const s64 value = readFieldValue(*field, placement);
+        return std::ranges::any_of(match.values, [&](const MatchValue& candidate) {
+            return isValueMatching(*field, candidate, value);
+        });
     });
 }
 

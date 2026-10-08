@@ -208,9 +208,9 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
                 workspace != nullptr ? listLoadedObjects(layer, room, workspace->getTables())
                                      : std::vector<std::string>{};
             for (const ActorPlacement& actor : header.actors) {
-                const actor::PlacementValues placement{.params = static_cast<u16>(actor.params),
-                                                       .rotation = actor.rotation,
-                                                       .age = findLayerAge(layer.index)};
+                const actor::PlacementValues placement =
+                    makePlacementValues(scene->actors, static_cast<u16>(actor.params),
+                                        actor.rotation, findLayerAge(layer.index));
                 static_cast<void>(drawActor(
                     actor.id, actor.position, placement, nullptr,
                     workspace != nullptr ? std::optional<std::span<const std::string>>(loaded)
@@ -228,9 +228,9 @@ void ScenePanel::drawPlacements(const SceneLayer& layer) {
             const ActorPlacement& entry = layer.header.playerEntries[i];
             const std::string label =
                 std::format("Entry {}{}", i, i == sceneView.shownEntrance ? "  ·  Link" : "");
-            const actor::PlacementValues placement{.params = static_cast<u16>(entry.params),
-                                                   .rotation = entry.rotation,
-                                                   .age = findLayerAge(layer.index)};
+            const actor::PlacementValues placement =
+                makePlacementValues(scene->actors, static_cast<u16>(entry.params), entry.rotation,
+                                    findLayerAge(layer.index));
             if (drawActor(entry.id, entry.position, placement, label.c_str(), std::nullopt)) {
                 sceneView.shownEntrance = i;
                 showScene();
@@ -241,9 +241,9 @@ void ScenePanel::drawPlacements(const SceneLayer& layer) {
         for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
             const std::string label = std::format("{}  ·  rooms {} and {}", findActorName(actor.id),
                                                   actor.rooms[0], actor.rooms[1]);
-            const actor::PlacementValues placement{.params = static_cast<u16>(actor.params),
-                                                   .rotation = {0, actor.rotationY, 0},
-                                                   .age = findLayerAge(layer.index)};
+            const actor::PlacementValues placement =
+                makePlacementValues(scene->actors, static_cast<u16>(actor.params),
+                                    {0, actor.rotationY, 0}, findLayerAge(layer.index));
             static_cast<void>(
                 drawActor(actor.id, actor.position, placement, label.c_str(), std::nullopt));
         }

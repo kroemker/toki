@@ -148,6 +148,8 @@ struct ActorDatabases {
 /// objects they are drawn from.
 struct SceneActors {
     std::map<s16, SceneActorModel> models;
+    /// The scene's enum name, `SCENE_DEKU_TREE`, which variants may match on.
+    std::optional<std::string> scene;
     std::vector<ActorObject> objects;
     /// The overlays and objects read, for reading the actors again when one changes.
     std::vector<std::filesystem::path> watched;
@@ -173,8 +175,16 @@ struct SceneActors {
 /// every skeleton posed. `gameplay_keep` is always read, and the scene keep
 /// object, when not zero, into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the
 /// game load it: every object's display lists may point into either.
+/// `sceneFolder` names the scene's folder, `ydan`, whose enum name the scene
+/// table gives.
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
+                                          std::string_view sceneFolder,
                                           const std::vector<SceneLayer>& layers,
                                           const ActorDatabases& databases);
+
+/// The values a placement's variant is found by.
+[[nodiscard]] actor::PlacementValues makePlacementValues(const SceneActors& actors, u16 params,
+                                                         const std::array<s16, 3>& rotation,
+                                                         std::optional<actor::Age> age);
 
 } // namespace toki::scene

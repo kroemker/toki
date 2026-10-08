@@ -62,11 +62,14 @@ struct ParamField {
     base::SourceLocation location;
 };
 
-/// What one field of a variant's `match` must be: a flag's state, an enum's
-/// value by name or number, or a number.
+/// One value a field may be matched against: a flag's state, an enum's value
+/// by name or number, a number, or for `scene`, a scene's enum name.
+using MatchValue = std::variant<bool, s64, std::string>;
+
+/// What one field of a variant's `match` must be: any of `values`.
 struct FieldMatch {
     std::string field;
-    std::variant<bool, s64, std::string> value;
+    std::vector<MatchValue> values;
 };
 
 enum class Age : u8 {
@@ -146,6 +149,74 @@ enum class ShadowKind : u8 {
 struct Shadow {
     ShadowKind kind = ShadowKind::None;
     f32 size = 0.0F;
+    /// `shape.shadowAlpha`: how dark it is.
+    u8 alpha = 0xFF;
+};
+
+/// `Gfx_SetupDL`: the display lists after it are drawn after
+/// `sSetupDL[index]`. Steps start at `SETUPDL_25`.
+struct SetupStep {
+    u8 index = 0;
+};
+
+/// The primitive and environment colours of what follows.
+struct ColorsStep {
+    DrawColors colors;
+};
+
+/// `gSPSegment(segment, symbol)` for what follows.
+struct SegmentStep {
+    u8 segment = 0;
+    std::string symbol;
+    std::optional<std::string> object;
+};
+
+/// Moves what follows: from where the steps before left it, or from the
+/// actor's matrix again when `resets`; facing the camera when a billboard.
+struct TransformStep {
+    PartPlacement placement;
+    bool isBillboard = false;
+    bool resets = false;
+};
+
+/// Draws one display list where the steps before have put it.
+struct DisplayListStep {
+    std::string name;
+    std::optional<std::string> object;
+    Pass pass = Pass::Opaque;
+};
+
+struct DrawStep;
+
+/// The steps drawn with one limb's matrix, as a `PostLimbDraw` callback draws.
+struct LimbSteps {
+    u8 limb = 0;
+    std::vector<DrawStep> steps;
+};
+
+/// Draws a skeleton where the steps before have put it, posed on `frame` of
+/// `animation`, and `limbs`' steps with their limbs.
+struct SkeletonStep {
+    std::string skeleton;
+    std::optional<std::string> object;
+    std::optional<std::string> animation;
+    std::optional<std::string> animationObject;
+    std::optional<u32> frame;
+    Pass pass = Pass::Opaque;
+    std::vector<LimbSteps> limbs;
+};
+
+/// The variant's shadow, in place of the entry's.
+struct ShadowStep {
+    Shadow shadow;
+};
+
+/// One step of how a variant is drawn, in the order `Draw` takes it.
+struct DrawStep {
+    std::variant<SetupStep, ColorsStep, SegmentStep, TransformStep, DisplayListStep, SkeletonStep,
+                 ShadowStep>
+        step;
+    base::SourceLocation location;
 };
 
 struct PointLight {
@@ -175,6 +246,9 @@ struct ActorVariant {
     std::vector<ChildActor> children;
     std::optional<SpawnCondition> spawn;
     std::optional<u16> defaultParams;
+    /// How it is drawn, step by step, in place of the keys above that say
+    /// what it draws.
+    std::vector<DrawStep> steps;
     base::SourceLocation location;
 };
 

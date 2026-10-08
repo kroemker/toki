@@ -32,7 +32,7 @@ namespace {
         .fields = {toki::actor::ParamField{
             .name = "type", .kind = toki::actor::FieldKind::Integer, .shift = 0, .width = 4}},
         .variants = {toki::actor::ActorVariant{
-            .match = {toki::actor::FieldMatch{.field = "type", .value = base::s64{0}}},
+            .match = {toki::actor::FieldMatch{.field = "type", .values = {base::s64{0}}}},
             .skeleton = "gRoofManSkel"}},
     };
     actor.variants.push_back(toki::scene::ActorDrawing{

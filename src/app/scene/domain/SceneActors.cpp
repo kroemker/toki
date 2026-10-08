@@ -204,14 +204,27 @@ std::optional<actor::Age> findLayerAge(const usize layerIndex) {
     return layerIndex < ChildLayers ? actor::Age::Child : actor::Age::Adult;
 }
 
-SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
+SceneActors readSceneActors(hackeroot::AssetImageReader& reader, const std::string_view sceneFolder,
                             const std::vector<SceneLayer>& layers,
                             const ActorDatabases& databases) {
     const auto started = std::chrono::steady_clock::now();
     SceneActors actors = ActorReader(reader, layers, databases).read();
+    const std::vector<hackeroot::SceneEntry>& scenes = reader.getWorkspace().getTables().scenes;
+    const std::string tableName = std::format("{}_scene", sceneFolder);
+    if (const auto scene = std::ranges::find(scenes, tableName, &hackeroot::SceneEntry::name);
+        scene != scenes.end()) {
+        actors.scene = scene->enumName;
+    }
     actors.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
     return actors;
+}
+
+actor::PlacementValues makePlacementValues(const SceneActors& actors, const u16 params,
+                                           const std::array<s16, 3>& rotation,
+                                           const std::optional<actor::Age> age) {
+    return actor::PlacementValues{
+        .params = params, .rotation = rotation, .age = age, .scene = actors.scene};
 }
 
 } // namespace toki::scene

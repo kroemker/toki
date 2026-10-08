@@ -202,22 +202,41 @@ ActorVariant DatabaseReader::readVariant(const toml::table& table, const std::st
     if (const std::optional<s64> params = readInteger(table, "default_params", path)) {
         variant.defaultParams = static_cast<u16>(*params);
     }
+    if (const toml::array* steps = table.get_as<toml::array>("steps")) {
+        variant.steps = readSteps(*steps, makePath(path, "steps"), false);
+    }
     return variant;
 }
 
 std::vector<FieldMatch> DatabaseReader::readMatch(const toml::table& table,
                                                   const std::string_view path) {
+    const auto readValue = [](const toml::node& node) -> std::optional<MatchValue> {
+        if (node.is_boolean()) {
+            return node.value<bool>().value_or(false);
+        }
+        if (node.is_integer()) {
+            return node.value<s64>().value_or(0);
+        }
+        if (node.is_string()) {
+            return node.value<std::string>().value_or("");
+        }
+        return std::nullopt;
+    };
     std::vector<FieldMatch> match;
     for (const auto& [name, node] : table) {
         FieldMatch field{.field = std::string(name.str())};
-        if (node.is_boolean()) {
-            field.value = node.value<bool>().value_or(false);
-        } else if (node.is_integer()) {
-            field.value = node.value<s64>().value_or(0);
-        } else if (node.is_string()) {
-            field.value = node.value<std::string>().value_or("");
-        } else {
-            report(node, makePath(path, name.str()), "must be true, false, a number or a name");
+        if (const toml::array* values = node.as_array()) {
+            for (const toml::node& value : *values) {
+                if (std::optional<MatchValue> read = readValue(value)) {
+                    field.values.push_back(std::move(*read));
+                }
+            }
+        } else if (std::optional<MatchValue> read = readValue(node)) {
+            field.values.push_back(std::move(*read));
+        }
+        if (field.values.empty()) {
+            report(node, makePath(path, name.str()),
+                   "must be true, false, a number or a name, or a list of them");
             continue;
         }
         match.push_back(std::move(field));
@@ -328,8 +347,13 @@ std::optional<SpawnCondition> DatabaseReader::readSpawn(const toml::table& table
 
 std::optional<Shadow> DatabaseReader::readShadow(const toml::table& table,
                                                  const std::string_view path) {
+    const s64 alpha = readInteger(table, "alpha", path).value_or(0xFF);
+    if (alpha < 0 || alpha > 0xFF) {
+        report(*table.get("alpha"), makePath(path, "alpha"), "must be from 0 to 255");
+    }
     return Shadow{.kind = readName(table, "kind", path, ShadowKindNames).value_or(ShadowKind::None),
-                  .size = readNumber(table, "size", path).value_or(0.0F)};
+                  .size = readNumber(table, "size", path).value_or(0.0F),
+                  .alpha = static_cast<u8>(std::clamp<s64>(alpha, 0, 0xFF))};
 }
 
 std::vector<PointLight> DatabaseReader::readLights(const toml::array& lights,

@@ -109,7 +109,11 @@ checkout's objects.
   [Fields](#fields)). The Scene panel shows a placed actor's params decoded by them.
 - **`variants`** are tried in order. The first whose `match` holds for a placed actor is
   drawn. A variant without `match` matches everything, so it is the default, and belongs
-  last. A `match` lists fields and the value each must have, by number or by value name.
+  last. A `match` lists fields and the value each must have, by number or by value name, or
+  a list of values any of which will do (`type = ["small", 6]`). `age` and `scene` are fields
+  every actor has without declaring them: `scene` is the scene's enum name from the scene
+  table (`scene = "SCENE_DEKU_TREE"`), for actors that pick what they draw by the scene they
+  are in, as `Door_Shutter` does.
 - **What a variant draws** is a `skeleton` with an optional `animation` and the `frame` of
   it to stand on (0 when left out), or a list of `display_lists`, or `draw = "marker"` for an
   actor that has no model by design. Every symbol is by name, in the variant's object, or
@@ -205,7 +209,7 @@ text_ids = [0x3000, 0x3001]
   with, as `Draw` sets them: rupees, chests, tunics and fairies differ only in these.
 - **`billboard`**: a variant or display list drawn facing the camera, as flames and sprites are.
 - **`shadow`**: the shadow `ActorShape_Init` gives the actor, `none`, `circle`, `white_circle`,
-  `horse` or `feet`, and its size, drawn as `ActorShadow_Draw` draws it: after
+  `horse` or `feet`, its size, and its `alpha` (`shape.shadowAlpha`, 255 when left out), drawn as `ActorShadow_Draw` draws it: after
   `sSetupDL[SETUPDL_44]`, `gCircleShadowDL` or `gHorseShadowDL` in black or white, where the
   actor stands, scaled by the size times the actor's scale. Feet are drawn as a circle, since
   where the feet are needs the pose of the game.
@@ -234,6 +238,42 @@ What the C states as plain file-scope data is read from it every time, not store
 actor's category from its profile, its collider's size from its `ColliderCylinderInit`,
 and its draw distance from its init chain. An entry may still set any of them, to correct
 a reading.
+
+### Steps
+
+What the keys above cannot say, a variant says as `steps`: how its `Draw` draws, one call
+at a time, in order. A variant with steps draws by them alone, and the keys that say what
+it draws (`skeleton`, `display_lists`, `segments`, `colors`, `billboard`) are an error beside
+them. Fixed keys are turned into steps when read for drawing, so there is one way an actor is
+drawn.
+
+```toml
+[[actors.ACTOR_EN_BOX.variants]]
+match = { type = ["small", "small_room_clear"] }
+steps = [
+    { colors = { env = [0, 0, 0, 255] } },
+    { transform = { rotation = [0, 180, 0], scale = 0.005 } },
+    { skeleton = "gTreasureChestSkel", animation = "gTreasureChestAnim_00024C", limbs = {
+        1 = [{ display_list = "gTreasureChestBaseDL" }],
+        3 = [{ display_list = "gTreasureChestLidDL" }] } },
+]
+```
+
+Each step is one of:
+
+- **`setup`**: `Gfx_SetupDL` with an index of `sSetupDL`, for the display lists after it.
+  Steps start at `SETUPDL_25`, as `Actor_Draw` leaves them.
+- **`colors`**: the primitive and environment colour of what follows.
+- **`segment`** and **`symbol`**: points a segment from 8 to 12 at a symbol, of the step's
+  `object` or the variant's.
+- **`transform`**: a `translation`, `rotation` in degrees and `scale` applied to what follows,
+  after those before it; `reset = true` starts again from the actor's matrix, and
+  `billboard = true` turns it to face the camera.
+- **`display_list`**: draws one, of its `object` or the variant's, in its `pass`.
+- **`skeleton`**: draws one where the transforms put it, with its own `object`, `animation`,
+  `animation_object`, `frame` and `pass`, and under `limbs` the steps each limb's
+  `PostLimbDraw` draws with that limb's matrix, by limb index. A variant draws at most one.
+- **`shadow`**: the variant's own shadow, in place of the entry's.
 
 ### Player
 
@@ -402,6 +442,12 @@ filled in that pass, so no actor is read twice; that is why the format is settle
 - **Entries also say**: name, description and notes; colours; billboard; shadow; children;
   spawn conditions; field roles and meanings; default params; collision; lights; text IDs.
 - **The curated run comes after step 2**, in one pass.
+- **Steps for what fixed keys cannot say**, found by a trial of ten actors: setup display
+  lists that differ by list, a variant's own shadow, display lists drawn with a limb,
+  skeletons placed and scaled, matches on lists of values and on the scene.
+- **Objects are read by the spec**, so `gameplay_keep` takes `gameplay_hacker_keep` as the
+  build links it.
+- **Link is drawn as a marker** until his pose can be read.
 
 ## Later
 

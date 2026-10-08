@@ -43,6 +43,7 @@ private:
     void checkOverlaps();
     void checkVariant(const ActorVariant& variant, usize index);
     void checkMatch(const ActorVariant& variant, const FieldMatch& match, std::string_view path);
+    void checkSteps(const ActorVariant& variant, std::string_view path);
 
     const ActorEntry& entry;
     std::vector<base::Diagnostic> diagnostics;
@@ -108,6 +109,7 @@ void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) 
     if (variant.animation && !variant.skeleton) {
         report(variant.location, path, "has an animation but no skeleton");
     }
+    checkSteps(variant, path);
     if (variant.match.empty() && index + 1 < entry.variants.size()) {
         report(variant.location, path,
                "matches every placement, so the variants after it are never drawn");
@@ -117,10 +119,14 @@ void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) 
 void EntryChecker::checkMatch(const ActorVariant& variant, const FieldMatch& match,
                               const std::string_view path) {
     const std::string at = std::format("{}.match.{}", path, match.field);
-    if (match.field == "age") {
-        const std::string* age = std::get_if<std::string>(&match.value);
-        if (age == nullptr || (*age != "child" && *age != "adult")) {
-            report(variant.location, at, "an age is \"child\" or \"adult\"");
+    if (match.field == "age" || match.field == "scene") {
+        for (const MatchValue& value : match.values) {
+            const std::string* name = std::get_if<std::string>(&value);
+            if (name == nullptr || (match.field == "age" && *name != "child" && *name != "adult")) {
+                report(variant.location, at,
+                       match.field == "age" ? "an age is \"child\" or \"adult\""
+                                            : "a scene is matched by its enum name");
+            }
         }
         return;
     }
@@ -129,20 +135,40 @@ void EntryChecker::checkMatch(const ActorVariant& variant, const FieldMatch& mat
         report(variant.location, at, "is not a field of the actor");
         return;
     }
-    if (std::holds_alternative<bool>(match.value) != (field->kind == FieldKind::Flag)) {
-        report(variant.location, at,
-               field->kind == FieldKind::Flag ? "a flag matches true or false"
-                                              : "only a flag matches true or false");
+    for (const MatchValue& value : match.values) {
+        if (std::holds_alternative<bool>(value) != (field->kind == FieldKind::Flag)) {
+            report(variant.location, at,
+                   field->kind == FieldKind::Flag ? "a flag matches true or false"
+                                                  : "only a flag matches true or false");
+            continue;
+        }
+        const std::string* name = std::get_if<std::string>(&value);
+        if (name == nullptr) {
+            continue;
+        }
+        if (field->kind != FieldKind::Enum) {
+            report(variant.location, at, "only an enum's values have names");
+        } else if (!std::ranges::contains(field->values, *name, &EnumValue::name)) {
+            report(variant.location, at, std::format("'{}' is not a value of the field", *name));
+        }
+    }
+}
+
+void EntryChecker::checkSteps(const ActorVariant& variant, const std::string_view path) {
+    if (variant.steps.empty()) {
         return;
     }
-    const std::string* name = std::get_if<std::string>(&match.value);
-    if (name == nullptr) {
-        return;
+    const auto skeletons = std::ranges::count_if(variant.steps, [](const DrawStep& step) {
+        return std::holds_alternative<SkeletonStep>(step.step);
+    });
+    if (skeletons > 1) {
+        report(variant.location, path, "its steps draw more than one skeleton");
     }
-    if (field->kind != FieldKind::Enum) {
-        report(variant.location, at, "only an enum's values have names");
-    } else if (!std::ranges::contains(field->values, *name, &EnumValue::name)) {
-        report(variant.location, at, std::format("'{}' is not a value of the field", *name));
+    if (variant.skeleton || !variant.displayLists.empty() || !variant.segments.empty() ||
+        variant.colors.primitive || variant.colors.environment || variant.isBillboard) {
+        report(variant.location, path,
+               "has steps, which say how it is drawn, and keys that say it too, which are "
+               "ignored");
     }
 }
 

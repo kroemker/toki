@@ -212,8 +212,8 @@ void ActorWriter::writeShadow(const ActorDrawing& drawing, const glm::mat4& shad
     if (found == actors.models.end()) {
         return nullptr;
     }
-    const ActorDrawing* drawing = found->second.findDrawing(actor::PlacementValues{
-        .params = actor.params, .rotation = actor.rotation, .age = actor.age});
+    const ActorDrawing* drawing = found->second.findDrawing(
+        makePlacementValues(actors, actor.params, actor.rotation, actor.age));
     return drawing != nullptr && drawing->isDrawn() ? drawing : nullptr;
 }
 

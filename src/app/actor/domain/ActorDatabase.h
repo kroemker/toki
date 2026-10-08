@@ -39,18 +39,24 @@ struct FoundEntry {
 findActorEntry(const ActorDatabase& shipped, const ActorDatabase& checkout, std::string_view actor);
 
 /// What fields are read from for one placed actor: its params and rotation,
-/// and Link's age in the scene layer it is placed in, when the layer has one.
+/// Link's age in the scene layer it is placed in, when the layer has one, and
+/// the scene's enum name, `SCENE_DEKU_TREE`.
 struct PlacementValues {
     u16 params = 0;
     std::array<s16, 3> rotation{};
     std::optional<Age> age;
+    std::optional<std::string> scene;
 };
+
+/// Whether `name` is a field every entry has without declaring it.
+[[nodiscard]] bool isBuiltInField(std::string_view name);
 
 /// A field's value for a placement: its bits, sign-extended when it is signed.
 [[nodiscard]] s64 readFieldValue(const ParamField& field, const PlacementValues& placement);
 
-/// Whether every field of `variant`'s match holds for `placement`. `age` is a
-/// field every entry has; a match on it fails where the layer has no age.
+/// Whether every field of `variant`'s match is one of its values for
+/// `placement`. `age` and `scene` are fields every entry has; a match on one
+/// fails where the placement has none.
 [[nodiscard]] bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                               const PlacementValues& placement);
 
@@ -58,7 +64,8 @@ struct PlacementValues {
 /// do not fit or overlap, enum values that do not fit their field, matches on
 /// fields the entry does not have or with values of the wrong kind, a variant
 /// that draws both a skeleton and display lists, and variants after one that
-/// matches everything, which are never drawn.
+/// matches everything, which are never drawn; steps that draw more than one
+/// skeleton, and steps beside the keys they replace.
 [[nodiscard]] std::vector<base::Diagnostic> checkActorEntry(const ActorEntry& entry);
 
 /// The first variant of `entry` whose match holds for `placement`.

@@ -337,6 +337,7 @@ void App::updateScene() {
     sceneActorLoader.open(
         workspaceService.getSharedWorkspace(),
         scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
+                            .scene = loaded->name,
                             .layers = loaded->layers,
                             .shippedDatabase = assets ? actor::makeShippedDatabasePath(*assets)
                                                       : std::filesystem::path()});

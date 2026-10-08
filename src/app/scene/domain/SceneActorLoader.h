@@ -14,6 +14,8 @@ namespace toki::scene {
 /// to say what is being read.
 struct ActorRequest {
     std::string name;
+    /// The scene's folder, `ydan`.
+    std::string scene;
     std::vector<SceneLayer> layers;
     /// The shipped actor database; the checkout's is found in the checkout.
     std::filesystem::path shippedDatabase;

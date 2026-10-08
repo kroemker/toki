@@ -29,6 +29,7 @@ public:
     Poser(const Skeleton& skeleton, const JointTable& jointTable)
         : skeleton(skeleton), jointTable(jointTable) {
         pose.joints.resize(skeleton.limbs.size(), glm::vec3(0.0F));
+        pose.matrices.resize(skeleton.limbs.size(), glm::mat4(1.0F));
         visited.resize(skeleton.limbs.size(), false);
     }
 
@@ -67,6 +68,7 @@ void Poser::poseLimb(const usize index, const glm::mat4& parent) {
     matrix = glm::rotate(matrix, makeRadians(rotation[0]), glm::vec3(1.0F, 0.0F, 0.0F));
 
     pose.joints[index] = glm::vec3(matrix * glm::vec4(0.0F, 0.0F, 0.0F, 1.0F));
+    pose.matrices[index] = matrix;
     if (limb.displayList != 0) {
         pose.drawn.push_back(
             PosedLimb{.limb = index, .matrix = matrix, .displayList = limb.displayList});

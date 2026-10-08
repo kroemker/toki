@@ -43,7 +43,8 @@ inline constexpr std::array VariantKeys = {
     std::string_view("frame"),     std::string_view("display_lists"),
     std::string_view("segments"),  std::string_view("colors"),
     std::string_view("billboard"), std::string_view("children"),
-    std::string_view("spawn"),     std::string_view("default_params")};
+    std::string_view("spawn"),     std::string_view("default_params"),
+    std::string_view("steps")};
 inline constexpr std::array FieldKeys = {
     std::string_view("kind"),   std::string_view("source"), std::string_view("shift"),
     std::string_view("width"),  std::string_view("signed"), std::string_view("hex"),
@@ -118,6 +119,13 @@ private:
     [[nodiscard]] PartPlacement readPlacement(const toml::table& table, std::string_view path);
     [[nodiscard]] std::optional<Shadow> readShadow(const toml::table& table, std::string_view path);
     [[nodiscard]] std::vector<u16> readTextIds(const toml::array& ids, std::string_view path);
+    [[nodiscard]] std::vector<DrawStep> readSteps(const toml::array& steps, std::string_view path,
+                                                  bool isInLimb);
+    [[nodiscard]] std::optional<DrawStep> readStep(const toml::table& table, std::string_view path,
+                                                   bool isInLimb);
+    [[nodiscard]] std::optional<DrawStep> readSkeletonStep(const toml::table& table,
+                                                           std::string_view path);
+    [[nodiscard]] TransformStep readTransform(const toml::table& table, std::string_view path);
 
     std::filesystem::path file;
     std::string actor;

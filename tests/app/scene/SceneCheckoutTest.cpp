@@ -78,7 +78,10 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         hackeroot::AssetImageReader reader(shared);
         toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
         scene.actors = toki::scene::readSceneActors(
-            reader, scene.layers, {.shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS)});
+            reader, name, scene.layers,
+            {.shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS)});
+        REQUIRE(scene.actors.scene.has_value());
+        REQUIRE(scene.actors.scene->starts_with("SCENE_"));
         const auto player = scene.actors.models.find(base::s16{0});
         REQUIRE(player != scene.actors.models.end());
         INFO("Link: " << describe(player->second.diagnostics));
@@ -167,8 +170,8 @@ TEST_CASE("how long a scene's actors take to read", "[.measure][scene][checkout]
     hackeroot::AssetImageReader otherReader(shared);
     for (const char* read : {"first", "again", "by another reader"}) {
         const toki::scene::SceneActors actors = toki::scene::readSceneActors(
-            std::string_view(read) == "by another reader" ? otherReader : actorReader, scene.layers,
-            {});
+            std::string_view(read) == "by another reader" ? otherReader : actorReader, asset->name,
+            scene.layers, {});
         const auto drawn = std::ranges::count_if(
             actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
         WARN("ice_doukutu, " << read << ": scene in " << scene.elapsed.count() << " ms, actors in "

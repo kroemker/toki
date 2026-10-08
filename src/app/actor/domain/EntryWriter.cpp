@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/EntryNames.h"
+#include "app/actor/domain/TomlWriting.h"
 
 #include <toml++/toml.hpp>
 
@@ -20,75 +21,6 @@
 namespace toki::actor {
 
 namespace {
-
-[[nodiscard]] double makeNumber(const f32 value) {
-    return std::stod(std::format("{}", value));
-}
-
-[[nodiscard]] toml::value<s64> makeHex(const s64 value) {
-    toml::value<s64> hex(value);
-    hex.flags(toml::value_flags::format_as_hexadecimal);
-    return hex;
-}
-
-[[nodiscard]] toml::table makeInline() {
-    toml::table table;
-    table.is_inline(true);
-    return table;
-}
-
-template <usize Count>
-[[nodiscard]] toml::array makeNumbers(const std::array<f32, Count>& values) {
-    toml::array array;
-    for (const f32 value : values) {
-        array.push_back(makeNumber(value));
-    }
-    return array;
-}
-
-template <usize Count>
-[[nodiscard]] toml::array makeChannels(const std::array<u8, Count>& channels) {
-    toml::array array;
-    for (const u8 channel : channels) {
-        array.push_back(s64{channel});
-    }
-    return array;
-}
-
-[[nodiscard]] bool isZero(const std::array<f32, 3>& values) {
-    return std::ranges::all_of(values, [](const f32 value) { return value == 0.0F; });
-}
-
-void insertText(toml::table& table, const std::string_view key, const std::string& text) {
-    if (!text.empty()) {
-        table.insert(key, text);
-    }
-}
-
-void insertOptional(toml::table& table, const std::string_view key,
-                    const std::optional<std::string>& text) {
-    if (text) {
-        table.insert(key, *text);
-    }
-}
-
-void insertOptional(toml::table& table, const std::string_view key,
-                    const std::optional<f32>& value) {
-    if (value) {
-        table.insert(key, makeNumber(*value));
-    }
-}
-
-[[nodiscard]] toml::table makeColors(const DrawColors& colors) {
-    toml::table table = makeInline();
-    if (colors.primitive) {
-        table.insert("prim", makeChannels(*colors.primitive));
-    }
-    if (colors.environment) {
-        table.insert("env", makeChannels(*colors.environment));
-    }
-    return table;
-}
 
 [[nodiscard]] toml::table makeSegments(const std::vector<SegmentSymbol>& segments) {
     toml::table table = makeInline();
@@ -152,20 +84,7 @@ void insertOptional(toml::table& table, const std::string_view key,
     if (part.pass != Pass::Opaque) {
         table.insert("pass", std::string(getEntryName(PassNames, part.pass)));
     }
-    if (!isZero(part.placement.translation)) {
-        table.insert("translation", makeNumbers(part.placement.translation));
-    }
-    if (!isZero(part.placement.rotation)) {
-        table.insert("rotation", makeNumbers(part.placement.rotation));
-    }
-    const std::array<f32, 3>& scale = part.placement.scale;
-    if (scale[0] == scale[1] && scale[1] == scale[2]) {
-        if (scale[0] != 1.0F) {
-            table.insert("scale", makeNumber(scale[0]));
-        }
-    } else {
-        table.insert("scale", makeNumbers(scale));
-    }
+    insertPlacement(table, part.placement);
     if (part.colors.primitive || part.colors.environment) {
         table.insert("colors", makeColors(part.colors));
     }
@@ -181,7 +100,16 @@ void insertOptional(toml::table& table, const std::string_view key,
 [[nodiscard]] toml::table makeMatch(const std::vector<FieldMatch>& match) {
     toml::table table = makeInline();
     for (const FieldMatch& field : match) {
-        std::visit([&](const auto& value) { table.insert(field.field, value); }, field.value);
+        if (field.values.size() == 1) {
+            std::visit([&](const auto& value) { table.insert(field.field, value); },
+                       field.values.front());
+            continue;
+        }
+        toml::array values;
+        for (const MatchValue& value : field.values) {
+            std::visit([&values](const auto& candidate) { values.push_back(candidate); }, value);
+        }
+        table.insert(field.field, std::move(values));
     }
     return table;
 }
@@ -240,15 +168,15 @@ void insertDrawing(toml::table& table, const ActorVariant& variant) {
     if (variant.defaultParams) {
         table.insert("default_params", makeHex(*variant.defaultParams));
     }
+    if (!variant.steps.empty()) {
+        table.insert("steps", makeSteps(variant.steps));
+    }
     return table;
 }
 
 void insertExtras(toml::table& table, const ActorEntry& entry) {
     if (entry.shadow) {
-        toml::table shadow = makeInline();
-        shadow.insert("kind", std::string(getEntryName(ShadowKindNames, entry.shadow->kind)));
-        shadow.insert("size", makeNumber(entry.shadow->size));
-        table.insert("shadow", std::move(shadow));
+        table.insert("shadow", makeShadow(*entry.shadow));
     }
     if (entry.spawn) {
         table.insert("spawn", makeSpawn(*entry.spawn));
