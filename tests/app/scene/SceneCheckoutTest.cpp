@@ -85,7 +85,8 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         const auto player = scene.actors.models.find(base::s16{0});
         REQUIRE(player != scene.actors.models.end());
         INFO("Link: " << describe(player->second.diagnostics));
-        CHECK(player->second.hasDrawing());
+        CHECK(player->second.diagnostics.empty());
+        CHECK(player->second.entry->draw == toki::actor::DrawKind::Marker);
         const toki::scene::Scene again = toki::scene::readScene(reader, *asset);
         CHECK(again.layers.size() == scene.layers.size());
         INFO(name << ": " << describe(scene.diagnostics));

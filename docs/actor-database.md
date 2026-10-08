@@ -432,6 +432,15 @@ filled in that pass, so no actor is read twice; that is why the format is settle
   the shipped actor database is drawn to an image" (`toki_gpu_tests "[.render]"`, against a
   checkout) draws each variant of every shipped entry, framed on its bounds, to
   `actor-renders/<ACTOR>_<variant>.png` beside the test binary, and fails on any diagnostic.
+  It draws each variant by itself, not by params made up from its match, so a default
+  variant is drawn too.
+- **A trial of ten first**: `Obj_Tsubo`, `En_Kusa`, `Obj_Mure2`, `En_Item00`, `En_Box`,
+  `En_Karebaba`, `Obj_Syokudai`, `En_Kanban`, `Door_Shutter` and `En_Md` were read and
+  drawn before the rest, which is what added steps, lists of match values and the `scene`
+  field. It also found two gaps in drawing: display lists that multiply by segment 1's
+  billboard matrix (`gItemDropDL`), now kept there by the viewport as `Play_Draw` keeps it,
+  and display lists that need the LookAt `func_8002EBCC` and `func_8002ED80` set from the
+  camera (heart pieces, the recovery heart), which draw nothing yet.
 - **Recorded against a commit**: `checked_against` is the HackerOoT commit the run read.
 
 ## Decided
@@ -472,7 +481,7 @@ M two or three, L more.
 | 0 | Measure Ice Cavern's actors in a release build over the share, split into overlays and objects (done) | S |
 | 1 | The database: every key above as types; reading and writing `actors.toml`, with diagnostics naming the actor and key for anything wrong; validation of fields, values and matches; the two files layered; `checked_against` (done; symbols are checked against the objects by step 3's checkout test) | M |
 | 2 | Drawing from it: each placed actor's variant picked by its fields and age; turned only by the axes it rotates by, on its frame; display lists placed, coloured and billboarded; shadows; children; guesses only for actors without an entry, turned into entries by `makeGuessedEntry`; the Player entry and the entrance being looked at (done) | L |
-| 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at | L, in batches |
+| 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at (a trial of ten is shipped; the rest waits on its review) | L, in batches |
 | 4 | Guesses kept: the on-disk guess cache, and stale guesses by `guessed_from` (`makeGuessedEntry` came with step 2) | S |
 | 5 | The startup check: new actors found, the question, guessing them on a worker, writing the checkout's file, the remembered "No"; shipped entries that do not fit, in one warning; watching the checkout's file | S–M |
 | 6 | The Scene panel: names, decoded params with roles and meanings, entry status, spawn conditions greying out actors, "Edit actor", "Add a variant for these params", "Keep this guess" | S–M |

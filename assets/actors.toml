@@ -6,7 +6,8 @@ format = 1
 status = "checked"
 name = "Link"
 description = "The player, drawn at the entrance the Scene panel shows him at."
-notes = "Stands at rest: his animations are in link_animetion, which is not asset C."
+notes = "Marked until his pose can be read: his animations are in link_animetion, which is not asset C, and at rest his limbs lie apart. The variants say what he will be drawn with."
+draw = "marker"
 
 [[actors.ACTOR_PLAYER.variants]]
 match = { age = "adult" }
@@ -19,3 +20,547 @@ match = { age = "child" }
 object = "object_link_child"
 skeleton = "gLinkChildSkel"
 segments = { 8 = "gLinkChildSkel_gLinkChildEyesOpenTex_ci8_tlut_gLinkChildSkinTLUT_png_001_ci8", 9 = "gLinkChildSkel_gLinkChildMouthClosedTex_ci8_tlut_gLinkChildSkinTLUT_png_001_ci8" }
+
+# Obj_Tsubo
+[actors.ACTOR_OBJ_TSUBO]
+status = "checked"
+name = "Pot"
+description = "Breaks when cut, thrown or rolled into, and may drop a collectible."
+notes = "Killed if there is no floor under it."
+object = "gameplay_dangeon_keep"
+scale = 0.15
+
+[actors.ACTOR_OBJ_TSUBO.fields]
+drop        = { kind = "integer", shift = 0, width = 5, role = "item", meaning = "The ITEM00 collectible it drops; ITEM00_MAX or more drops nothing" }
+type        = { kind = "enum", shift = 8, width = 1, values = { dungeon = 0, plain = 1 }, meaning = "The dungeon keep's pot, or object_tsubo's" }
+collectible = { kind = "integer", shift = 9, width = 6, role = "collectible_flag", meaning = "Set when its drop is collected, so it is not dropped again" }
+
+[[actors.ACTOR_OBJ_TSUBO.variants]]
+match = { type = "dungeon" }
+display_lists = [{ name = "gPotDL" }]
+
+[[actors.ACTOR_OBJ_TSUBO.variants]]
+match = { type = "plain" }
+object = "object_tsubo"
+display_lists = [{ name = "object_tsubo_DL_0017C0" }]
+
+# En_Kusa
+[actors.ACTOR_EN_KUSA]
+status = "checked"
+name = "Bush or grass"
+description = "A bush that is cut once, or a tuft of grass that is cut and grows back."
+notes = "Placed with rotation Y 0, it is given a random one. The stump after a cut is object_kusa_DL_0002E0."
+scale = 0.4
+
+[actors.ACTOR_EN_KUSA.fields]
+type = { kind = "enum", shift = 0, width = 2, values = { bush = 0, grass = 1, grass_table = 2 }, meaning = "A bush; grass that drops seeds or a heart by chance; grass that drops from its drop table" }
+bugs = { kind = "flag", shift = 4, meaning = "Spawns bugs when cut" }
+drop = { kind = "integer", shift = 8, width = 4, meaning = "The drop table of a bush or grass_table; 13 and up are table 0" }
+
+[[actors.ACTOR_EN_KUSA.variants]]
+match = { type = "bush" }
+object = "gameplay_field_keep"
+display_lists = [{ name = "gFieldBushDL" }]
+
+[[actors.ACTOR_EN_KUSA.variants]]
+object = "object_kusa"
+display_lists = [{ name = "object_kusa_DL_000140" }]
+
+# Obj_Mure2
+[actors.ACTOR_OBJ_MURE2]
+status = "checked"
+name = "Ring of bushes or rocks"
+description = "Spawns bushes or rocks in a ring or a scatter around itself when Link comes near."
+notes = "Children get the parent's drop table in their bits 8 to 11, which a variant's fixed child params cannot follow; it does not change how they look. The offsets are world axes: the ring is not turned with the actor."
+draw = "children"
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_OBJ_MURE2.fields]
+type = { kind = "enum", shift = 0, width = 2, values = { bush_ring = 0, bush_scatter = 1, rock_ring = 2 } }
+drop = { kind = "integer", shift = 8, width = 4, meaning = "The drop table its bushes or rocks get; 13 and up are table 0" }
+
+[[actors.ACTOR_OBJ_MURE2.variants]]
+match = { type = "bush_ring" }
+children = [
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [0, 0, 0] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [0, 0, 80] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [56.57, 0, 56.57] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [80, 0, 0] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [56.57, 0, -56.57] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [0, 0, -80] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-56.57, 0, -56.57] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-80, 0, 0] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-56.57, 0, 56.57] },
+]
+
+[[actors.ACTOR_OBJ_MURE2.variants]]
+match = { type = "bush_scatter" }
+children = [
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [39.51, 0, -6.26] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [18.16, 0, -35.64] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-23.51, 0, -32.36] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-39.51, 0, 6.26] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [0, 0, 20] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [71.28, 0, -36.32] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [0, 0, -80] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-71.28, 0, -36.32] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-71.28, 0, 36.32] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [-36.32, 0, 71.28] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [12.51, 0, 79.02] },
+    { actor = "ACTOR_EN_KUSA", params = 0x0, offset = [42.43, 0, 42.43] },
+]
+
+[[actors.ACTOR_OBJ_MURE2.variants]]
+match = { type = "rock_ring" }
+children = [
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [0, 0, 80] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [56.57, 0, 56.57] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [80, 0, 0] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [56.57, 0, -56.57] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [0, 0, -80] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [-56.57, 0, -56.57] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [-80, 0, 0] },
+    { actor = "ACTOR_EN_ISHI", params = 0x0, offset = [-56.57, 0, 56.57] },
+]
+
+# En_Item00
+[actors.ACTOR_EN_ITEM00]
+status = "checked"
+name = "Collectible"
+description = "A rupee, heart, ammunition, key, shield or tunic lying in the world."
+notes = "Defined in the game code (src/code/z_en_item00.c), not an overlay. Rupees and drops spin; a dropped recovery heart is the flat sprite, a placed one the 3D heart."
+object = "gameplay_keep"
+shadow = { kind = "circle", size = 6, alpha = 180 }
+
+[actors.ACTOR_EN_ITEM00.fields]
+type        = { kind = "enum", shift = 0, width = 8, values = { rupee_green = 0x00, rupee_blue = 0x01, rupee_red = 0x02, recovery_heart = 0x03, bombs = 0x04, arrow = 0x05, heart_piece = 0x06, heart_container = 0x07, arrows_small = 0x08, arrows_medium = 0x09, arrows_large = 0x0A, bombs_b = 0x0B, deku_nuts = 0x0C, deku_stick = 0x0D, magic_large = 0x0E, magic_small = 0x0F, deku_seeds = 0x10, small_key = 0x11, flexible = 0x12, rupee_gold = 0x13, rupee_purple = 0x14, deku_shield = 0x15, hylian_shield = 0x16, zora_tunic = 0x17, goron_tunic = 0x18, bombs_special = 0x19 } }
+collectible = { kind = "integer", shift = 8, width = 6, role = "collectible_flag", meaning = "The flag that keeps it collected" }
+collected   = { kind = "flag", shift = 15, meaning = "Given at once when spawned; placed collectibles leave it clear" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "rupee_green" }
+scale = 0.015
+height_offset = 750
+display_lists = [{ name = "gRupeeDL" }]
+segments = { 8 = "gRupeeGreenTex" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "rupee_blue" }
+scale = 0.015
+height_offset = 750
+display_lists = [{ name = "gRupeeDL" }]
+segments = { 8 = "gRupeeBlueTex" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "rupee_red" }
+scale = 0.015
+height_offset = 750
+display_lists = [{ name = "gRupeeDL" }]
+segments = { 8 = "gRupeeRedTex" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "rupee_gold" }
+scale = 0.045
+height_offset = 750
+display_lists = [{ name = "gRupeeDL" }]
+segments = { 8 = "gRupeeOrangeTex" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "rupee_purple" }
+scale = 0.03
+height_offset = 750
+display_lists = [{ name = "gRupeeDL" }]
+segments = { 8 = "gRupeePinkTex" }
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "recovery_heart" }
+scale = 0.02
+height_offset = 430
+display_lists = [{ name = "gGiRecoveryHeartDL", object = "object_gi_heart", pass = "translucent", scale = 16 }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "heart_piece" }
+scale = 0.02
+height_offset = 650
+display_lists = [{ name = "gHeartPieceInteriorDL", pass = "translucent" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "heart_container" }
+scale = 0.02
+height_offset = 430
+display_lists = [{ name = "gHeartPieceExteriorDL" }, { name = "gHeartContainerInteriorDL", pass = "translucent" }]
+
+# The sprite drops: gItemDropDL after sSetupDL[66], its texture in segment 8.
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = ["bombs", "bombs_b", "bombs_special"] }
+scale = 0.03
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropBombTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "arrow" }
+scale = 0.02
+height_offset = 400
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropArrows1Tex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "arrows_small" }
+scale = 0.035
+height_offset = 250
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropArrows1Tex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "arrows_medium" }
+scale = 0.035
+height_offset = 250
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropArrows2Tex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "arrows_large" }
+scale = 0.035
+height_offset = 250
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropArrows3Tex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "deku_nuts" }
+scale = 0.03
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropDekuNutTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "deku_stick" }
+scale = 0.03
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropDekuStickTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "magic_large" }
+scale = 0.045
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropMagicLargeTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "magic_small" }
+scale = 0.03
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropMagicSmallTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "deku_seeds" }
+scale = 0.03
+height_offset = 320
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropDekuSeedsTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "small_key" }
+scale = 0.03
+height_offset = 350
+steps = [{ setup = 66 }, { segment = 8, symbol = "gDropKeySmallTex" }, { display_list = "gItemDropDL" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "deku_shield" }
+scale = 0.5
+steps = [{ shadow = { kind = "circle", size = 0.6, alpha = 180 } }, { display_list = "gGiDekuShieldDL", object = "object_gi_shield_1" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "hylian_shield" }
+scale = 0.5
+steps = [{ shadow = { kind = "circle", size = 0.6, alpha = 180 } }, { display_list = "gGiHylianShieldDL", object = "object_gi_shield_2" }]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "goron_tunic" }
+scale = 0.5
+object = "object_gi_clothes"
+steps = [
+    { shadow = { kind = "circle", size = 0.6, alpha = 180 } },
+    { display_list = "gGiGoronCollarColorDL" },
+    { display_list = "gGiTunicCollarDL" },
+    { display_list = "gGiGoronTunicColorDL" },
+    { display_list = "gGiTunicDL" },
+]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "zora_tunic" }
+scale = 0.5
+object = "object_gi_clothes"
+steps = [
+    { shadow = { kind = "circle", size = 0.6, alpha = 180 } },
+    { display_list = "gGiZoraCollarColorDL" },
+    { display_list = "gGiTunicCollarDL" },
+    { display_list = "gGiZoraTunicColorDL" },
+    { display_list = "gGiTunicDL" },
+]
+
+[[actors.ACTOR_EN_ITEM00.variants]]
+match = { type = "flexible" }
+draw = "marker"
+
+# En_Box
+[actors.ACTOR_EN_BOX]
+status = "checked"
+name = "Treasure chest"
+description = "A chest holding an item; small, large, or decorated for the boss key."
+notes = "Child Link opens it with gTreasureChestAnim_000128; frame 0 of either is closed. Types 4 and 6 are seen only through the Lens of Truth, drawn here as always seen. Switch, room-clear and falling types appear only when their condition holds."
+object = "object_box"
+scale = 0.01
+collision = "gTreasureChestCol"
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_BOX.fields]
+chest  = { kind = "integer", shift = 0, width = 5, role = "chest_flag", meaning = "Set once it is opened" }
+item   = { kind = "integer", shift = 5, width = 7, role = "item", meaning = "The GI item it gives" }
+type   = { kind = "enum", shift = 12, width = 4, values = { big = 0, room_clear_big = 1, boss_key = 2, falling_big = 3, lens_big = 4, small = 5, lens_small = 6, room_clear_small = 7, falling_small = 8, zeldas_lullaby = 9, suns_song = 10, switch_big = 11 } }
+switch = { kind = "integer", source = "rotation_z", shift = 0, width = 6, role = "switch_flag", meaning = "The switch that makes a switch or falling chest appear" }
+
+[[actors.ACTOR_EN_BOX.variants]]
+match = { type = "boss_key" }
+steps = [
+    { colors = { env = [0, 0, 0, 255] } },
+    { transform = { rotation = [0, 180, 0] } },
+    { skeleton = "gTreasureChestSkel", animation = "gTreasureChestAnim_00024C", limbs = { 1 = [{ display_list = "gTreasureChestBossKeyChestFrontDL" }], 3 = [{ display_list = "gTreasureChestBossKeyChestSideAndTopDL" }] } },
+]
+
+[[actors.ACTOR_EN_BOX.variants]]
+match = { type = ["small", "lens_small", "room_clear_small", "falling_small"] }
+scale = 0.005
+steps = [
+    { colors = { env = [0, 0, 0, 255] } },
+    { transform = { rotation = [0, 180, 0] } },
+    { skeleton = "gTreasureChestSkel", animation = "gTreasureChestAnim_00024C", limbs = { 1 = [{ display_list = "gTreasureChestChestFrontDL" }], 3 = [{ display_list = "gTreasureChestChestSideAndLidDL" }] } },
+]
+
+[[actors.ACTOR_EN_BOX.variants]]
+steps = [
+    { colors = { env = [0, 0, 0, 255] } },
+    { transform = { rotation = [0, 180, 0] } },
+    { skeleton = "gTreasureChestSkel", animation = "gTreasureChestAnim_00024C", limbs = { 1 = [{ display_list = "gTreasureChestChestFrontDL" }], 3 = [{ display_list = "gTreasureChestChestSideAndLidDL" }] } },
+]
+
+# En_Karebaba
+[actors.ACTOR_EN_KAREBABA]
+status = "checked"
+name = "Withered Deku Baba"
+description = "A Deku Baba that lies withered in its leaves until Link comes close, then rises to bite."
+notes = "Drawn as it waits (EnKarebaba_SetupIdle): its head pitched down at half scale 14 units above its leaves, its stem hanging from the head in three sections, under the ground until it rises. Params 0 makes it grow out of the ground first."
+object = "object_dekubaba"
+scale = 0.01
+height_offset = 1400
+rotates = { x = false, y = true, z = false }
+shadow = { kind = "circle", size = 15 }
+
+[[actors.ACTOR_EN_KAREBABA.variants]]
+steps = [
+    { transform = { rotation = [-90, 0, 0], scale = 0.5 } },
+    { skeleton = "gDekuBabaSkel", animation = "gDekuBabaFastChompAnim" },
+    { transform = { reset = true, rotation = [-90, 0, 0] } },
+    { transform = { translation = [0, 0, -2000] } },
+    { display_list = "gDekuBabaStemTopDL" },
+    { transform = { translation = [0, 0, -2000] } },
+    { display_list = "gDekuBabaStemMiddleDL" },
+    { transform = { translation = [0, 0, -2000] } },
+    { display_list = "gDekuBabaStemBaseDL" },
+    { transform = { reset = true, translation = [0, -1400, 0] } },
+    { display_list = "gDekuBabaBaseLeavesDL" },
+]
+
+# Obj_Syokudai
+[actors.ACTOR_OBJ_SYOKUDAI]
+status = "checked"
+name = "Torch"
+description = "A torch on a golden, timed or wooden stand, lit by fire or a switch."
+notes = "Lit also when its switch flag is set, which a scene does not say. The flame faces the camera about Y only in the game."
+object = "object_syokudai"
+scale = 1.0
+lights = [{ color = [255, 255, 0], radius = 200, offset = [0, 70, 0] }]
+
+[actors.ACTOR_OBJ_SYOKUDAI.fields]
+switch = { kind = "integer", shift = 0, width = 6, role = "switch_flag", meaning = "Set when it is lit, or lights it when set" }
+count  = { kind = "integer", shift = 6, width = 4, meaning = "How many torches must be lit together; a timed torch burns 50 frames longer for each" }
+lit    = { kind = "flag", shift = 10, meaning = "Lit from the start" }
+type   = { kind = "enum", shift = 12, width = 4, values = { golden = 0, timed = 1, wooden = 2 } }
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { type = "golden", lit = true }
+display_lists = [{ name = "gGoldenTorchDL" }, { name = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, 52, 0], scale = 0.0027, billboard = true, colors = { prim = [255, 255, 0, 255], env = [255, 0, 0, 0] } }]
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { type = "timed", lit = true }
+display_lists = [{ name = "gTimedTorchDL" }, { name = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, 52, 0], scale = 0.0027, billboard = true, colors = { prim = [255, 255, 0, 255], env = [255, 0, 0, 0] } }]
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { type = "wooden", lit = true }
+display_lists = [{ name = "gWoodenTorchDL" }, { name = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, 52, 0], scale = 0.0027, billboard = true, colors = { prim = [255, 255, 0, 255], env = [255, 0, 0, 0] } }]
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { type = "golden" }
+display_lists = [{ name = "gGoldenTorchDL" }]
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { type = "timed" }
+display_lists = [{ name = "gTimedTorchDL" }]
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+display_lists = [{ name = "gWoodenTorchDL" }]
+
+# En_Kanban
+[actors.ACTOR_EN_KANBAN]
+status = "checked"
+name = "Sign"
+description = "A wooden sign Link can read, and cut to pieces."
+notes = "Draws its own shadow from a texture made in code, which is not drawn here."
+object = "object_kanban"
+scale = 0.01
+
+[actors.ACTOR_EN_KANBAN.fields]
+text = { kind = "integer", shift = 0, width = 16, role = "text_id", hex = true, meaning = "Its message is this ORed with 0x0300; 0x0300 is the fishing pond's sign" }
+
+[[actors.ACTOR_EN_KANBAN.variants]]
+match = { age = "child" }
+height_offset = -1500
+display_lists = [{ name = "object_kanban_DL_000C30" }, { name = "gSignRectangularDL", object = "gameplay_keep", translation = [0, 0, -100] }]
+
+[[actors.ACTOR_EN_KANBAN.variants]]
+display_lists = [{ name = "object_kanban_DL_000C30" }, { name = "gSignRectangularDL", object = "gameplay_keep", translation = [0, 0, -100] }]
+
+# Door_Shutter
+[actors.ACTOR_DOOR_SHUTTER]
+status = "checked"
+name = "Sliding door"
+description = "A door that slides up when Link walks in, barred or locked by its type; it looks like its dungeon."
+notes = "A boss door's texture is picked by its scene, as sBossDoorInfo says. Each look has a back side too (DOORSHUTTER_GFX_*_2), and bars drawn while barred; only the front is drawn. Jabu-Jabu's door is built from sections in code."
+scale = 1.0
+
+[actors.ACTOR_DOOR_SHUTTER.fields]
+switch = { kind = "integer", shift = 0, width = 6, role = "switch_flag", meaning = "Opens it, for the switch types" }
+type   = { kind = "enum", shift = 6, width = 4, values = { shutter = 0, front_clear = 1, front_switch = 2, back_locked = 3, phantom_ganon_bars = 4, boss = 5, gohma_block = 6, front_switch_back_clear = 7, type_8 = 8, type_9 = 9, type_a = 10, key_locked = 11 } }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = ["phantom_ganon_bars", "type_8"] }
+object = "object_gnd"
+display_lists = [{ name = "gPhantomGanonBarsDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_FIRE_TEMPLE", "SCENE_FIRE_TEMPLE_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorFireTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_WATER_TEMPLE", "SCENE_WATER_TEMPLE_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorWaterTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_SHADOW_TEMPLE", "SCENE_SHADOW_TEMPLE_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorShadowTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_GANONS_TOWER", "SCENE_GANONDORF_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorGanonsCastleTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_FOREST_TEMPLE", "SCENE_FOREST_TEMPLE_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorForestTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss", scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_SPIRIT_TEMPLE_BOSS"] }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorSpiritTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "boss" }
+object = "object_bdoor"
+display_lists = [{ name = "gBossDoorDL" }]
+segments = { 8 = "gBossDoorDefaultTex" }
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { type = "gohma_block" }
+object = "object_goma"
+display_lists = [{ name = "gGohmaDoorDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_DEKU_TREE" }
+object = "object_ydan_objects"
+display_lists = [{ name = "gDTDungeonDoor1DL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = ["SCENE_DODONGOS_CAVERN", "SCENE_DODONGOS_CAVERN_BOSS"] }
+object = "object_ddan_objects"
+display_lists = [{ name = "gDodongoDoorDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_JABU_JABU" }
+draw = "marker"
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_FIRE_TEMPLE" }
+object = "object_hidan_objects"
+display_lists = [{ name = "gFireTempleDoorFrontDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = ["SCENE_GANONS_TOWER", "SCENE_GANONDORF_BOSS"] }
+object = "object_ganon_objects"
+display_lists = [{ name = "object_ganon_objects_DL_0000C0" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_SPIRIT_TEMPLE_BOSS"] }
+object = "object_jya_door"
+display_lists = [{ name = "gSpiritDoorDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_WATER_TEMPLE" }
+object = "object_mizu_objects"
+display_lists = [{ name = "gObjectMizuObjectsDoorShutterDL_005D90" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = ["SCENE_SHADOW_TEMPLE", "SCENE_BOTTOM_OF_THE_WELL"] }
+object = "object_haka_door"
+display_lists = [{ name = "object_haka_door_DL_002620" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_ICE_CAVERN" }
+object = "object_ice_objects"
+display_lists = [{ name = "object_ice_objects_DL_001D10" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_GERUDO_TRAINING_GROUND" }
+object = "object_menkuri_objects"
+display_lists = [{ name = "gGTGDoorDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_INSIDE_GANONS_CASTLE" }
+object = "object_demo_kekkai"
+display_lists = [{ name = "gGanonsCastleDoorDL" }]
+
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+match = { scene = "SCENE_ROYAL_FAMILYS_TOMB" }
+object = "object_ouke_haka"
+display_lists = [{ name = "object_ouke_haka_DL_0000C0" }]
+
+# The forest temple and every scene not listed: gameplay_keep's generic door.
+[[actors.ACTOR_DOOR_SHUTTER.variants]]
+object = "gameplay_keep"
+display_lists = [{ name = "gDungeonDoorDL" }]
+
+# En_Md
+[actors.ACTOR_EN_MD]
+status = "checked"
+name = "Mido"
+description = "The Kokiri boss, who blocks the way to the Deku Tree until Link has a sword and shield."
+notes = "Spawns in Kokiri Forest before the Deku Tree is done, in his house after it while Link is a child, and always in the Lost Woods; the event flags are not modelled. Stands in gMidoIdleAnim, its first entry of sAnimationInfo."
+object = "object_md"
+scale = 0.01
+shadow = { kind = "circle", size = 24 }
+
+[[actors.ACTOR_EN_MD.variants]]
+skeleton = "gMidoSkel"
+animation = "gMidoIdleAnim"
+segments = { 8 = "gMidoEyeOpenTex" }
