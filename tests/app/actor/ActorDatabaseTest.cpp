@@ -42,7 +42,7 @@ display_lists = [{ name = "gPotDungeonDL" }]
 [[actors.ACTOR_OBJ_TSUBO.variants]]
 match = { type = "field" }
 object = "gameplay_field_keep"
-display_lists = [{ name = "gPotFieldDL", pass = "translucent", translation = [0, 10, 0], billboard = true, colors = { prim = [255, 255, 170] } }]
+display_lists = [{ name = "gPotFieldDL", object = "gameplay_field_keep", pass = "translucent", translation = [0, 10, 0], billboard = true, colors = { prim = [255, 255, 170] } }]
 
 [actors.ACTOR_EN_ANI]
 status = "guessed"
@@ -106,6 +106,7 @@ TEST_CASE("an actor database is read with every key it may hold", "[actor][datab
     REQUIRE(pot.scale == Catch::Approx(0.15F));
     REQUIRE(pot.variants.size() == 2);
     const toki::actor::DisplayListPart& field = pot.variants[1].displayLists.front();
+    REQUIRE(field.object == "gameplay_field_keep");
     REQUIRE(field.pass == toki::actor::Pass::Translucent);
     REQUIRE(field.placement.translation[1] == Catch::Approx(10.0F));
     REQUIRE(field.isBillboard == true);

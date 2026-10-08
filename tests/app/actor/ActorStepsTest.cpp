@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -148,4 +149,15 @@ steps = [
     REQUIRE(isReported(database, "has steps, which say how it is drawn"));
     REQUIRE(isReported(database, "match.type: only an enum's values have names"));
     REQUIRE(isReported(database, "a scene is matched by its enum name"));
+}
+
+TEST_CASE("a variant matching on other scenes cannot match in this one", "[actor][database]") {
+    const toki::actor::ActorDatabase database =
+        toki::actor::parseActorDatabase(Example, "actors.toml");
+    const toki::actor::ActorEntry& box = database.entries.at("ACTOR_EN_BOX");
+
+    REQUIRE(toki::actor::isMatchingScene(box.variants[0], std::string("SCENE_DEKU_TREE")));
+    REQUIRE_FALSE(toki::actor::isMatchingScene(box.variants[0], std::string("SCENE_JABU_JABU")));
+    REQUIRE_FALSE(toki::actor::isMatchingScene(box.variants[0], std::nullopt));
+    REQUIRE(toki::actor::isMatchingScene(box.variants[1], std::nullopt));
 }

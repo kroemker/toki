@@ -91,8 +91,11 @@ struct Frame {
     std::vector<base::Diagnostic> diagnostics;
 };
 
-/// The segment the frame's own display list and matrices are written to.
-/// Content that uses it cannot be drawn.
+/// The segment the frame's own display list and matrices are written to,
+/// starting with the camera's billboard matrix at its address 0, where
+/// `Play_Draw` points segment 1 at `billboardMtx` for display lists that turn
+/// to face the camera, as `gItemDropDL` does. Content that uses it cannot be
+/// drawn.
 inline constexpr u8 FrameSegment = 0x01;
 
 /// `model` turned to face a camera whose view is `view`, keeping its

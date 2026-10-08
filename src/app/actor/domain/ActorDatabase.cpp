@@ -59,6 +59,12 @@ namespace {
 
 } // namespace
 
+bool isMatchingScene(const ActorVariant& variant, const std::optional<std::string>& scene) {
+    const auto match = std::ranges::find(variant.match, "scene", &FieldMatch::field);
+    return match == variant.match.end() ||
+           isBuiltInMatching(*match, PlacementValues{.scene = scene});
+}
+
 bool isBuiltInField(const std::string_view name) {
     return name == "age" || name == "scene";
 }

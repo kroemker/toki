@@ -193,7 +193,7 @@ struct SceneActors {
 /// object, when not zero, into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the
 /// game load it: every object's display lists may point into either.
 /// `sceneFolder` names the scene's folder, `ydan`, whose enum name the scene
-/// table gives.
+/// table gives; a variant that matches on other scenes is not read.
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                                           std::string_view sceneFolder,
                                           const std::vector<SceneLayer>& layers,

@@ -50,9 +50,9 @@ inline constexpr std::array FieldKeys = {
     std::string_view("width"),  std::string_view("signed"), std::string_view("hex"),
     std::string_view("values"), std::string_view("role"),   std::string_view("meaning")};
 inline constexpr std::array ListKeys = {
-    std::string_view("name"),      std::string_view("pass"),    std::string_view("translation"),
-    std::string_view("rotation"),  std::string_view("scale"),   std::string_view("colors"),
-    std::string_view("billboard"), std::string_view("segments")};
+    std::string_view("name"),        std::string_view("object"),    std::string_view("pass"),
+    std::string_view("translation"), std::string_view("rotation"),  std::string_view("scale"),
+    std::string_view("colors"),      std::string_view("billboard"), std::string_view("segments")};
 
 /// `path.key`, or `key` at the top.
 [[nodiscard]] std::string makePath(std::string_view path, std::string_view key);

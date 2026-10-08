@@ -144,13 +144,15 @@ FrameList writeFrameList(const ViewportContent& content,
     const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
     const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
 
+    const glm::mat4 view = camera.makeViewMatrix();
     n64::DisplayListWriter writer(FrameSegment);
+    static_cast<void>(
+        writer.addMatrix(makeFixedMatrix(makeBillboardMatrix(glm::mat4(1.0F), view))));
     const u32 viewport = writer.addViewport(n64::Viewport{
         .scale = {halfWidth, halfHeight, DepthHalfRange},
         .translate = {halfWidth, halfHeight, DepthHalfRange},
     });
     const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
-    const glm::mat4 view = camera.makeViewMatrix();
     const u32 projection =
         writer.addMatrix(makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * view));
     const std::optional<LightAddresses> lights =

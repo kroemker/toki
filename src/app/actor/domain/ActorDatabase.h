@@ -48,6 +48,11 @@ struct PlacementValues {
     std::optional<std::string> scene;
 };
 
+/// Whether `variant` can match a placement in the scene of enum name `scene`:
+/// whether it has no match on the scene, or one that `scene` is among.
+[[nodiscard]] bool isMatchingScene(const ActorVariant& variant,
+                                   const std::optional<std::string>& scene);
+
 /// Whether `name` is a field every entry has without declaring it.
 [[nodiscard]] bool isBuiltInField(std::string_view name);
 

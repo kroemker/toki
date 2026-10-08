@@ -72,9 +72,9 @@ constexpr usize PlayedLayers = 4;
 class ActorReader {
 public:
     ActorReader(hackeroot::AssetImageReader& reader, const std::vector<SceneLayer>& layers,
-                const ActorDatabases& databases)
+                const ActorDatabases& databases, std::optional<std::string> scene)
         : workspace(reader.getWorkspace()), layers(layers), databases(databases),
-          objects(reader, findSceneKeep(), actors) {}
+          scene(std::move(scene)), objects(reader, findSceneKeep(), actors) {}
 
     [[nodiscard]] SceneActors read() &&;
 
@@ -90,6 +90,7 @@ private:
     const hackeroot::Workspace& workspace;
     const std::vector<SceneLayer>& layers;
     const ActorDatabases& databases;
+    std::optional<std::string> scene;
     SceneActors actors;
     ActorObjects objects;
 };
@@ -143,6 +144,10 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
     }
     const FindActorId findId = [this](const std::string_view name) { return findActorId(name); };
     for (const actor::ActorVariant& variant : model.entry->variants) {
+        if (!actor::isMatchingScene(variant, scene)) {
+            model.variants.emplace_back();
+            continue;
+        }
         ActorDrawing drawing =
             makeActorDrawing(*model.entry, variant, objects, findId, model.diagnostics);
         for (const ChildPlacement& child : drawing.children) {
@@ -208,13 +213,13 @@ SceneActors readSceneActors(hackeroot::AssetImageReader& reader, const std::stri
                             const std::vector<SceneLayer>& layers,
                             const ActorDatabases& databases) {
     const auto started = std::chrono::steady_clock::now();
-    SceneActors actors = ActorReader(reader, layers, databases).read();
     const std::vector<hackeroot::SceneEntry>& scenes = reader.getWorkspace().getTables().scenes;
     const std::string tableName = std::format("{}_scene", sceneFolder);
-    if (const auto scene = std::ranges::find(scenes, tableName, &hackeroot::SceneEntry::name);
-        scene != scenes.end()) {
-        actors.scene = scene->enumName;
-    }
+    const auto entry = std::ranges::find(scenes, tableName, &hackeroot::SceneEntry::name);
+    const std::optional<std::string> scene =
+        entry != scenes.end() ? std::optional(entry->enumName) : std::nullopt;
+    SceneActors actors = ActorReader(reader, layers, databases, scene).read();
+    actors.scene = scene;
     actors.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
     return actors;

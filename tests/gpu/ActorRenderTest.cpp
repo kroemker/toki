@@ -161,6 +161,23 @@ struct Box {
     for (const toki::scene::ActorDisplayList& list : drawing.displayLists) {
         addList(list, matrix);
     }
+    for (const toki::scene::ChildPlacement& child : drawing.children) {
+        const auto model = actors.models.find(child.id);
+        const toki::scene::ActorDrawing* childDrawing =
+            model != actors.models.end() ? model->second.findDrawing({.params = child.params})
+                                         : nullptr;
+        if (childDrawing == nullptr) {
+            continue;
+        }
+        const toki::scene::PlacedActor childPlaced{.id = child.id,
+                                                   .position = {static_cast<s16>(child.offset[0]),
+                                                                static_cast<s16>(child.offset[1]),
+                                                                static_cast<s16>(child.offset[2])},
+                                                   .params = child.params};
+        const Box childBox = measure(actors, *childDrawing, childPlaced);
+        box.lowest = glm::min(box.lowest, childBox.lowest);
+        box.highest = glm::max(box.highest, childBox.highest);
+    }
     if (box.lowest.x > box.highest.x) {
         box.lowest = glm::vec3(-20.0F);
         box.highest = glm::vec3(20.0F);
@@ -209,16 +226,27 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     layer.rooms.push_back(toki::scene::RoomHeader{
         .actors = {toki::scene::ActorPlacement{
             .id = *id, .rotation = values.rotation, .params = static_cast<s16>(values.params)}}});
+    std::string folder;
+    if (values.scene) {
+        const auto& scenes = reader.getWorkspace().getTables().scenes;
+        const auto scene =
+            std::ranges::find(scenes, *values.scene, &hackeroot::SceneEntry::enumName);
+        REQUIRE(scene != scenes.end());
+        folder = scene->name.substr(0, scene->name.size() - std::string_view("_scene").size());
+    }
     toki::scene::SceneActors actors =
-        toki::scene::readSceneActors(reader, "", {layer}, {.shipped = shipped});
-    actors.scene = values.scene;
+        toki::scene::readSceneActors(reader, folder, {layer}, {.shipped = shipped});
     const toki::scene::SceneActorModel& model = actors.models.at(*id);
     INFO(entry.actor << " variant " << index << ":\n" << describe(model.diagnostics));
     CHECK(model.diagnostics.empty());
     const toki::scene::PlacedActor placed{
         .id = *id, .rotation = values.rotation, .params = values.params, .age = values.age};
-    const toki::scene::ActorDrawing* drawing = model.findDrawing(values);
-    REQUIRE(drawing != nullptr);
+    REQUIRE(index < model.variants.size());
+    toki::scene::SceneActorModel& only = actors.models.at(*id);
+    only.entry->variants = {variant};
+    only.entry->variants.front().match.clear();
+    only.variants = {model.variants[index]};
+    const toki::scene::ActorDrawing* drawing = &only.variants.front();
     if (!drawing->isDrawn()) {
         return;
     }

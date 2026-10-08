@@ -110,6 +110,34 @@ TEST_CASE("the frame's matrices match the camera's within fixed point", "[viewpo
     REQUIRE(position[3] == Catch::Approx(expected.w).epsilon(0.01));
 }
 
+TEST_CASE("segment 1 starts with the camera's billboard matrix, as the game's does", "[viewport]") {
+    OrbitCamera camera;
+    camera.rotate(40.0F, 15.0F);
+    const glm::vec3 corner{0.0F, 0.0F, 100.0F};
+    n64::DisplayListWriter writer(Segment);
+    const u32 vertices = writer.addVertex({.position = {0, 0, 100}, .color = {255, 255, 255, 255}});
+    static_cast<void>(writer.addVertex({.position = {50, 0, 100}, .color = {255, 255, 255, 255}}));
+    static_cast<void>(writer.addVertex({.position = {0, 50, 100}, .color = {255, 255, 255, 255}}));
+    const u32 start = writer.getAddress();
+    writer.loadMatrix(0x0100'0000, n64::MatrixLoad::ModelView);
+    static_cast<void>(writer.loadVertices(vertices, 3, 0));
+    writer.drawTriangle({0, 1, 2});
+    writer.endDisplayList();
+    const glm::mat4 view = camera.makeViewMatrix();
+    const glm::vec4 expected = OrbitCamera::makeProjectionMatrix(4.0F / 3.0F) * view *
+                               toki::viewport::makeBillboardMatrix(glm::mat4(1.0F), view) *
+                               glm::vec4(corner, 1.0F);
+
+    const toki::viewport::Frame frame = toki::viewport::runFrame(
+        makeContent(writer, start), camera, FrameSize{.width = 640, .height = 480});
+
+    const std::vector<n64::Triangle> triangles = findTriangles(frame.rspResult);
+    REQUIRE(triangles.size() == 1);
+    const std::array<f32, 4>& position = triangles[0].vertices[0].position;
+    REQUIRE(position[0] / position[3] == Catch::Approx(expected.x / expected.w).margin(0.005));
+    REQUIRE(position[1] / position[3] == Catch::Approx(expected.y / expected.w).margin(0.005));
+}
+
 TEST_CASE("the reference grid draws every cell and nothing else", "[viewport]") {
     const toki::viewport::Frame frame = toki::viewport::runFrame(
         toki::viewport::makeReferenceGrid(), OrbitCamera{}, FrameSize{.width = 800, .height = 600});
