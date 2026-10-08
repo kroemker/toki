@@ -41,6 +41,7 @@ Workspace::load(const std::filesystem::path& root, const makeparser::MakeOverrid
     }
 
     Workspace workspace;
+    workspace.imageCache = std::make_unique<ImageCache>();
     workspace.root = root;
     workspace.buildDefines = std::move(*defines);
     workspace.scraped =

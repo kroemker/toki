@@ -9,6 +9,7 @@ target_sources(toki_core PRIVATE
         FilePoller.cpp
         GameCode.cpp
         Gbi.cpp
+        ImageCache.cpp
         ObjectFiles.cpp
         OverlayFiles.cpp
         Prelude.cpp

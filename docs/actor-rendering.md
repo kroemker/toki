@@ -185,8 +185,8 @@ profile names an object that is neither a keep object nor in its room's object l
 not to be spawned by the game there. **Show actors** and **Draw models** are saved with the
 session. The overlays and objects read are watched with the scene's own files,
 so editing an actor's C or re-exporting its object reads the actors again. A scene read
-again keeps the models it had until the new ones arrive. The actor loader keeps its own
-image cache, apart from the scene loader's.
+again keeps the models it had until the new ones arrive. The objects are the workspace's
+shared images, so the scene loader, the actor loader and the Object panel read each once.
 
 ### Animation
 

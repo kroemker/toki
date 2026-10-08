@@ -13,7 +13,7 @@
 #include "cparser/Types.h"
 #include "cparser/Value.h"
 #include "hackeroot/AssetSource.h"
-#include "hackeroot/FilePoller.h"
+#include "hackeroot/ImageCache.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Types.h"
 #include "hackeroot/Workspace.h"
@@ -394,15 +394,7 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images,
 } // namespace
 
 struct AssetImageReader::Caches {
-    struct SharedImage {
-        std::vector<SegmentFiles> files;
-        std::vector<std::shared_ptr<const z64::MemoryImage>> earlier;
-        FilePoller poller;
-        std::shared_ptr<const z64::MemoryImage> image;
-    };
-
     PreludeCache preludes;
-    std::vector<SharedImage> sharedImages;
 };
 
 AssetImageReader::AssetImageReader(std::shared_ptr<const Workspace> workspace)
@@ -424,24 +416,14 @@ ImageSet AssetImageReader::read(const std::span<const SharedImageFiles> shared,
     ImageSet set;
     std::vector<const z64::MemoryImage*> earlier;
     for (const SharedImageFiles& files : shared) {
-        auto cached =
-            std::ranges::find_if(caches->sharedImages, [&files](const Caches::SharedImage& image) {
-                return image.files == files.files;
+        std::shared_ptr<const z64::MemoryImage> image =
+            workspace->getImageCache().findOrRead(files, set.shared, [&] {
+                const std::array<std::vector<SegmentFiles>, 1> read{files.files};
+                return std::move(
+                    ImageReader(*workspace, caches->preludes).read(read, earlier).front());
             });
-        if (cached == caches->sharedImages.end()) {
-            cached = caches->sharedImages.insert(
-                cached, Caches::SharedImage{.files = files.files, .poller = FilePoller({})});
-        }
-        if (!cached->image || cached->earlier != set.shared ||
-            !cached->poller.findChanges().empty()) {
-            cached->poller = FilePoller(files.watched);
-            const std::array<std::vector<SegmentFiles>, 1> image{files.files};
-            cached->image = std::make_shared<const z64::MemoryImage>(
-                std::move(ImageReader(*workspace, caches->preludes).read(image, earlier).front()));
-            cached->earlier = set.shared;
-        }
-        earlier.push_back(cached->image.get());
-        set.shared.push_back(cached->image);
+        earlier.push_back(image.get());
+        set.shared.push_back(std::move(image));
     }
     set.images = ImageReader(*workspace, caches->preludes).read(images, earlier);
     return set;

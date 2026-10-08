@@ -61,9 +61,9 @@ struct ImageSet {
 ///
 /// The system headers each file is read against are kept between reads: they
 /// are most of the cost of reading a fast64 export, and a re-export does not
-/// change them. So are shared images, while their files do not change.
-/// Everything else, the files, their textures and the folders they list, is
-/// read afresh every time.
+/// change them. Shared images are kept by the workspace (`ImageCache`), for
+/// every reader of it, while their files do not change. Everything else, the
+/// files, their textures and the folders they list, is read afresh every time.
 class AssetImageReader {
 public:
     explicit AssetImageReader(std::shared_ptr<const Workspace> workspace);

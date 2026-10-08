@@ -352,14 +352,15 @@ the actor loader and the Object panel each read `gameplay_keep` for themselves. 
 they would help:
 
 - **One image cache for the session**, shared by every loader, so `gameplay_keep` and every
-  object is read once however it is first opened.
+  object is read once however it is first opened (`hackeroot::ImageCache`, done).
 - **Images kept on disk**, keyed by their files' modification times, so a second session
   opens a scene's actors in about the second read's time. The first ever read stays slow.
 - **Objects read in parallel**: the share's cost is latency, not bandwidth, so reading the
   fourteen objects at once should bring the first read down to about the slowest few. It
   needs the image reader's caches made safe to share between threads.
 
-Step 9 picks from these.
+The first is done: a second reader of the workspace reads Ice Cavern's actors in 0.94 s,
+where it read all fourteen objects again before. Step 9 picks from the other two.
 
 ## The curated run
 

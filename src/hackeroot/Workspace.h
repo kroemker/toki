@@ -5,6 +5,7 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
+#include "hackeroot/ImageCache.h"
 #include "hackeroot/Tables.h"
 #include "makeparser/Makefile.h"
 
@@ -55,6 +56,13 @@ public:
         return assets;
     }
 
+    /// The images read from this workspace and shared by everything that reads
+    /// it, on any thread. It is the one part of a workspace that changes after
+    /// it is loaded, and it locks itself.
+    [[nodiscard]] ImageCache& getImageCache() const {
+        return *imageCache;
+    }
+
     /// Everything that went wrong while reading, from the Makefile to the asset
     /// folders, in that order.
     [[nodiscard]] std::vector<base::Diagnostic> collectDiagnostics() const;
@@ -73,6 +81,7 @@ private:
     std::unique_ptr<Configuration> configuration;
     Tables tables;
     Assets assets;
+    std::unique_ptr<ImageCache> imageCache;
 };
 
 } // namespace hackeroot

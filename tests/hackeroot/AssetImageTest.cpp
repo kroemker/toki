@@ -128,3 +128,21 @@ TEST_CASE("a shared image is read once until a file it watches changes", "[hacke
     std::error_code failure;
     std::filesystem::remove_all(keepWatched.parent_path(), failure);
 }
+
+TEST_CASE("readers of one workspace share its images", "[hackeroot][image]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(getCheckout(), {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const std::array shared = {hackeroot::SharedImageFiles{
+        .files = {{.segment = 3,
+                   .files = {getCheckout() / "assets/scenes/custom/custom_room_0.c"}}},
+        .watched = {}}};
+    hackeroot::AssetImageReader first(workspace);
+    hackeroot::AssetImageReader second(workspace);
+
+    const hackeroot::ImageSet one = first.read(shared, {});
+    const hackeroot::ImageSet other = second.read(shared, {});
+
+    REQUIRE(one.shared.front() == other.shared.front());
+}

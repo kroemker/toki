@@ -21,6 +21,7 @@
 #include <optional>
 #include <ranges>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 
@@ -158,9 +159,11 @@ TEST_CASE("how long a scene's actors take to read", "[.measure][scene][checkout]
     hackeroot::AssetImageReader reader(shared);
     const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
     hackeroot::AssetImageReader actorReader(shared);
-    for (const char* read : {"first", "again"}) {
-        const toki::scene::SceneActors actors =
-            toki::scene::readSceneActors(actorReader, scene.layers);
+    hackeroot::AssetImageReader otherReader(shared);
+    for (const char* read : {"first", "again", "by another reader"}) {
+        const toki::scene::SceneActors actors = toki::scene::readSceneActors(
+            std::string_view(read) == "by another reader" ? otherReader : actorReader,
+            scene.layers);
         const auto drawn = std::ranges::count_if(
             actors.models, [](const auto& entry) { return entry.second.drawing.has_value(); });
         WARN("ice_doukutu, " << read << ": scene in " << scene.elapsed.count() << " ms, actors in "

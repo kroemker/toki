@@ -22,9 +22,9 @@ them with the `AssetImageReader` as three images: the game code (segment 0, as f
 scene), `gameplay_keep` (segment 4), and the object (segment 6, or 4 for the keep itself).
 Objects point into `gameplay_keep` freely, so it is always in the image.
 
-The game code and `gameplay_keep` are shared images (`hackeroot::SharedImageFiles`): the
-`AssetImageReader` reads each once and hands the same image to every read after it, until
-one of its files changes or an image it was laid out against is read again. An object is
+The game code and `gameplay_keep` are shared images (`hackeroot::SharedImageFiles`): they are
+read once for the workspace and handed to every read after it, by any reader, until one of
+their files changes or an image they were laid out against is read again. An object is
 then only its own files. Twenty objects in a row read in 1.2 s from a copy of the checkout
 on the Windows filesystem, release build: 0.5 s for the first, with the code and the keep,
 and 35 ms each for the rest, where each used to cost the whole half second.

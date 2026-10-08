@@ -81,7 +81,10 @@ keeps the preludes between reads, which are most of the cost of reading a fast64
 Images that are under every read, the game code and `gameplay_keep`, can be asked for as
 shared images, each with the files it watches: one is read again only when a watched file
 changed or an image before it was read again, and is otherwise the same image the last read
-made. Everything else, the files, their textures and the folders they list, is read afresh
+made. Shared images are kept by the workspace (`hackeroot::ImageCache`), so every reader of
+it, on any thread, gets the same ones: the scene loader, the actor loader and the Object
+panel read `gameplay_keep` once between them. The cache reads one image at a time, and a
+reader asking for one another is reading waits for it. Everything else, the files, their textures and the folders they list, is read afresh
 every time.
 
 ## Rendering from it
