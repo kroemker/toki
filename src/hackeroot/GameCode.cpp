@@ -38,6 +38,19 @@ std::optional<u32> findSetupDisplayList(const z64::MemoryImage& code, const usiz
     return *start + static_cast<u32>(index * SetupDisplayListSize);
 }
 
+std::vector<u32> listSetupDisplayLists(const z64::MemoryImage& code) {
+    const std::optional<z64::ImageSymbol> setups = code.findSymbol("sSetupDL");
+    const std::optional<u32> start = code.findAddress("sSetupDL");
+    std::vector<u32> lists;
+    if (!setups || !start) {
+        return lists;
+    }
+    for (usize index = 0; (index + 1) * SetupDisplayListSize <= setups->size; ++index) {
+        lists.push_back(*start + static_cast<u32>(index * SetupDisplayListSize));
+    }
+    return lists;
+}
+
 GameSetup findGameSetup(const z64::MemoryImage& code) {
     return GameSetup{.drawConfig = code.findAddress("sDefaultDisplayList"),
                      .setupDisplayList = findSetupDisplayList(code, SetupDisplayList25)};

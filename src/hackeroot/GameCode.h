@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <vector>
 
 namespace hackeroot {
 
@@ -38,5 +39,9 @@ inline constexpr usize SetupDisplayList44 = 44;
 /// Where `sSetupDL[index]` is in an image of `findGameCodeFiles`, if the code
 /// could be read and has that many.
 [[nodiscard]] std::optional<u32> findSetupDisplayList(const z64::MemoryImage& code, usize index);
+
+/// Where every display list of `sSetupDL` is, by index, in an image of
+/// `findGameCodeFiles`; none when the code could not be read.
+[[nodiscard]] std::vector<u32> listSetupDisplayLists(const z64::MemoryImage& code);
 
 } // namespace hackeroot

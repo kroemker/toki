@@ -1,4 +1,4 @@
-#include "app/scene/domain/ActorDraws.h"
+﻿#include "app/scene/domain/ActorDraws.h"
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/scene/domain/SceneActors.h"
@@ -20,6 +20,7 @@
 using base::s16;
 using base::s64;
 using base::u32;
+using base::u8;
 using base::usize;
 
 namespace {
@@ -30,7 +31,8 @@ namespace {
             .object = 0,
             .address = 0x0600'0100,
             .pass = pass,
-            .segments = {toki::scene::ActorSegment{.segment = 0x08, .address = 0x0600'0800}}}}};
+            .state = {.segments = {
+                          toki::scene::ActorSegment{.segment = 0x08, .address = 0x0600'0800}}}}}};
 }
 
 /// A pot of two kinds by its params' bit 8: opaque, or translucent.
@@ -82,7 +84,8 @@ TEST_CASE("each placed actor is drawn by the variant its params match, and the r
 
     const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
         actors, placed, 3,
-        toki::scene::ActorSetup{.setupDisplayList = 0x0000'0200, .emptyDisplayList = 0x0000'0E50});
+        toki::scene::ActorSetup{.setupDisplayLists = std::vector<u32>(26, 0x0000'0200),
+                                .emptyDisplayList = 0x0000'0E50});
 
     REQUIRE(draws.images.size() == 3);
     REQUIRE(draws.opaque.size() == 1);
@@ -138,4 +141,52 @@ TEST_CASE("a billboard faces the camera and keeps its place and size", "[scene][
     REQUIRE(seen[0].x == Catch::Approx(2.0F));
     REQUIRE(seen[0].z == Catch::Approx(0.0F).margin(1e-5));
     REQUIRE(seen[2].z == Catch::Approx(2.0F));
+}
+
+TEST_CASE("a skeleton is placed by its steps, and a limb's display list by the limb",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    const glm::mat4 limbMatrix = glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, 10.0F, 0.0F));
+    toki::scene::SkeletonDrawing skeleton{
+        .object = 0,
+        .pose = {.drawn = {toki::object::PosedLimb{.limb = 0, .displayList = 0x0600'0200}},
+                 .matrices = {glm::mat4(1.0F), limbMatrix}},
+        .state = {.setup = 44, .placement = glm::scale(glm::mat4(1.0F), glm::vec3(2.0F))},
+        .limbDisplayLists = {toki::scene::LimbDisplayList{
+            .limb = 1,
+            .displayList = {.object = 0,
+                            .address = 0x0600'0300,
+                            .pass = toki::actor::Pass::Translucent,
+                            .state = {.placement = glm::translate(glm::mat4(1.0F),
+                                                                  glm::vec3(0.0F, 0.0F, 5.0F))}}}}};
+    toki::scene::SceneActorModel chest{.enumName = "ACTOR_EN_BOX"};
+    chest.entry =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .variants = {toki::actor::ActorVariant{}}};
+    chest.variants = {toki::scene::ActorDrawing{
+        .skeleton = skeleton,
+        .scale = 1.0F,
+        .shadow = toki::scene::ActorShadow{.color = {0, 0, 0, 180}, .size = 1.0F}}};
+    actors.models.emplace(s16{4}, chest);
+    const std::array placed{toki::scene::PlacedActor{.id = 4, .position = {100, 0, 0}}};
+    std::vector<u32> setups(45);
+    for (usize i = 0; i < setups.size(); ++i) {
+        setups[i] = static_cast<u32>(0x0000'1000 + (i * 0x30));
+    }
+
+    const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
+        actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = setups});
+
+    REQUIRE(draws.opaque.size() == 2);
+    REQUIRE(draws.translucent.size() == 1);
+    const glm::vec4 lid = *draws.translucent.front().modelView * glm::vec4(0, 0, 0, 1);
+    REQUIRE(lid.x == Catch::Approx(100.0F));
+    REQUIRE(lid.y == Catch::Approx(20.0F));
+    REQUIRE(lid.z == Catch::Approx(10.0F));
+    const std::vector<u8>& bytes = draws.images.back()->segments.front().bytes;
+    const auto readWord = [&bytes](const u32 address) {
+        const usize at = address & 0x00FF'FFFFU;
+        return (u32{bytes[at]} << 24) | (u32{bytes[at + 1]} << 16) | (u32{bytes[at + 2]} << 8) |
+               u32{bytes[at + 3]};
+    };
+    REQUIRE(readWord(draws.opaque.front().displayList + 4) == setups[44]);
 }

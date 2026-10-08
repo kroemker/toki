@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
+#include "app/actor/domain/DrawSteps.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -15,6 +16,8 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -50,6 +53,40 @@ namespace {
     return object ? std::format(" in {}", *object) : std::string();
 }
 
+[[nodiscard]] std::string describePass(const actor::Pass pass) {
+    return pass == actor::Pass::Opaque ? "Opaque" : "Translucent";
+}
+
+void describeStep(const actor::DrawStep& step, const std::optional<std::string>& object,
+                  const std::string_view indent, std::vector<std::string>& lines) {
+    if (const auto* skeleton = std::get_if<actor::SkeletonStep>(&step.step)) {
+        lines.push_back(std::format("{}Skeleton {}{}", indent, skeleton->skeleton,
+                                    describeObject(skeleton->object, object)));
+        lines.push_back(skeleton->animation
+                            ? std::format("{}Animation {}{}, frame {}", indent,
+                                          *skeleton->animation,
+                                          describeObject(skeleton->animationObject, object),
+                                          skeleton->frame.value_or(0))
+                            : std::format("{}At rest", indent));
+        for (const actor::LimbSteps& limb : skeleton->limbs) {
+            lines.push_back(std::format("{}Limb {}:", indent, limb.limb));
+            for (const actor::DrawStep& limbStep : limb.steps) {
+                describeStep(limbStep, object, "    ", lines);
+            }
+        }
+    } else if (const auto* list = std::get_if<actor::DisplayListStep>(&step.step)) {
+        lines.push_back(std::format("{}{} {}{}", indent, describePass(list->pass), list->name,
+                                    describeObject(list->object, object)));
+    } else if (const auto* segment = std::get_if<actor::SegmentStep>(&step.step)) {
+        lines.push_back(
+            std::format("{}Segment {} at {}", indent, segment->segment, segment->symbol));
+    } else if (const auto* setup = std::get_if<actor::SetupStep>(&step.step)) {
+        lines.push_back(std::format("{}After sSetupDL[{}]", indent, setup->index));
+    } else if (const auto* shadow = std::get_if<actor::ShadowStep>(&step.step)) {
+        lines.push_back(std::format("{}Its own shadow, size {}", indent, shadow->shadow.size));
+    }
+}
+
 void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
                      std::vector<std::string>& lines) {
     const std::optional<std::string>& object = variant.object ? variant.object : entry.object;
@@ -57,22 +94,8 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
     if (kind == actor::DrawKind::Marker) {
         lines.emplace_back("Marked: it has no model by design");
     }
-    if (variant.skeleton) {
-        lines.push_back(
-            std::format("Skeleton {}{}", *variant.skeleton, describeObject({}, object)));
-        lines.push_back(variant.animation
-                            ? std::format("Animation {}{}, frame {}", *variant.animation,
-                                          describeObject(variant.animationObject, object),
-                                          variant.frame.value_or(0))
-                            : std::string("At rest"));
-    }
-    for (const actor::DisplayListPart& part : variant.displayLists) {
-        lines.push_back(std::format("{} {}{}",
-                                    part.pass == actor::Pass::Opaque ? "Opaque" : "Translucent",
-                                    part.name, describeObject(part.object, object)));
-    }
-    for (const actor::SegmentSymbol& segment : variant.segments) {
-        lines.push_back(std::format("Segment {} at {}", segment.segment, segment.name));
+    for (const actor::DrawStep& step : actor::makeDrawSteps(variant)) {
+        describeStep(step, object, "", lines);
     }
     for (const actor::ChildActor& child : variant.children) {
         lines.push_back(std::format("Spawns {} with params 0x{:04X}", child.actor, child.params));

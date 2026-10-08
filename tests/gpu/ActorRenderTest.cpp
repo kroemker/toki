@@ -139,19 +139,27 @@ struct Box {
     Box box;
     const glm::mat4 matrix =
         toki::scene::makeActorMatrix(placed, drawing.scale, drawing.heightOffset, drawing.rotates);
+    const auto addList = [&](const toki::scene::ActorDisplayList& list, const glm::mat4& parent) {
+        const z64::MemoryImage& image = *actors.objects[list.object].image;
+        if (const auto bounds = toki::object::findDisplayListBounds(image, list.address)) {
+            box.add(*bounds, parent * list.state.placement);
+        }
+    };
     if (drawing.skeleton) {
-        const z64::MemoryImage& image = *actors.objects[drawing.skeleton->object].image;
-        for (const toki::object::PosedLimb& limb : drawing.skeleton->limbs) {
+        const toki::scene::SkeletonDrawing& skeleton = *drawing.skeleton;
+        const z64::MemoryImage& image = *actors.objects[skeleton.object].image;
+        const glm::mat4 placedMatrix = matrix * skeleton.state.placement;
+        for (const toki::object::PosedLimb& limb : skeleton.pose.drawn) {
             if (const auto bounds = toki::object::findDisplayListBounds(image, limb.displayList)) {
-                box.add(*bounds, matrix * limb.matrix);
+                box.add(*bounds, placedMatrix * limb.matrix);
             }
+        }
+        for (const toki::scene::LimbDisplayList& limb : skeleton.limbDisplayLists) {
+            addList(limb.displayList, placedMatrix * skeleton.pose.matrices[limb.limb]);
         }
     }
     for (const toki::scene::ActorDisplayList& list : drawing.displayLists) {
-        const z64::MemoryImage& image = *actors.objects[list.object].image;
-        if (const auto bounds = toki::object::findDisplayListBounds(image, list.address)) {
-            box.add(*bounds, matrix * list.placement);
-        }
+        addList(list, matrix);
     }
     if (box.lowest.x > box.highest.x) {
         box.lowest = glm::vec3(-20.0F);
@@ -218,11 +226,8 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*code);
     toki::viewport::ViewportContent content{.images = {code}, .lighting = RenderLighting};
     const std::array<toki::scene::PlacedActor, 1> placements{placed};
-    toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
-        actors, placements, 1,
-        {.setupDisplayList = setup.setupDisplayList,
-         .shadowDisplayList = hackeroot::findSetupDisplayList(*code, hackeroot::SetupDisplayList44),
-         .emptyDisplayList = code->findAddress("gEmptyDL")});
+    toki::scene::ActorDraws draws =
+        toki::scene::makeActorDraws(actors, placements, 1, toki::scene::makeActorSetup(*code));
     std::ranges::move(draws.images, std::back_inserter(content.images));
     content.draws.push_back({.image = 0, .displayList = *setup.drawConfig});
     std::ranges::move(draws.opaque, std::back_inserter(content.draws));

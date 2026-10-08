@@ -265,14 +265,18 @@ Each step is one of:
   Steps start at `SETUPDL_25`, as `Actor_Draw` leaves them.
 - **`colors`**: the primitive and environment colour of what follows.
 - **`segment`** and **`symbol`**: points a segment from 8 to 12 at a symbol, of the step's
-  `object` or the variant's.
+  `object` or the variant's, or at `gEmptyDL` of the game code, as `Draw` points a segment at
+  nothing. Segments stay pointed for every step after, as they do in the game; ones no step
+  points are at `gEmptyDL`.
 - **`transform`**: a `translation`, `rotation` in degrees and `scale` applied to what follows,
   after those before it; `reset = true` starts again from the actor's matrix, and
   `billboard = true` turns it to face the camera.
 - **`display_list`**: draws one, of its `object` or the variant's, in its `pass`.
 - **`skeleton`**: draws one where the transforms put it, with its own `object`, `animation`,
   `animation_object`, `frame` and `pass`, and under `limbs` the steps each limb's
-  `PostLimbDraw` draws with that limb's matrix, by limb index. A variant draws at most one.
+  `PostLimbDraw` draws with that limb's matrix, by the index `PostLimbDraw` is called with,
+  1 for the root limb, so the numbers read as they do in the actor's C. A limb's steps start
+  from the limb's matrix and draw display lists only. A variant draws at most one skeleton.
 - **`shadow`**: the variant's own shadow, in place of the entry's.
 
 ### Player

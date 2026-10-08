@@ -77,20 +77,15 @@ struct Placed {
 /// Draws `placed` as their models, the entrance shown among them, and leaves
 /// in `placed` only what is still to be marked.
 [[nodiscard]] ActorDraws drawModels(const Scene& scene, const SceneView& view, Placed& placed,
-                                    const usize firstImage, const hackeroot::GameSetup& setup) {
+                                    const usize firstImage) {
     std::vector<PlacedActor> all = placed.actors;
     all.insert(all.end(), placed.transitionActors.begin(), placed.transitionActors.end());
     const bool showsEntrance = view.shownEntrance < placed.entrances.size();
     if (showsEntrance) {
         all.push_back(placed.entrances[view.shownEntrance]);
     }
-    const z64::MemoryImage& code = *scene.images.front();
-    const ActorSetup actorSetup{
-        .setupDisplayList = setup.setupDisplayList,
-        .shadowDisplayList = hackeroot::findSetupDisplayList(code, hackeroot::SetupDisplayList44),
-        .emptyDisplayList = code.findAddress("gEmptyDL"),
-        .frame = view.actorFrame};
-    ActorDraws draws = makeActorDraws(scene.actors, all, firstImage, actorSetup);
+    ActorDraws draws = makeActorDraws(scene.actors, all, firstImage,
+                                      makeActorSetup(*scene.images.front(), view.actorFrame));
     Placed undrawn;
     const usize actorCount = placed.actors.size();
     const usize transitionEnd = actorCount + placed.transitionActors.size();
@@ -251,7 +246,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     if (view.showsActors) {
         Placed placed = collectPlaced(layer, view);
         if (view.drawsModels) {
-            ActorDraws draws = drawModels(scene, view, placed, content.images.size(), setup);
+            ActorDraws draws = drawModels(scene, view, placed, content.images.size());
             std::ranges::move(draws.images, std::back_inserter(content.images));
             std::ranges::move(draws.opaque, std::back_inserter(content.draws));
             translucentActors = std::move(draws.translucent);

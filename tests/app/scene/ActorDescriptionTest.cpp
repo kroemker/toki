@@ -36,7 +36,7 @@ namespace {
             .skeleton = "gRoofManSkel"}},
     };
     actor.variants.push_back(toki::scene::ActorDrawing{
-        .skeleton = toki::scene::SkeletonDrawing{.limbs = {toki::object::PosedLimb{}}}});
+        .skeleton = toki::scene::SkeletonDrawing{.pose = {.drawn = {toki::object::PosedLimb{}}}}});
     return actor;
 }
 

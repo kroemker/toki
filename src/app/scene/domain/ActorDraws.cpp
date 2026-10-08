@@ -8,6 +8,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/viewport/domain/ViewportFrame.h"
+#include "hackeroot/GameCode.h"
 #include "n64/DisplayListWriter.h"
 #include "n64/FixedMatrix.h"
 #include "z64/MemoryImage.h"
@@ -83,18 +84,22 @@ void setColors(n64::DisplayListWriter& writer, const actor::DrawColors& colors) 
     return glm::scale(matrix, glm::vec3(size, 1.0F, size));
 }
 
+[[nodiscard]] std::optional<u32> findSetup(const ActorSetup& setup, const usize index) {
+    return index < setup.setupDisplayLists.size() ? std::optional(setup.setupDisplayLists[index])
+                                                  : std::nullopt;
+}
+
 class ActorWriter {
 public:
     ActorWriter(ActorDraws& draws, const usize firstImage, const ActorSetup& setup)
         : draws(draws), imageIndex(firstImage + draws.images.size()), firstImage(firstImage),
           setup(setup) {}
 
-    void writeSkeleton(const SkeletonDrawing& skeleton, const ActorDrawing& drawing,
-                       const glm::mat4& actorMatrix);
+    void writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4& actorMatrix);
 
-    void writeDisplayLists(const ActorDrawing& drawing, const glm::mat4& actorMatrix);
+    void writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent);
 
-    void writeShadow(const ActorDrawing& drawing, const glm::mat4& shadowMatrix);
+    void writeShadow(const ActorShadow& shadow, const glm::mat4& shadowMatrix);
 
     [[nodiscard]] z64::MemoryImage makeImage() const {
         z64::MemoryImage image;
@@ -112,7 +117,11 @@ private:
         return start;
     }
 
-    [[nodiscard]] std::vector<object::PosedLimb> poseLimbs(const SkeletonDrawing& skeleton) const;
+    [[nodiscard]] std::vector<viewport::ViewportDraw>& findPass(const actor::Pass pass) {
+        return pass == actor::Pass::Translucent ? draws.translucent : draws.opaque;
+    }
+
+    [[nodiscard]] object::Pose poseSkeleton(const SkeletonDrawing& skeleton) const;
 
     ActorDraws& draws;
     n64::DisplayListWriter writer{object::LimbMatrixSegment};
@@ -121,73 +130,74 @@ private:
     const ActorSetup& setup;
 };
 
-std::vector<object::PosedLimb> ActorWriter::poseLimbs(const SkeletonDrawing& skeleton) const {
+object::Pose ActorWriter::poseSkeleton(const SkeletonDrawing& skeleton) const {
     if (!setup.frame || !skeleton.animation || skeleton.animation->animation.frameCount == 0) {
-        return skeleton.limbs;
+        return skeleton.pose;
     }
     const ActorAnimation& animated = *skeleton.animation;
     const usize frame = (*setup.frame + skeleton.frame) % animated.animation.frameCount;
     return object::poseSkeleton(animated.skeleton,
-                                object::makeJointTable(animated.animation, frame))
-        .drawn;
+                                object::makeJointTable(animated.animation, frame));
 }
 
-void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const ActorDrawing& drawing,
-                                const glm::mat4& actorMatrix) {
-    const std::vector<object::PosedLimb> limbs = poseLimbs(skeleton);
+void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4& actorMatrix) {
+    const object::Pose pose = poseSkeleton(skeleton);
+    const glm::mat4 placed = actorMatrix * skeleton.state.placement;
     std::vector<u32> matrices;
-    matrices.reserve(limbs.size());
-    for (const object::PosedLimb& limb : limbs) {
-        matrices.push_back(writer.addMatrix(viewport::makeFixedMatrix(actorMatrix * limb.matrix)));
+    matrices.reserve(pose.drawn.size());
+    for (const object::PosedLimb& limb : pose.drawn) {
+        matrices.push_back(writer.addMatrix(viewport::makeFixedMatrix(placed * limb.matrix)));
     }
     const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
-    const u32 start = startList(setup.setupDisplayList);
-    setColors(writer, drawing.colors);
-    for (usize i = 0; i < limbs.size(); ++i) {
+    const u32 start = startList(findSetup(setup, skeleton.state.setup));
+    setColors(writer, skeleton.state.colors);
+    for (usize i = 0; i < pose.drawn.size(); ++i) {
         writer.loadMatrix(matrices[i], n64::MatrixLoad::ModelView);
-        writer.callDisplayList(limbs[i].displayList);
+        writer.callDisplayList(pose.drawn[i].displayList);
     }
     writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
     writer.endDisplayList();
-    draws.opaque.push_back(viewport::ViewportDraw{
-        .image = imageIndex,
-        .displayList = start,
-        .alsoImages = {firstImage + skeleton.object},
-        .pointedSegments =
-            makeSegmentPointers(drawing.segments, firstImage, setup.emptyDisplayList),
-    });
-}
-
-void ActorWriter::writeDisplayLists(const ActorDrawing& drawing, const glm::mat4& actorMatrix) {
-    for (const ActorDisplayList& list : drawing.displayLists) {
-        const u32 start = startList(setup.setupDisplayList);
-        setColors(writer, list.colors);
-        writer.callDisplayList(list.address);
-        writer.endDisplayList();
-        std::vector<viewport::ViewportDraw>& pass =
-            list.pass == actor::Pass::Translucent ? draws.translucent : draws.opaque;
-        pass.push_back(viewport::ViewportDraw{
+    findPass(skeleton.pass)
+        .push_back(viewport::ViewportDraw{
             .image = imageIndex,
             .displayList = start,
-            .alsoImages = {firstImage + list.object},
+            .alsoImages = {firstImage + skeleton.object},
             .pointedSegments =
-                makeSegmentPointers(list.segments, firstImage, setup.emptyDisplayList),
-            .modelView = actorMatrix * list.placement,
-            .isBillboard = list.isBillboard,
+                makeSegmentPointers(skeleton.state.segments, firstImage, setup.emptyDisplayList),
         });
+    for (const LimbDisplayList& limb : skeleton.limbDisplayLists) {
+        if (limb.limb < pose.matrices.size()) {
+            writeDisplayList(limb.displayList, placed * pose.matrices[limb.limb]);
+        }
     }
 }
 
-void ActorWriter::writeShadow(const ActorDrawing& drawing, const glm::mat4& shadowMatrix) {
-    const u32 start = startList(setup.shadowDisplayList);
+void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent) {
+    const u32 start = startList(findSetup(setup, list.state.setup));
+    setColors(writer, list.state.colors);
+    writer.callDisplayList(list.address);
+    writer.endDisplayList();
+    findPass(list.pass).push_back(viewport::ViewportDraw{
+        .image = imageIndex,
+        .displayList = start,
+        .alsoImages = {firstImage + list.object},
+        .pointedSegments =
+            makeSegmentPointers(list.state.segments, firstImage, setup.emptyDisplayList),
+        .modelView = parent * list.state.placement,
+        .isBillboard = list.state.isBillboard,
+    });
+}
+
+void ActorWriter::writeShadow(const ActorShadow& shadow, const glm::mat4& shadowMatrix) {
+    const u32 start = startList(findSetup(setup, hackeroot::SetupDisplayList44));
     writer.setCombine(ShadowCombine0, ShadowCombine1);
-    writer.setPrimitiveColor(drawing.shadow->color);
-    writer.callDisplayList(drawing.shadow->address);
+    writer.setPrimitiveColor(shadow.color);
+    writer.callDisplayList(shadow.address);
     writer.endDisplayList();
     draws.opaque.push_back(viewport::ViewportDraw{
         .image = imageIndex,
         .displayList = start,
-        .alsoImages = {firstImage + drawing.shadow->object},
+        .alsoImages = {firstImage + shadow.object},
         .modelView = shadowMatrix,
     });
 }
@@ -223,11 +233,13 @@ void writeActor(ActorDraws& draws, const PlacedActor& actor, const ActorDrawing&
     const glm::mat4 matrix =
         makeActorMatrix(actor, drawing.scale, drawing.heightOffset, drawing.rotates);
     if (drawing.skeleton) {
-        writer.writeSkeleton(*drawing.skeleton, drawing, matrix);
+        writer.writeSkeleton(*drawing.skeleton, matrix);
     }
-    writer.writeDisplayLists(drawing, matrix);
+    for (const ActorDisplayList& list : drawing.displayLists) {
+        writer.writeDisplayList(list, matrix);
+    }
     if (drawing.shadow) {
-        writer.writeShadow(drawing, makeShadowMatrix(actor, drawing));
+        writer.writeShadow(*drawing.shadow, makeShadowMatrix(actor, drawing));
     }
     draws.images.push_back(std::make_shared<const z64::MemoryImage>(writer.makeImage()));
 }
@@ -250,6 +262,12 @@ glm::mat4 makeActorMatrix(const PlacedActor& actor, const f32 scale, const f32 y
         matrix = glm::rotate(matrix, makeRadians(actor.rotation[2]), glm::vec3(0.0F, 0.0F, 1.0F));
     }
     return glm::scale(matrix, glm::vec3(scale));
+}
+
+ActorSetup makeActorSetup(const z64::MemoryImage& code, const std::optional<usize> frame) {
+    return ActorSetup{.setupDisplayLists = hackeroot::listSetupDisplayLists(code),
+                      .emptyDisplayList = code.findAddress("gEmptyDL"),
+                      .frame = frame};
 }
 
 ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const PlacedActor> placed,

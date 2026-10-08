@@ -43,17 +43,25 @@ struct ActorSegment {
     u32 address = 0;
 };
 
-/// A display list an actor draws, by address in one of the actor objects, and
-/// how: placed relative to the actor, coloured, facing the camera, and with
-/// the segments it is drawn with.
+/// What a display list or skeleton is drawn under, as the steps before it
+/// left it: after `sSetupDL[setup]`, in its colours, with segments 8 to 12
+/// pointed where they were, placed relative to the actor, or to its limb, and
+/// facing the camera when it is a billboard.
+struct DrawState {
+    u8 setup = 25;
+    actor::DrawColors colors;
+    std::vector<ActorSegment> segments;
+    glm::mat4 placement{1.0F};
+    bool isBillboard = false;
+};
+
+/// A display list an actor draws, by address in one of the actor objects, in
+/// a pass and under a state.
 struct ActorDisplayList {
     usize object = 0;
     u32 address = 0;
     actor::Pass pass = actor::Pass::Opaque;
-    glm::mat4 placement{1.0F};
-    actor::DrawColors colors;
-    bool isBillboard = false;
-    std::vector<ActorSegment> segments;
+    DrawState state;
 };
 
 /// A skeleton and the animation it plays, kept to pose it on any frame.
@@ -62,13 +70,24 @@ struct ActorAnimation {
     object::Animation animation;
 };
 
-/// A skeleton posed on its variant's frame, with every limb's matrix from
-/// model space, and what it needs to be posed on another.
+/// A display list drawn with a limb's matrix, by the limb's index in the
+/// skeleton, as a `PostLimbDraw` callback draws one.
+struct LimbDisplayList {
+    usize limb = 0;
+    ActorDisplayList displayList;
+};
+
+/// A skeleton posed on its frame, with every limb's matrix from model space,
+/// what it needs to be posed on another, the state it is drawn under, and
+/// what is drawn with its limbs.
 struct SkeletonDrawing {
     usize object = 0;
-    std::vector<object::PosedLimb> limbs;
+    object::Pose pose;
     std::optional<ActorAnimation> animation;
     u32 frame = 0;
+    actor::Pass pass = actor::Pass::Opaque;
+    DrawState state;
+    std::vector<LimbDisplayList> limbDisplayLists;
 };
 
 /// The shadow `ActorShadow_Draw` draws under an actor: a display list of
@@ -76,6 +95,7 @@ struct SkeletonDrawing {
 struct ActorShadow {
     usize object = 0;
     u32 address = 0;
+    /// Black or white, at the shadow's alpha.
     std::array<u8, 4> color{0, 0, 0, 0xFF};
     f32 size = 0.0F;
     bool turnsWithActor = false;
@@ -93,9 +113,6 @@ struct ActorDrawing {
     actor::DrawKind kind = actor::DrawKind::Model;
     std::optional<SkeletonDrawing> skeleton;
     std::vector<ActorDisplayList> displayLists;
-    /// The segments and colours a skeleton is drawn with.
-    std::vector<ActorSegment> segments;
-    actor::DrawColors colors;
     f32 scale = actor::ActorModel::DefaultScale;
     f32 heightOffset = 0.0F;
     actor::RotationAxes rotates;
