@@ -347,8 +347,10 @@ void App::updateSceneActors() {
     }
     const auto drawn = std::ranges::count_if(
         loaded->models, [](const auto& entry) { return entry.second.drawing.has_value(); });
-    logInfo("read the scene's actors in {} ms: {} of {} drawn as models, from {} objects",
-            loaded->elapsed.count(), drawn, loaded->models.size(), loaded->objects.size());
+    logInfo("read the scene's actors in {} ms ({} ms overlays, {} ms objects): {} of {} drawn "
+            "as models, from {} objects",
+            loaded->elapsed.count(), loaded->overlaysElapsed.count(),
+            loaded->objectsElapsed.count(), drawn, loaded->models.size(), loaded->objects.size());
     if (scenePanel != nullptr) {
         scenePanel->setActors(std::move(*loaded));
     }

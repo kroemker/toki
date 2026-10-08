@@ -63,6 +63,10 @@ private:
     const cparser::TranslationUnit& unit;
     std::filesystem::path main;
     cparser::ParseResult parsed;
+    /// The functions `main` itself defines, told apart from those of the
+    /// headers it includes by their location, whichever separators it was
+    /// written with.
+    std::vector<const cparser::FunctionDefinition*> mainFunctions;
 };
 
 /// Whether `tokens` are one call to `callee` and nothing else.

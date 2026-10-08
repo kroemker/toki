@@ -21,11 +21,15 @@ namespace {
     return std::filesystem::path(TOKI_TEST_FIXTURES) / "app/actor/fixtures";
 }
 
-[[nodiscard]] toki::actor::ActorModel readModel(std::string source) {
+[[nodiscard]] toki::actor::ActorModel readModel(std::string source,
+                                                const bool namesMainOtherwise = false) {
     const cparser::MacroTable base;
-    const std::filesystem::path main = getFixtures() / "ovl_En_Test" / "z_en_test.c";
+    const std::filesystem::path written =
+        (getFixtures() / "ovl_En_Test" / "z_en_test.c").generic_string();
+    const std::filesystem::path main =
+        namesMainOtherwise ? std::filesystem::path(written).make_preferred() : written;
     const cparser::TranslationUnit unit = cparser::preprocessText(
-        base, main, "#include \"assets/objects/object_test/object_test.h\"\n" + source,
+        base, written, "#include \"assets/objects/object_test/object_test.h\"\n" + source,
         cparser::PreprocessOptions{.searchPaths = {getFixtures()},
                                    .allowedRoots = {getFixtures()},
                                    .dialect = &z64::getDecompDialect()});
@@ -187,4 +191,19 @@ TEST_CASE("an overlay without a profile has no model", "[actor][rules]") {
 
     REQUIRE_FALSE(model.hasModel());
     REQUIRE(hasGap(model, toki::actor::GapKind::NoProfile));
+}
+
+TEST_CASE("an overlay's functions are found whichever separators its path is written with",
+          "[actor][rules]") {
+    const toki::actor::ActorModel model = readModel(std::string(Profile) + R"(
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    SkelAnime_InitFlex(play, &this->skelAnime, &gTestSkel, &gTestWalkAnim, NULL, NULL, 0);
+}
+
+void EnTest_Draw(Actor* thisx, PlayState* play) {
+}
+)",
+                                                    true);
+
+    REQUIRE(model.skeleton.has_value());
 }

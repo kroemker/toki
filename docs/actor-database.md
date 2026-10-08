@@ -332,12 +332,34 @@ shipped one, to fix.
 
 ## Cost
 
-Ice Cavern took 32 s to read its actors in a debug build over `\\wsl.localhost`. A release
-build is several times faster in this code, so the first step is to measure it there and
-find where the time goes. The database itself helps: an actor with an entry needs no
-preprocessing of its overlay, only its objects. Objects are then the cost, and the two ways
-to make them cheaper, reading them in parallel and keeping their images on disk keyed by
-their files' modification times, are each a step of their own once the numbers say which.
+Ice Cavern took 32 s to read its actors in a debug build over `\\wsl.localhost`. Measured
+in a release build over `\\wsl.localhost`, with the hidden test "how long a scene's actors
+take to read":
+
+| Read | Actors | Overlays | Objects |
+|---|---|---|---|
+| First | 14.2–16.9 s | 0.9 s | 13.3–16.0 s, 14 objects |
+| Again, same reader | 0.94 s | 0.8 s | 0.14 s |
+
+The scene itself reads in 4.9–5.1 s. Of the objects, `gameplay_keep` with the game code is
+6.6 s, then `object_haka_objects` 1.3 s, `object_xc` 0.9 s, `object_wf` 0.8 s, and the other
+ten 0.05 to 0.7 s each: every object is a file open and a PNG decode per texture, and a file
+open over the share costs milliseconds. Read again, each object takes about 10 ms.
+
+So the overlays are not the cost, and the database saving their preprocessing saves under a
+second. The objects are, and they are paid once per loader per session: the scene loader,
+the actor loader and the Object panel each read `gameplay_keep` for themselves. In the order
+they would help:
+
+- **One image cache for the session**, shared by every loader, so `gameplay_keep` and every
+  object is read once however it is first opened.
+- **Images kept on disk**, keyed by their files' modification times, so a second session
+  opens a scene's actors in about the second read's time. The first ever read stays slow.
+- **Objects read in parallel**: the share's cost is latency, not bandwidth, so reading the
+  fourteen objects at once should bring the first read down to about the slowest few. It
+  needs the image reader's caches made safe to share between threads.
+
+Step 9 picks from these.
 
 ## The curated run
 
@@ -387,7 +409,7 @@ M two or three, L more.
 
 | Step | What | Size |
 |---|---|---|
-| 0 | Measure Ice Cavern's actors in a release build, from the copy and over `\\wsl.localhost`, split into overlays, objects and posing | S |
+| 0 | Measure Ice Cavern's actors in a release build over the share, split into overlays and objects (done) | S |
 | 1 | The database: every key above as types; reading and writing `actors.toml`, with diagnostics naming the actor and key for anything wrong; validation of fields, values and symbols; the two files layered; `checked_against` | M |
 | 2 | Drawing from it: each placed actor's variant picked by its fields and age; turned only by the axes it rotates by, on its frame; display lists placed, coloured and billboarded; shadows; children; guesses only for actors without an entry; the Player entry and the entrance being looked at | L |
 | 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at | L, in batches |

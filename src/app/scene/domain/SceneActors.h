@@ -83,14 +83,18 @@ struct SceneActors {
     /// The overlays and objects read, for reading the scene again when one changes.
     std::vector<std::filesystem::path> watched;
     std::chrono::milliseconds elapsed{};
+    /// Of `elapsed`, the time spent reading overlays, and reading objects;
+    /// the rest is posing and finding symbols.
+    std::chrono::milliseconds overlaysElapsed{};
+    std::chrono::milliseconds objectsElapsed{};
 };
+
+/// Whether any actor of `actors` plays an animation.
+[[nodiscard]] bool hasAnimatedActors(const SceneActors& actors);
 
 /// Reads the model of every actor `layers` place, the objects those models
 /// name, and poses every skeleton found. The scene keep object, when not zero,
 /// is read into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it.
-/// Whether any actor of `actors` plays an animation.
-[[nodiscard]] bool hasAnimatedActors(const SceneActors& actors);
-
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                                           const std::vector<SceneLayer>& layers);
 

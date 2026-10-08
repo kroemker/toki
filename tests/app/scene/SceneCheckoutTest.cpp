@@ -143,3 +143,30 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         }
     }
 }
+
+TEST_CASE("how long a scene's actors take to read", "[.measure][scene][checkout]") {
+    std::optional<hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto shared = std::make_shared<const hackeroot::Workspace>(std::move(*workspace));
+    const auto& scenes = shared->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("ice_doukutu"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+
+    hackeroot::AssetImageReader reader(shared);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    hackeroot::AssetImageReader actorReader(shared);
+    for (const char* read : {"first", "again"}) {
+        const toki::scene::SceneActors actors =
+            toki::scene::readSceneActors(actorReader, scene.layers);
+        const auto drawn = std::ranges::count_if(
+            actors.models, [](const auto& entry) { return entry.second.drawing.has_value(); });
+        WARN("ice_doukutu, " << read << ": scene in " << scene.elapsed.count() << " ms, actors in "
+                             << actors.elapsed.count() << " ms (" << actors.overlaysElapsed.count()
+                             << " ms overlays, " << actors.objectsElapsed.count()
+                             << " ms objects), " << drawn << " of " << actors.models.size()
+                             << " drawn, " << actors.objects.size() << " objects");
+    }
+}

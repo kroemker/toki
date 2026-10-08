@@ -72,6 +72,9 @@ private:
     [[nodiscard]] std::optional<usize> findObject(const std::string& name,
                                                   std::vector<base::Diagnostic>& diagnostics);
 
+    [[nodiscard]] std::optional<usize> readObject(const std::string& name,
+                                                  std::vector<base::Diagnostic>& diagnostics);
+
     [[nodiscard]] std::optional<u32> findAddress(usize object, const actor::ObjectSymbol& symbol,
                                                  std::vector<base::Diagnostic>& diagnostics) const;
 
@@ -106,13 +109,22 @@ std::optional<usize> ActorReader::findObject(const std::string& name,
     if (const auto known = objectIndices.find(name); known != objectIndices.end()) {
         return known->second;
     }
-    std::optional<usize>& index = objectIndices[name];
+    const auto started = std::chrono::steady_clock::now();
+    const std::optional<usize> index = readObject(name, diagnostics);
+    objectIndices.emplace(name, index);
+    actors.objectsElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started);
+    return index;
+}
+
+std::optional<usize> ActorReader::readObject(const std::string& name,
+                                             std::vector<base::Diagnostic>& diagnostics) {
     const std::optional<hackeroot::AssetDirectory> directory =
         hackeroot::findObjectDirectory(workspace.getAssets(), name);
     if (!directory) {
         diagnostics.push_back(base::makeWarning(
             {}, std::format("the checkout has no object '{}' to draw the actor from", name)));
-        return index;
+        return std::nullopt;
     }
     const bool isKeep = name == hackeroot::KeepObjectName;
     const u8 segment = isKeep              ? hackeroot::KeepSegment
@@ -129,10 +141,9 @@ std::optional<usize> ActorReader::findObject(const std::string& name,
     shared.push_back(hackeroot::makeSharedObject(*directory, segment));
     std::ranges::copy(shared.back().watched, std::back_inserter(actors.watched));
     const hackeroot::ImageSet images = reader.read(shared, {});
-    index = actors.objects.size();
     actors.objects.push_back(
         ActorObject{.name = name, .segment = segment, .image = images.shared.back()});
-    return index;
+    return actors.objects.size() - 1;
 }
 
 std::optional<u32> ActorReader::findAddress(const usize object, const actor::ObjectSymbol& symbol,
@@ -236,10 +247,13 @@ SceneActors ActorReader::read() && {
             continue;
         }
         SceneActorModel& actor = actors.models[id];
+        const auto started = std::chrono::steady_clock::now();
         actor.model = actor::readActorModel(workspace, *entry);
         if (const auto overlay = hackeroot::findOverlayFiles(workspace.getRoot(), entry->name)) {
             std::ranges::copy(overlay->getAllFiles(), std::back_inserter(actors.watched));
         }
+        actors.overlaysElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started);
         if (actor.model.skeleton) {
             prepareSkeleton(actor);
         } else if (!actor.model.displayLists.empty()) {

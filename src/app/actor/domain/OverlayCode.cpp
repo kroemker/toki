@@ -64,7 +64,14 @@ OverlayCode::OverlayCode(const cparser::TranslationUnit& unit, std::filesystem::
     : unit(unit), main(std::move(main)),
       parsed(cparser::parseDeclarations(
           unit,
-          cparser::EvalContext{.macros = &unit.macros, .dialect = &z64::getDecompDialect()})) {}
+          cparser::EvalContext{.macros = &unit.macros, .dialect = &z64::getDecompDialect()})) {
+    const std::filesystem::path preferred = std::filesystem::path(this->main).make_preferred();
+    for (const cparser::FunctionDefinition& function : parsed.functions) {
+        if (std::filesystem::path(function.location.file).make_preferred() == preferred) {
+            mainFunctions.push_back(&function);
+        }
+    }
+}
 
 const cparser::Declaration* OverlayCode::findDefinition(const std::string_view name) const {
     const auto found =
@@ -84,21 +91,12 @@ OverlayCode::findDefinitionOfType(const std::span<const std::string_view> types)
 }
 
 const cparser::FunctionDefinition* OverlayCode::findFunction(const std::string_view name) const {
-    const auto found =
-        std::ranges::find_if(parsed.functions, [&](const cparser::FunctionDefinition& function) {
-            return function.name == name && function.location.file == main;
-        });
-    return found == parsed.functions.end() ? nullptr : &*found;
+    const auto found = std::ranges::find(mainFunctions, name, &cparser::FunctionDefinition::name);
+    return found == mainFunctions.end() ? nullptr : *found;
 }
 
 std::vector<const cparser::FunctionDefinition*> OverlayCode::listFunctions() const {
-    std::vector<const cparser::FunctionDefinition*> functions;
-    for (const cparser::FunctionDefinition& function : parsed.functions) {
-        if (function.location.file == main) {
-            functions.push_back(&function);
-        }
-    }
-    return functions;
+    return mainFunctions;
 }
 
 std::vector<const cparser::FunctionDefinition*>
