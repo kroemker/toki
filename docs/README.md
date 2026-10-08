@@ -14,6 +14,7 @@ why it is shaped that way, and what was measured.
 | [objects.md](objects.md) | What an object holds, how its assets are catalogued by type, and how a skeleton is posed and drawn the way an actor draws it. |
 | [textures.md](textures.md) | Where a texture's format and palette come from, how it is decoded as the RDP reads it, and how the Textures panel shows it. |
 | [actor-rendering.md](actor-rendering.md) | Drawing placed actors as their objects, by reading the literal calls in their overlay's `Init` and `Draw`; what is built and what is planned. |
+| [actor-database.md](actor-database.md) | Design, not built: the actor database that says how each actor is drawn by its params, edited in the application, with the C reading as its source of guesses; and its plan. |
 | [workspace.md](workspace.md) | How one checkout is read, kept current off the UI thread, and watched for changes. |
 | [renderer.md](renderer.md) | Why the renderer is our own, what it takes from Fast3D, RT64 and parallel-rdp, and how its stages divide the work. |
 
