@@ -14,6 +14,7 @@ target_sources(toki_core PRIVATE
         OverlayFiles.cpp
         Prelude.cpp
         SceneFiles.cpp
+        Spec.cpp
         Tables.cpp
         Workspace.cpp
         WslPath.cpp)

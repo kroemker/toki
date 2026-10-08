@@ -24,6 +24,11 @@ struct PngImage {
 /// Decodes PNG file contents. Fails with libspng's reason.
 [[nodiscard]] std::expected<PngImage, std::string> decodePng(std::span<const u8> bytes);
 
+/// Encodes `rgba`, four bytes a pixel, row by row from the top, as an 8-bit
+/// RGBA PNG. Fails with libspng's reason.
+[[nodiscard]] std::expected<std::vector<u8>, std::string> encodePng(std::span<const u8> rgba,
+                                                                    u32 width, u32 height);
+
 /// Only the palette of a palette-based PNG, read without decoding the image.
 /// Empty for a PNG without one.
 [[nodiscard]] std::expected<std::vector<n64::Color>, std::string>

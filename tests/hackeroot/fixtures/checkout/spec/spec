@@ -1,0 +1,22 @@
+/* The ROM spec of the fixture checkout. */
+
+#include "include/config.h"
+
+beginseg
+    name "gameplay_keep"
+    compress
+    include "$(BUILD_DIR)/assets/objects/gameplay_keep/gameplay_keep.o"
+    number 4
+endseg
+
+#if 0
+beginseg
+    name "never_built"
+    include "$(BUILD_DIR)/assets/objects/never_built/never_built.o"
+endseg
+#endif
+
+beginseg
+    name "object_missing"
+    include "$(BUILD_DIR)/assets/objects/object_missing/object_missing.o"
+endseg

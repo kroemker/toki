@@ -48,6 +48,7 @@ add_executable(toki_tests
         hackeroot/OverlayFilesTest.cpp
         hackeroot/PreludeCheckoutTest.cpp
         hackeroot/SceneFilesTest.cpp
+        hackeroot/SpecTest.cpp
         hackeroot/WorkspaceTest.cpp
         hackeroot/WslPathTest.cpp
         makeparser/MakefileTest.cpp
@@ -65,6 +66,7 @@ add_executable(toki_tests
         z64/DataEncoderTest.cpp
         z64/DecompDialectTest.cpp
         z64/MemoryImageTest.cpp
+        z64/PngImageTest.cpp
         z64/TextureCheckoutTest.cpp
         z64/ImageTextureTest.cpp
         z64/TextureEncoderTest.cpp
@@ -86,12 +88,15 @@ catch_discover_tests(toki_tests)
 # Tests that draw on a real GPU, apart from toki_tests so that binary never
 # needs one. Each test skips when no GPU device can be created.
 add_executable(toki_gpu_tests
+        gpu/ActorRenderTest.cpp
         gpu/BlendSetupTest.cpp
         gpu/RendererTest.cpp)
 target_include_directories(toki_gpu_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(toki_gpu_tests PRIVATE toki_core toki_gfx Catch2::Catch2WithMain toki_warnings)
 target_compile_definitions(toki_gpu_tests PRIVATE
-        TOKI_GPU_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}")
+        TOKI_GPU_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}"
+        TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
+        TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 add_custom_command(TARGET toki_gpu_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:toki_gpu_tests>
             $<TARGET_FILE_DIR:toki_gpu_tests>

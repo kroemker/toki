@@ -5,6 +5,7 @@
 
 #include <spng.h>
 
+#include <cstdlib>
 #include <expected>
 #include <memory>
 #include <span>
@@ -146,6 +147,36 @@ decodePngPalette(const std::span<const u8> bytes) {
         return std::vector<n64::Color>{};
     }
     return readPalette(context->get());
+}
+
+std::expected<std::vector<u8>, std::string> encodePng(const std::span<const u8> rgba,
+                                                      const u32 width, const u32 height) {
+    constexpr u8 BitDepth = 8;
+    Context context(spng_ctx_new(SPNG_CTX_ENCODER));
+    if (!context) {
+        return std::unexpected(std::string("could not start the PNG encoder"));
+    }
+    spng_set_option(context.get(), SPNG_ENCODE_TO_BUFFER, 1);
+    spng_ihdr header{.width = width,
+                     .height = height,
+                     .bit_depth = BitDepth,
+                     .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA};
+    if (const int code = spng_set_ihdr(context.get(), &header); code != 0) {
+        return makeError(code);
+    }
+    if (const int code = spng_encode_image(context.get(), rgba.data(), rgba.size(), SPNG_FMT_PNG,
+                                           SPNG_ENCODE_FINALIZE);
+        code != 0) {
+        return makeError(code);
+    }
+    usize size = 0;
+    int code = 0;
+    std::unique_ptr<u8, decltype(&std::free)> buffer(
+        static_cast<u8*>(spng_get_png_buffer(context.get(), &size, &code)), &std::free);
+    if (!buffer) {
+        return makeError(code);
+    }
+    return std::vector<u8>(buffer.get(), buffer.get() + size);
 }
 
 } // namespace z64

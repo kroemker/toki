@@ -6,6 +6,7 @@
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
 #include "hackeroot/ImageCache.h"
+#include "hackeroot/Spec.h"
 #include "hackeroot/Tables.h"
 #include "makeparser/Makefile.h"
 
@@ -56,6 +57,12 @@ public:
         return assets;
     }
 
+    /// The ROM's segments as the spec lists them, which say what files each
+    /// object is built from.
+    [[nodiscard]] const Spec& getSpec() const {
+        return spec;
+    }
+
     /// The images read from this workspace and shared by everything that reads
     /// it, on any thread. It is the one part of a workspace that changes after
     /// it is loaded, and it locks itself.
@@ -68,8 +75,8 @@ public:
     [[nodiscard]] std::vector<base::Diagnostic> collectDiagnostics() const;
 
     /// The files whose change makes this workspace stale: the Makefile and the
-    /// make files it may include, every configuration header that was read, and
-    /// the ordinal tables.
+    /// make files it may include, every configuration header that was read, the
+    /// ordinal tables and the spec.
     [[nodiscard]] std::vector<std::filesystem::path> listWatchedFiles() const;
 
 private:
@@ -81,6 +88,7 @@ private:
     std::unique_ptr<Configuration> configuration;
     Tables tables;
     Assets assets;
+    Spec spec;
     std::unique_ptr<ImageCache> imageCache;
 };
 

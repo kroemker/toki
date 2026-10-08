@@ -58,10 +58,10 @@ std::optional<usize> ActorObjects::readObject(const std::string& name,
     if (!isKeep) {
         if (const std::optional<hackeroot::AssetDirectory> keep =
                 hackeroot::findObjectDirectory(workspace.getAssets(), hackeroot::KeepObjectName)) {
-            shared.push_back(hackeroot::makeSharedObject(*keep, hackeroot::KeepSegment));
+            shared.push_back(hackeroot::makeSharedObject(workspace, *keep, hackeroot::KeepSegment));
         }
     }
-    shared.push_back(hackeroot::makeSharedObject(*directory, segment));
+    shared.push_back(hackeroot::makeSharedObject(workspace, *directory, segment));
     std::ranges::copy(shared.back().watched, std::back_inserter(actors.watched));
     const hackeroot::ImageSet images = reader.read(shared, {});
     actors.objects.push_back(

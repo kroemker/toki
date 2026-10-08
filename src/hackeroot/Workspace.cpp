@@ -7,6 +7,7 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
+#include "hackeroot/Spec.h"
 #include "hackeroot/Tables.h"
 #include "makeparser/Makefile.h"
 
@@ -50,14 +51,15 @@ Workspace::load(const std::filesystem::path& root, const makeparser::MakeOverrid
         readConfiguration(workspace.scraped->macros, root, workspace.buildDefines.arguments));
     workspace.tables = readTables(workspace.configuration->macros, root);
     workspace.assets = listAssets(root, workspace.buildDefines.version);
+    workspace.spec = readSpec(workspace.configuration->macros, root);
     return workspace;
 }
 
 std::vector<base::Diagnostic> Workspace::collectDiagnostics() const {
     std::vector<base::Diagnostic> all;
-    const std::array<const std::vector<base::Diagnostic>*, 5> parts = {
+    const std::array<const std::vector<base::Diagnostic>*, 6> parts = {
         &buildDefines.diagnostics, &scraped->diagnostics, &configuration->diagnostics,
-        &tables.diagnostics, &assets.diagnostics};
+        &tables.diagnostics,       &assets.diagnostics,   &spec.diagnostics};
     for (const std::vector<base::Diagnostic>* part : parts) {
         all.insert(all.end(), part->begin(), part->end());
     }
@@ -81,6 +83,7 @@ std::vector<std::filesystem::path> Workspace::listWatchedFiles() const {
     for (const std::string_view file : TableFiles) {
         files.push_back(root / file);
     }
+    files.push_back(root / "spec" / "spec");
     return files;
 }
 

@@ -16,8 +16,14 @@ So an object is read as a catalog first, and what is drawn is picked from it.
 
 ## Files to images
 
-`hackeroot::findObjectFiles` takes the object folder's `.c` files that are not `.inc.c`
-pieces, which the main file includes, and its headers. `toki::object::readObject` reads
+`hackeroot::findObjectFiles` takes the files the spec links into the object's segment
+(`hackeroot::readSpec`, which reads `spec/spec` under the build's configuration when the
+workspace loads): each `include`d `.o` becomes its `.c`, found in the checkout's assets or
+the extracted ones, and the headers of their folders. A folder's other `.c` files are not
+read on their own, since HackerOoT's objects `#include` them (`object_link_child.c` includes
+`gLinkChildSkel.c`), and a segment may take more than one folder: `gameplay_keep`'s also
+links `gameplay_hacker_keep`. An object the spec does not list is read as every `.c` file
+of its folder, with a note. `toki::object::readObject` reads
 them with the `AssetImageReader` as three images: the game code (segment 0, as for a
 scene), `gameplay_keep` (segment 4), and the object (segment 6, or 4 for the keep itself).
 Objects point into `gameplay_keep` freely, so it is always in the image.

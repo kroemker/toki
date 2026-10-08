@@ -384,7 +384,10 @@ filled in that pass, so no actor is read twice; that is why the format is settle
   overlap.
 - **Checked by eye where unsure**: an entry whose reading is uncertain is marked
   (`confidence = "low"`, with a note saying what), and those are drawn to images and looked
-  at. Drawing all 430 would cost more than it finds.
+  at. Drawing all 430 would cost more than it finds. The hidden GPU test "every variant of
+  the shipped actor database is drawn to an image" (`toki_gpu_tests "[.render]"`, against a
+  checkout) draws each variant of every shipped entry, framed on its bounds, to
+  `actor-renders/<ACTOR>_<variant>.png` beside the test binary, and fails on any diagnostic.
 - **Recorded against a commit**: `checked_against` is the HackerOoT commit the run read.
 
 ## Decided

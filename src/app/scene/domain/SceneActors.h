@@ -170,8 +170,9 @@ struct SceneActors {
 /// Reads the model of every actor `layers` place, player entries and the
 /// children their variants spawn included: each by its entry in `databases`,
 /// or else guessed from its overlay, with the objects its entry names and
-/// every skeleton posed. The scene keep object, when not zero, is read into
-/// segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it.
+/// every skeleton posed. `gameplay_keep` is always read, and the scene keep
+/// object, when not zero, into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the
+/// game load it: every object's display lists may point into either.
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                                           const std::vector<SceneLayer>& layers,
                                           const ActorDatabases& databases);

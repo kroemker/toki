@@ -28,7 +28,7 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
     const bool isKeep = asset.name == hackeroot::KeepObjectName;
     object.segment = isKeep ? hackeroot::KeepSegment : hackeroot::ObjectSegment;
 
-    hackeroot::ObjectFiles files = hackeroot::findObjectFiles(asset);
+    hackeroot::ObjectFiles files = hackeroot::findObjectFiles(reader.getWorkspace(), asset);
     object.files = files.getAllFiles();
     object.diagnostics = std::move(files.diagnostics);
     if (files.files.empty()) {
@@ -42,7 +42,8 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
                : hackeroot::findObjectDirectory(reader.getWorkspace().getAssets(),
                                                 hackeroot::KeepObjectName);
     if (keep) {
-        shared.push_back(hackeroot::makeSharedObject(*keep, hackeroot::KeepSegment));
+        shared.push_back(
+            hackeroot::makeSharedObject(reader.getWorkspace(), *keep, hackeroot::KeepSegment));
     }
     const std::array<std::vector<hackeroot::SegmentFiles>, 1> imageFiles{
         {{{.segment = object.segment, .files = files.files}}}};
@@ -62,14 +63,15 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
 
 std::vector<std::filesystem::path> listObjectWatched(const hackeroot::Workspace& workspace,
                                                      const hackeroot::AssetDirectory& asset) {
-    std::vector<std::filesystem::path> watched = hackeroot::findObjectFiles(asset).getAllFiles();
+    std::vector<std::filesystem::path> watched =
+        hackeroot::findObjectFiles(workspace, asset).getAllFiles();
     watched.push_back(asset.directory);
     if (asset.name == hackeroot::KeepObjectName) {
         return watched;
     }
     if (const std::optional<hackeroot::AssetDirectory> keep =
             hackeroot::findObjectDirectory(workspace.getAssets(), hackeroot::KeepObjectName)) {
-        std::ranges::move(hackeroot::findObjectFiles(*keep).getAllFiles(),
+        std::ranges::move(hackeroot::findObjectFiles(workspace, *keep).getAllFiles(),
                           std::back_inserter(watched));
         watched.push_back(keep->directory);
     }

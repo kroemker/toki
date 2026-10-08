@@ -12,6 +12,7 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
+#include "hackeroot/ObjectFiles.h"
 #include "hackeroot/OverlayFiles.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -152,6 +153,11 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
 }
 
 SceneActors ActorReader::read() && {
+    std::vector<base::Diagnostic> keepDiagnostics;
+    static_cast<void>(objects.findObject(hackeroot::KeepObjectName, keepDiagnostics));
+    if (const std::string sceneKeep = findSceneKeep(); !sceneKeep.empty()) {
+        static_cast<void>(objects.findObject(sceneKeep, keepDiagnostics));
+    }
     const std::set<s16> placed = collectActorIds(layers);
     std::deque<s16> pending(placed.begin(), placed.end());
     std::set<s16> seen;
