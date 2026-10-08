@@ -92,6 +92,12 @@ public:
 
     u32 setFogColor(const std::array<u8, 4>& color);
 
+    /// `gDPSetPrimColor` with a minimum level of detail and fraction of zero.
+    u32 setPrimitiveColor(const std::array<u8, 4>& color);
+
+    /// `gDPSetEnvColor`.
+    u32 setEnvironmentColor(const std::array<u8, 4>& color);
+
     /// `gSPFogFactor`: the RSP's fog multiplier and offset.
     u32 setFogFactor(s16 multiplier, s16 offset);
 

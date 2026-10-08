@@ -2,8 +2,8 @@
 
 Design for a database that says how each actor is drawn, edited in the application, with
 the C reading of [actor-rendering.md](actor-rendering.md) as the source of first guesses
-rather than of the answer. Nothing here is built yet. Once it is, this document is rewritten
-to describe what was built.
+rather than of the answer. Steps 0 to 2 of its plan are built: the format, read and
+written, and scenes drawn from it; the rest is the design still to build.
 
 ## Why
 
@@ -112,8 +112,10 @@ checkout's objects.
   last. A `match` lists fields and the value each must have, by number or by value name.
 - **What a variant draws** is a `skeleton` with an optional `animation` and the `frame` of
   it to stand on (0 when left out), or a list of `display_lists`, or `draw = "marker"` for an
-  actor that has no model by design. Every symbol is by name, in the variant's object.
-- **A display list** has a `pass` of `opaque` (the default) or `translucent`, and may be
+  actor that has no model by design. Every symbol is by name, in the variant's object, or
+  in its `animation_object` for an animation an actor takes from another object.
+- **A display list** may name its own `object`, has a `pass` of `opaque` (the default) or
+  `translucent`, and may be
   placed relative to the actor by a `translation`, a `rotation` in degrees and a `scale` of
   its own, applied after the actor's matrix: the parts of gates, chains and bosses, which
   their code places at offsets it computes. The same list may be drawn more than once.
@@ -203,7 +205,10 @@ text_ids = [0x3000, 0x3001]
   with, as `Draw` sets them: rupees, chests, tunics and fairies differ only in these.
 - **`billboard`**: a variant or display list drawn facing the camera, as flames and sprites are.
 - **`shadow`**: the shadow `ActorShape_Init` gives the actor, `none`, `circle`, `white_circle`,
-  `feet` or `teardrop`, and its size, drawn as the game draws it.
+  `horse` or `feet`, and its size, drawn as `ActorShadow_Draw` draws it: after
+  `sSetupDL[SETUPDL_44]`, `gCircleShadowDL` or `gHorseShadowDL` in black or white, where the
+  actor stands, scaled by the size times the actor's scale. Feet are drawn as a circle, since
+  where the feet are needs the pose of the game.
 - **`children`**: what an actor spawns, each child as an actor, params and offset from its
   parent, turned with it. An actor that draws nothing itself but places others, as
   `Obj_Mure2` does, is `draw = "children"`; one that draws and spawns both has its children
@@ -413,9 +418,9 @@ M two or three, L more.
 |---|---|---|
 | 0 | Measure Ice Cavern's actors in a release build over the share, split into overlays and objects (done) | S |
 | 1 | The database: every key above as types; reading and writing `actors.toml`, with diagnostics naming the actor and key for anything wrong; validation of fields, values and matches; the two files layered; `checked_against` (done; symbols are checked against the objects by step 3's checkout test) | M |
-| 2 | Drawing from it: each placed actor's variant picked by its fields and age; turned only by the axes it rotates by, on its frame; display lists placed, coloured and billboarded; shadows; children; guesses only for actors without an entry; the Player entry and the entrance being looked at | L |
+| 2 | Drawing from it: each placed actor's variant picked by its fields and age; turned only by the axes it rotates by, on its frame; display lists placed, coloured and billboarded; shadows; children; guesses only for actors without an entry, turned into entries by `makeGuessedEntry`; the Player entry and the entrance being looked at (done) | L |
 | 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at | L, in batches |
-| 4 | Guesses as entries: `makeGuessedEntry`, the on-disk guess cache, `guessed_from` and stale guesses | S |
+| 4 | Guesses kept: the on-disk guess cache, and stale guesses by `guessed_from` (`makeGuessedEntry` came with step 2) | S |
 | 5 | The startup check: new actors found, the question, guessing them on a worker, writing the checkout's file, the remembered "No"; shipped entries that do not fit, in one warning; watching the checkout's file | S–M |
 | 6 | The Scene panel: names, decoded params with roles and meanings, entry status, spawn conditions greying out actors, "Edit actor", "Add a variant for these params", "Keep this guess" | S–M |
 | 7 | The Actors panel: the list, the entry editor with typed fields, enum values, roles and meanings, matches edited by the fields' controls, pickers from the object catalog, display list placement and colours, children, edits drawn at once and saved | L |

@@ -1,36 +1,33 @@
 #include "SceneActors.h"
 
+#include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ActorModelReader.h"
-#include "app/object/domain/Animation.h"
-#include "app/object/domain/Pose.h"
-#include "app/object/domain/Skeleton.h"
+#include "app/actor/domain/GuessedEntry.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/ActorDrawingReader.h"
+#include "app/scene/domain/ActorObjects.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
-#include "hackeroot/Assets.h"
-#include "hackeroot/GameCode.h"
-#include "hackeroot/ObjectFiles.h"
 #include "hackeroot/OverlayFiles.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
-#include "z64/MemoryImage.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
+#include <deque>
 #include <expected>
 #include <filesystem>
 #include <format>
 #include <iterator>
-#include <map>
-#include <memory>
 #include <optional>
 #include <set>
-#include <span>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -38,7 +35,8 @@ namespace toki::scene {
 
 namespace {
 
-constexpr u8 SceneKeepSegment = 0x05;
+constexpr usize ChildLayers = 2;
+constexpr usize PlayedLayers = 4;
 
 [[nodiscard]] std::set<s16> collectActorIds(const std::vector<SceneLayer>& layers) {
     std::set<s16> ids;
@@ -51,216 +49,117 @@ constexpr u8 SceneKeepSegment = 0x05;
         for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
             ids.insert(actor.id);
         }
+        for (const ActorPlacement& entry : layer.header.playerEntries) {
+            ids.insert(entry.id);
+        }
     }
     return ids;
 }
 
+[[nodiscard]] std::string formatModified(const std::filesystem::path& file) {
+    std::error_code failure;
+    const std::filesystem::file_time_type modified =
+        std::filesystem::last_write_time(file, failure);
+    if (failure) {
+        return {};
+    }
+    return std::format("{:%FT%TZ}",
+                       std::chrono::floor<std::chrono::seconds>(
+                           std::chrono::clock_cast<std::chrono::system_clock>(modified)));
+}
+
 class ActorReader {
 public:
-    ActorReader(hackeroot::AssetImageReader& reader, const std::vector<SceneLayer>& layers)
-        : reader(reader), workspace(reader.getWorkspace()), layers(layers) {
-        if (!layers.empty()) {
-            sceneKeep = findObjectName(layers.front().header.keepObjectId);
-        }
-    }
+    ActorReader(hackeroot::AssetImageReader& reader, const std::vector<SceneLayer>& layers,
+                const ActorDatabases& databases)
+        : workspace(reader.getWorkspace()), layers(layers), databases(databases),
+          objects(reader, findSceneKeep(), actors) {}
 
     [[nodiscard]] SceneActors read() &&;
 
 private:
-    [[nodiscard]] std::string findObjectName(s16 id) const;
+    [[nodiscard]] std::string findSceneKeep() const;
 
-    [[nodiscard]] std::optional<usize> findObject(const std::string& name,
-                                                  std::vector<base::Diagnostic>& diagnostics);
+    [[nodiscard]] std::optional<s16> findActorId(std::string_view enumName) const;
 
-    [[nodiscard]] std::optional<usize> readObject(const std::string& name,
-                                                  std::vector<base::Diagnostic>& diagnostics);
+    void readActor(s16 id, std::deque<s16>& pending);
 
-    [[nodiscard]] std::optional<u32> findAddress(usize object, const actor::ObjectSymbol& symbol,
-                                                 std::vector<base::Diagnostic>& diagnostics) const;
+    void guessEntry(const hackeroot::ActorEntry& actor, SceneActorModel& model);
 
-    void prepareSkeleton(SceneActorModel& actor);
-
-    void prepareDisplayLists(SceneActorModel& actor);
-
-    [[nodiscard]] std::vector<ActorSegment>
-    prepareSegments(std::span<const actor::SegmentSetting> settings,
-                    std::vector<base::Diagnostic>& diagnostics);
-
-    hackeroot::AssetImageReader& reader;
     const hackeroot::Workspace& workspace;
     const std::vector<SceneLayer>& layers;
-    std::string sceneKeep;
-    std::map<std::string, std::optional<usize>> objectIndices;
+    const ActorDatabases& databases;
     SceneActors actors;
+    ActorObjects objects;
 };
 
-std::string ActorReader::findObjectName(const s16 id) const {
-    if (id <= 0) {
-        return {};
-    }
-    const std::vector<hackeroot::ObjectEntry>& objects = workspace.getTables().objects;
+std::string ActorReader::findSceneKeep() const {
+    const s16 id = layers.empty() ? s16{0} : layers.front().header.keepObjectId;
+    const std::vector<hackeroot::ObjectEntry>& table = workspace.getTables().objects;
     const auto found =
-        std::ranges::find(objects, static_cast<usize>(id), &hackeroot::ObjectEntry::id);
-    return found == objects.end() ? std::string() : found->name;
+        std::ranges::find(table, static_cast<usize>(id), &hackeroot::ObjectEntry::id);
+    return id <= 0 || found == table.end() ? std::string() : found->name;
 }
 
-std::optional<usize> ActorReader::findObject(const std::string& name,
-                                             std::vector<base::Diagnostic>& diagnostics) {
-    if (const auto known = objectIndices.find(name); known != objectIndices.end()) {
-        return known->second;
-    }
+std::optional<s16> ActorReader::findActorId(const std::string_view enumName) const {
+    const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
+    const auto found = std::ranges::find(table, enumName, &hackeroot::ActorEntry::enumName);
+    return found == table.end() ? std::nullopt : std::optional(static_cast<s16>(found->id));
+}
+
+void ActorReader::guessEntry(const hackeroot::ActorEntry& actor, SceneActorModel& model) {
     const auto started = std::chrono::steady_clock::now();
-    const std::optional<usize> index = readObject(name, diagnostics);
-    objectIndices.emplace(name, index);
-    actors.objectsElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
+    model.guess = actor::readActorModel(workspace, actor);
+    std::optional<actor::GuessSource> source;
+    if (const auto overlay = hackeroot::findOverlayFiles(workspace.getRoot(), actor.name)) {
+        std::ranges::copy(overlay->getAllFiles(), std::back_inserter(actors.watched));
+        source = actor::GuessSource{
+            .file = overlay->main.lexically_relative(workspace.getRoot()).generic_string(),
+            .modified = formatModified(overlay->main)};
+        model.source = ModelSource::Guessed;
+    }
+    model.entry = actor::makeGuessedEntry(*model.guess, actor.enumName, std::move(source));
+    actors.overlaysElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
-    return index;
 }
 
-std::optional<usize> ActorReader::readObject(const std::string& name,
-                                             std::vector<base::Diagnostic>& diagnostics) {
-    const std::optional<hackeroot::AssetDirectory> directory =
-        hackeroot::findObjectDirectory(workspace.getAssets(), name);
-    if (!directory) {
-        diagnostics.push_back(base::makeWarning(
-            {}, std::format("the checkout has no object '{}' to draw the actor from", name)));
-        return std::nullopt;
-    }
-    const bool isKeep = name == hackeroot::KeepObjectName;
-    const u8 segment = isKeep              ? hackeroot::KeepSegment
-                       : name == sceneKeep ? SceneKeepSegment
-                                           : hackeroot::ObjectSegment;
-    std::vector<hackeroot::SharedImageFiles> shared{
-        hackeroot::makeSharedGameCode(workspace.getRoot())};
-    if (!isKeep) {
-        if (const std::optional<hackeroot::AssetDirectory> keep =
-                hackeroot::findObjectDirectory(workspace.getAssets(), hackeroot::KeepObjectName)) {
-            shared.push_back(hackeroot::makeSharedObject(*keep, hackeroot::KeepSegment));
-        }
-    }
-    shared.push_back(hackeroot::makeSharedObject(*directory, segment));
-    std::ranges::copy(shared.back().watched, std::back_inserter(actors.watched));
-    const hackeroot::ImageSet images = reader.read(shared, {});
-    actors.objects.push_back(
-        ActorObject{.name = name, .segment = segment, .image = images.shared.back()});
-    return actors.objects.size() - 1;
-}
-
-std::optional<u32> ActorReader::findAddress(const usize object, const actor::ObjectSymbol& symbol,
-                                            std::vector<base::Diagnostic>& diagnostics) const {
-    const std::optional<u32> address = actors.objects[object].image->findAddress(symbol.name);
-    if (!address) {
-        diagnostics.push_back(base::makeWarning(
-            symbol.location, std::format("'{}' is not in the image of '{}'", symbol.name,
-                                         actors.objects[object].name)));
-    }
-    return address;
-}
-
-void ActorReader::prepareSkeleton(SceneActorModel& actor) {
-    const actor::SkeletonModel& model = *actor.model.skeleton;
-    const std::optional<usize> object = findObject(model.skeleton.object, actor.diagnostics);
-    const std::optional<u32> address =
-        object ? findAddress(*object, model.skeleton, actor.diagnostics) : std::nullopt;
-    if (!address) {
+void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
+    const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
+    const auto actor = std::ranges::find(table, static_cast<usize>(static_cast<u16>(id)),
+                                         &hackeroot::ActorEntry::id);
+    if (actor == table.end() || actor->isUnset) {
         return;
     }
-    const z64::MemoryImage& image = *actors.objects[*object].image;
-    const object::Skeleton skeleton = object::readSkeleton(image, *address);
-    std::ranges::copy(skeleton.diagnostics, std::back_inserter(actor.diagnostics));
-    if (skeleton.limbs.empty()) {
-        return;
+    SceneActorModel& model = actors.models[id];
+    model.enumName = actor->enumName;
+    if (const std::optional<actor::FoundEntry> found =
+            actor::findActorEntry(databases.shipped, databases.checkout, actor->enumName)) {
+        model.entry = *found->entry;
+        model.source = found->origin == actor::EntryOrigin::Checkout ? ModelSource::Checkout
+                                                                     : ModelSource::Shipped;
+    } else {
+        guessEntry(*actor, model);
     }
-    object::JointTable joints = object::makeRestJointTable(skeleton);
-    std::optional<ActorAnimation> animated;
-    if (model.animation) {
-        const std::optional<usize> animationObject =
-            findObject(model.animation->object, actor.diagnostics);
-        const std::optional<u32> animationAddress =
-            animationObject ? findAddress(*animationObject, *model.animation, actor.diagnostics)
-                            : std::nullopt;
-        if (animationAddress) {
-            const std::expected<object::Animation, base::Diagnostic> animation =
-                object::readAnimation(*actors.objects[*animationObject].image, *animationAddress);
-            if (!animation) {
-                actor.diagnostics.push_back(animation.error());
-            } else if (animation->jointIndices.size() != skeleton.limbs.size() + 1) {
-                actor.diagnostics.push_back(base::makeWarning(
-                    model.animation->location,
-                    std::format("'{}' moves {} joints, '{}' has {} limbs, so it is drawn at rest",
-                                model.animation->name, animation->jointIndices.size(),
-                                model.skeleton.name, skeleton.limbs.size())));
-            } else {
-                joints = object::makeJointTable(*animation, 0);
-                animated = ActorAnimation{.skeleton = skeleton, .animation = *animation};
-            }
+    const FindActorId findId = [this](const std::string_view name) { return findActorId(name); };
+    for (const actor::ActorVariant& variant : model.entry->variants) {
+        ActorDrawing drawing =
+            makeActorDrawing(*model.entry, variant, objects, findId, model.diagnostics);
+        for (const ChildPlacement& child : drawing.children) {
+            pending.push_back(child.id);
         }
+        model.variants.push_back(std::move(drawing));
     }
-    actor.drawing = ActorDrawing{.skeletonObject = *object,
-                                 .limbs = object::poseSkeleton(skeleton, joints).drawn,
-                                 .animation = std::move(animated)};
-}
-
-void ActorReader::prepareDisplayLists(SceneActorModel& actor) {
-    ActorDrawing drawing;
-    for (const actor::DisplayListDraw& draw : actor.model.displayLists) {
-        const std::optional<usize> object = findObject(draw.displayList.object, actor.diagnostics);
-        const std::optional<u32> address =
-            object ? findAddress(*object, draw.displayList, actor.diagnostics) : std::nullopt;
-        if (address) {
-            drawing.displayLists.push_back(
-                ActorDisplayList{.object = *object,
-                                 .address = *address,
-                                 .pass = draw.pass,
-                                 .segments = prepareSegments(draw.segments, actor.diagnostics)});
-        }
-    }
-    if (!drawing.displayLists.empty()) {
-        actor.drawing = std::move(drawing);
-    }
-}
-
-std::vector<ActorSegment>
-ActorReader::prepareSegments(const std::span<const actor::SegmentSetting> settings,
-                             std::vector<base::Diagnostic>& diagnostics) {
-    std::vector<ActorSegment> segments;
-    for (const actor::SegmentSetting& setting : settings) {
-        const std::optional<usize> object = findObject(setting.symbol.object, diagnostics);
-        const std::optional<u32> address =
-            object ? findAddress(*object, setting.symbol, diagnostics) : std::nullopt;
-        if (address) {
-            segments.push_back(ActorSegment{.segment = setting.segment,
-                                            .pass = setting.pass,
-                                            .object = *object,
-                                            .address = *address});
-        }
-    }
-    return segments;
 }
 
 SceneActors ActorReader::read() && {
-    const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
-    for (const s16 id : collectActorIds(layers)) {
-        const auto entry =
-            std::ranges::find(table, static_cast<usize>(id), &hackeroot::ActorEntry::id);
-        if (entry == table.end() || entry->isUnset) {
-            continue;
-        }
-        SceneActorModel& actor = actors.models[id];
-        const auto started = std::chrono::steady_clock::now();
-        actor.model = actor::readActorModel(workspace, *entry);
-        if (const auto overlay = hackeroot::findOverlayFiles(workspace.getRoot(), entry->name)) {
-            std::ranges::copy(overlay->getAllFiles(), std::back_inserter(actors.watched));
-        }
-        actors.overlaysElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - started);
-        if (actor.model.skeleton) {
-            prepareSkeleton(actor);
-        } else if (!actor.model.displayLists.empty()) {
-            prepareDisplayLists(actor);
-        }
-        if (actor.drawing && actor.model.skeleton) {
-            actor.drawing->segments = prepareSegments(actor.model.segments, actor.diagnostics);
+    const std::set<s16> placed = collectActorIds(layers);
+    std::deque<s16> pending(placed.begin(), placed.end());
+    std::set<s16> seen;
+    while (!pending.empty()) {
+        const s16 id = pending.front();
+        pending.pop_front();
+        if (seen.insert(id).second) {
+            readActor(id, pending);
         }
     }
     return std::move(actors);
@@ -268,16 +167,42 @@ SceneActors ActorReader::read() && {
 
 } // namespace
 
+bool SceneActorModel::hasDrawing() const {
+    return std::ranges::any_of(variants, &ActorDrawing::isDrawn);
+}
+
+const ActorDrawing* SceneActorModel::findDrawing(const actor::PlacementValues& placement) const {
+    if (!entry) {
+        return nullptr;
+    }
+    const actor::ActorVariant* variant = actor::findVariant(*entry, placement);
+    if (variant == nullptr) {
+        return nullptr;
+    }
+    const auto index = static_cast<usize>(variant - entry->variants.data());
+    return index < variants.size() ? &variants[index] : nullptr;
+}
+
 bool hasAnimatedActors(const SceneActors& actors) {
     return std::ranges::any_of(actors.models, [](const auto& entry) {
-        return entry.second.drawing && entry.second.drawing->animation;
+        return std::ranges::any_of(entry.second.variants, [](const ActorDrawing& drawing) {
+            return drawing.skeleton && drawing.skeleton->animation;
+        });
     });
 }
 
+std::optional<actor::Age> findLayerAge(const usize layerIndex) {
+    if (layerIndex >= PlayedLayers) {
+        return std::nullopt;
+    }
+    return layerIndex < ChildLayers ? actor::Age::Child : actor::Age::Adult;
+}
+
 SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
-                            const std::vector<SceneLayer>& layers) {
+                            const std::vector<SceneLayer>& layers,
+                            const ActorDatabases& databases) {
     const auto started = std::chrono::steady_clock::now();
-    SceneActors actors = ActorReader(reader, layers).read();
+    SceneActors actors = ActorReader(reader, layers, databases).read();
     actors.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
     return actors;

@@ -146,6 +146,18 @@ u32 DisplayListWriter::setFogColor(const std::array<u8, 4>& color) {
                                                            (u32{color[2]} << 8) | color[3]);
 }
 
+u32 DisplayListWriter::setPrimitiveColor(const std::array<u8, 4>& color) {
+    return addCommand(makeOpcode(Opcode::SetPrimitiveColor), (u32{color[0]} << 24) |
+                                                                 (u32{color[1]} << 16) |
+                                                                 (u32{color[2]} << 8) | color[3]);
+}
+
+u32 DisplayListWriter::setEnvironmentColor(const std::array<u8, 4>& color) {
+    return addCommand(makeOpcode(Opcode::SetEnvironmentColor), (u32{color[0]} << 24) |
+                                                                   (u32{color[1]} << 16) |
+                                                                   (u32{color[2]} << 8) | color[3]);
+}
+
 u32 DisplayListWriter::setFogFactor(const s16 multiplier, const s16 offset) {
     return addCommand(makeOpcode(Opcode::MoveWord) | (MoveWordFog << 16),
                       (u32{static_cast<u16>(multiplier)} << 16) | static_cast<u16>(offset));

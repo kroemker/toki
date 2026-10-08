@@ -32,4 +32,11 @@ struct GameSetup {
 /// The index of `SETUPDL_25` among the setup display lists.
 inline constexpr usize SetupDisplayList25 = 25;
 
+/// The index of `SETUPDL_44`, which shadows are drawn after.
+inline constexpr usize SetupDisplayList44 = 44;
+
+/// Where `sSetupDL[index]` is in an image of `findGameCodeFiles`, if the code
+/// could be read and has that many.
+[[nodiscard]] std::optional<u32> findSetupDisplayList(const z64::MemoryImage& code, usize index);
+
 } // namespace hackeroot

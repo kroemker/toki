@@ -36,14 +36,14 @@ inline constexpr std::array EntryKeys = {
     std::string_view("spawn"),         std::string_view("collision"),
     std::string_view("lights"),        std::string_view("text_ids")};
 inline constexpr std::array VariantKeys = {
-    std::string_view("match"),         std::string_view("object"),
-    std::string_view("scale"),         std::string_view("height_offset"),
-    std::string_view("draw"),          std::string_view("skeleton"),
-    std::string_view("animation"),     std::string_view("frame"),
-    std::string_view("display_lists"), std::string_view("segments"),
-    std::string_view("colors"),        std::string_view("billboard"),
-    std::string_view("children"),      std::string_view("spawn"),
-    std::string_view("default_params")};
+    std::string_view("match"),     std::string_view("object"),
+    std::string_view("scale"),     std::string_view("height_offset"),
+    std::string_view("draw"),      std::string_view("skeleton"),
+    std::string_view("animation"), std::string_view("animation_object"),
+    std::string_view("frame"),     std::string_view("display_lists"),
+    std::string_view("segments"),  std::string_view("colors"),
+    std::string_view("billboard"), std::string_view("children"),
+    std::string_view("spawn"),     std::string_view("default_params")};
 inline constexpr std::array FieldKeys = {
     std::string_view("kind"),   std::string_view("source"), std::string_view("shift"),
     std::string_view("width"),  std::string_view("signed"), std::string_view("hex"),

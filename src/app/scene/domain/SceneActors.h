@@ -1,5 +1,7 @@
 #pragma once
 
+#include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/object/domain/Animation.h"
 #include "app/object/domain/Pose.h"
@@ -10,6 +12,9 @@
 #include "hackeroot/AssetImage.h"
 #include "z64/MemoryImage.h"
 
+#include <glm/ext/matrix_float4x4.hpp>
+
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <map>
@@ -34,17 +39,20 @@ struct ActorObject {
 /// it draws, as at its eye texture.
 struct ActorSegment {
     u8 segment = 0;
-    actor::Pass pass = actor::Pass::Opaque;
     usize object = 0;
     u32 address = 0;
 };
 
 /// A display list an actor draws, by address in one of the actor objects, and
+/// how: placed relative to the actor, coloured, facing the camera, and with
 /// the segments it is drawn with.
 struct ActorDisplayList {
     usize object = 0;
     u32 address = 0;
     actor::Pass pass = actor::Pass::Opaque;
+    glm::mat4 placement{1.0F};
+    actor::DrawColors colors;
+    bool isBillboard = false;
     std::vector<ActorSegment> segments;
 };
 
@@ -54,25 +62,86 @@ struct ActorAnimation {
     object::Animation animation;
 };
 
-/// What an actor draws, made ready when the scene is read: a skeleton posed on
-/// the first frame of its animation, or at rest, with every limb's matrix from
-/// model space, or else its display lists.
-struct ActorDrawing {
-    usize skeletonObject = 0;
+/// A skeleton posed on its variant's frame, with every limb's matrix from
+/// model space, and what it needs to be posed on another.
+struct SkeletonDrawing {
+    usize object = 0;
     std::vector<object::PosedLimb> limbs;
     std::optional<ActorAnimation> animation;
-    std::vector<ActorDisplayList> displayLists;
-    /// The segments a skeleton is drawn with.
-    std::vector<ActorSegment> segments;
+    u32 frame = 0;
 };
 
-/// One actor of the scene: how its C says it is drawn, and what of that could
-/// be found in its objects. An actor without a drawing is marked instead, and
-/// `diagnostics` says why when its model was read but could not be drawn.
+/// The shadow `ActorShadow_Draw` draws under an actor: a display list of
+/// `gameplay_keep` in a colour, scaled by its size times the actor's scale.
+struct ActorShadow {
+    usize object = 0;
+    u32 address = 0;
+    std::array<u8, 4> color{0, 0, 0, 0xFF};
+    f32 size = 0.0F;
+    bool turnsWithActor = false;
+};
+
+/// An actor a variant spawns, by ID, drawn by its own entry.
+struct ChildPlacement {
+    s16 id = 0;
+    u16 params = 0;
+    std::array<f32, 3> offset{};
+};
+
+/// What one variant of an actor draws, made ready when the scene is read.
+struct ActorDrawing {
+    actor::DrawKind kind = actor::DrawKind::Model;
+    std::optional<SkeletonDrawing> skeleton;
+    std::vector<ActorDisplayList> displayLists;
+    /// The segments and colours a skeleton is drawn with.
+    std::vector<ActorSegment> segments;
+    actor::DrawColors colors;
+    f32 scale = actor::ActorModel::DefaultScale;
+    f32 heightOffset = 0.0F;
+    actor::RotationAxes rotates;
+    std::optional<ActorShadow> shadow;
+    std::vector<ChildPlacement> children;
+
+    /// Whether anything is drawn for it: a model, or children in its place.
+    [[nodiscard]] bool isDrawn() const {
+        return kind != actor::DrawKind::Marker &&
+               (skeleton.has_value() || !displayLists.empty() || !children.empty());
+    }
+};
+
+/// Where an actor's entry came from.
+enum class ModelSource : u8 {
+    Shipped,
+    Checkout,
+    Guessed,
+    None,
+};
+
+/// One actor of the scene: the entry it is drawn by, from a database or
+/// guessed from its C, and what each of the entry's variants draws, as far as
+/// its objects have what the entry names. `diagnostics` says what they do not.
 struct SceneActorModel {
-    actor::ActorModel model;
-    std::optional<ActorDrawing> drawing;
+    std::string enumName;
+    std::optional<actor::ActorEntry> entry;
+    ModelSource source = ModelSource::None;
+    /// What the actor's C says, when the entry was guessed from it.
+    std::optional<actor::ActorModel> guess;
+    /// One drawing for each of the entry's variants, in order.
+    std::vector<ActorDrawing> variants;
     std::vector<base::Diagnostic> diagnostics;
+
+    /// Whether any variant draws.
+    [[nodiscard]] bool hasDrawing() const;
+
+    /// The drawing of the variant `placement` matches, if one matches.
+    [[nodiscard]] const ActorDrawing* findDrawing(const actor::PlacementValues& placement) const;
+};
+
+/// The shipped actor database and the checkout's, as one placement's entry is
+/// looked up in.
+struct ActorDatabases {
+    actor::ActorDatabase shipped;
+    actor::ActorDatabase checkout;
 };
 
 /// The models of every actor a scene places, in any layer, by actor ID, and the
@@ -80,22 +149,31 @@ struct SceneActorModel {
 struct SceneActors {
     std::map<s16, SceneActorModel> models;
     std::vector<ActorObject> objects;
-    /// The overlays and objects read, for reading the scene again when one changes.
+    /// The overlays and objects read, for reading the actors again when one changes.
     std::vector<std::filesystem::path> watched;
     std::chrono::milliseconds elapsed{};
     /// Of `elapsed`, the time spent reading overlays, and reading objects;
     /// the rest is posing and finding symbols.
     std::chrono::milliseconds overlaysElapsed{};
     std::chrono::milliseconds objectsElapsed{};
+    /// What was wrong with the actor databases the actors were read by.
+    std::vector<base::Diagnostic> diagnostics;
 };
 
 /// Whether any actor of `actors` plays an animation.
 [[nodiscard]] bool hasAnimatedActors(const SceneActors& actors);
 
-/// Reads the model of every actor `layers` place, the objects those models
-/// name, and poses every skeleton found. The scene keep object, when not zero,
-/// is read into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it.
+/// Link's age in a scene layer: child in the first two, adult in the next two,
+/// none in a cutscene layer.
+[[nodiscard]] std::optional<actor::Age> findLayerAge(usize layerIndex);
+
+/// Reads the model of every actor `layers` place, player entries and the
+/// children their variants spawn included: each by its entry in `databases`,
+/// or else guessed from its overlay, with the objects its entry names and
+/// every skeleton posed. The scene keep object, when not zero, is read into
+/// segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it.
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
-                                          const std::vector<SceneLayer>& layers);
+                                          const std::vector<SceneLayer>& layers,
+                                          const ActorDatabases& databases);
 
 } // namespace toki::scene

@@ -145,6 +145,11 @@ objects those models name, and poses each skeleton once, on frame 0 of its anima
 reload reads only what changed. `gameplay_keep` is in segment 4, the scene's keep object in
 segment 5, every other object in 6.
 
+Since the actor database ([actor-database.md](actor-database.md)), what is read from an
+overlay is a guess: `makeGuessedEntry` turns it into an entry, and an actor is drawn by its
+entry whether it was guessed or found in a database. The reading below is how an actor
+without an entry is guessed.
+
 `makeSceneContent` then draws each placed actor as `Actor_Draw` does (`makeActorDraws`):
 
 - one small image per actor, in segment 13: a skeleton's limb matrices first, in the order

@@ -68,8 +68,8 @@ inline constexpr std::array ShadowKindNames = {
     EntryName<ShadowKind>{ShadowKind::None, "none"},
     EntryName<ShadowKind>{ShadowKind::Circle, "circle"},
     EntryName<ShadowKind>{ShadowKind::WhiteCircle, "white_circle"},
+    EntryName<ShadowKind>{ShadowKind::Horse, "horse"},
     EntryName<ShadowKind>{ShadowKind::Feet, "feet"},
-    EntryName<ShadowKind>{ShadowKind::Teardrop, "teardrop"},
 };
 
 inline constexpr std::array StatusNames = {

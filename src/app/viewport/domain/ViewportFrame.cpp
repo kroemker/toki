@@ -14,7 +14,12 @@
 #include "n64/Viewport.h"
 #include "z64/MemoryImage.h"
 
+#include <glm/ext/matrix_float3x3.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <glm/geometric.hpp>
+#include <glm/matrix.hpp>
 
 #include <algorithm>
 #include <array>
@@ -86,39 +91,29 @@ void setLighting(n64::DisplayListWriter& writer, const ViewportLighting& lightin
     setFog(writer, lighting.fogNear);
 }
 
-FrameList writeFrameList(const ViewportContent& content,
-                         const std::vector<z64::MappedImage>& mapped, const OrbitCamera& camera,
-                         const FrameSize size) {
-    const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
-    const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
-    const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
-
-    n64::DisplayListWriter writer(FrameSegment);
-    const u32 viewport = writer.addViewport(n64::Viewport{
-        .scale = {halfWidth, halfHeight, DepthHalfRange},
-        .translate = {halfWidth, halfHeight, DepthHalfRange},
-    });
-    const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
-    const u32 projection = writer.addMatrix(
-        makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * camera.makeViewMatrix()));
-    const std::optional<LightAddresses> lights =
-        content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
-    const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
-
-    const u32 start = writer.setViewport(viewport);
-    writer.loadMatrix(projection, n64::MatrixLoad::Projection);
-    writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
-    if (lights) {
-        setLighting(writer, *content.lighting, *lights);
-    }
-    writer.syncPipe();
-    writer.setGeometryMode(0x00FF'FFFF, n64::geometry::ZBuffer | n64::geometry::Shade |
-                                            n64::geometry::SmoothShading);
-    for (usize image = content.images.size(); image-- > 0;) {
-        setSegments(writer, *content.images[image], mapped[image]);
-    }
-    std::optional<usize> current = 0;
+[[nodiscard]] std::vector<std::optional<u32>> addDrawMatrices(n64::DisplayListWriter& writer,
+                                                              const ViewportContent& content,
+                                                              const glm::mat4& view) {
+    std::vector<std::optional<u32>> matrices;
+    matrices.reserve(content.draws.size());
     for (const ViewportDraw& draw : content.draws) {
+        if (!draw.modelView) {
+            matrices.emplace_back();
+            continue;
+        }
+        const glm::mat4 modelView =
+            draw.isBillboard ? makeBillboardMatrix(*draw.modelView, view) : *draw.modelView;
+        matrices.emplace_back(writer.addMatrix(makeFixedMatrix(modelView)));
+    }
+    return matrices;
+}
+
+void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
+                const std::vector<z64::MappedImage>& mapped,
+                const std::vector<std::optional<u32>>& matrices, const u32 identity) {
+    std::optional<usize> current = 0;
+    for (usize i = 0; i < content.draws.size(); ++i) {
+        const ViewportDraw& draw = content.draws[i];
         for (const usize image : draw.alsoImages) {
             setSegments(writer, *content.images[image], mapped[image]);
             current.reset();
@@ -132,8 +127,50 @@ FrameList writeFrameList(const ViewportContent& content,
             writer.setSegment(pointer.segment,
                               mapped[pointer.image].segments[address.segment] + address.offset);
         }
+        if (matrices[i]) {
+            writer.loadMatrix(*matrices[i], n64::MatrixLoad::ModelView);
+        }
         writer.callDisplayList(draw.displayList);
+        if (matrices[i]) {
+            writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+        }
     }
+}
+
+FrameList writeFrameList(const ViewportContent& content,
+                         const std::vector<z64::MappedImage>& mapped, const OrbitCamera& camera,
+                         const FrameSize size) {
+    const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
+    const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
+    const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
+
+    n64::DisplayListWriter writer(FrameSegment);
+    const u32 viewport = writer.addViewport(n64::Viewport{
+        .scale = {halfWidth, halfHeight, DepthHalfRange},
+        .translate = {halfWidth, halfHeight, DepthHalfRange},
+    });
+    const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
+    const glm::mat4 view = camera.makeViewMatrix();
+    const u32 projection =
+        writer.addMatrix(makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * view));
+    const std::optional<LightAddresses> lights =
+        content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
+    const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
+    const std::vector<std::optional<u32>> matrices = addDrawMatrices(writer, content, view);
+
+    const u32 start = writer.setViewport(viewport);
+    writer.loadMatrix(projection, n64::MatrixLoad::Projection);
+    writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+    if (lights) {
+        setLighting(writer, *content.lighting, *lights);
+    }
+    writer.syncPipe();
+    writer.setGeometryMode(0x00FF'FFFF, n64::geometry::ZBuffer | n64::geometry::Shade |
+                                            n64::geometry::SmoothShading);
+    for (usize image = content.images.size(); image-- > 0;) {
+        setSegments(writer, *content.images[image], mapped[image]);
+    }
+    writeDraws(writer, content, mapped, matrices, identity);
     writer.endDisplayList();
     return FrameList{.bytes = writer.getBytes(), .start = start};
 }
@@ -164,6 +201,16 @@ FrameList writeFrameList(const ViewportContent& content,
 }
 
 } // namespace
+
+glm::mat4 makeBillboardMatrix(const glm::mat4& model, const glm::mat4& view) {
+    const glm::mat3 facing = glm::transpose(glm::mat3(view));
+    glm::mat4 billboard(1.0F);
+    for (int axis = 0; axis < 3; ++axis) {
+        billboard[axis] = glm::vec4(facing[axis] * glm::length(glm::vec3(model[axis])), 0.0F);
+    }
+    billboard[3] = model[3];
+    return billboard;
+}
 
 n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix) {
     std::array<f32, 16> elements{};

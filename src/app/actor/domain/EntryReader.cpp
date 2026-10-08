@@ -179,6 +179,7 @@ ActorVariant DatabaseReader::readVariant(const toml::table& table, const std::st
     variant.draw = readName(table, "draw", path, DrawKindNames);
     variant.skeleton = readString(table, "skeleton", path);
     variant.animation = readString(table, "animation", path);
+    variant.animationObject = readString(table, "animation_object", path);
     if (const std::optional<s64> frame = readInteger(table, "frame", path)) {
         variant.frame = static_cast<u32>(std::max<s64>(*frame, 0));
     }
@@ -237,7 +238,7 @@ std::vector<DisplayListPart> DatabaseReader::readDisplayLists(const toml::array&
             continue;
         }
         checkKeys(*table, at, ListKeys);
-        DisplayListPart part{.name = *name};
+        DisplayListPart part{.name = *name, .object = readString(*table, "object", at)};
         part.pass = readName(*table, "pass", at, PassNames).value_or(Pass::Opaque);
         part.placement = readPlacement(*table, at);
         if (const toml::table* colors = table->get_as<toml::table>("colors")) {

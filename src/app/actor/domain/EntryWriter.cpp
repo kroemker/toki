@@ -148,6 +148,7 @@ void insertOptional(toml::table& table, const std::string_view key,
 [[nodiscard]] toml::table makeDisplayList(const DisplayListPart& part) {
     toml::table table = makeInline();
     table.insert("name", part.name);
+    insertOptional(table, "object", part.object);
     if (part.pass != Pass::Opaque) {
         table.insert("pass", std::string(getEntryName(PassNames, part.pass)));
     }
@@ -191,6 +192,7 @@ void insertDrawing(toml::table& table, const ActorVariant& variant) {
     }
     insertOptional(table, "skeleton", variant.skeleton);
     insertOptional(table, "animation", variant.animation);
+    insertOptional(table, "animation_object", variant.animationObject);
     if (variant.frame) {
         table.insert("frame", s64{*variant.frame});
     }

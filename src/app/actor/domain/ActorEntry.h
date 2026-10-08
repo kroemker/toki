@@ -108,9 +108,11 @@ struct PartPlacement {
     std::array<f32, 3> scale{1.0F, 1.0F, 1.0F};
 };
 
-/// One display list a variant draws, and how.
+/// One display list a variant draws, and how. Its object is the variant's
+/// unless it names one of its own.
 struct DisplayListPart {
     std::string name;
+    std::optional<std::string> object;
     Pass pass = Pass::Opaque;
     PartPlacement placement;
     DrawColors colors;
@@ -137,8 +139,8 @@ enum class ShadowKind : u8 {
     None,
     Circle,
     WhiteCircle,
+    Horse,
     Feet,
-    Teardrop,
 };
 
 struct Shadow {
@@ -162,6 +164,9 @@ struct ActorVariant {
     std::optional<DrawKind> draw;
     std::optional<std::string> skeleton;
     std::optional<std::string> animation;
+    /// The object the animation is in, when it is not the variant's, as
+    /// actors that share animations take them from another object.
+    std::optional<std::string> animationObject;
     std::optional<u32> frame;
     std::vector<DisplayListPart> displayLists;
     std::vector<SegmentSymbol> segments;

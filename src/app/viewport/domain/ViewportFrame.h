@@ -54,6 +54,14 @@ struct ViewportDraw {
     std::vector<usize> alsoImages;
     /// Segments pointed at addresses after the images' segments are.
     std::vector<SegmentPointer> pointedSegments;
+    /// The modelview the draw is drawn with, loaded before it and the identity
+    /// again after; nothing for a draw whose own list loads its matrices.
+    std::optional<glm::mat4> modelView;
+    /// Whether `modelView` faces the camera, as `Matrix_ReplaceRotation` turns
+    /// a billboard: its rotation is the camera's undone, and its translation
+    /// and scale are kept. The camera is the frame's, so it is done as the
+    /// frame is run.
+    bool isBillboard = false;
 };
 
 /// What a viewport draws: memory images, such as a scene and each of its
@@ -86,6 +94,10 @@ struct Frame {
 /// The segment the frame's own display list and matrices are written to.
 /// Content that uses it cannot be drawn.
 inline constexpr u8 FrameSegment = 0x01;
+
+/// `model` turned to face a camera whose view is `view`, keeping its
+/// translation and the scale of each of its axes.
+[[nodiscard]] glm::mat4 makeBillboardMatrix(const glm::mat4& model, const glm::mat4& view);
 
 /// A matrix as glm holds it, for column vectors, as the RSP's `Mtx` holds it,
 /// for row vectors, converted the way `guMtxF2L` converts.

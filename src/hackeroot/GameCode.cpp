@@ -29,15 +29,18 @@ SharedImageFiles makeSharedGameCode(const std::filesystem::path& repository) {
     return SharedImageFiles{.files = {std::move(code)}, .watched = std::move(watched)};
 }
 
-GameSetup findGameSetup(const z64::MemoryImage& code) {
-    GameSetup setup{.drawConfig = code.findAddress("sDefaultDisplayList")};
+std::optional<u32> findSetupDisplayList(const z64::MemoryImage& code, const usize index) {
     const std::optional<z64::ImageSymbol> setups = code.findSymbol("sSetupDL");
     const std::optional<u32> start = code.findAddress("sSetupDL");
-    if (setups && start && setups->size >= (SetupDisplayList25 + 1) * SetupDisplayListSize) {
-        setup.setupDisplayList =
-            *start + static_cast<u32>(SetupDisplayList25 * SetupDisplayListSize);
+    if (!setups || !start || setups->size < (index + 1) * SetupDisplayListSize) {
+        return std::nullopt;
     }
-    return setup;
+    return *start + static_cast<u32>(index * SetupDisplayListSize);
+}
+
+GameSetup findGameSetup(const z64::MemoryImage& code) {
+    return GameSetup{.drawConfig = code.findAddress("sDefaultDisplayList"),
+                     .setupDisplayList = findSetupDisplayList(code, SetupDisplayList25)};
 }
 
 } // namespace hackeroot

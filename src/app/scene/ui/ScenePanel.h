@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/actor/domain/ActorDatabase.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
 #include "app/scene/Types.h"
@@ -59,9 +60,12 @@ private:
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
-    void drawActor(s16 actorId, const std::array<s16, 3>& position, const char* label,
+    /// One placed actor's row; true when it was clicked.
+    bool drawActor(s16 actorId, const std::array<s16, 3>& position,
+                   const actor::PlacementValues& placement, const char* label,
                    std::optional<std::span<const std::string>> loadedObjects);
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
+                          const actor::PlacementValues& placement,
                           std::optional<std::span<const std::string>> loadedObjects) const;
     [[nodiscard]] std::string findActorName(s16 actorId) const;
 

@@ -1,3 +1,21 @@
 # The actor database shipped with Toki: how the vanilla actors of HackerOoT are
 # drawn. Written by Toki; see docs/actor-database.md.
 format = 1
+
+[actors.ACTOR_PLAYER]
+status = "checked"
+name = "Link"
+description = "The player, drawn at the entrance the Scene panel shows him at."
+notes = "Stands at rest: his animations are in link_animetion, which is not asset C."
+
+[[actors.ACTOR_PLAYER.variants]]
+match = { age = "adult" }
+object = "object_link_boy"
+skeleton = "gLinkAdultSkel"
+segments = { 8 = "gLinkAdultEyesOpenTex", 9 = "gLinkAdultMouthClosedTex" }
+
+[[actors.ACTOR_PLAYER.variants]]
+match = { age = "child" }
+object = "object_link_child"
+skeleton = "gLinkChildSkel"
+segments = { 8 = "gLinkChildSkel_gLinkChildEyesOpenTex_ci8_tlut_gLinkChildSkinTLUT_png_001_ci8", 9 = "gLinkChildSkel_gLinkChildMouthClosedTex_ci8_tlut_gLinkChildSkinTLUT_png_001_ci8" }

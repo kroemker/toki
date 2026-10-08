@@ -25,6 +25,8 @@ struct SceneView {
     /// The frame placed actors' animations are on while they play; nothing
     /// while they stand on the first.
     std::optional<usize> actorFrame;
+    /// The player entry Link is drawn at; the others are marked.
+    usize shownEntrance = 0;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of

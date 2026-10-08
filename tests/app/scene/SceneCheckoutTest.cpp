@@ -1,3 +1,4 @@
+#include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -76,7 +77,12 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
 
         hackeroot::AssetImageReader reader(shared);
         toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
-        scene.actors = toki::scene::readSceneActors(reader, scene.layers);
+        scene.actors = toki::scene::readSceneActors(
+            reader, scene.layers, {.shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS)});
+        const auto player = scene.actors.models.find(base::s16{0});
+        REQUIRE(player != scene.actors.models.end());
+        INFO("Link: " << describe(player->second.diagnostics));
+        CHECK(player->second.hasDrawing());
         const toki::scene::Scene again = toki::scene::readScene(reader, *asset);
         CHECK(again.layers.size() == scene.layers.size());
         INFO(name << ": " << describe(scene.diagnostics));
@@ -106,9 +112,8 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
                   << " triangles, " << frame.diagnostics.size() << " frame diagnostics, read in "
                   << scene.elapsed.count() << " ms, again in " << again.elapsed.count() << " ms");
         CHECK(countTriangles(frame.rspResult) > 100);
-        const auto drawn = std::ranges::count_if(scene.actors.models, [](const auto& entry) {
-            return entry.second.drawing.has_value();
-        });
+        const auto drawn = std::ranges::count_if(
+            scene.actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
         WARN(name << ": " << drawn << " of " << scene.actors.models.size()
                   << " actors drawn as models, from " << scene.actors.objects.size()
                   << " objects, read in " << scene.actors.elapsed.count() << " ms");
@@ -162,10 +167,10 @@ TEST_CASE("how long a scene's actors take to read", "[.measure][scene][checkout]
     hackeroot::AssetImageReader otherReader(shared);
     for (const char* read : {"first", "again", "by another reader"}) {
         const toki::scene::SceneActors actors = toki::scene::readSceneActors(
-            std::string_view(read) == "by another reader" ? otherReader : actorReader,
-            scene.layers);
+            std::string_view(read) == "by another reader" ? otherReader : actorReader, scene.layers,
+            {});
         const auto drawn = std::ranges::count_if(
-            actors.models, [](const auto& entry) { return entry.second.drawing.has_value(); });
+            actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
         WARN("ice_doukutu, " << read << ": scene in " << scene.elapsed.count() << " ms, actors in "
                              << actors.elapsed.count() << " ms (" << actors.overlaysElapsed.count()
                              << " ms overlays, " << actors.objectsElapsed.count()

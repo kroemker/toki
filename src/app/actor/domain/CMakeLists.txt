@@ -7,5 +7,6 @@ target_sources(toki_core PRIVATE
         EntryCheck.cpp
         EntryReader.cpp
         EntryWriter.cpp
+        GuessedEntry.cpp
         ModelRules.cpp
         OverlayCode.cpp)

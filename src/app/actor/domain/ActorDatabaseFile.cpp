@@ -19,8 +19,8 @@
 
 namespace toki::actor {
 
-std::filesystem::path makeShippedDatabasePath(const std::filesystem::path& executableDirectory) {
-    return executableDirectory / "assets" / "actors.toml";
+std::filesystem::path makeShippedDatabasePath(const std::filesystem::path& assetDirectory) {
+    return assetDirectory / "actors.toml";
 }
 
 std::filesystem::path makeCheckoutDatabasePath(const std::filesystem::path& root) {

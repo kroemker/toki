@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/actor/domain/ActorEntry.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/viewport/domain/ViewportFrame.h"
@@ -15,12 +16,15 @@
 
 namespace toki::scene {
 
-/// An actor where a scene places it: by ID, position and rotation in binary
-/// angles.
+/// An actor where a scene places it: by ID, position, rotation in binary
+/// angles and params, and Link's age in the layer it is placed in, which its
+/// variant is picked by.
 struct PlacedActor {
     s16 id = 0;
     std::array<s16, 3> position{};
     std::array<s16, 3> rotation{};
+    u16 params = 0;
+    std::optional<actor::Age> age;
 };
 
 /// What drawing placed actors as their models adds to a scene's content: the
@@ -36,28 +40,33 @@ struct ActorDraws {
 };
 
 /// The matrix `Actor_Draw` draws an actor with: translated to its position,
-/// raised by its height offset times its scale, turned about Y, then X, then Z,
-/// and scaled.
-[[nodiscard]] glm::mat4 makeActorMatrix(const PlacedActor& actor, f32 scale, f32 yOffset);
+/// raised by its height offset times its scale, turned about Y, then X, then Z
+/// on the axes it turns by, and scaled.
+[[nodiscard]] glm::mat4 makeActorMatrix(const PlacedActor& actor, f32 scale, f32 yOffset,
+                                        const actor::RotationAxes& rotates = {});
 
 /// What actors are drawn after, from the game code, which is the content's
-/// first image: `sSetupDL[SETUPDL_25]`, and `gEmptyDL` for segments 8 to 12
-/// where an actor's `Draw` points them at nothing that could be read.
+/// first image: `sSetupDL[SETUPDL_25]` before a model, `sSetupDL[SETUPDL_44]`
+/// before a shadow, and `gEmptyDL` for segments 8 to 12 where an actor's
+/// `Draw` points them at nothing that could be read.
 struct ActorSetup {
     std::optional<u32> setupDisplayList;
+    std::optional<u32> shadowDisplayList;
     std::optional<u32> emptyDisplayList;
     /// The frame animated actors are posed on, counted from when they started
-    /// playing; nothing to leave each on its first.
+    /// playing; nothing to leave each on its variant's frame.
     std::optional<usize> frame;
 };
 
-/// Draws every placed actor that has a drawing as `Actor_Draw` would: each
+/// Draws every placed actor whose variant draws as `Actor_Draw` would: each
 /// after the setup display list, with segment 6 or whichever its object is in
-/// pointed at the object and segments 8 to 12 where its `Draw` points them, a
-/// skeleton's limbs by their matrices, laid out in segment 13 for a flexible
-/// skeleton's display lists to find, and display lists by the actor's matrix.
-/// Every actor's list leaves the modelview at the identity, as the rooms drawn
-/// after it expect.
+/// pointed at the object and segments 8 to 12 where its `Draw` points them, in
+/// its colours; a skeleton's limbs by their matrices, laid out in segment 13
+/// for a flexible skeleton's display lists to find; display lists by the
+/// actor's matrix and their own placement, facing the camera when they are
+/// billboards; its shadow, as `ActorShadow_Draw` does, on the ground where it
+/// stands; and the children it spawns, by their own entries. Every actor's list
+/// leaves the modelview at the identity, as the rooms drawn after it expect.
 [[nodiscard]] ActorDraws makeActorDraws(const SceneActors& actors,
                                         std::span<const PlacedActor> placed, usize firstImage,
                                         const ActorSetup& setup);

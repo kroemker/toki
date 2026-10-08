@@ -260,10 +260,16 @@ listed below is only what no change may break.
   - A texture's format, size and palette come from the file its include resolved to, as the
     build reads the name, recorded on the image symbol. Never guessed from a symbol name.
   - What is shown is decoded from the image's bytes, not read from the PNG.
-- **[Actor rendering](docs/actor-rendering.md)** — how a placed actor's skeleton, animation,
-  display lists and scale are read from the literals in its overlay's `Init` and `Draw`.
-  - Only literals count. What is not one is a gap with its reason and location, never a
-    guess, and the actor keeps its marker.
+- **[The actor database](docs/actor-database.md)** — how each actor is drawn, by typed
+  fields of its params and variants matched on them, shipped for vanilla actors and kept per
+  checkout in `toki/actors.toml`.
+  - The database is the source of truth. An actor with an entry is drawn as it says; its C
+    is read only to guess an entry for an actor without one, and a guess is labelled as one
+    and never overwrites an entry a person wrote or checked.
+  - A checkout's entry replaces the shipped one whole, never field by field.
+- **[Actor rendering](docs/actor-rendering.md)** — how a guess is read from the literals in
+  an overlay's `Init` and `Draw`, and how placed actors are drawn as `Actor_Draw` draws them.
+  - Only literals count in a guess. What is not one is a gap with its reason and location.
   - Actor code is never run.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.

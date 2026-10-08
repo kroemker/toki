@@ -1,5 +1,6 @@
 #include "App.h"
 
+#include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/assets/domain/AssetReader.h"
 #include "app/assets/domain/AssetReport.h"
 #include "app/assets/domain/ObjectNames.h"
@@ -332,9 +333,13 @@ void App::updateScene() {
         }
         texturePanel->setTextures(loaded->name, std::move(groups));
     }
-    sceneActorLoader.open(workspaceService.getSharedWorkspace(),
-                          scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
-                                              .layers = loaded->layers});
+    const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
+    sceneActorLoader.open(
+        workspaceService.getSharedWorkspace(),
+        scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
+                            .layers = loaded->layers,
+                            .shippedDatabase = assets ? actor::makeShippedDatabasePath(*assets)
+                                                      : std::filesystem::path()});
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
     }
@@ -346,11 +351,14 @@ void App::updateSceneActors() {
         return;
     }
     const auto drawn = std::ranges::count_if(
-        loaded->models, [](const auto& entry) { return entry.second.drawing.has_value(); });
-    logInfo("read the scene's actors in {} ms ({} ms overlays, {} ms objects): {} of {} drawn "
-            "as models, from {} objects",
-            loaded->elapsed.count(), loaded->overlaysElapsed.count(),
-            loaded->objectsElapsed.count(), drawn, loaded->models.size(), loaded->objects.size());
+        loaded->models, [](const auto& entry) { return entry.second.hasDrawing(); });
+    logRead(loaded->diagnostics,
+            std::format(
+                "read the scene's actors in {} ms ({} ms overlays, {} ms objects): {} of {} drawn "
+                "as models, from {} objects",
+                loaded->elapsed.count(), loaded->overlaysElapsed.count(),
+                loaded->objectsElapsed.count(), drawn, loaded->models.size(),
+                loaded->objects.size()));
     if (scenePanel != nullptr) {
         scenePanel->setActors(std::move(*loaded));
     }

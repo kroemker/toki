@@ -1,5 +1,6 @@
 #include "ScenePanel.h"
 
+#include "app/actor/domain/ActorDatabase.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -7,6 +8,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -180,7 +182,7 @@ void ScenePanel::drawPickers(const Scene& shown) {
     }
     ImGui::EndDisabled();
     const auto drawn = std::ranges::count_if(
-        shown.actors.models, [](const auto& entry) { return entry.second.drawing.has_value(); });
+        shown.actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
     ImGui::TextColored(core::palette::TextMuted, "%d of %d kinds of actor drawn as models",
                        static_cast<int>(drawn), static_cast<int>(shown.actors.models.size()));
 }
@@ -206,9 +208,13 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
                 workspace != nullptr ? listLoadedObjects(layer, room, workspace->getTables())
                                      : std::vector<std::string>{};
             for (const ActorPlacement& actor : header.actors) {
-                drawActor(actor.id, actor.position, nullptr,
-                          workspace != nullptr ? std::optional<std::span<const std::string>>(loaded)
-                                               : std::nullopt);
+                const actor::PlacementValues placement{.params = static_cast<u16>(actor.params),
+                                                       .rotation = actor.rotation,
+                                                       .age = findLayerAge(layer.index)};
+                static_cast<void>(drawActor(
+                    actor.id, actor.position, placement, nullptr,
+                    workspace != nullptr ? std::optional<std::span<const std::string>>(loaded)
+                                         : std::nullopt));
             }
             ImGui::TreePop();
         }
@@ -219,41 +225,57 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
 void ScenePanel::drawPlacements(const SceneLayer& layer) {
     if (ImGui::CollapsingHeader("Entrances")) {
         for (usize i = 0; i < layer.header.playerEntries.size(); ++i) {
-            const std::string label = std::format("Entry {}", i);
-            drawActor(layer.header.playerEntries[i].id, layer.header.playerEntries[i].position,
-                      label.c_str(), std::nullopt);
+            const ActorPlacement& entry = layer.header.playerEntries[i];
+            const std::string label =
+                std::format("Entry {}{}", i, i == sceneView.shownEntrance ? "  ·  Link" : "");
+            const actor::PlacementValues placement{.params = static_cast<u16>(entry.params),
+                                                   .rotation = entry.rotation,
+                                                   .age = findLayerAge(layer.index)};
+            if (drawActor(entry.id, entry.position, placement, label.c_str(), std::nullopt)) {
+                sceneView.shownEntrance = i;
+                showScene();
+            }
         }
     }
     if (ImGui::CollapsingHeader("Transition actors")) {
         for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
             const std::string label = std::format("{}  ·  rooms {} and {}", findActorName(actor.id),
                                                   actor.rooms[0], actor.rooms[1]);
-            drawActor(actor.id, actor.position, label.c_str(), std::nullopt);
+            const actor::PlacementValues placement{.params = static_cast<u16>(actor.params),
+                                                   .rotation = {0, actor.rotationY, 0},
+                                                   .age = findLayerAge(layer.index)};
+            static_cast<void>(
+                drawActor(actor.id, actor.position, placement, label.c_str(), std::nullopt));
         }
     }
 }
 
-void ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position, const char* label,
+bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position,
+                           const actor::PlacementValues& placement, const char* label,
                            const std::optional<std::span<const std::string>> loadedObjects) {
     const auto model = scene->actors.models.find(actorId);
-    const bool isDrawn = model != scene->actors.models.end() && model->second.drawing;
+    const ActorDrawing* drawing =
+        model != scene->actors.models.end() ? model->second.findDrawing(placement) : nullptr;
+    const bool isDrawn = drawing != nullptr && drawing->isDrawn();
     ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",
                        isDrawn ? core::icons::Cube : core::icons::Diamond);
     ImGui::SameLine();
     const std::string name = label != nullptr ? std::string(label) : findActorName(actorId);
     const std::string text =
         std::format("{}##{}_{}_{}_{}", name, actorId, position[0], position[1], position[2]);
-    if (ImGui::Selectable(text.c_str())) {
+    const bool isClicked = ImGui::Selectable(text.c_str());
+    if (isClicked) {
         viewportPanel.focus(makePoint(position));
     }
     if (ImGui::BeginItemTooltip()) {
-        drawActorTooltip(actorId, position, loadedObjects);
+        drawActorTooltip(actorId, position, placement, loadedObjects);
         ImGui::EndTooltip();
     }
+    return isClicked;
 }
 
 void ScenePanel::drawActorTooltip(
-    const s16 actorId, const std::array<s16, 3>& position,
+    const s16 actorId, const std::array<s16, 3>& position, const actor::PlacementValues& placement,
     const std::optional<std::span<const std::string>> loadedObjects) const {
     ImGui::Text("actor 0x%04X at %d, %d, %d — click to look at it",
                 static_cast<unsigned>(static_cast<u16>(actorId)), position[0], position[1],
@@ -262,7 +284,7 @@ void ScenePanel::drawActorTooltip(
     if (model == scene->actors.models.end()) {
         return;
     }
-    const ActorDescription description = describeActor(model->second, loadedObjects);
+    const ActorDescription description = describeActor(model->second, placement, loadedObjects);
     ImGui::Separator();
     ImGui::TextColored(core::palette::TextMuted, "%s",
                        description.isDrawn ? "Drawn as its model" : "Marked: no model to draw");
