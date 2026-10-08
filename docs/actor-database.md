@@ -255,8 +255,8 @@ player entry of the scene at once.
 
 ## Two files
 
-- **The shipped database**, `data/actors.toml` in Toki's own repository, installed beside
-  the executable: curated, every entry checked, the vanilla actors as HackerOoT ships them.
+- **The shipped database**, `assets/actors.toml` in Toki's own repository, copied beside
+  the executable with the fonts: curated, every entry checked, the vanilla actors as HackerOoT ships them.
   It is the same for everyone. It records the HackerOoT commit it was checked against
   (`checked_against = "<commit>"`), for reference.
 - **The checkout's database**, `<checkout>/toki/actors.toml`: the mod's own actors, and any
@@ -327,8 +327,9 @@ shipped one, to fix.
   display lists from the picked object's catalog, which already sorts its symbols by
   declared type ([objects.md](objects.md#the-catalog)).
 - **Edits draw at once** in the open scene, and are saved to the checkout's file. The file is
-  written by Toki with a stable order of actors and keys, so it diffs well. Comments in it are
-  not kept.
+  written by Toki with a stable order of actors and keys, alphabetical, without indentation,
+  and with params in hexadecimal, so it diffs well. It is written beside itself first and
+  then over itself, so a failed write leaves it as it was. Comments in it are not kept.
 
 ## Cost
 
@@ -411,7 +412,7 @@ M two or three, L more.
 | Step | What | Size |
 |---|---|---|
 | 0 | Measure Ice Cavern's actors in a release build over the share, split into overlays and objects (done) | S |
-| 1 | The database: every key above as types; reading and writing `actors.toml`, with diagnostics naming the actor and key for anything wrong; validation of fields, values and symbols; the two files layered; `checked_against` | M |
+| 1 | The database: every key above as types; reading and writing `actors.toml`, with diagnostics naming the actor and key for anything wrong; validation of fields, values and matches; the two files layered; `checked_against` (done; symbols are checked against the objects by step 3's checkout test) | M |
 | 2 | Drawing from it: each placed actor's variant picked by its fields and age; turned only by the axes it rotates by, on its frame; display lists placed, coloured and billboarded; shadows; children; guesses only for actors without an entry; the Player entry and the entrance being looked at | L |
 | 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at | L, in batches |
 | 4 | Guesses as entries: `makeGuessedEntry`, the on-disk guess cache, `guessed_from` and stale guesses | S |

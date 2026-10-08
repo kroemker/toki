@@ -61,8 +61,8 @@ target_link_libraries(toki_gfx PUBLIC SDL3::SDL3 PRIVATE toki_warnings)
 add_executable(toki)
 target_link_libraries(toki PRIVATE toki_core toki_gfx SDL3::SDL3 imgui::imgui toki_warnings)
 
-# Fonts are the only files the executable reads from beside itself; everything
-# else comes from the user's decomp checkout.
+# Fonts and the shipped actor database are the only files the executable reads
+# from beside itself; everything else comes from the user's decomp checkout.
 add_custom_command(TARGET toki POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/assets" "$<TARGET_FILE_DIR:toki>/assets"

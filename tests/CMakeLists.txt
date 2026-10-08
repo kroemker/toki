@@ -1,6 +1,7 @@
 find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
+        app/actor/ActorDatabaseTest.cpp
         app/actor/ActorModelCheckoutTest.cpp
         app/actor/ModelRulesTest.cpp
         app/assets/AssetReportTest.cpp
@@ -75,6 +76,7 @@ set(TOKI_HACKEROOT "" CACHE PATH
 file(TO_CMAKE_PATH "${TOKI_HACKEROOT}" TOKI_HACKEROOT_PATH)
 target_compile_definitions(toki_tests PRIVATE
         TOKI_TEST_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}"
+        TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
         TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 
 include(Catch)
