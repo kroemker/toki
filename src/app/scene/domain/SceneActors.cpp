@@ -209,6 +209,13 @@ std::optional<actor::Age> findLayerAge(const usize layerIndex) {
     return layerIndex < ChildLayers ? actor::Age::Child : actor::Age::Adult;
 }
 
+std::optional<actor::TimeOfDay> findLayerTime(const usize layerIndex) {
+    if (layerIndex >= PlayedLayers) {
+        return std::nullopt;
+    }
+    return layerIndex % 2 == 0 ? actor::TimeOfDay::Day : actor::TimeOfDay::Night;
+}
+
 SceneActors readSceneActors(hackeroot::AssetImageReader& reader, const std::string_view sceneFolder,
                             const std::vector<SceneLayer>& layers,
                             const ActorDatabases& databases) {

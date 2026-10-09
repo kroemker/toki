@@ -490,7 +490,7 @@ M two or three, L more.
 | 3 | The curated run: every vanilla actor, in batches by category, validated by a checkout test after each, uncertain ones drawn and looked at (a trial of ten is shipped; the rest waits on its review) | L, in batches |
 | 4 | Guesses kept: the on-disk guess cache, and stale guesses by `guessed_from` (`makeGuessedEntry` came with step 2) | S |
 | 5 | The startup check: new actors found, the question, guessing them on a worker, writing the checkout's file, the remembered "No"; shipped entries that do not fit, in one warning; watching the checkout's file | S–M |
-| 6 | The Scene panel: names, decoded params with roles and meanings, entry status, spawn conditions greying out actors, "Edit actor", "Add a variant for these params", "Keep this guess" | S–M |
+| 6 | The Scene panel: names, decoded params with roles and meanings, entry status, spawn conditions greying out actors, "Edit actor", "Add a variant for these params", "Keep this guess" (done but "Edit actor", which waits for step 7; edits are written by `actor::DatabaseEditor` on a worker, which refuses a file that does not read cleanly) | S–M |
 | 7 | The Actors panel: the list, the entry editor with typed fields, enum values, roles and meanings, matches edited by the fields' controls, pickers from the object catalog, display list placement and colours, children, edits drawn at once and saved | L |
 | 8 | Better guesses: tables indexed by params become enum fields and variants, for display lists, skeletons, scales and segments; one-bit fields become flags; shadows and spawn conditions from `Init` | M |
 | 9 | Object reading made cheaper, as step 0's numbers say: parallel reads, or images kept on disk | S–M |

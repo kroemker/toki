@@ -3,13 +3,17 @@ target_sources(toki_core PRIVATE
         ActorDatabaseFile.cpp
         ActorModel.cpp
         ActorModelReader.cpp
+        DatabaseEditor.cpp
+        DatabaseEdits.cpp
         DatabaseReader.cpp
         EntryCheck.cpp
         EntryReader.cpp
         EntryWriter.cpp
+        FieldReading.cpp
         GuessedEntry.cpp
         ModelRules.cpp
         DrawSteps.cpp
         OverlayCode.cpp
+        SpawnCheck.cpp
         StepReader.cpp
         StepWriter.cpp)

@@ -4,6 +4,8 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/DrawSteps.h"
+#include "app/actor/domain/FieldReading.h"
+#include "app/actor/domain/SpawnCheck.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -45,6 +47,17 @@ namespace {
         break;
     }
     return "In no actor database, and with no overlay to guess from";
+}
+
+[[nodiscard]] std::string describeStatus(const SceneActorModel& actor,
+                                         const ActorDrawing* drawing) {
+    if (!actor.entry) {
+        return "none";
+    }
+    if (drawing != nullptr && drawing->kind == actor::DrawKind::Marker) {
+        return "marker";
+    }
+    return actor.entry->status == actor::EntryStatus::Checked ? "checked" : "guessed";
 }
 
 [[nodiscard]] std::string describeObject(const std::optional<std::string>& own,
@@ -108,15 +121,23 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
 
 ActorDescription describeActor(const SceneActorModel& actor,
                                const actor::PlacementValues& placement,
+                               const std::optional<actor::TimeOfDay> time,
                                const std::optional<std::span<const std::string>> loadedObjects) {
     const ActorDrawing* drawing = actor.findDrawing(placement);
-    ActorDescription description{.isDrawn = drawing != nullptr && drawing->isDrawn()};
-    description.lines.push_back(describeSource(actor));
-    if (actor.entry && !actor.entry->name.empty()) {
-        description.lines.push_back(actor.entry->name);
-    }
     const actor::ActorVariant* variant =
         actor.entry ? actor::findVariant(*actor.entry, placement) : nullptr;
+    ActorDescription description{
+        .isDrawn = drawing != nullptr && drawing->isDrawn(),
+        .status = describeStatus(actor, drawing),
+        .canKeepGuess = actor.source == ModelSource::Guessed && actor.entry.has_value(),
+        .canAddVariant = actor.entry && !actor.entry->fields.empty(),
+    };
+    if (actor.entry) {
+        description.name = actor.entry->name;
+        description.fields = actor::readFields(*actor.entry, placement);
+        description.spawn = actor::checkSpawn(*actor.entry, placement, time);
+    }
+    description.lines.push_back(describeSource(actor));
     if (variant != nullptr) {
         describeVariant(*actor.entry, *variant, description.lines);
     } else if (actor.entry && !actor.entry->variants.empty()) {

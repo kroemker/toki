@@ -188,6 +188,10 @@ struct SceneActors {
 /// none in a cutscene layer.
 [[nodiscard]] std::optional<actor::Age> findLayerAge(usize layerIndex);
 
+/// The time of day in a scene layer: day in the first and third, night in the
+/// second and fourth, none in a cutscene layer.
+[[nodiscard]] std::optional<actor::TimeOfDay> findLayerTime(usize layerIndex);
+
 /// Reads the model of every actor `layers` place, player entries and the
 /// children their variants spawn included: each by its entry in `databases`,
 /// or else guessed from its overlay, with the objects its entry names and

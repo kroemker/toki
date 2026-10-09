@@ -1,6 +1,10 @@
 #include "ScenePanel.h"
 
 #include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorDatabaseFile.h"
+#include "app/actor/domain/DatabaseEdits.h"
+#include "app/actor/domain/FieldReading.h"
+#include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -21,6 +25,7 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <format>
 #include <optional>
 #include <span>
@@ -127,6 +132,7 @@ void ScenePanel::advanceActors() {
 
 void ScenePanel::draw() {
     advanceActors();
+    reportEditFailures();
     if (!scene || scene->layers.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
@@ -254,45 +260,118 @@ bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position
                            const actor::PlacementValues& placement, const char* label,
                            const std::optional<std::span<const std::string>> loadedObjects) {
     const auto model = scene->actors.models.find(actorId);
-    const ActorDrawing* drawing =
-        model != scene->actors.models.end() ? model->second.findDrawing(placement) : nullptr;
-    const bool isDrawn = drawing != nullptr && drawing->isDrawn();
+    const std::optional<ActorDescription> description =
+        model != scene->actors.models.end()
+            ? std::optional(describeActor(model->second, placement,
+                                          findLayerTime(scene->layers[sceneView.layer].index),
+                                          loadedObjects))
+            : std::nullopt;
+    const bool isDrawn = description && description->isDrawn;
+    const bool isSpawned = !description || description->spawn.isSpawned;
     ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",
                        isDrawn ? core::icons::Cube : core::icons::Diamond);
     ImGui::SameLine();
-    const std::string name = label != nullptr ? std::string(label) : findActorName(actorId);
+    std::string name = findActorName(actorId);
+    if (label != nullptr) {
+        name = label;
+    } else if (description && !description->name.empty()) {
+        name = description->name;
+    }
     const std::string text =
         std::format("{}##{}_{}_{}_{}", name, actorId, position[0], position[1], position[2]);
+    if (!isSpawned) {
+        ImGui::PushStyleColor(ImGuiCol_Text, core::palette::TextDisabled);
+    }
     const bool isClicked = ImGui::Selectable(text.c_str());
+    if (!isSpawned) {
+        ImGui::PopStyleColor();
+    }
     if (isClicked) {
         viewportPanel.focus(makePoint(position));
     }
+    if (!description) {
+        return isClicked;
+    }
     if (ImGui::BeginItemTooltip()) {
-        drawActorTooltip(actorId, position, placement, loadedObjects);
+        drawActorTooltip(actorId, position, *description);
         ImGui::EndTooltip();
+    }
+    if (ImGui::BeginPopupContextItem()) {
+        drawActorMenu(model->second, placement, *description);
+        ImGui::EndPopup();
     }
     return isClicked;
 }
 
-void ScenePanel::drawActorTooltip(
-    const s16 actorId, const std::array<s16, 3>& position, const actor::PlacementValues& placement,
-    const std::optional<std::span<const std::string>> loadedObjects) const {
-    ImGui::Text("actor 0x%04X at %d, %d, %d — click to look at it",
+void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& position,
+                                  const ActorDescription& description) const {
+    ImGui::Text("%s  ·  actor 0x%04X at %d, %d, %d", findActorName(actorId).c_str(),
                 static_cast<unsigned>(static_cast<u16>(actorId)), position[0], position[1],
                 position[2]);
-    const auto model = scene->actors.models.find(actorId);
-    if (model == scene->actors.models.end()) {
-        return;
+    ImGui::TextColored(core::palette::TextMuted,
+                       "Entry %s  ·  %s  ·  click to look at it, "
+                       "right-click to edit",
+                       description.status.c_str(),
+                       description.isDrawn ? "drawn as its model" : "marked");
+    if (!description.fields.empty() &&
+        ImGui::BeginTable("fields", 3, ImGuiTableFlags_SizingFixedFit)) {
+        for (const actor::FieldReading& field : description.fields) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextColored(core::palette::TextMuted, "%s", field.name.c_str());
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(field.text.c_str());
+            ImGui::TableNextColumn();
+            ImGui::TextColored(core::palette::TextMuted, "%s", field.meaning.c_str());
+        }
+        ImGui::EndTable();
     }
-    const ActorDescription description = describeActor(model->second, placement, loadedObjects);
+    if (!description.spawn.needs.empty()) {
+        std::string needs;
+        for (const std::string& need : description.spawn.needs) {
+            needs += needs.empty() ? need : ", " + need;
+        }
+        ImGui::TextColored(
+            description.spawn.isSpawned ? core::palette::TextMuted : core::palette::Warning,
+            "%s %s", description.spawn.isSpawned ? "Spawns" : "Not in this layer:", needs.c_str());
+    }
     ImGui::Separator();
-    ImGui::TextColored(core::palette::TextMuted, "%s",
-                       description.isDrawn ? "Drawn as its model" : "Marked: no model to draw");
     for (const std::string& line : description.lines) {
         ImGui::TextUnformatted(line.c_str());
     }
     for (const std::string& problem : description.problems) {
         ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning, problem.c_str());
+    }
+}
+
+void ScenePanel::drawActorMenu(const SceneActorModel& model,
+                               const actor::PlacementValues& placement,
+                               const ActorDescription& description) {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (workspace == nullptr || !model.entry) {
+        ImGui::TextDisabled("No entry to edit");
+        return;
+    }
+    const std::filesystem::path file = actor::makeCheckoutDatabasePath(workspace->getRoot());
+    if (ImGui::MenuItem("Keep this guess", nullptr, false, description.canKeepGuess)) {
+        databaseEditor.edit(file, [entry = *model.entry](actor::ActorDatabase& checkout) {
+            return actor::keepGuess(checkout, entry);
+        });
+    }
+    if (ImGui::MenuItem("Add a variant for these params", nullptr, false,
+                        description.canAddVariant)) {
+        databaseEditor.edit(file,
+                            [entry = *model.entry, placement](actor::ActorDatabase& checkout) {
+                                return actor::addVariantForParams(checkout, entry, placement);
+                            });
+    }
+    ImGui::MenuItem("Edit actor", nullptr, false, false);
+    ImGui::SetItemTooltip("The Actors panel, which edits entries, is not there yet");
+}
+
+void ScenePanel::reportEditFailures() {
+    for (const std::string& failure : databaseEditor.takeFailures()) {
+        core::logError("{}", failure);
     }
 }
 
