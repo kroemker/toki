@@ -32,6 +32,12 @@ void insertPass(toml::table& table, const Pass pass) {
     return table;
 }
 
+[[nodiscard]] toml::table makeStep(const HiliteStep&) {
+    toml::table table = makeInline();
+    table.insert("hilite", true);
+    return table;
+}
+
 [[nodiscard]] toml::table makeStep(const SegmentStep& step) {
     toml::table table = makeInline();
     table.insert("segment", s64{step.segment});

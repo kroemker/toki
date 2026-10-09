@@ -212,3 +212,11 @@ TEST_CASE("zooming in brings the camera closer and back out restores it", "[view
 
     REQUIRE(camera.getDistance() == Catch::Approx(distance));
 }
+
+TEST_CASE("a LookAt is the view's right and up, as guLookAtHilite makes it", "[viewport]") {
+    const std::array<std::array<base::s8, 3>, 2> lookAt =
+        toki::viewport::makeLookAt({0.0F, 0.0F, 100.0F}, {0.0F, 0.0F, 0.0F});
+
+    REQUIRE(lookAt[0] == std::array<base::s8, 3>{-128, 0, 0});
+    REQUIRE(lookAt[1] == std::array<base::s8, 3>{0, 127, 0});
+}

@@ -8,6 +8,7 @@
 #include "z64/MemoryImage.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float3.hpp>
 
 #include <array>
 #include <memory>
@@ -62,6 +63,10 @@ struct ViewportDraw {
     /// and scale are kept. The camera is the frame's, so it is done as the
     /// frame is run.
     bool isBillboard = false;
+    /// Where the draw's `LookAt` looks from the camera, as `func_8002EBCC`
+    /// and `func_8002ED80` set one toward an actor for `G_TEXTURE_GEN`;
+    /// nothing to draw with the frame's.
+    std::optional<glm::vec3> lookAtTarget;
 };
 
 /// What a viewport draws: memory images, such as a scene and each of its
@@ -97,6 +102,11 @@ struct Frame {
 /// to face the camera, as `gItemDropDL` does. Content that uses it cannot be
 /// drawn.
 inline constexpr u8 FrameSegment = 0x01;
+
+/// The `LookAt` `guLookAtHilite` makes for an eye looking at `target`, with
+/// Y up: the view's right and up directions, each scaled to 127.
+[[nodiscard]] std::array<std::array<s8, 3>, 2> makeLookAt(const glm::vec3& eye,
+                                                          const glm::vec3& target);
 
 /// `model` turned to face a camera whose view is `view`, keeping its
 /// translation and the scale of each of its axes.

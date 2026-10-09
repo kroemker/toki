@@ -164,6 +164,11 @@ struct ColorsStep {
     DrawColors colors;
 };
 
+/// `func_8002EBCC` or `func_8002ED80`: what follows is drawn with a `LookAt`
+/// from the camera toward the actor, which `G_TEXTURE_GEN` maps its normals
+/// by, as rupees and heart pieces shine.
+struct HiliteStep {};
+
 /// `gSPSegment(segment, symbol)` for what follows.
 struct SegmentStep {
     u8 segment = 0;
@@ -213,8 +218,8 @@ struct ShadowStep {
 
 /// One step of how a variant is drawn, in the order `Draw` takes it.
 struct DrawStep {
-    std::variant<SetupStep, ColorsStep, SegmentStep, TransformStep, DisplayListStep, SkeletonStep,
-                 ShadowStep>
+    std::variant<SetupStep, ColorsStep, HiliteStep, SegmentStep, TransformStep, DisplayListStep,
+                 SkeletonStep, ShadowStep>
         step;
     base::SourceLocation location;
 };

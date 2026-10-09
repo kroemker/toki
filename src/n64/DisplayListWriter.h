@@ -60,6 +60,10 @@ public:
 
     [[nodiscard]] u32 addLight(const LightData& light);
 
+    /// A `LookAt`: the directions `G_TEXTURE_GEN` maps normals onto as S and
+    /// T, each scaled to 127.
+    [[nodiscard]] u32 addLookAt(const std::array<s8, 3>& x, const std::array<s8, 3>& y);
+
     u32 addCommand(u32 word0, u32 word1);
 
     u32 setViewport(u32 address);
@@ -89,6 +93,10 @@ public:
     /// `gSPLight`: loads the light at `address` as light `index`, counting from
     /// one; the ambient light is the one after the last directional light.
     u32 setLight(u32 address, u32 index);
+
+    /// `gSPLookAt`: loads the `LookAt` at `address`, its X direction and then
+    /// its Y.
+    u32 setLookAt(u32 address);
 
     u32 setFogColor(const std::array<u8, 4>& color);
 

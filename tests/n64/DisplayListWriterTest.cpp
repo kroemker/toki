@@ -128,3 +128,36 @@ TEST_CASE("what the writer writes, the RSP runs", "[n64][writer]") {
     REQUIRE(triangles[0].vertices[2].position[1] == Catch::Approx(1.0F));
     REQUIRE(triangles[0].vertices[0].color == std::array<u8, 4>{255, 0, 0, 255});
 }
+
+TEST_CASE("a written LookAt is what texture generation maps normals onto", "[n64][writer]") {
+    n64::DisplayListWriter writer(Segment);
+    const u32 viewport = writer.addViewport(n64::makeDefaultViewport());
+    const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
+    const u32 lookAt = writer.addLookAt({127, 0, 0}, {0, 127, 0});
+    const u32 vertices = writer.addVertex({.position = {0, 0, 0}, .color = {127, 0, 0, 255}});
+    static_cast<void>(writer.addVertex({.position = {1, 0, 0}, .color = {127, 0, 0, 255}}));
+    static_cast<void>(writer.addVertex({.position = {0, 1, 0}, .color = {127, 0, 0, 255}}));
+    const u32 start = writer.setViewport(viewport);
+    writer.loadMatrix(identity, n64::MatrixLoad::Projection);
+    writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+    writer.setLookAt(lookAt);
+    writer.addCommand(0xD700'0002, 0xFFFF'FFFF);
+    writer.setGeometryMode(0x00FF'FFFF, n64::geometry::Shade | n64::geometry::Lighting |
+                                            n64::geometry::TextureGen);
+    writer.loadVertices(vertices, 3, 0);
+    writer.drawTriangle({0, 1, 2});
+    writer.endDisplayList();
+
+    n64::Memory memory;
+    REQUIRE(memory.map(SegmentBase, writer.getBytes()));
+    n64::RspTask task{.displayList = start};
+    task.segments[Segment] = SegmentBase;
+    const n64::RspResult result = n64::runTask(memory, task);
+
+    REQUIRE(result.diagnostics.empty());
+    const std::vector<n64::Triangle> triangles = findTriangles(result);
+    REQUIRE(triangles.size() == 1);
+    const std::array<f32, 2>& texture = triangles[0].vertices[0].texture;
+    REQUIRE(texture[0] == Catch::Approx(2.0F * texture[1]).epsilon(0.02));
+    REQUIRE(texture[1] > 0.0F);
+}

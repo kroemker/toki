@@ -141,36 +141,31 @@ collected   = { kind = "flag", shift = 15, meaning = "Given at once when spawned
 match = { type = "rupee_green" }
 scale = 0.015
 height_offset = 750
-display_lists = [{ name = "gRupeeDL" }]
-segments = { 8 = "gRupeeGreenTex" }
+steps = [{ hilite = true }, { segment = 8, symbol = "gRupeeGreenTex" }, { display_list = "gRupeeDL" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "rupee_blue" }
 scale = 0.015
 height_offset = 750
-display_lists = [{ name = "gRupeeDL" }]
-segments = { 8 = "gRupeeBlueTex" }
+steps = [{ hilite = true }, { segment = 8, symbol = "gRupeeBlueTex" }, { display_list = "gRupeeDL" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "rupee_red" }
 scale = 0.015
 height_offset = 750
-display_lists = [{ name = "gRupeeDL" }]
-segments = { 8 = "gRupeeRedTex" }
+steps = [{ hilite = true }, { segment = 8, symbol = "gRupeeRedTex" }, { display_list = "gRupeeDL" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "rupee_gold" }
 scale = 0.045
 height_offset = 750
-display_lists = [{ name = "gRupeeDL" }]
-segments = { 8 = "gRupeeOrangeTex" }
+steps = [{ hilite = true }, { segment = 8, symbol = "gRupeeOrangeTex" }, { display_list = "gRupeeDL" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "rupee_purple" }
 scale = 0.03
 height_offset = 750
-display_lists = [{ name = "gRupeeDL" }]
-segments = { 8 = "gRupeePinkTex" }
+steps = [{ hilite = true }, { segment = 8, symbol = "gRupeePinkTex" }, { display_list = "gRupeeDL" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "recovery_heart" }
@@ -182,13 +177,13 @@ display_lists = [{ name = "gGiRecoveryHeartDL", object = "object_gi_heart", pass
 match = { type = "heart_piece" }
 scale = 0.02
 height_offset = 650
-display_lists = [{ name = "gHeartPieceInteriorDL", pass = "translucent" }]
+steps = [{ hilite = true }, { display_list = "gHeartPieceInteriorDL", pass = "translucent" }]
 
 [[actors.ACTOR_EN_ITEM00.variants]]
 match = { type = "heart_container" }
 scale = 0.02
 height_offset = 430
-display_lists = [{ name = "gHeartPieceExteriorDL" }, { name = "gHeartContainerInteriorDL", pass = "translucent" }]
+steps = [{ hilite = true }, { display_list = "gHeartPieceExteriorDL" }, { display_list = "gHeartContainerInteriorDL", pass = "translucent" }]
 
 # The sprite drops: gItemDropDL after sSetupDL[66], its texture in segment 8.
 [[actors.ACTOR_EN_ITEM00.variants]]

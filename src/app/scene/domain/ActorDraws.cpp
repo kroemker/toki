@@ -91,9 +91,10 @@ void setColors(n64::DisplayListWriter& writer, const actor::DrawColors& colors) 
 
 class ActorWriter {
 public:
-    ActorWriter(ActorDraws& draws, const usize firstImage, const ActorSetup& setup)
+    ActorWriter(ActorDraws& draws, const usize firstImage, const ActorSetup& setup,
+                const glm::vec3& position)
         : draws(draws), imageIndex(firstImage + draws.images.size()), firstImage(firstImage),
-          setup(setup) {}
+          setup(setup), position(position) {}
 
     void writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4& actorMatrix);
 
@@ -123,11 +124,16 @@ private:
 
     [[nodiscard]] object::Pose poseSkeleton(const SkeletonDrawing& skeleton) const;
 
+    [[nodiscard]] std::optional<glm::vec3> findLookAtTarget(const DrawState& state) const {
+        return state.isHilit ? std::optional(position) : std::nullopt;
+    }
+
     ActorDraws& draws;
     n64::DisplayListWriter writer{object::LimbMatrixSegment};
     usize imageIndex = 0;
     usize firstImage = 0;
     const ActorSetup& setup;
+    glm::vec3 position;
 };
 
 object::Pose ActorWriter::poseSkeleton(const SkeletonDrawing& skeleton) const {
@@ -164,6 +170,7 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
             .alsoImages = {firstImage + skeleton.object},
             .pointedSegments =
                 makeSegmentPointers(skeleton.state.segments, firstImage, setup.emptyDisplayList),
+            .lookAtTarget = findLookAtTarget(skeleton.state),
         });
     for (const LimbDisplayList& limb : skeleton.limbDisplayLists) {
         if (limb.limb < pose.matrices.size()) {
@@ -185,6 +192,7 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
             makeSegmentPointers(list.state.segments, firstImage, setup.emptyDisplayList),
         .modelView = parent * list.state.placement,
         .isBillboard = list.state.isBillboard,
+        .lookAtTarget = findLookAtTarget(list.state),
     });
 }
 
@@ -229,7 +237,8 @@ void ActorWriter::writeShadow(const ActorShadow& shadow, const glm::mat4& shadow
 
 void writeActor(ActorDraws& draws, const PlacedActor& actor, const ActorDrawing& drawing,
                 const usize firstImage, const ActorSetup& setup) {
-    ActorWriter writer(draws, firstImage, setup);
+    ActorWriter writer(draws, firstImage, setup,
+                       glm::vec3(actor.position[0], actor.position[1], actor.position[2]));
     const glm::mat4 matrix =
         makeActorMatrix(actor, drawing.scale, drawing.heightOffset, drawing.rotates);
     if (drawing.skeleton) {

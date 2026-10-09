@@ -108,9 +108,34 @@ void setLighting(n64::DisplayListWriter& writer, const ViewportLighting& lightin
     return matrices;
 }
 
+struct DrawData {
+    std::vector<std::optional<u32>> matrices;
+    std::vector<std::optional<u32>> lookAts;
+    u32 identity = 0;
+    u32 lookAt = 0;
+};
+
+[[nodiscard]] u32 addLookAt(n64::DisplayListWriter& writer, const glm::vec3& eye,
+                            const glm::vec3& target) {
+    const std::array<std::array<s8, 3>, 2> lookAt = makeLookAt(eye, target);
+    return writer.addLookAt(lookAt[0], lookAt[1]);
+}
+
+[[nodiscard]] std::vector<std::optional<u32>> addDrawLookAts(n64::DisplayListWriter& writer,
+                                                             const ViewportContent& content,
+                                                             const glm::vec3& eye) {
+    std::vector<std::optional<u32>> lookAts;
+    lookAts.reserve(content.draws.size());
+    for (const ViewportDraw& draw : content.draws) {
+        lookAts.push_back(draw.lookAtTarget
+                              ? std::optional(addLookAt(writer, eye, *draw.lookAtTarget))
+                              : std::nullopt);
+    }
+    return lookAts;
+}
+
 void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
-                const std::vector<z64::MappedImage>& mapped,
-                const std::vector<std::optional<u32>>& matrices, const u32 identity) {
+                const std::vector<z64::MappedImage>& mapped, const DrawData& data) {
     std::optional<usize> current = 0;
     for (usize i = 0; i < content.draws.size(); ++i) {
         const ViewportDraw& draw = content.draws[i];
@@ -127,12 +152,18 @@ void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
             writer.setSegment(pointer.segment,
                               mapped[pointer.image].segments[address.segment] + address.offset);
         }
-        if (matrices[i]) {
-            writer.loadMatrix(*matrices[i], n64::MatrixLoad::ModelView);
+        if (data.matrices[i]) {
+            writer.loadMatrix(*data.matrices[i], n64::MatrixLoad::ModelView);
+        }
+        if (data.lookAts[i]) {
+            writer.setLookAt(*data.lookAts[i]);
         }
         writer.callDisplayList(draw.displayList);
-        if (matrices[i]) {
-            writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+        if (data.matrices[i]) {
+            writer.loadMatrix(data.identity, n64::MatrixLoad::ModelView);
+        }
+        if (data.lookAts[i]) {
+            writer.setLookAt(data.lookAt);
         }
     }
 }
@@ -157,12 +188,17 @@ FrameList writeFrameList(const ViewportContent& content,
         writer.addMatrix(makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * view));
     const std::optional<LightAddresses> lights =
         content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
-    const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
-    const std::vector<std::optional<u32>> matrices = addDrawMatrices(writer, content, view);
+    const DrawData data{
+        .matrices = addDrawMatrices(writer, content, view),
+        .lookAts = addDrawLookAts(writer, content, camera.getEye()),
+        .identity = writer.addMatrix(n64::makeIdentityMatrix()),
+        .lookAt = addLookAt(writer, camera.getEye(), camera.getTarget()),
+    };
 
     const u32 start = writer.setViewport(viewport);
     writer.loadMatrix(projection, n64::MatrixLoad::Projection);
-    writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+    writer.loadMatrix(data.identity, n64::MatrixLoad::ModelView);
+    writer.setLookAt(data.lookAt);
     if (lights) {
         setLighting(writer, *content.lighting, *lights);
     }
@@ -172,7 +208,7 @@ FrameList writeFrameList(const ViewportContent& content,
     for (usize image = content.images.size(); image-- > 0;) {
         setSegments(writer, *content.images[image], mapped[image]);
     }
-    writeDraws(writer, content, mapped, matrices, identity);
+    writeDraws(writer, content, mapped, data);
     writer.endDisplayList();
     return FrameList{.bytes = writer.getBytes(), .start = start};
 }
@@ -203,6 +239,20 @@ FrameList writeFrameList(const ViewportContent& content,
 }
 
 } // namespace
+
+std::array<std::array<s8, 3>, 2> makeLookAt(const glm::vec3& eye, const glm::vec3& target) {
+    const glm::vec3 look = glm::normalize(target - eye);
+    const glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0.0F, 1.0F, 0.0F), look));
+    const glm::vec3 up = glm::normalize(glm::cross(look, right));
+    const auto scale = [](const glm::vec3& direction) {
+        std::array<s8, 3> scaled{};
+        for (int axis = 0; axis < 3; ++axis) {
+            scaled[axis] = static_cast<s8>(std::min(direction[axis] * 128.0F, 127.0F));
+        }
+        return scaled;
+    };
+    return {scale(right), scale(up)};
+}
 
 glm::mat4 makeBillboardMatrix(const glm::mat4& model, const glm::mat4& view) {
     const glm::mat3 facing = glm::transpose(glm::mat3(view));

@@ -264,6 +264,11 @@ Each step is one of:
 - **`setup`**: `Gfx_SetupDL` with an index of `sSetupDL`, for the display lists after it.
   Steps start at `SETUPDL_25`, as `Actor_Draw` leaves them.
 - **`colors`**: the primitive and environment colour of what follows.
+- **`hilite = true`**: `func_8002EBCC` or `func_8002ED80`, which `Draw` calls before what
+  shines: what follows is drawn with a `LookAt` from the camera toward the actor, which
+  `G_TEXTURE_GEN` maps its normals by. Without one, a draw has the frame's, from the camera
+  toward what it looks at, standing in for whatever the game drew last. The hilite tile
+  `gDPSetHilite1Tile` sets is not set.
 - **`segment`** and **`symbol`**: points a segment from 8 to 12 at a symbol, of the step's
   `object` or the variant's, or at `gEmptyDL` of the game code, as `Draw` points a segment at
   nothing. Segments stay pointed for every step after, as they do in the game; ones no step
@@ -437,10 +442,11 @@ filled in that pass, so no actor is read twice; that is why the format is settle
 - **A trial of ten first**: `Obj_Tsubo`, `En_Kusa`, `Obj_Mure2`, `En_Item00`, `En_Box`,
   `En_Karebaba`, `Obj_Syokudai`, `En_Kanban`, `Door_Shutter` and `En_Md` were read and
   drawn before the rest, which is what added steps, lists of match values and the `scene`
-  field. It also found two gaps in drawing: display lists that multiply by segment 1's
-  billboard matrix (`gItemDropDL`), now kept there by the viewport as `Play_Draw` keeps it,
-  and display lists that need the LookAt `func_8002EBCC` and `func_8002ED80` set from the
-  camera (heart pieces, the recovery heart), which draw nothing yet.
+  field. It also found what drawing lacked: segment 1's billboard matrix, which
+  `gItemDropDL` multiplies by, now kept there by the viewport as `Play_Draw` keeps it; the
+  `LookAt` that `G_TEXTURE_GEN` needs, now a `hilite` step and a frame-wide default; and
+  that the harness's images hid what is translucent, since the framebuffer's alpha is
+  coverage, not opacity, so they are written opaque.
 - **Recorded against a commit**: `checked_against` is the HackerOoT commit the run read.
 
 ## Decided

@@ -19,24 +19,19 @@ namespace toki::actor {
 
 namespace {
 
-constexpr std::array StepKinds = {std::string_view("setup"),        std::string_view("colors"),
-                                  std::string_view("segment"),      std::string_view("transform"),
-                                  std::string_view("display_list"), std::string_view("skeleton"),
-                                  std::string_view("shadow")};
-constexpr std::array StepKeys = {std::string_view("setup"),
-                                 std::string_view("colors"),
-                                 std::string_view("segment"),
-                                 std::string_view("symbol"),
-                                 std::string_view("object"),
-                                 std::string_view("transform"),
-                                 std::string_view("display_list"),
-                                 std::string_view("pass"),
-                                 std::string_view("skeleton"),
-                                 std::string_view("animation"),
-                                 std::string_view("animation_object"),
-                                 std::string_view("frame"),
-                                 std::string_view("limbs"),
-                                 std::string_view("shadow")};
+constexpr std::array StepKinds = {std::string_view("setup"),     std::string_view("colors"),
+                                  std::string_view("hilite"),    std::string_view("segment"),
+                                  std::string_view("transform"), std::string_view("display_list"),
+                                  std::string_view("skeleton"),  std::string_view("shadow")};
+constexpr std::array StepKeys = {
+    std::string_view("setup"),     std::string_view("colors"),
+    std::string_view("hilite"),    std::string_view("segment"),
+    std::string_view("symbol"),    std::string_view("object"),
+    std::string_view("transform"), std::string_view("display_list"),
+    std::string_view("pass"),      std::string_view("skeleton"),
+    std::string_view("animation"), std::string_view("animation_object"),
+    std::string_view("frame"),     std::string_view("limbs"),
+    std::string_view("shadow")};
 constexpr std::array TransformKeys = {std::string_view("translation"), std::string_view("rotation"),
                                       std::string_view("scale"), std::string_view("billboard"),
                                       std::string_view("reset")};
@@ -83,8 +78,8 @@ std::optional<DrawStep> DatabaseReader::readStep(const toml::table& table,
     }
     if (kinds.size() != 1) {
         report(table, path,
-               "must be exactly one of setup, colors, segment, transform, display_list, skeleton "
-               "or shadow");
+               "must be exactly one of setup, colors, hilite, segment, transform, display_list, "
+               "skeleton or shadow");
         return std::nullopt;
     }
     const base::SourceLocation location{.file = file,
@@ -101,6 +96,13 @@ std::optional<DrawStep> DatabaseReader::readStep(const toml::table& table,
             return std::nullopt;
         }
         return DrawStep{.step = SetupStep{.index = static_cast<u8>(index)}, .location = location};
+    }
+    if (kind == "hilite") {
+        if (readBool(table, "hilite", path) != true) {
+            report(table, makePath(path, "hilite"), "must be true");
+            return std::nullopt;
+        }
+        return DrawStep{.step = HiliteStep{}, .location = location};
     }
     if (kind == "colors") {
         const toml::table* colors = table.get_as<toml::table>("colors");

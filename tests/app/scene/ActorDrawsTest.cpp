@@ -190,3 +190,23 @@ TEST_CASE("a skeleton is placed by its steps, and a limb's display list by the l
     };
     REQUIRE(readWord(draws.opaque.front().displayList + 4) == setups[44]);
 }
+
+TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    toki::scene::ActorDrawing rupee = makeListDrawing(toki::actor::Pass::Opaque);
+    rupee.displayLists.front().state.isHilit = true;
+    toki::scene::SceneActorModel item{.enumName = "ACTOR_EN_ITEM00"};
+    item.entry = toki::actor::ActorEntry{.actor = "ACTOR_EN_ITEM00",
+                                         .variants = {toki::actor::ActorVariant{}}};
+    item.variants = {rupee};
+    actors.models.emplace(s16{5}, item);
+    const std::array placed{toki::scene::PlacedActor{.id = 5, .position = {10, 20, 30}},
+                            toki::scene::PlacedActor{.id = 7}};
+
+    const toki::scene::ActorDraws draws =
+        toki::scene::makeActorDraws(actors, placed, 0, toki::scene::ActorSetup{});
+
+    REQUIRE(draws.opaque.size() == 2);
+    REQUIRE(draws.opaque[0].lookAtTarget == glm::vec3(10.0F, 20.0F, 30.0F));
+    REQUIRE_FALSE(draws.opaque[1].lookAtTarget.has_value());
+}

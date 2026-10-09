@@ -44,12 +44,14 @@ struct ActorSegment {
 };
 
 /// What a display list or skeleton is drawn under, as the steps before it
-/// left it: after `sSetupDL[setup]`, in its colours, with segments 8 to 12
-/// pointed where they were, placed relative to the actor, or to its limb, and
-/// facing the camera when it is a billboard.
+/// left it: after `sSetupDL[setup]`, in its colours, with a `LookAt` toward
+/// the actor when it is hilit, with segments 8 to 12 pointed where they were,
+/// placed relative to the actor, or to its limb, and facing the camera when
+/// it is a billboard.
 struct DrawState {
     u8 setup = 25;
     actor::DrawColors colors;
+    bool isHilit = false;
     std::vector<ActorSegment> segments;
     glm::mat4 placement{1.0F};
     bool isBillboard = false;

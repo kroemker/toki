@@ -161,3 +161,21 @@ TEST_CASE("a variant matching on other scenes cannot match in this one", "[actor
     REQUIRE_FALSE(toki::actor::isMatchingScene(box.variants[0], std::nullopt));
     REQUIRE(toki::actor::isMatchingScene(box.variants[1], std::nullopt));
 }
+
+TEST_CASE("a hilite step is read and written, and only as true", "[actor][database]") {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 1
+[[actors.ACTOR_EN_ITEM00.variants]]
+steps = [{ hilite = true }, { display_list = "gRupeeDL" }]
+
+[[actors.ACTOR_EN_TEST.variants]]
+steps = [{ hilite = false }]
+)",
+                                                                                "actors.toml");
+
+    const std::vector<toki::actor::DrawStep>& steps =
+        database.entries.at("ACTOR_EN_ITEM00").variants[0].steps;
+    REQUIRE(steps.size() == 2);
+    REQUIRE(std::holds_alternative<toki::actor::HiliteStep>(steps[0].step));
+    REQUIRE(isReported(database, "steps[0].hilite: must be true"));
+    REQUIRE(toki::actor::formatActorDatabase(database).contains("{ hilite = true }"));
+}

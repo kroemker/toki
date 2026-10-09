@@ -1,4 +1,4 @@
-#include "app/actor/domain/ActorDatabase.h"
+﻿#include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/object/domain/ObjectView.h"
@@ -275,8 +275,11 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
         frame.rspResult, frame.rdpResult, target, {.width = ImageSize, .height = ImageSize});
     INFO("renderer:\n" << describe(drawn));
     CHECK(drawn.empty());
-    const auto pixels = target.readPixels(device);
+    auto pixels = target.readPixels(device);
     REQUIRE(pixels.has_value());
+    for (usize alpha = 3; alpha < pixels->size(); alpha += 4) {
+        (*pixels)[alpha] = 0xFF;
+    }
     const auto png = z64::encodePng(*pixels, ImageSize, ImageSize);
     REQUIRE(png.has_value());
     std::ofstream(output / std::format("{}_{}.png", entry.actor, index), std::ios::binary)

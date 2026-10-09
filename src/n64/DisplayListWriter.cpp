@@ -81,6 +81,12 @@ u32 DisplayListWriter::addLight(const LightData& light) {
     return address;
 }
 
+u32 DisplayListWriter::addLookAt(const std::array<s8, 3>& x, const std::array<s8, 3>& y) {
+    const u32 address = addLight(LightData{.direction = x});
+    static_cast<void>(addLight(LightData{.direction = y}));
+    return address;
+}
+
 u32 DisplayListWriter::addCommand(const u32 word0, const u32 word1) {
     const u32 address = getAddress();
     std::array<u8, 8> written{};
@@ -138,6 +144,16 @@ u32 DisplayListWriter::setLight(const u32 address, const u32 index) {
     const u32 offset = ((index * LightStride) + LightStride) / 8;
     return addCommand(makeOpcode(Opcode::MoveMemory) | SizeField | (offset << 8) | MoveMemoryLight,
                       address);
+}
+
+u32 DisplayListWriter::setLookAt(const u32 address) {
+    constexpr u32 SizeField = ((LightDataSize - 1) / 8) << 19;
+    const u32 start =
+        addCommand(makeOpcode(Opcode::MoveMemory) | SizeField | MoveMemoryLight, address);
+    static_cast<void>(addCommand(makeOpcode(Opcode::MoveMemory) | SizeField |
+                                     ((LightStride / 8) << 8) | MoveMemoryLight,
+                                 address + LightDataSize));
+    return start;
 }
 
 u32 DisplayListWriter::setFogColor(const std::array<u8, 4>& color) {

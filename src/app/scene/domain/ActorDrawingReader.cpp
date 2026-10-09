@@ -111,6 +111,8 @@ bool StepRunner::applyState(DrawState& state, const actor::DrawStep& step) {
         state.setup = setup->index;
     } else if (const auto* colors = std::get_if<actor::ColorsStep>(&step.step)) {
         setColors(state.colors, colors->colors);
+    } else if (std::holds_alternative<actor::HiliteStep>(step.step)) {
+        state.isHilit = true;
     } else if (const auto* segment = std::get_if<actor::SegmentStep>(&step.step)) {
         if (segment->symbol == actor::EmptySegment) {
             std::erase_if(state.segments, [segment](const ActorSegment& set) {
