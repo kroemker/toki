@@ -48,4 +48,22 @@ std::expected<void, std::string> addVariantForParams(ActorDatabase& checkout,
     return {};
 }
 
+std::expected<void, std::string> setCheckoutEntry(ActorDatabase& checkout, ActorEntry entry) {
+    if (entry.actor.empty()) {
+        return std::unexpected(std::string("an entry needs the enum name of its actor"));
+    }
+    std::string actor = entry.actor;
+    checkout.entries.insert_or_assign(std::move(actor), std::move(entry));
+    return {};
+}
+
+std::expected<void, std::string> removeCheckoutEntry(ActorDatabase& checkout,
+                                                     const std::string& actor) {
+    if (checkout.entries.erase(actor) == 0) {
+        return std::unexpected(
+            std::format("the checkout's actor database has no entry for {} to remove", actor));
+    }
+    return {};
+}
+
 } // namespace toki::actor

@@ -49,4 +49,10 @@ struct ObjectFiles {
 [[nodiscard]] SharedImageFiles makeSharedObject(const Workspace& workspace,
                                                 const AssetDirectory& asset, u8 segment);
 
+/// What an object is read with as shared images: the game code, then
+/// `gameplay_keep` under any object but itself, then the object in `segment`,
+/// last.
+[[nodiscard]] std::vector<SharedImageFiles>
+makeObjectImageFiles(const Workspace& workspace, const AssetDirectory& asset, u8 segment);
+
 } // namespace hackeroot

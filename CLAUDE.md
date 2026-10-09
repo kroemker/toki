@@ -106,7 +106,7 @@ src/
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
-    actor/     domain/ = how an actor is drawn, read from its overlay's C
+    actor/     ui/ = actors panel, entry editor   domain/ = the actor database, guesses from an overlay's C
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/

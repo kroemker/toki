@@ -380,6 +380,15 @@ shipped one, to fix.
   and placement. Objects are picked from the checkout's objects, and skeletons, animations and
   display lists from the picked object's catalog, which already sorts its symbols by
   declared type ([objects.md](objects.md#the-catalog)).
+- **How it is built.** `actor::DatabaseStore` keeps both files read on a worker, reads them
+  again when either changes or is edited, and makes every edit there: it reads the
+  checkout's file as it is, changes it, and refuses to write one that does not read cleanly.
+  The Actors panel edits a copy of the entry and hands it to the store whole
+  (`setCheckoutEntry`) a moment after the last change; "Go back to the shipped entry" removes
+  the checkout's (`removeCheckoutEntry`). Pickers take objects from the object table and
+  symbols from `actor::SymbolCatalog`, which reads an object's catalog on a worker through the
+  workspace's shared images. A variant drawn by keys can be turned into steps, which the
+  editor then edits one by one, a skeleton's limbs with steps of their own.
 - **Edits draw at once** in the open scene, and are saved to the checkout's file. The file is
   written by Toki with a stable order of actors and keys, alphabetical, without indentation,
   and with params in hexadecimal, so it diffs well. It is written beside itself first and
@@ -491,7 +500,7 @@ M two or three, L more.
 | 4 | Guesses kept: the on-disk guess cache, and stale guesses by `guessed_from` (`makeGuessedEntry` came with step 2) | S |
 | 5 | The startup check: new actors found, the question, guessing them on a worker, writing the checkout's file, the remembered "No"; shipped entries that do not fit, in one warning; watching the checkout's file | S–M |
 | 6 | The Scene panel: names, decoded params with roles and meanings, entry status, spawn conditions greying out actors, "Edit actor", "Add a variant for these params", "Keep this guess" (done but "Edit actor", which waits for step 7; edits are written by `actor::DatabaseEditor` on a worker, which refuses a file that does not read cleanly) | S–M |
-| 7 | The Actors panel: the list, the entry editor with typed fields, enum values, roles and meanings, matches edited by the fields' controls, pickers from the object catalog, display list placement and colours, children, edits drawn at once and saved | L |
+| 7 | The Actors panel: the list, the entry editor with typed fields, enum values, roles and meanings, matches edited by the fields' controls, pickers from the object catalog, display list placement and colours, children, edits drawn at once and saved (done, with steps; "Edit actor" in the Scene panel opens it) | L |
 | 8 | Better guesses: tables indexed by params become enum fields and variants, for display lists, skeletons, scales and segments; one-bit fields become flags; shadows and spawn conditions from `Init` | M |
 | 9 | Object reading made cheaper, as step 0's numbers say: parallel reads, or images kept on disk | S–M |
 

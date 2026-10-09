@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/actor/domain/ActorDatabase.h"
-#include "app/actor/domain/DatabaseEditor.h"
+#include "app/actor/domain/DatabaseStore.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
 #include "app/scene/Types.h"
@@ -12,6 +12,7 @@
 #include "app/workspace/domain/WorkspaceService.h"
 
 #include <array>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -24,7 +25,7 @@ namespace toki::scene {
 class ScenePanel : public core::Panel {
 public:
     ScenePanel(const workspace::WorkspaceService& workspaceService,
-               viewport::ViewportPanel& viewportPanel);
+               viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore);
 
     /// Shows `scene` in the viewport. A scene read again keeps how it was
     /// shown and where the camera is; another one starts afresh at its first
@@ -51,6 +52,11 @@ public:
         pendingSession = std::move(session);
     }
 
+    /// What "Edit actor" opens an actor's entry with, by its enum name.
+    void setActorEditor(std::function<void(const std::string&)> editor) {
+        openActorEditor = std::move(editor);
+    }
+
     /// Whether placed actors play their animations.
     void setAnimatesActors(bool animates);
 
@@ -70,17 +76,17 @@ private:
                           const ActorDescription& description) const;
     void drawActorMenu(const SceneActorModel& model, const actor::PlacementValues& placement,
                        const ActorDescription& description);
-    void reportEditFailures();
     [[nodiscard]] std::string findActorName(s16 actorId) const;
 
     const workspace::WorkspaceService& workspaceService;
     viewport::ViewportPanel& viewportPanel;
+    actor::DatabaseStore& databaseStore;
+    std::function<void(const std::string&)> openActorEditor;
     std::optional<Scene> scene;
     SceneView sceneView;
     std::optional<core::SceneSession> pendingSession;
     bool animatesActors = false;
     f32 frameTime = 0.0F;
-    actor::DatabaseEditor databaseEditor;
 };
 
 } // namespace toki::scene

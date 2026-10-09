@@ -24,4 +24,13 @@ namespace toki::actor {
 addVariantForParams(ActorDatabase& checkout, const ActorEntry& current,
                     const PlacementValues& placement);
 
+/// The checkout's entry for `entry.actor` becomes `entry`, whole.
+[[nodiscard]] std::expected<void, std::string> setCheckoutEntry(ActorDatabase& checkout,
+                                                                ActorEntry entry);
+
+/// The checkout's entry for `actor` is removed, so the shipped one, or a guess,
+/// draws it again.
+[[nodiscard]] std::expected<void, std::string> removeCheckoutEntry(ActorDatabase& checkout,
+                                                                   const std::string& actor);
+
 } // namespace toki::actor

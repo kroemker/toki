@@ -1,4 +1,4 @@
-﻿#include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "base/Diagnostic.h"

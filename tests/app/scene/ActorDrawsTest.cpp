@@ -1,4 +1,4 @@
-﻿#include "app/scene/domain/ActorDraws.h"
+#include "app/scene/domain/ActorDraws.h"
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/scene/domain/SceneActors.h"

@@ -3,9 +3,10 @@ target_sources(toki_core PRIVATE
         ActorDatabaseFile.cpp
         ActorModel.cpp
         ActorModelReader.cpp
-        DatabaseEditor.cpp
+        ActorRow.cpp
         DatabaseEdits.cpp
         DatabaseReader.cpp
+        DatabaseStore.cpp
         EntryCheck.cpp
         EntryReader.cpp
         EntryWriter.cpp
@@ -16,4 +17,5 @@ target_sources(toki_core PRIVATE
         OverlayCode.cpp
         SpawnCheck.cpp
         StepReader.cpp
-        StepWriter.cpp)
+        StepWriter.cpp
+        SymbolCatalog.cpp)

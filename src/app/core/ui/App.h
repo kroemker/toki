@@ -1,5 +1,8 @@
 #pragma once
 
+#include "app/actor/domain/DatabaseStore.h"
+#include "app/actor/domain/SymbolCatalog.h"
+#include "app/actor/ui/ActorsPanel.h"
 #include "app/assets/domain/AssetReader.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/core/domain/Settings.h"
@@ -53,6 +56,7 @@ private:
     void updateScene();
     void updateSceneActors();
     void updateObject();
+    void updateActorDatabase();
     void openRestoredScene();
     void applySettings(const Settings& applied);
     void saveState();
@@ -65,6 +69,8 @@ private:
     std::string imguiIniPath;
 
     Fonts fonts;
+    actor::DatabaseStore databaseStore;
+    actor::SymbolCatalog symbolCatalog;
     PanelManager panels;
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;
@@ -78,6 +84,7 @@ private:
     object::ObjectLoader objectLoader;
     viewport::ViewportPanel* viewportPanel = nullptr;
     scene::ScenePanel* scenePanel = nullptr;
+    actor::ActorsPanel* actorsPanel = nullptr;
     object::ObjectPanel* objectPanel = nullptr;
     texture::TexturePanel* texturePanel = nullptr;
 };

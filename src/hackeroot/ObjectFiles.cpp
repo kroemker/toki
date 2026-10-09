@@ -3,6 +3,7 @@
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/GameCode.h"
 #include "hackeroot/Spec.h"
 #include "hackeroot/Workspace.h"
 
@@ -127,6 +128,19 @@ SharedImageFiles makeSharedObject(const Workspace& workspace, const AssetDirecto
     return SharedImageFiles{
         .files = {SegmentFiles{.segment = segment, .files = std::move(files.files)}},
         .watched = std::move(watched)};
+}
+
+std::vector<SharedImageFiles> makeObjectImageFiles(const Workspace& workspace,
+                                                   const AssetDirectory& asset, const u8 segment) {
+    std::vector<SharedImageFiles> shared{makeSharedGameCode(workspace.getRoot())};
+    if (asset.name != KeepObjectName) {
+        if (const std::optional<AssetDirectory> keep =
+                findObjectDirectory(workspace.getAssets(), KeepObjectName)) {
+            shared.push_back(makeSharedObject(workspace, *keep, KeepSegment));
+        }
+    }
+    shared.push_back(makeSharedObject(workspace, asset, segment));
+    return shared;
 }
 
 } // namespace hackeroot

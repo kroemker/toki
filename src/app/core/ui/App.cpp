@@ -143,17 +143,23 @@ std::expected<void, std::string> App::initialize() {
 void App::registerPanels() {
     auto viewport = std::make_unique<viewport::ViewportPanel>(*device);
     viewportPanel = viewport.get();
-    auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport);
+    auto sceneView =
+        std::make_unique<scene::ScenePanel>(workspaceService, *viewport, databaseStore);
     scenePanel = sceneView.get();
     scenePanel->setAnimatesActors(settings.viewport.animatesActors);
     auto textures = std::make_unique<texture::TexturePanel>(*device);
     texturePanel = textures.get();
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
     objectPanel = objectView.get();
+    auto actors =
+        std::make_unique<actor::ActorsPanel>(workspaceService, databaseStore, symbolCatalog);
+    actorsPanel = actors.get();
+    scenePanel->setActorEditor([this](const std::string& actor) { actorsPanel->openActor(actor); });
     panels.add(std::move(viewport));
     panels.add(std::move(sceneView));
     panels.add(std::move(objectView));
     panels.add(std::move(textures));
+    panels.add(std::move(actors));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
@@ -201,6 +207,7 @@ void App::drawFrame() {
     updateScene();
     updateSceneActors();
     updateObject();
+    updateActorDatabase();
     if (viewportPanel != nullptr) {
         std::optional<std::string> reading = sceneLoader.findReadingName();
         if (!reading) {
@@ -343,6 +350,26 @@ void App::updateScene() {
                                                       : std::filesystem::path()});
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
+    }
+}
+
+void App::updateActorDatabase() {
+    if (const std::shared_ptr<const hackeroot::Workspace> workspace =
+            workspaceService.getSharedWorkspace()) {
+        symbolCatalog.open(workspace);
+        if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
+            databaseStore.open(actor::DatabaseFiles{
+                .shipped = actor::makeShippedDatabasePath(*assets),
+                .checkout = actor::makeCheckoutDatabasePath(workspace->getRoot())});
+        }
+    }
+    symbolCatalog.update();
+    for (const std::string& failure : databaseStore.takeFailures()) {
+        logError("{}", failure);
+    }
+    if (std::optional<actor::DatabaseSnapshot> snapshot = databaseStore.update();
+        snapshot && actorsPanel != nullptr) {
+        actorsPanel->setDatabases(std::move(*snapshot));
     }
 }
 

@@ -2,6 +2,7 @@ find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
         app/actor/ActorDatabaseTest.cpp
+        app/actor/ActorRowTest.cpp
         app/actor/ActorStepsTest.cpp
         app/actor/DatabaseEditsTest.cpp
         app/actor/DrawStepsTest.cpp

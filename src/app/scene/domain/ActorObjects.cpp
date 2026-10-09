@@ -53,15 +53,8 @@ std::optional<usize> ActorObjects::readObject(const std::string& name,
     const u8 segment = isKeep              ? hackeroot::KeepSegment
                        : name == sceneKeep ? SceneKeepSegment
                                            : hackeroot::ObjectSegment;
-    std::vector<hackeroot::SharedImageFiles> shared{
-        hackeroot::makeSharedGameCode(workspace.getRoot())};
-    if (!isKeep) {
-        if (const std::optional<hackeroot::AssetDirectory> keep =
-                hackeroot::findObjectDirectory(workspace.getAssets(), hackeroot::KeepObjectName)) {
-            shared.push_back(hackeroot::makeSharedObject(workspace, *keep, hackeroot::KeepSegment));
-        }
-    }
-    shared.push_back(hackeroot::makeSharedObject(workspace, *directory, segment));
+    const std::vector<hackeroot::SharedImageFiles> shared =
+        hackeroot::makeObjectImageFiles(workspace, *directory, segment);
     std::ranges::copy(shared.back().watched, std::back_inserter(actors.watched));
     const hackeroot::ImageSet images = reader.read(shared, {});
     actors.objects.push_back(

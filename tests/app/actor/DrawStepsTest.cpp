@@ -1,4 +1,4 @@
-﻿#include "app/actor/domain/DrawSteps.h"
+#include "app/actor/domain/DrawSteps.h"
 
 #include "app/actor/domain/ActorEntry.h"
 #include "base/Types.h"

@@ -1,10 +1,8 @@
 #include "ScenePanel.h"
 
 #include "app/actor/domain/ActorDatabase.h"
-#include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/FieldReading.h"
-#include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -25,7 +23,6 @@
 
 #include <algorithm>
 #include <array>
-#include <filesystem>
 #include <format>
 #include <optional>
 #include <span>
@@ -44,9 +41,10 @@ namespace {
 } // namespace
 
 ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
-                       viewport::ViewportPanel& viewportPanel)
+                       viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore)
     : Panel("scene", "Scene", core::icons::MapTrifold, core::DockSlot::Right),
-      workspaceService(workspaceService), viewportPanel(viewportPanel) {}
+      workspaceService(workspaceService), viewportPanel(viewportPanel),
+      databaseStore(databaseStore) {}
 
 void ScenePanel::setScene(Scene read) {
     const bool isNew = !scene || !core::isSamePath(scene->directory, read.directory);
@@ -132,7 +130,6 @@ void ScenePanel::advanceActors() {
 
 void ScenePanel::draw() {
     advanceActors();
-    reportEditFailures();
     if (!scene || scene->layers.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
@@ -347,31 +344,23 @@ void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& p
 void ScenePanel::drawActorMenu(const SceneActorModel& model,
                                const actor::PlacementValues& placement,
                                const ActorDescription& description) {
-    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (workspace == nullptr || !model.entry) {
+    if (!model.entry) {
         ImGui::TextDisabled("No entry to edit");
         return;
     }
-    const std::filesystem::path file = actor::makeCheckoutDatabasePath(workspace->getRoot());
     if (ImGui::MenuItem("Keep this guess", nullptr, false, description.canKeepGuess)) {
-        databaseEditor.edit(file, [entry = *model.entry](actor::ActorDatabase& checkout) {
+        databaseStore.edit([entry = *model.entry](actor::ActorDatabase& checkout) {
             return actor::keepGuess(checkout, entry);
         });
     }
     if (ImGui::MenuItem("Add a variant for these params", nullptr, false,
                         description.canAddVariant)) {
-        databaseEditor.edit(file,
-                            [entry = *model.entry, placement](actor::ActorDatabase& checkout) {
-                                return actor::addVariantForParams(checkout, entry, placement);
-                            });
+        databaseStore.edit([entry = *model.entry, placement](actor::ActorDatabase& checkout) {
+            return actor::addVariantForParams(checkout, entry, placement);
+        });
     }
-    ImGui::MenuItem("Edit actor", nullptr, false, false);
-    ImGui::SetItemTooltip("The Actors panel, which edits entries, is not there yet");
-}
-
-void ScenePanel::reportEditFailures() {
-    for (const std::string& failure : databaseEditor.takeFailures()) {
-        core::logError("{}", failure);
+    if (ImGui::MenuItem("Edit actor", nullptr, false, openActorEditor != nullptr)) {
+        openActorEditor(model.enumName);
     }
 }
 

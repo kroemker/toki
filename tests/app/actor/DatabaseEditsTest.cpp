@@ -1,9 +1,9 @@
-﻿#include "app/actor/domain/DatabaseEdits.h"
+#include "app/actor/domain/DatabaseEdits.h"
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
-#include "app/actor/domain/DatabaseEditor.h"
+#include "app/actor/domain/DatabaseStore.h"
 #include "base/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -11,10 +11,12 @@
 #include <expected>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <thread>
+#include <utility>
 #include <variant>
 
 namespace {
@@ -116,24 +118,55 @@ TEST_CASE("an edit reads the file, changes it and saves it, unless it reads badl
     std::filesystem::remove_all(folder, failure);
 }
 
-TEST_CASE("the editor runs its edits on its worker and reports what failed", "[actor][edits]") {
-    const std::filesystem::path folder = makeTemporaryFolder("database_editor");
-    const std::filesystem::path file = toki::actor::makeCheckoutDatabasePath(folder);
+TEST_CASE("an entry is set in the checkout whole, and removed again", "[actor][edits]") {
+    toki::actor::ActorDatabase checkout;
+    toki::actor::ActorEntry pot = readPot();
+
+    REQUIRE(toki::actor::setCheckoutEntry(checkout, pot).has_value());
+    pot.name = "Pot";
+    REQUIRE(toki::actor::setCheckoutEntry(checkout, pot).has_value());
+    REQUIRE(checkout.entries.at("ACTOR_OBJ_TSUBO").name == "Pot");
+    REQUIRE_FALSE(toki::actor::setCheckoutEntry(checkout, {}).has_value());
+    REQUIRE(toki::actor::removeCheckoutEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
+    REQUIRE_FALSE(toki::actor::removeCheckoutEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
+}
+
+TEST_CASE("the store reads both files, edits the checkout's, and reads them again",
+          "[actor][edits]") {
+    const std::filesystem::path folder = makeTemporaryFolder("database_store");
+    const std::filesystem::path shipped = folder / "shipped.toml";
+    std::filesystem::create_directories(folder);
+    std::ofstream(shipped) << Shipped;
+    const toki::actor::DatabaseFiles files{
+        .shipped = shipped, .checkout = toki::actor::makeCheckoutDatabasePath(folder)};
     const toki::actor::ActorEntry pot = readPot();
     {
-        toki::actor::DatabaseEditor editor;
+        toki::actor::DatabaseStore store;
+        const auto waitForSnapshot = [&store] {
+            std::optional<toki::actor::DatabaseSnapshot> snapshot;
+            while (store.isBusy() || !snapshot) {
+                if (std::optional<toki::actor::DatabaseSnapshot> read = store.update()) {
+                    snapshot = std::move(read);
+                }
+                std::this_thread::yield();
+            }
+            return *snapshot;
+        };
+        store.open(files);
+        const toki::actor::DatabaseSnapshot opened = waitForSnapshot();
+        REQUIRE(opened.shipped.entries.contains("ACTOR_OBJ_TSUBO"));
+        REQUIRE(opened.checkout.entries.empty());
+
         for (int i = 0; i < 2; ++i) {
-            editor.edit(file, [&pot](toki::actor::ActorDatabase& database) {
+            store.edit([&pot](toki::actor::ActorDatabase& database) {
                 return toki::actor::keepGuess(database, pot);
             });
         }
-        while (editor.isBusy()) {
-            std::this_thread::yield();
-        }
-        REQUIRE(editor.takeFailures().size() == 1);
-        REQUIRE(editor.takeFailures().empty());
+        const toki::actor::DatabaseSnapshot edited = waitForSnapshot();
+        REQUIRE(edited.checkout.entries.size() == 1);
+        REQUIRE(store.takeFailures().size() == 1);
+        REQUIRE(store.takeFailures().empty());
     }
-    REQUIRE(toki::actor::readActorDatabase(file).entries.size() == 1);
     std::error_code failure;
     std::filesystem::remove_all(folder, failure);
 }
