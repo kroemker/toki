@@ -76,3 +76,19 @@ void EnTest_Init(Actor* thisx, PlayState* play) {
     REQUIRE(params[1].name == "Drop");
     REQUIRE(params[1].collection == "Item00Type");
 }
+
+TEST_CASE("a param played as a sound or as music takes its values from the checkout's",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    Audio_PlayFanfare(PARAMS_GET_U(thisx->params, 8, 8));
+    Actor_PlaySfx(thisx, PARAMS_GET_U(thisx->params, 0, 8));
+}
+)");
+
+    REQUIRE(params.size() == 2);
+    REQUIRE(params[0].name == "Sound");
+    REQUIRE(params[0].collection == "SfxId");
+    REQUIRE(params[1].name == "Music");
+    REQUIRE(params[1].collection == "NA_BGM");
+}

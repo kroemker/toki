@@ -61,6 +61,16 @@ TEST_CASE("shared collections are read from the checkout's headers and tables",
     REQUIRE(found->value == heartPiece);
     REQUIRE(requireCollection(read, "ItemID").values.back().value == 0xFF);
     REQUIRE(requireCollection(read, "Item00Type").values.size() == 2);
+    REQUIRE_FALSE(std::ranges::contains(items.values, "GI_MAX", &toki::actor::ChoiceValue::label));
+
+    const toki::actor::ValueCollection& sounds = requireCollection(read, "SfxId");
+    REQUIRE(sounds.values.size() == 3);
+    REQUIRE(sounds.values[1].label == "NA_SE_EN_DODO_J_WALK");
+    REQUIRE(sounds.values[1].value == 0x3800);
+    const toki::actor::ValueCollection& music = requireCollection(read, "NA_BGM");
+    REQUIRE(music.values.size() == 5);
+    REQUIRE(music.values[2].label == "NA_BGM_FIELD_LOGIC");
+    REQUIRE(music.values.back().value == 0xFFFF);
 
     const toki::actor::ValueCollection& actors = requireCollection(read, "ActorID");
     REQUIRE(actors.values.front().label == "ACTOR_PLAYER");
@@ -132,6 +142,8 @@ TEST_CASE("a real checkout's collections are read without a diagnostic",
     REQUIRE(
         std::ranges::contains(items.values, "GI_HEART_PIECE", &toki::actor::ChoiceValue::label));
     REQUIRE(requireCollection(shared, "Item00Type").values.size() > 10);
+    REQUIRE(requireCollection(shared, "SfxId").values.size() > 1000);
+    REQUIRE(requireCollection(shared, "NA_BGM").values.size() > 100);
 
     const std::vector<hackeroot::ActorEntry>& actors = workspace->getTables().actors;
     const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);

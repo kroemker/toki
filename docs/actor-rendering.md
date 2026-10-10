@@ -130,7 +130,9 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   `Actor_OfferGetItemNearby` "Item"), else after what it is assigned to (`this->type` "Type",
   `s32 switchFlag` "Switch Flag"), else after its bits ("Bits 8 to 11"). A known argument
   with a collection makes it a choice of it: `GetItemID` for the get-item functions,
-  `Item00Type` for `Item_DropCollectible`, `ActorID` for `Actor_Spawn`. One bit with no name
+  `Item00Type` for `Item_DropCollectible`, `ActorID` for `Actor_Spawn`, `SfxId` for
+  `Actor_PlaySfx` and the `Sfx_PlaySfx*` functions, `NA_BGM` for `Audio_PlayFanfare` and
+  `SEQCMD_PLAY_SEQUENCE`. One bit with no name
   is a flag. A read through the overlay's own macro (`ENBOX_GET_TYPE(thisx)`) is not seen,
   and which enumeration a field like `this->type` is compared against is data flow, so an
   actor's own enumerations are linked by hand. On a vanilla checkout this finds 284 params

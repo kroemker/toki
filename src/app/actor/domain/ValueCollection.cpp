@@ -25,22 +25,34 @@ namespace toki::actor {
 
 namespace {
 
-constexpr std::array<SharedCollection, 8> SharedCollections{{
+constexpr std::array<SharedCollection, 10> SharedCollections{{
     {.name = "GetItemID", .header = "item.h"},
     {.name = "ItemID", .header = "item.h"},
     {.name = "GetItemDrawID", .header = "item.h"},
     {.name = "Item00Type", .header = "z_en_item00.h"},
+    {.name = "SfxId", .header = "sfx.h"},
+    {.name = "NA_BGM", .header = "sequence.h"},
     {.name = "ActorID", .header = {}},
     {.name = "ObjectID", .header = {}},
     {.name = "SceneID", .header = {}},
     {.name = "EntranceIndex", .header = {}},
 }};
 
+constexpr std::array<std::string_view, 3> BoundSuffixes{"_BASE", "_END", "_MAX"};
+
+[[nodiscard]] bool isBound(const std::string_view name) {
+    return std::ranges::any_of(
+        BoundSuffixes, [name](const std::string_view suffix) { return name.ends_with(suffix); });
+}
+
 [[nodiscard]] ValueCollection makeCollection(const std::string_view name,
                                              const cparser::Enumeration& enumeration) {
     ValueCollection collection{.name = std::string(name)};
     collection.values.reserve(enumeration.constants.size());
     for (const cparser::Enumerator& constant : enumeration.constants) {
+        if (isBound(constant.name)) {
+            continue;
+        }
         collection.values.push_back(ChoiceValue{.value = constant.value, .label = constant.name});
     }
     return collection;

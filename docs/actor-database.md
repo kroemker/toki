@@ -144,8 +144,11 @@ with its constant's name, `GI_HEART_PIECE`, since that is what modders search th
 for; the file still holds numbers, in matches and `default_params` alike.
 
 - **Shared collections** every actor can choose from: `GetItemID`, `ItemID` and
-  `GetItemDrawID` from `include/item.h`, `Item00Type` from `include/z_en_item00.h`, and
+  `GetItemDrawID` from `include/item.h`, `Item00Type` from `include/z_en_item00.h`, sound
+  effects `SfxId` from `include/sfx.h`, music `NA_BGM` from `include/sequence.h`, and
   `ActorID`, `ObjectID`, `SceneID` and `EntranceIndex` from the tables the workspace reads.
+  Constants ending in `_BASE`, `_END` or `_MAX` bound an enumeration rather than name a
+  value, and are left out.
 - **An actor's own** are the enumerations its overlay headers define, `EnBoxType`; a name
   is looked up among the actor's own first.
 

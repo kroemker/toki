@@ -30,7 +30,7 @@ struct KnownArgument {
     std::string_view collection;
 };
 
-constexpr std::array<KnownArgument, 17> KnownArguments{{
+constexpr std::array<KnownArgument, 26> KnownArguments{{
     {.callee = "Flags_GetSwitch", .argument = 1, .name = "Switch Flag"},
     {.callee = "Flags_SetSwitch", .argument = 1, .name = "Switch Flag"},
     {.callee = "Flags_UnsetSwitch", .argument = 1, .name = "Switch Flag"},
@@ -51,6 +51,21 @@ constexpr std::array<KnownArgument, 17> KnownArguments{{
     {.callee = "Actor_Spawn", .argument = 2, .name = "Actor", .collection = "ActorID"},
     {.callee = "Actor_SpawnAsChild", .argument = 3, .name = "Actor", .collection = "ActorID"},
     {.callee = "Actor_SpawnPersistent", .argument = 2, .name = "Actor", .collection = "ActorID"},
+    {.callee = "Actor_PlaySfx", .argument = 1, .name = "Sound", .collection = "SfxId"},
+    {.callee = "Sfx_PlaySfxCentered", .argument = 0, .name = "Sound", .collection = "SfxId"},
+    {.callee = "Sfx_PlaySfxCentered2", .argument = 0, .name = "Sound", .collection = "SfxId"},
+    {.callee = "Sfx_PlaySfxAtPos", .argument = 1, .name = "Sound", .collection = "SfxId"},
+    {.callee = "Audio_PlaySfxGeneral", .argument = 0, .name = "Sound", .collection = "SfxId"},
+    {.callee = "Audio_PlayFanfare", .argument = 0, .name = "Music", .collection = "NA_BGM"},
+    {.callee = "Audio_PlaySequenceInCutscene",
+     .argument = 0,
+     .name = "Music",
+     .collection = "NA_BGM"},
+    {.callee = "Audio_PlaySequenceWithSeqPlayerIO",
+     .argument = 1,
+     .name = "Music",
+     .collection = "NA_BGM"},
+    {.callee = "SEQCMD_PLAY_SEQUENCE", .argument = 3, .name = "Music", .collection = "NA_BGM"},
 }};
 
 constexpr std::array<std::string_view, 6> VagueNames{"params", "temp", "tmp", "i", "j", "value"};
