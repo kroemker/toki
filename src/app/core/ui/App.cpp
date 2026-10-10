@@ -1,6 +1,8 @@
 #include "App.h"
 
 #include "app/actor/domain/ActorDatabaseFile.h"
+#include "app/actor/domain/DatabaseEdits.h"
+#include "app/actor/domain/Derivation.h"
 #include "app/assets/domain/AssetReader.h"
 #include "app/assets/domain/AssetReport.h"
 #include "app/assets/domain/ObjectNames.h"
@@ -219,6 +221,7 @@ void App::drawFrame() {
     }
     const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
     panels.draw();
+    drawNewActorsPrompt();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {
         setHackerootPath(*chosen);
@@ -339,14 +342,10 @@ void App::updateScene() {
         }
         texturePanel->setTextures(loaded->name, std::move(groups));
     }
-    const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
-    sceneActorLoader.open(
-        workspaceService.getSharedWorkspace(),
-        scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
-                            .scene = loaded->name,
-                            .layers = loaded->layers,
-                            .shippedDatabase = assets ? actor::makeShippedDatabasePath(*assets)
-                                                      : std::filesystem::path()});
+    sceneActorLoader.open(workspaceService.getSharedWorkspace(),
+                          scene::ActorRequest{.name = std::format("{}'s actors", loaded->name),
+                                              .scene = loaded->name,
+                                              .layers = loaded->layers});
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
     }
@@ -357,19 +356,50 @@ void App::updateActorDatabase() {
             workspaceService.getSharedWorkspace()) {
         symbolCatalog.open(workspace);
         if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
-            databaseStore.open(actor::DatabaseFiles{
-                .shipped = actor::makeShippedDatabasePath(*assets),
-                .checkout = actor::makeCheckoutDatabasePath(workspace->getRoot())});
+            databaseStore.open(
+                actor::DatabaseFiles{.builtIn = actor::makeShippedDatabasePath(*assets),
+                                     .checkout =
+                                         actor::makeCheckoutDatabasePath(workspace->getRoot())},
+                workspace);
         }
     }
     symbolCatalog.update();
     for (const std::string& failure : databaseStore.takeFailures()) {
         logError("{}", failure);
     }
-    if (std::optional<actor::DatabaseSnapshot> snapshot = databaseStore.update();
-        snapshot && actorsPanel != nullptr) {
-        actorsPanel->setDatabases(std::move(*snapshot));
+    std::optional<actor::DatabaseSnapshot> snapshot = databaseStore.update();
+    if (!snapshot) {
+        return;
     }
+    if (const hackeroot::Workspace* workspace = workspaceService.getWorkspace()) {
+        newActorsPrompt.offer(actor::listNewActors(workspace->getTables(), snapshot->database),
+                              settings.dismissedNewActors);
+    }
+    builtInDatabase = snapshot->builtIn;
+    if (actorsPanel != nullptr) {
+        actorsPanel->setDatabase(std::move(*snapshot));
+    }
+}
+
+void App::drawNewActorsPrompt() {
+    const std::optional<actor::NewActorsAnswer> answer = newActorsPrompt.draw();
+    if (!answer) {
+        return;
+    }
+    if (!answer->isDerived) {
+        settings.dismissedNewActors = answer->actors;
+        saveState();
+        return;
+    }
+    logInfo("deriving {} new actors into the actor database", answer->actors.size());
+    databaseStore.edit([workspace = workspaceService.getSharedWorkspace(),
+                        builtIn = builtInDatabase, actors = answer->actors](
+                           actor::ActorDatabase& database) -> std::expected<void, std::string> {
+        if (workspace == nullptr) {
+            return std::unexpected(std::string("no checkout is open to derive actors from"));
+        }
+        return actor::deriveEntries(database, *workspace, builtIn, actors);
+    });
 }
 
 void App::updateSceneActors() {
@@ -381,11 +411,10 @@ void App::updateSceneActors() {
         loaded->models, [](const auto& entry) { return entry.second.hasDrawing(); });
     logRead(loaded->diagnostics,
             std::format(
-                "read the scene's actors in {} ms ({} ms overlays, {} ms objects): {} of {} drawn "
-                "as models, from {} objects",
-                loaded->elapsed.count(), loaded->overlaysElapsed.count(),
-                loaded->objectsElapsed.count(), drawn, loaded->models.size(),
-                loaded->objects.size()));
+                "read the scene's actors in {} ms ({} ms objects): {} of {} drawn as models, from "
+                "{} objects",
+                loaded->elapsed.count(), loaded->objectsElapsed.count(), drawn,
+                loaded->models.size(), loaded->objects.size()));
     if (scenePanel != nullptr) {
         scenePanel->setActors(std::move(*loaded));
     }
@@ -461,6 +490,7 @@ void App::updateBuild() {
 
 void App::setHackerootPath(const std::filesystem::path& path) {
     settings.hackerootPath = path;
+    settings.dismissedNewActors.clear();
     logOk("HackerOoT folder set to {}", encodeUtf8(path));
 
     saveState();

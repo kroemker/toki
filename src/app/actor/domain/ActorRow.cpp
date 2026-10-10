@@ -3,7 +3,6 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
-#include "app/actor/domain/DatabaseStore.h"
 #include "app/core/domain/TextSearch.h"
 #include "hackeroot/Tables.h"
 
@@ -14,7 +13,7 @@
 namespace toki::actor {
 
 std::vector<ActorRow> listActorRows(const hackeroot::Tables& tables,
-                                    const DatabaseSnapshot& databases) {
+                                    const ActorDatabase& database) {
     std::vector<ActorRow> rows;
     rows.reserve(tables.actors.size());
     for (const hackeroot::ActorEntry& actor : tables.actors) {
@@ -22,11 +21,10 @@ std::vector<ActorRow> listActorRows(const hackeroot::Tables& tables,
             continue;
         }
         ActorRow row{.id = actor.id, .enumName = actor.enumName, .name = actor.name};
-        if (const std::optional<FoundEntry> found =
-                findActorEntry(databases.shipped, databases.checkout, actor.enumName)) {
-            row.origin = found->origin;
-            if (!found->entry->name.empty()) {
-                row.name = found->entry->name;
+        if (const ActorEntry* entry = findEntry(database, actor.enumName)) {
+            row.hasEntry = true;
+            if (!entry->name.empty()) {
+                row.name = entry->name;
             }
         }
         rows.push_back(std::move(row));
@@ -44,11 +42,9 @@ bool isRowShown(const ActorRow& row, const RowFilter filter, const std::string_v
     case RowFilter::All:
         return true;
     case RowFilter::WithEntry:
-        return row.origin.has_value();
+        return row.hasEntry;
     case RowFilter::Missing:
-        return !row.origin.has_value();
-    case RowFilter::Checkout:
-        return row.origin == EntryOrigin::Checkout;
+        return !row.hasEntry;
     }
     return true;
 }

@@ -17,15 +17,12 @@ struct ActorRequest {
     /// The scene's folder, `ydan`.
     std::string scene;
     std::vector<SceneLayer> layers;
-    /// The shipped actor database; the checkout's is found in the checkout.
-    std::filesystem::path shippedDatabase;
 };
 
 /// Reads the open scene's actors after the scene itself, on a worker of its
-/// own, so the scene shows before its actors' objects are read, by the shipped
-/// actor database and the checkout's, read afresh each time. Reads them again
-/// whenever either database, or an overlay or object they were read from,
-/// changes.
+/// own, so the scene shows before its actors' objects are read, by the
+/// checkout's actor database, read afresh each time. Reads them again whenever
+/// the database, or an object they were read from, changes.
 class SceneActorLoader : public assets::WatchedReader<ActorRequest, SceneActors> {
 public:
     SceneActorLoader();

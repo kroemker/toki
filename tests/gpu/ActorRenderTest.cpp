@@ -222,7 +222,7 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
         folder = scene->name.substr(0, scene->name.size() - std::string_view("_scene").size());
     }
     toki::scene::SceneActors actors =
-        toki::scene::readSceneActors(reader, folder, {layer}, {.shipped = shipped});
+        toki::scene::readSceneActors(reader, folder, {layer}, shipped);
     const toki::scene::SceneActorModel& model = actors.models.at(*id);
     INFO(entry.actor << " variant " << index << ":\n" << describe(model.diagnostics));
     CHECK(model.diagnostics.empty());

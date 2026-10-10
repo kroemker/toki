@@ -127,6 +127,24 @@ void readPanels(const toml::table& root, Settings& settings) {
     }
 }
 
+void readActors(const toml::table& root, Settings& settings) {
+    if (const toml::array* dismissed = root["actors"]["dismissed_new"].as_array()) {
+        settings.dismissedNewActors = readIds(*dismissed);
+    }
+}
+
+void writeActors(toml::table& root, const Settings& settings) {
+    if (settings.dismissedNewActors.empty()) {
+        root.erase("actors");
+        return;
+    }
+    toml::array dismissed;
+    for (const std::string& actor : settings.dismissedNewActors) {
+        dismissed.push_back(actor);
+    }
+    ensureSection(root, "actors").insert_or_assign("dismissed_new", std::move(dismissed));
+}
+
 void readBuild(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
     const toml::table* build = root["build"].as_table();
     if (build == nullptr) {
@@ -314,6 +332,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readPanels(*root, settings);
     readBuild(*root, path, settings);
     readSession(*root, settings);
+    readActors(*root, settings);
 
     return settings;
 }
@@ -347,6 +366,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writePanels(root, settings);
     writeBuild(root, settings);
     writeSession(root, settings);
+    writeActors(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

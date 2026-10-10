@@ -202,6 +202,18 @@ TEST_CASE("closed panels round-trip beside open ones", "[core][settings]") {
     REQUIRE(loaded->closedPanels == std::vector<std::string>{"workspace"});
 }
 
+TEST_CASE("the new actors not to derive round-trip", "[core][settings]") {
+    const TempDir dir("dismissed");
+    Settings written;
+    written.dismissedNewActors = {"ACTOR_EN_MINE", "ACTOR_OBJ_MINE"};
+
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    const auto loaded = loadSettings(dir.getFile());
+
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->dismissedNewActors == written.dismissedNewActors);
+}
+
 TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
     const TempDir dir("session");
     Settings written;

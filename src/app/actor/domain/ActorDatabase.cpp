@@ -75,16 +75,9 @@ bool isBuiltInParam(const std::string_view name) {
     return name == "age" || name == "scene";
 }
 
-std::optional<FoundEntry> findActorEntry(const ActorDatabase& shipped,
-                                         const ActorDatabase& checkout,
-                                         const std::string_view actor) {
-    if (const auto found = checkout.entries.find(actor); found != checkout.entries.end()) {
-        return FoundEntry{.entry = &found->second, .origin = EntryOrigin::Checkout};
-    }
-    if (const auto found = shipped.entries.find(actor); found != shipped.entries.end()) {
-        return FoundEntry{.entry = &found->second, .origin = EntryOrigin::Shipped};
-    }
-    return std::nullopt;
+const ActorEntry* findEntry(const ActorDatabase& database, const std::string_view actor) {
+    const auto found = database.entries.find(actor);
+    return found == database.entries.end() ? nullptr : &found->second;
 }
 
 s64 readParamValue(const ActorParam& param, const PlacementValues& placement) {

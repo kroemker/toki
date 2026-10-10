@@ -24,7 +24,7 @@ std::filesystem::path makeShippedDatabasePath(const std::filesystem::path& asset
 }
 
 std::filesystem::path makeCheckoutDatabasePath(const std::filesystem::path& root) {
-    return root / "toki" / "actors.toml";
+    return root / ".toki" / "actors.toml";
 }
 
 ActorDatabase parseActorDatabase(const std::string_view text, const std::filesystem::path& file) {

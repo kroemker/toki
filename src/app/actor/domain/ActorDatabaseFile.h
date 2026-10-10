@@ -12,12 +12,13 @@ namespace toki::actor {
 /// The version of `actors.toml` this build reads and writes.
 inline constexpr int DatabaseFormat = 2;
 
-/// Where the shipped actor database is installed: `actors.toml` in the assets
-/// folder beside the executable.
+/// Where Toki's own actor database, which every checkout's is seeded from, is
+/// installed: `actors.toml` in the assets folder beside the executable.
 [[nodiscard]] std::filesystem::path
 makeShippedDatabasePath(const std::filesystem::path& assetDirectory);
 
-/// Where a checkout keeps its actor database: `toki/actors.toml` under it.
+/// Where a checkout keeps its actor database: `.toki/actors.toml` under it,
+/// where Toki keeps what it knows about a checkout.
 [[nodiscard]] std::filesystem::path makeCheckoutDatabasePath(const std::filesystem::path& root);
 
 /// Reads an actor database from the text of `actors.toml`. Whatever cannot be

@@ -3,6 +3,7 @@
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/ActorsPanel.h"
+#include "app/actor/ui/NewActorsPrompt.h"
 #include "app/assets/domain/AssetReader.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/core/domain/Settings.h"
@@ -57,6 +58,7 @@ private:
     void updateSceneActors();
     void updateObject();
     void updateActorDatabase();
+    void drawNewActorsPrompt();
     void openRestoredScene();
     void applySettings(const Settings& applied);
     void saveState();
@@ -71,6 +73,9 @@ private:
     Fonts fonts;
     actor::DatabaseStore databaseStore;
     actor::SymbolCatalog symbolCatalog;
+    actor::NewActorsPrompt newActorsPrompt;
+    /// Toki's own actor database as last read, which deriving takes entries from.
+    actor::ActorDatabase builtInDatabase;
     PanelManager panels;
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;

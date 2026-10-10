@@ -7,6 +7,7 @@ target_sources(toki_core PRIVATE
         DatabaseEdits.cpp
         DatabaseReader.cpp
         DatabaseStore.cpp
+        Derivation.cpp
         EntryCheck.cpp
         EntryReader.cpp
         EntryWriter.cpp

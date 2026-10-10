@@ -69,6 +69,10 @@ struct Settings {
 
     std::optional<SceneSession> session;
 
+    /// The new actors of the checkout that the person chose not to derive, by
+    /// enum name, so they are not asked about again until the set changes.
+    std::vector<std::string> dismissedNewActors;
+
     [[nodiscard]] bool isConfigured() const {
         return hackerootPath.has_value();
     }

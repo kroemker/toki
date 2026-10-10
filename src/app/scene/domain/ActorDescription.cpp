@@ -31,20 +31,6 @@ namespace {
     return std::format("  ({}:{})", location.file.filename().string(), location.line);
 }
 
-[[nodiscard]] std::string describeSource(const SceneActorModel& actor) {
-    switch (actor.source) {
-    case ModelSource::Checkout:
-        return "From the checkout's actor database";
-    case ModelSource::Shipped:
-        return "From the shipped actor database";
-    case ModelSource::Guessed:
-        return "Read from its C, as it has no entry";
-    case ModelSource::None:
-        break;
-    }
-    return "In no actor database, and with no overlay to guess from";
-}
-
 [[nodiscard]] std::string describeObject(const std::optional<std::string>& own,
                                          const std::optional<std::string>& inherited) {
     const std::optional<std::string>& object = own ? own : inherited;
@@ -101,19 +87,16 @@ ActorDescription describeActor(const SceneActorModel& actor,
     if (actor.entry) {
         description.name = actor.entry->name;
         description.params = actor::readParams(*actor.entry, placement);
+    } else {
+        description.problems.emplace_back(
+            "It has no entry in the actor database, so it is marked; derive one in the Actor "
+            "Database panel");
     }
-    description.lines.push_back(describeSource(actor));
     if (variant != nullptr) {
         describeVariant(*actor.entry, *variant, description.lines);
     } else if (actor.entry && !actor.entry->variants.empty()) {
         description.problems.push_back(
             std::format("no variant of its entry matches its params 0x{:04X}", placement.params));
-    }
-    if (actor.guess) {
-        for (const actor::ModelGap& gap : actor.guess->gaps) {
-            description.problems.push_back(gap.diagnostic.message +
-                                           makeSource(gap.diagnostic.location));
-        }
     }
     for (const base::Diagnostic& diagnostic : actor.diagnostics) {
         description.problems.push_back(diagnostic.message + makeSource(diagnostic.location));

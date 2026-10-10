@@ -54,7 +54,8 @@ committed with the mod and shared by everyone who works on it.
   has an entry shows what would change and asks first.
 - **New actors.** At startup and whenever the actor table changes, the table is checked
   against the file. Actors it lists that have no entry are offered: "N new actors were
-  found. Derive them?" No is remembered, per checkout, until the set of new actors changes.
+  found. Derive them?" No is remembered in `config.toml` (`actors.dismissed_new`) until the
+  set of new actors changes, or another checkout is picked.
 - **Watched.** The file is polled like the asset files are, so editing it by hand outside
   Toki redraws the open scene.
 
@@ -306,7 +307,7 @@ Each step is committed on its own and ends with its tests passing.
 |---|---|
 | 1 | Cut what drawing and the Scene panel leave out: animation playback, so a skeleton is posed at its animation's first frame; shadows; what is drawn with a skeleton's limbs; spawn conditions greying actors; "Keep this guess" (done; the format's keys for them go with step 2) |
 | 2 | Format 2: params by mask with choices by number and free-text names, parts in place of display list keys and steps, warnings for masks and overlaps; drawing by parts; the derivation writing parts; Toki's database rewritten (done; until step 4 the Actor Database panel shows an entry as its text) |
-| 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly |
+| 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly (done; seeding derives every actor of a vanilla checkout in 0.9 s locally) |
 | 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top |
 | 5 | Params edited on bit strips |
 | 6 | Variants edited as sentences of tokens |

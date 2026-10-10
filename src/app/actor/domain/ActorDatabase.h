@@ -14,29 +14,16 @@
 
 namespace toki::actor {
 
-/// The actors one file says how to draw, by enum name, and the HackerOoT
-/// commit the file was checked against, for the shipped one.
+/// The actors one file says how to show, by enum name, and the HackerOoT
+/// commit the file was checked against, for Toki's own.
 struct ActorDatabase {
     std::optional<std::string> checkedAgainst;
     std::map<std::string, ActorEntry, std::less<>> entries;
     std::vector<base::Diagnostic> diagnostics;
 };
 
-/// Which file an entry was found in.
-enum class EntryOrigin : u8 {
-    Shipped,
-    Checkout,
-};
-
-struct FoundEntry {
-    const ActorEntry* entry = nullptr;
-    EntryOrigin origin = EntryOrigin::Shipped;
-};
-
-/// The entry for `actor`: the checkout's when it has one, which replaces the
-/// shipped one whole, or else the shipped one.
-[[nodiscard]] std::optional<FoundEntry>
-findActorEntry(const ActorDatabase& shipped, const ActorDatabase& checkout, std::string_view actor);
+/// The entry of `database` for `actor`, if it has one.
+[[nodiscard]] const ActorEntry* findEntry(const ActorDatabase& database, std::string_view actor);
 
 /// What fields are read from for one placed actor: its params and rotation,
 /// Link's age in the scene layer it is placed in, when the layer has one, and

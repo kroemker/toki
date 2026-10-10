@@ -225,20 +225,12 @@ TEST_CASE("a mask gives a param's shift and width, and must have its bits togeth
     REQUIRE_FALSE(toki::actor::isMaskContiguous(0));
 }
 
-TEST_CASE("the checkout's entry replaces the shipped one whole", "[actor][database]") {
-    toki::actor::ActorDatabase shipped;
-    shipped.entries["ACTOR_A"] = toki::actor::ActorEntry{.actor = "ACTOR_A", .name = "shipped"};
-    shipped.entries["ACTOR_B"] = toki::actor::ActorEntry{.actor = "ACTOR_B", .name = "shipped"};
-    toki::actor::ActorDatabase checkout;
-    checkout.entries["ACTOR_A"] = toki::actor::ActorEntry{.actor = "ACTOR_A", .name = "mine"};
+TEST_CASE("an entry is found by its actor's enum name", "[actor][database]") {
+    toki::actor::ActorDatabase database;
+    database.entries["ACTOR_A"] = toki::actor::ActorEntry{.actor = "ACTOR_A", .name = "mine"};
 
-    const auto mine = toki::actor::findActorEntry(shipped, checkout, "ACTOR_A");
-    const auto theirs = toki::actor::findActorEntry(shipped, checkout, "ACTOR_B");
-
-    REQUIRE(mine->origin == toki::actor::EntryOrigin::Checkout);
-    REQUIRE(mine->entry->name == "mine");
-    REQUIRE(theirs->origin == toki::actor::EntryOrigin::Shipped);
-    REQUIRE_FALSE(toki::actor::findActorEntry(shipped, checkout, "ACTOR_C").has_value());
+    REQUIRE(toki::actor::findEntry(database, "ACTOR_A")->name == "mine");
+    REQUIRE(toki::actor::findEntry(database, "ACTOR_B") == nullptr);
 }
 
 TEST_CASE("an actor database is saved and read back, and a missing one is empty",

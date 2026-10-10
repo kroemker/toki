@@ -18,12 +18,10 @@ namespace {
 
 [[nodiscard]] SceneActors readRequested(hackeroot::AssetImageReader& reader,
                                         const ActorRequest& request) {
-    ActorDatabases databases{.shipped = actor::readActorDatabase(request.shippedDatabase),
-                             .checkout = actor::readActorDatabase(
-                                 actor::makeCheckoutDatabasePath(reader.getWorkspace().getRoot()))};
-    SceneActors actors = readSceneActors(reader, request.scene, request.layers, databases);
-    std::ranges::move(databases.shipped.diagnostics, std::back_inserter(actors.diagnostics));
-    std::ranges::move(databases.checkout.diagnostics, std::back_inserter(actors.diagnostics));
+    actor::ActorDatabase database =
+        actor::readActorDatabase(actor::makeCheckoutDatabasePath(reader.getWorkspace().getRoot()));
+    SceneActors actors = readSceneActors(reader, request.scene, request.layers, database);
+    std::ranges::move(database.diagnostics, std::back_inserter(actors.diagnostics));
     return actors;
 }
 
@@ -32,9 +30,9 @@ namespace {
 SceneActorLoader::SceneActorLoader()
     : WatchedReader(
           readRequested,
-          [](const hackeroot::Workspace& workspace, const ActorRequest& request) {
+          [](const hackeroot::Workspace& workspace, const ActorRequest&) {
               return std::vector<std::filesystem::path>{
-                  request.shippedDatabase, actor::makeCheckoutDatabasePath(workspace.getRoot())};
+                  actor::makeCheckoutDatabasePath(workspace.getRoot())};
           },
           [](const SceneActors& actors) { return actors.watched; }) {}
 

@@ -294,12 +294,8 @@ void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& p
 void ScenePanel::drawActorMenu(const SceneActorModel& model,
                                const actor::PlacementValues& placement,
                                const ActorDescription& description) {
-    if (!model.entry) {
-        ImGui::TextDisabled("No entry to edit");
-        return;
-    }
     if (ImGui::MenuItem("Add a variant for these params", nullptr, false,
-                        description.canAddVariant)) {
+                        model.entry && description.canAddVariant)) {
         databaseStore.edit([entry = *model.entry, placement](actor::ActorDatabase& checkout) {
             return actor::addVariantForParams(checkout, entry, placement);
         });

@@ -1,9 +1,12 @@
 #include "DatabaseStore.h"
 
+#include "app/actor/Types.h"
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
+#include "app/actor/domain/Derivation.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/FilePoller.h"
+#include "hackeroot/Workspace.h"
 
 #include <chrono>
 #include <deque>
@@ -11,10 +14,12 @@
 #include <filesystem>
 #include <format>
 #include <iterator>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -25,22 +30,23 @@ namespace {
 constexpr std::chrono::milliseconds PollInterval{500};
 
 [[nodiscard]] DatabaseSnapshot readSnapshot(const DatabaseFiles& files) {
-    return DatabaseSnapshot{.shipped = readActorDatabase(files.shipped),
-                            .checkout = readActorDatabase(files.checkout)};
+    return DatabaseSnapshot{.database = readActorDatabase(files.checkout),
+                            .builtIn = readActorDatabase(files.builtIn)};
 }
 
 } // namespace
 
 DatabaseStore::DatabaseStore() : worker([this](const std::stop_token& stop) { runWorker(stop); }) {}
 
-void DatabaseStore::open(DatabaseFiles files) {
+void DatabaseStore::open(DatabaseFiles files,
+                         std::shared_ptr<const hackeroot::Workspace> workspace) {
     if (openFiles == files) {
         return;
     }
     openFiles = files;
     {
         const std::scoped_lock lock(mutex);
-        requestedFiles = std::move(files);
+        requested = Opened{.files = std::move(files), .workspace = std::move(workspace)};
         isWorking = true;
     }
     wake.notify_one();
@@ -71,31 +77,62 @@ std::vector<std::string> DatabaseStore::takeFailures() {
 
 bool DatabaseStore::isBusy() const {
     const std::scoped_lock lock(mutex);
-    return isWorking || requestedFiles.has_value() || !pending.empty();
+    return isWorking || requested.has_value() || !pending.empty();
+}
+
+std::optional<SeedingProgress> DatabaseStore::findSeeding() const {
+    const std::scoped_lock lock(mutex);
+    return seeding;
+}
+
+std::optional<std::string> DatabaseStore::seed(const Opened& opened) {
+    std::error_code failure;
+    if (opened.workspace == nullptr || std::filesystem::exists(opened.files.checkout, failure)) {
+        return std::nullopt;
+    }
+    const ActorDatabase builtIn = readActorDatabase(opened.files.builtIn);
+    const ActorDatabase seeded =
+        makeSeededDatabase(*opened.workspace, builtIn, [this](const usize done, const usize total) {
+            const std::scoped_lock lock(mutex);
+            seeding = SeedingProgress{.done = done, .total = total};
+        });
+    {
+        const std::scoped_lock lock(mutex);
+        seeding.reset();
+    }
+    if (const std::expected<void, std::string> saved =
+            saveActorDatabase(seeded, opened.files.checkout);
+        !saved) {
+        return saved.error();
+    }
+    return std::nullopt;
 }
 
 void DatabaseStore::runWorker(const std::stop_token& stop) {
     std::optional<DatabaseFiles> files;
     std::optional<hackeroot::FilePoller> poller;
     while (!stop.stop_requested()) {
-        std::optional<DatabaseFiles> reopened;
+        std::optional<Opened> reopened;
         std::deque<Edit> edits;
         {
             std::unique_lock lock(mutex);
             wake.wait_for(lock, stop, PollInterval,
-                          [this] { return requestedFiles.has_value() || !pending.empty(); });
+                          [this] { return requested.has_value() || !pending.empty(); });
             if (stop.stop_requested()) {
                 return;
             }
-            reopened = std::exchange(requestedFiles, std::nullopt);
+            reopened = std::exchange(requested, std::nullopt);
             edits = std::exchange(pending, {});
             isWorking = reopened.has_value() || !edits.empty();
         }
-        if (reopened) {
-            files = std::move(reopened);
-            poller.emplace(std::vector{files->shipped, files->checkout});
-        }
         std::vector<std::string> failed;
+        if (reopened) {
+            if (std::optional<std::string> seedFailure = seed(*reopened)) {
+                failed.push_back(std::move(*seedFailure));
+            }
+            files = reopened->files;
+            poller.emplace(std::vector{files->builtIn, files->checkout});
+        }
         for (const Edit& edit : edits) {
             if (const std::expected<void, std::string> edited = applyEdit(files->checkout, edit);
                 !edited) {

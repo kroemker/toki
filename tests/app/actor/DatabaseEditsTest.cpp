@@ -4,13 +4,17 @@
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/DatabaseStore.h"
+#include "app/actor/domain/Derivation.h"
+#include "base/Diagnostic.h"
 #include "base/Types.h"
+#include "hackeroot/Workspace.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <expected>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -95,7 +99,7 @@ TEST_CASE("an edit reads the file, changes it and saves it, unless it reads badl
         if (database.entries.contains(pot.actor)) {
             return std::expected<void, std::string>(std::unexpected(std::string("already there")));
         }
-        return toki::actor::setCheckoutEntry(database, pot);
+        return toki::actor::setEntry(database, pot);
     };
 
     REQUIRE(toki::actor::applyEdit(file, addPot).has_value());
@@ -114,23 +118,22 @@ TEST_CASE("an entry is set in the checkout whole, and removed again", "[actor][e
     toki::actor::ActorDatabase checkout;
     toki::actor::ActorEntry pot = readPot();
 
-    REQUIRE(toki::actor::setCheckoutEntry(checkout, pot).has_value());
+    REQUIRE(toki::actor::setEntry(checkout, pot).has_value());
     pot.name = "Pot";
-    REQUIRE(toki::actor::setCheckoutEntry(checkout, pot).has_value());
+    REQUIRE(toki::actor::setEntry(checkout, pot).has_value());
     REQUIRE(checkout.entries.at("ACTOR_OBJ_TSUBO").name == "Pot");
-    REQUIRE_FALSE(toki::actor::setCheckoutEntry(checkout, {}).has_value());
-    REQUIRE(toki::actor::removeCheckoutEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
-    REQUIRE_FALSE(toki::actor::removeCheckoutEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
+    REQUIRE_FALSE(toki::actor::setEntry(checkout, {}).has_value());
+    REQUIRE(toki::actor::removeEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
+    REQUIRE_FALSE(toki::actor::removeEntry(checkout, "ACTOR_OBJ_TSUBO").has_value());
 }
 
-TEST_CASE("the store reads both files, edits the checkout's, and reads them again",
-          "[actor][edits]") {
+TEST_CASE("the store reads the database, edits it, and reads it again", "[actor][edits]") {
     const std::filesystem::path folder = makeTemporaryFolder("database_store");
-    const std::filesystem::path shipped = folder / "shipped.toml";
+    const std::filesystem::path builtIn = folder / "builtin.toml";
     std::filesystem::create_directories(folder);
-    std::ofstream(shipped) << Shipped;
+    std::ofstream(builtIn) << Shipped;
     const toki::actor::DatabaseFiles files{
-        .shipped = shipped, .checkout = toki::actor::makeCheckoutDatabasePath(folder)};
+        .builtIn = builtIn, .checkout = toki::actor::makeCheckoutDatabasePath(folder)};
     const toki::actor::ActorEntry pot = readPot();
     {
         toki::actor::DatabaseStore store;
@@ -144,10 +147,10 @@ TEST_CASE("the store reads both files, edits the checkout's, and reads them agai
             }
             return *snapshot;
         };
-        store.open(files);
+        store.open(files, nullptr);
         const toki::actor::DatabaseSnapshot opened = waitForSnapshot();
-        REQUIRE(opened.shipped.entries.contains("ACTOR_OBJ_TSUBO"));
-        REQUIRE(opened.checkout.entries.empty());
+        REQUIRE(opened.builtIn.entries.contains("ACTOR_OBJ_TSUBO"));
+        REQUIRE(opened.database.entries.empty());
 
         for (int i = 0; i < 2; ++i) {
             store.edit([&pot](toki::actor::ActorDatabase& database) {
@@ -155,14 +158,66 @@ TEST_CASE("the store reads both files, edits the checkout's, and reads them agai
                     return std::expected<void, std::string>(
                         std::unexpected(std::string("already there")));
                 }
-                return toki::actor::setCheckoutEntry(database, pot);
+                return toki::actor::setEntry(database, pot);
             });
         }
         const toki::actor::DatabaseSnapshot edited = waitForSnapshot();
-        REQUIRE(edited.checkout.entries.size() == 1);
+        REQUIRE(edited.database.entries.size() == 1);
         REQUIRE(store.takeFailures().size() == 1);
         REQUIRE(store.takeFailures().empty());
     }
     std::error_code failure;
     std::filesystem::remove_all(folder, failure);
+}
+
+TEST_CASE("a checkout without a database is seeded from Toki's own and derived for the rest",
+          "[actor][edits]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded = hackeroot::Workspace::load(
+        std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout", {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const std::filesystem::path folder = makeTemporaryFolder("database_seeding");
+    const std::filesystem::path builtIn = folder / "builtin.toml";
+    std::filesystem::create_directories(folder);
+    std::ofstream(builtIn) << "format = 2\n[actors.ACTOR_EN_BOX]\nname = \"Treasure chest\"\n";
+    const toki::actor::DatabaseFiles files{.builtIn = builtIn, .checkout = folder / "actors.toml"};
+    {
+        toki::actor::DatabaseStore store;
+        store.open(files, workspace);
+        std::optional<toki::actor::DatabaseSnapshot> snapshot;
+        while (store.isBusy() || !snapshot) {
+            if (std::optional<toki::actor::DatabaseSnapshot> read = store.update()) {
+                snapshot = std::move(read);
+            }
+            std::this_thread::yield();
+        }
+        REQUIRE(store.takeFailures().empty());
+        REQUIRE(snapshot->database.entries.at("ACTOR_EN_BOX").name == "Treasure chest");
+        REQUIRE(snapshot->database.entries.contains("ACTOR_PLAYER"));
+        REQUIRE(toki::actor::listNewActors(workspace->getTables(), snapshot->database).empty());
+    }
+    REQUIRE(std::filesystem::exists(files.checkout));
+    std::error_code failure;
+    std::filesystem::remove_all(folder, failure);
+}
+
+TEST_CASE("an actor is derived from Toki's own entry, or else from its C", "[actor][edits]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded = hackeroot::Workspace::load(
+        std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout", {});
+    REQUIRE(loaded.has_value());
+    toki::actor::ActorDatabase builtIn;
+    builtIn.entries["ACTOR_EN_BOX"] =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .name = "Treasure chest"};
+    toki::actor::ActorDatabase database;
+    database.entries["ACTOR_EN_BOX"] =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .name = "Mine"};
+
+    REQUIRE(toki::actor::listNewActors(loaded->getTables(), database) ==
+            std::vector<std::string>{"ACTOR_PLAYER"});
+    REQUIRE(toki::actor::deriveEntries(database, *loaded, builtIn, {"ACTOR_EN_BOX", "ACTOR_PLAYER"})
+                .has_value());
+    REQUIRE(database.entries.at("ACTOR_EN_BOX").name == "Treasure chest");
+    REQUIRE(database.entries.at("ACTOR_PLAYER").variants.empty());
+    REQUIRE_FALSE(
+        toki::actor::deriveEntries(database, *loaded, builtIn, {"ACTOR_UNSET_1"}).has_value());
 }

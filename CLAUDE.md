@@ -106,7 +106,7 @@ src/
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
-    actor/     ui/ = actors panel, entry editor   domain/ = the actor database, guesses from an overlay's C
+    actor/     ui/ = actor database panel   domain/ = the actor database, deriving entries from an overlay's C
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
       createActor/   registerScene/   configure/         each: ui/ + domain/
@@ -260,13 +260,14 @@ listed below is only what no change may break.
   - A texture's format, size and palette come from the file its include resolved to, as the
     build reads the name, recorded on the image symbol. Never guessed from a symbol name.
   - What is shown is decoded from the image's bytes, not read from the PNG.
-- **[The actor database](docs/actor-database.md)** — how each actor is drawn, by typed
-  fields of its params and variants matched on them, shipped for vanilla actors and kept per
-  checkout in `toki/actors.toml`.
-  - The database is the source of truth. An actor with an entry is drawn as it says; its C
-    is read only to guess an entry for an actor without one, and a guess is labelled as one
-    and never overwrites an entry a person wrote or checked.
-  - A checkout's entry replaces the shipped one whole, never field by field.
+- **[The actor database](docs/actor-database.md)** — how each actor is shown, by params
+  given as masks and variants of parts matched on them, kept per checkout in
+  `.toki/actors.toml`, seeded from Toki's own.
+  - The checkout's database is the source of truth. An actor with an entry is drawn as it
+    says, and one without is a marker; its C is read only when an entry is derived.
+  - An entry is derived only when a person asks, or for an actor without one. Nothing
+    overwrites an entry otherwise.
+  - It changes how Toki shows actors, never the checkout's code.
 - **[Actor rendering](docs/actor-rendering.md)** — how a guess is read from the literals in
   an overlay's `Init` and `Draw`, and how placed actors are drawn as `Actor_Draw` draws them.
   - Only literals count in a guess. What is not one is a gap with its reason and location.

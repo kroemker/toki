@@ -98,23 +98,12 @@ struct ActorDrawing {
     }
 };
 
-/// Where an actor's entry came from.
-enum class ModelSource : u8 {
-    Shipped,
-    Checkout,
-    Guessed,
-    None,
-};
-
-/// One actor of the scene: the entry it is drawn by, from a database or
-/// guessed from its C, and what each of the entry's variants draws, as far as
-/// its objects have what the entry names. `diagnostics` says what they do not.
+/// One actor of the scene: the entry it is drawn by, when the actor database
+/// has one, and what each of the entry's variants draws, as far as its objects
+/// have what the entry names. `diagnostics` says what they do not.
 struct SceneActorModel {
     std::string enumName;
     std::optional<actor::ActorEntry> entry;
-    ModelSource source = ModelSource::None;
-    /// What the actor's C says, when the entry was guessed from it.
-    std::optional<actor::ActorModel> guess;
     /// One drawing for each of the entry's variants, in order.
     std::vector<ActorDrawing> variants;
     std::vector<base::Diagnostic> diagnostics;
@@ -126,13 +115,6 @@ struct SceneActorModel {
     [[nodiscard]] const ActorDrawing* findDrawing(const actor::PlacementValues& placement) const;
 };
 
-/// The shipped actor database and the checkout's, as one placement's entry is
-/// looked up in.
-struct ActorDatabases {
-    actor::ActorDatabase shipped;
-    actor::ActorDatabase checkout;
-};
-
 /// The models of every actor a scene places, in any layer, by actor ID, and the
 /// objects they are drawn from.
 struct SceneActors {
@@ -140,14 +122,13 @@ struct SceneActors {
     /// The scene's enum name, `SCENE_DEKU_TREE`, which variants may match on.
     std::optional<std::string> scene;
     std::vector<ActorObject> objects;
-    /// The overlays and objects read, for reading the actors again when one changes.
+    /// The objects read, for reading the actors again when one changes.
     std::vector<std::filesystem::path> watched;
     std::chrono::milliseconds elapsed{};
-    /// Of `elapsed`, the time spent reading overlays, and reading objects;
-    /// the rest is posing and finding symbols.
-    std::chrono::milliseconds overlaysElapsed{};
+    /// Of `elapsed`, the time spent reading objects; the rest is posing and
+    /// finding symbols.
     std::chrono::milliseconds objectsElapsed{};
-    /// What was wrong with the actor databases the actors were read by.
+    /// What was wrong with the actor database the actors were read by.
     std::vector<base::Diagnostic> diagnostics;
 };
 
@@ -156,17 +137,17 @@ struct SceneActors {
 [[nodiscard]] std::optional<actor::Age> findLayerAge(usize layerIndex);
 
 /// Reads the model of every actor `layers` place, player entries and the
-/// children their variants spawn included: each by its entry in `databases`,
-/// or else guessed from its overlay, with the objects its entry names and
-/// every skeleton posed. `gameplay_keep` is always read, and the scene keep
-/// object, when not zero, into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the
-/// game load it: every object's display lists may point into either.
-/// `sceneFolder` names the scene's folder, `ydan`, whose enum name the scene
-/// table gives; a variant that matches on other scenes is not read.
+/// children their variants spawn included: each by its entry in `database`,
+/// with the objects its entry names and every skeleton posed; an actor
+/// without an entry has no drawing, and is marked. `gameplay_keep` is always read, and the scene
+/// keep object, when not zero, into segment 5, as `SCENE_CMD_SPECIAL_FILES` has the game load it:
+/// every object's display lists may point into either. `sceneFolder` names the scene's folder,
+/// `ydan`, whose enum name the scene table gives; a variant that matches on other scenes is not
+/// read.
 [[nodiscard]] SceneActors readSceneActors(hackeroot::AssetImageReader& reader,
                                           std::string_view sceneFolder,
                                           const std::vector<SceneLayer>& layers,
-                                          const ActorDatabases& databases);
+                                          const actor::ActorDatabase& database);
 
 /// The values a placement's variant is found by.
 [[nodiscard]] actor::PlacementValues makePlacementValues(const SceneActors& actors, u16 params,

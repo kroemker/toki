@@ -7,7 +7,6 @@
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
-#include "app/actor/ui/EditWidgets.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -20,6 +19,7 @@
 #include <imgui_stdlib.h>
 
 #include <array>
+#include <expected>
 #include <format>
 #include <optional>
 #include <string>
@@ -32,20 +32,20 @@ namespace {
 
 constexpr double SaveDelay = 0.6;
 constexpr float ListWidth = 18.0F;
+constexpr const char* DerivePrompt = "Derive this actor?";
 
-constexpr std::array<std::pair<RowFilter, const char*>, 4> FilterNames{{
+constexpr std::array<std::pair<RowFilter, const char*>, 3> FilterNames{{
     {RowFilter::All, "All actors"},
     {RowFilter::WithEntry, "With an entry"},
     {RowFilter::Missing, "Without an entry"},
-    {RowFilter::Checkout, "In the checkout's database"},
 }};
 
 [[nodiscard]] const char* findRowIcon(const ActorRow& row) {
-    return row.origin ? core::icons::CheckCircle : core::icons::Question;
+    return row.hasEntry ? core::icons::CheckCircle : core::icons::Question;
 }
 
 [[nodiscard]] ImVec4 findRowColor(const ActorRow& row) {
-    return row.origin ? core::palette::Success : core::palette::TextDisabled;
+    return row.hasEntry ? core::palette::Success : core::palette::TextDisabled;
 }
 
 [[nodiscard]] std::string formatEntry(const ActorEntry& entry) {
@@ -62,8 +62,8 @@ ActorsPanel::ActorsPanel(const workspace::WorkspaceService& workspaceService,
       workspaceService(workspaceService), databaseStore(databaseStore),
       symbolCatalog(symbolCatalog) {}
 
-void ActorsPanel::setDatabases(DatabaseSnapshot read) {
-    databases = std::move(read);
+void ActorsPanel::setDatabase(DatabaseSnapshot read) {
+    snapshot = std::move(read);
     areRowsStale = true;
     if (selected && !isDirty) {
         select(*selected);
@@ -82,14 +82,11 @@ void ActorsPanel::openActor(const std::string& actor) {
 void ActorsPanel::select(const std::string& actor) {
     selected = actor;
     draft.reset();
-    draftOrigin.reset();
-    if (!databases) {
+    if (!snapshot) {
         return;
     }
-    if (const std::optional<FoundEntry> found =
-            findActorEntry(databases->shipped, databases->checkout, actor)) {
-        draft = *found->entry;
-        draftOrigin = found->origin;
+    if (const ActorEntry* entry = findEntry(snapshot->database, actor)) {
+        draft = *entry;
     }
 }
 
@@ -99,8 +96,19 @@ void ActorsPanel::saveDraft() {
         return;
     }
     databaseStore.edit(
-        [entry = *draft](ActorDatabase& checkout) { return setCheckoutEntry(checkout, entry); });
-    draftOrigin = EntryOrigin::Checkout;
+        [entry = *draft](ActorDatabase& database) { return setEntry(database, entry); });
+}
+
+void ActorsPanel::deriveSelected() {
+    isDirty = false;
+    databaseStore.edit(
+        [workspace = workspaceService.getSharedWorkspace(), builtIn = snapshot->builtIn,
+         actor = *selected](ActorDatabase& database) -> std::expected<void, std::string> {
+            if (workspace == nullptr) {
+                return std::unexpected(std::string("no checkout is open to derive the actor from"));
+            }
+            return deriveEntries(database, *workspace, builtIn, {actor});
+        });
 }
 
 void ActorsPanel::updateLists() {
@@ -123,8 +131,8 @@ void ActorsPanel::updateLists() {
             }
         }
     }
-    if (areRowsStale && workspace != nullptr && databases) {
-        rows = listActorRows(workspace->getTables(), *databases);
+    if (areRowsStale && workspace != nullptr && snapshot) {
+        rows = listActorRows(workspace->getTables(), snapshot->database);
         areRowsStale = false;
     }
 }
@@ -138,8 +146,14 @@ void ActorsPanel::draw() {
         ImGui::TextColored(core::palette::TextMuted, "Open a checkout to edit its actors.");
         return;
     }
-    if (!databases) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the actor databases…");
+    if (const std::optional<SeedingProgress> seeding = databaseStore.findSeeding()) {
+        ImGui::TextColored(core::palette::TextMuted,
+                           "Making the checkout's actor database: deriving %zu of %zu actors…",
+                           seeding->done, seeding->total);
+        return;
+    }
+    if (!snapshot) {
+        ImGui::TextColored(core::palette::TextMuted, "Reading the actor database…");
         return;
     }
     drawList();
@@ -158,7 +172,7 @@ void ActorsPanel::drawList() {
     ImGui::SetNextItemWidth(-FLT_MIN);
     const auto current =
         std::ranges::find(FilterNames, filter, &std::pair<RowFilter, const char*>::first);
-    if (ImGui::BeginCombo("##status", current->second)) {
+    if (ImGui::BeginCombo("##entries", current->second)) {
         for (const auto& [value, name] : FilterNames) {
             if (ImGui::Selectable(name, value == filter)) {
                 filter = value;
@@ -191,29 +205,38 @@ void ActorsPanel::drawList() {
 void ActorsPanel::drawEditorHeader() {
     ImGui::TextUnformatted(selected->c_str());
     ImGui::SameLine();
-    const bool hasShipped = databases->shipped.entries.contains(*selected);
-    if (!draft) {
-        ImGui::TextColored(core::palette::TextMuted, "in no actor database, so it is guessed");
-        if (ImGui::Button("Start an entry")) {
-            draft = ActorEntry{.actor = *selected, .variants = {ActorVariant{}}};
-            isDirty = true;
-            changedAt = ImGui::GetTime();
+    if (ImGui::SmallButton("Derive")) {
+        if (draft) {
+            ImGui::OpenPopup(DerivePrompt);
+        } else {
+            deriveSelected();
         }
-        return;
     }
-    if (draftOrigin == EntryOrigin::Shipped) {
+    ImGui::SetItemTooltip("Fill the entry from what Toki knows of the actor, or from its C");
+    if (draft) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Remove the entry")) {
+            isDirty = false;
+            databaseStore.edit([actor = *selected](ActorDatabase& database) {
+                return removeEntry(database, actor);
+            });
+        }
+    } else {
         ImGui::TextColored(core::palette::TextMuted,
-                           "shipped; an edit starts the checkout's own entry from it");
-        return;
+                           "It has no entry, so it is drawn as a marker.");
     }
-    ImGui::TextColored(core::palette::TextMuted, "the checkout's entry%s",
-                       hasShipped ? ", in place of the shipped one" : "");
-    const char* label = hasShipped ? "Go back to the shipped entry" : "Remove the entry";
-    if (ImGui::SmallButton(label)) {
-        isDirty = false;
-        databaseStore.edit([actor = *selected](ActorDatabase& checkout) {
-            return removeCheckoutEntry(checkout, actor);
-        });
+    if (ImGui::BeginPopupModal(DerivePrompt, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextUnformatted(
+            "Deriving replaces this entry with what Toki knows of the actor, or what its C says.");
+        if (ImGui::Button("Derive")) {
+            deriveSelected();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Keep the entry")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
 }
 

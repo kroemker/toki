@@ -2,29 +2,34 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
+#include "hackeroot/Workspace.h"
 
 #include <expected>
 #include <string>
+#include <vector>
 
 namespace toki::actor {
 
 /// "Add a variant for these params": a variant matching exactly the values
 /// `placement` gives every param, drawn as the variant it matches now and kept
-/// to that variant's age and scene, ahead of
-/// the others in the checkout's entry for the actor. An actor without one there
-/// gets `current`, its entry from wherever it was found, copied in first, as a
-/// checkout's entry replaces the shipped one whole.
+/// to that variant's age and scene, ahead of the others in `database`'s entry
+/// for the actor, which is `current` when the database has none yet.
 [[nodiscard]] std::expected<void, std::string>
-addVariantForParams(ActorDatabase& checkout, const ActorEntry& current,
+addVariantForParams(ActorDatabase& database, const ActorEntry& current,
                     const PlacementValues& placement);
 
-/// The checkout's entry for `entry.actor` becomes `entry`, whole.
-[[nodiscard]] std::expected<void, std::string> setCheckoutEntry(ActorDatabase& checkout,
-                                                                ActorEntry entry);
+/// The entry for `entry.actor` becomes `entry`, whole.
+[[nodiscard]] std::expected<void, std::string> setEntry(ActorDatabase& database, ActorEntry entry);
 
-/// The checkout's entry for `actor` is removed, so the shipped one, or a guess,
-/// draws it again.
-[[nodiscard]] std::expected<void, std::string> removeCheckoutEntry(ActorDatabase& checkout,
-                                                                   const std::string& actor);
+/// The entry for `actor` is removed, so the actor is drawn as a marker until
+/// it is derived again.
+[[nodiscard]] std::expected<void, std::string> removeEntry(ActorDatabase& database,
+                                                           const std::string& actor);
+
+/// "Derive": each of `actors`, by enum name, gets the entry Toki knows for it
+/// (`deriveEntry`), in place of any it has.
+[[nodiscard]] std::expected<void, std::string>
+deriveEntries(ActorDatabase& database, const hackeroot::Workspace& workspace,
+              const ActorDatabase& builtIn, const std::vector<std::string>& actors);
 
 } // namespace toki::actor

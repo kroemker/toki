@@ -14,17 +14,16 @@
 
 namespace toki::actor {
 
-/// Every actor of the actor table with where its entry is and how sure, and
-/// the editor of one entry. Edits are written to the checkout's actor
-/// database a moment after the last change, where the open scene reads them
-/// from; editing a shipped entry starts the checkout's own from it.
+/// Every actor of the actor table and whether it has an entry, and the editor
+/// of one entry. Edits are written to the checkout's actor database a moment
+/// after the last change, where the open scene reads them from.
 class ActorsPanel : public core::Panel {
 public:
     ActorsPanel(const workspace::WorkspaceService& workspaceService, DatabaseStore& databaseStore,
                 SymbolCatalog& symbolCatalog);
 
-    /// Takes both databases as they were read again.
-    void setDatabases(DatabaseSnapshot databases);
+    /// Takes the database as it was read again.
+    void setDatabase(DatabaseSnapshot read);
 
     /// Shows the entry of the actor of enum name `actor`.
     void openActor(const std::string& actor);
@@ -42,11 +41,12 @@ private:
     void drawEditorHeader();
     void select(const std::string& actor);
     void saveDraft();
+    void deriveSelected();
 
     const workspace::WorkspaceService& workspaceService;
     DatabaseStore& databaseStore;
     SymbolCatalog& symbolCatalog;
-    std::optional<DatabaseSnapshot> databases;
+    std::optional<DatabaseSnapshot> snapshot;
 
     const hackeroot::Workspace* listedWorkspace = nullptr;
     bool areRowsStale = true;
@@ -57,7 +57,6 @@ private:
     RowFilter filter = RowFilter::All;
 
     std::optional<std::string> selected;
-    std::optional<EntryOrigin> draftOrigin;
     std::optional<ActorEntry> draft;
     bool isDirty = false;
     double changedAt = 0.0;

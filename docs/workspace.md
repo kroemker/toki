@@ -24,6 +24,10 @@ configuration's macros point at it; that is what lets a workspace move.
 `findCheckoutRoot` accepts any folder inside a checkout and walks up to the directory
 holding a `Makefile`, `include/config.h` and `include/tables/scene_table.h`.
 
+What Toki knows about a checkout that is not in its code lives in the checkout, in `.toki/`,
+so it is committed and shared with the mod: today the actor database,
+`.toki/actors.toml` ([actor-database.md](actor-database.md)).
+
 ## Build settings
 
 The user's build settings are make's command line (`VERSION`, `DEBUG_FEATURES`, ...),

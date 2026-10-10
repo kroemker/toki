@@ -23,8 +23,7 @@ using base::s16;
 namespace {
 
 [[nodiscard]] toki::scene::SceneActorModel makeRoofMan() {
-    toki::scene::SceneActorModel actor{.enumName = "ACTOR_EN_ANI",
-                                       .source = toki::scene::ModelSource::Shipped};
+    toki::scene::SceneActorModel actor{.enumName = "ACTOR_EN_ANI"};
     actor.entry = toki::actor::ActorEntry{
         .actor = "ACTOR_EN_ANI",
         .name = "Kakariko roof man",
@@ -56,7 +55,6 @@ TEST_CASE("an actor is described by where its entry comes from and what its vari
     REQUIRE(description.params.size() == 1);
     REQUIRE(description.params[0].text == "0");
     REQUIRE(description.canAddVariant);
-    REQUIRE(description.lines[0] == "From the shipped actor database");
     REQUIRE(std::ranges::contains(description.lines,
                                   std::string("Skeleton gRoofManSkel in object_ani")));
     REQUIRE(std::ranges::contains(description.lines, std::string("At rest")));
