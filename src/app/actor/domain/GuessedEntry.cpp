@@ -81,6 +81,7 @@ ActorEntry makeGuessedEntry(const ActorModel& model, std::string enumName) {
     if (model.yOffset != 0.0F) {
         entry.heightOffset = model.yOffset;
     }
+    entry.params = model.params;
     if (model.hasModel()) {
         entry.variants.push_back(makeVariant(model, object));
     }

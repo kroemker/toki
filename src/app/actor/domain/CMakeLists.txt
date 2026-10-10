@@ -16,6 +16,7 @@ target_sources(toki_core PRIVATE
         GuessedEntry.cpp
         ModelRules.cpp
         OverlayCode.cpp
+        ParamRules.cpp
         PartReader.cpp
         SymbolCatalog.cpp
         ValueCollection.cpp)

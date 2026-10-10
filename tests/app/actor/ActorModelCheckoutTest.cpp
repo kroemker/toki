@@ -102,6 +102,32 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
                draw.pass == toki::actor::Pass::Opaque;
     }));
 
+    usize params = 0;
+    usize collected = 0;
+    usize withParams = 0;
+    for (const toki::actor::ActorModel& model : models) {
+        params += model.params.size();
+        withParams += model.params.empty() ? 0 : 1;
+        collected += static_cast<usize>(
+            std::ranges::count_if(model.params, [](const toki::actor::ActorParam& param) {
+                return param.collection.has_value();
+            }));
+    }
+    WARN(params << " params found in " << withParams << " actors, " << collected
+                << " of them choosing from a collection");
+
+    const std::vector<toki::actor::ActorParam>& chest = findModel(models, "En_Box").params;
+    const auto findParam = [&chest](const std::string_view name) {
+        return std::ranges::find(chest, name, &toki::actor::ActorParam::name);
+    };
+    REQUIRE(findParam("Item") != chest.end());
+    CHECK(findParam("Item")->mask == 0x0FE0);
+    CHECK(findParam("Item")->collection == "GetItemID");
+    REQUIRE(findParam("Type") != chest.end());
+    CHECK(findParam("Type")->mask == 0xF000);
+    REQUIRE(findParam("Treasure Flag") != chest.end());
+    CHECK(findParam("Treasure Flag")->mask == 0x001F);
+
     CHECK(hasGap(findModel(models, "Obj_Tsubo"), toki::actor::GapKind::DisplayListNotLiteral));
     CHECK(hasGap(findModel(models, "En_Ko"), toki::actor::GapKind::SkeletonNotLiteral));
     CHECK(hasGap(findModel(models, "Player"), toki::actor::GapKind::NoOverlay));

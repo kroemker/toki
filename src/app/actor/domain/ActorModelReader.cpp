@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ModelRules.h"
 #include "app/actor/domain/OverlayCode.h"
+#include "app/actor/domain/ParamRules.h"
 #include "base/Diagnostic.h"
 #include "cparser/Preprocessor.h"
 #include "hackeroot/OverlayFiles.h"
@@ -41,11 +42,15 @@ ActorModel readActorModel(const hackeroot::Workspace& workspace,
         return makeMissing(actor, unit.error());
     }
     const OverlayCode code(*unit, overlay->main);
-    return applyModelRules(actor.name, code, [&workspace](const std::string_view enumName) {
-        const auto& objects = workspace.getTables().objects;
-        const auto found = std::ranges::find(objects, enumName, &hackeroot::ObjectEntry::enumName);
-        return found == objects.end() ? std::nullopt : std::optional<std::string>(found->name);
-    });
+    ActorModel model =
+        applyModelRules(actor.name, code, [&workspace](const std::string_view enumName) {
+            const auto& objects = workspace.getTables().objects;
+            const auto found =
+                std::ranges::find(objects, enumName, &hackeroot::ObjectEntry::enumName);
+            return found == objects.end() ? std::nullopt : std::optional<std::string>(found->name);
+        });
+    model.params = findActorParams(code);
+    return model;
 }
 
 } // namespace toki::actor

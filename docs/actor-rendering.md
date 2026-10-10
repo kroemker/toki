@@ -122,6 +122,19 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   `ICHAIN_VEC3F_DIV1000(scale, ...)`, else 0.01. The `InitChain` is a file-scope array,
   so the existing initializer reader handles it.
 - **Y offset.** The literal second argument of `ActorShape_Init`.
+- **Params** (`actor::findActorParams`). Every literal `PARAMS_GET_U(<x>.params, shift,
+  width)` or `PARAMS_GET_S` in the main file is a param of those bits, in the order first
+  read; bits that overlap a param found before are left out. It is named after what it is
+  passed to whole, or negated, when that is a known function's argument
+  (`Flags_GetSwitch` "Switch Flag", `Flags_GetTreasure` "Treasure Flag",
+  `Actor_OfferGetItemNearby` "Item"), else after what it is assigned to (`this->type` "Type",
+  `s32 switchFlag` "Switch Flag"), else after its bits ("Bits 8 to 11"). A known argument
+  with a collection makes it a choice of it: `GetItemID` for the get-item functions,
+  `Item00Type` for `Item_DropCollectible`, `ActorID` for `Actor_Spawn`. One bit with no name
+  is a flag. A read through the overlay's own macro (`ENBOX_GET_TYPE(thisx)`) is not seen,
+  and which enumeration a field like `this->type` is compared against is data flow, so an
+  actor's own enumerations are linked by hand. On a vanilla checkout this finds 284 params
+  in 161 actors.
 
 A name that is not an object's symbol is one of three gaps: the overlay's own data (declared
 in a folder named as the overlay's is, its own or its extracted assets'), a file-scope

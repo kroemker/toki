@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/actor/Types.h"
-#include "app/actor/domain/ActorModel.h"
+#include "app/actor/domain/Pass.h"
 #include "base/Diagnostic.h"
 
 #include <array>

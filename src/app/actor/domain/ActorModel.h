@@ -1,6 +1,8 @@
 #pragma once
 
 #include "app/actor/Types.h"
+#include "app/actor/domain/ActorEntry.h"
+#include "app/actor/domain/Pass.h"
 #include "base/Diagnostic.h"
 
 #include <optional>
@@ -8,11 +10,6 @@
 #include <vector>
 
 namespace toki::actor {
-
-enum class Pass : u8 {
-    Opaque,
-    Translucent,
-};
 
 /// A symbol an overlay names, the object whose header declares it, and where
 /// the overlay names it.
@@ -85,6 +82,8 @@ struct ActorModel {
     std::optional<base::SourceLocation> scaleSource;
     f32 yOffset = 0.0F;
     std::vector<ModelGap> gaps;
+    /// The params its C reads, as `findActorParams` finds them.
+    std::vector<ActorParam> params;
 
     /// What `Actor_Init` sets before the actor's own `Init` runs.
     static constexpr f32 DefaultScale = 0.01F;

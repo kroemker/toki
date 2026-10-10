@@ -6,6 +6,7 @@ add_executable(toki_tests
         app/actor/ActorPartsTest.cpp
         app/actor/DatabaseEditsTest.cpp
         app/actor/ParamReadingTest.cpp
+        app/actor/ParamRulesTest.cpp
         app/actor/ValueCollectionTest.cpp
         app/actor/ActorModelCheckoutTest.cpp
         app/actor/GuessedEntryTest.cpp
