@@ -3,7 +3,7 @@
 How each actor is shown in the viewport: a database per checkout, edited in the application,
 seeded from Toki's own and filled in for the rest by reading each actor's C (see
 [actor-rendering.md](actor-rendering.md)). This document describes format 2 and the editor
-built on it; [the plan](#plan) says what of it is built.
+built on it, all of which is built ([the plan](#plan)).
 
 ## Why
 
@@ -310,4 +310,4 @@ Each step is committed on its own and ends with its tests passing.
 | 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly (done; seeding derives every actor of a vanilla checkout in 0.9 s locally) |
 | 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top (done: the general keys; params and variants are shown as text until steps 5 and 6) |
 | 5 | Params edited on bit strips (done) |
-| 6 | Variants edited as sentences of tokens |
+| 6 | Variants edited as sentences of tokens (done) |

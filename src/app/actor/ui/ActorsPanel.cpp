@@ -9,6 +9,7 @@
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/EntryEditor.h"
+#include "app/actor/ui/VariantsEditor.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -270,16 +271,18 @@ void ActorsPanel::drawEditor() {
         if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
             isChanged = paramsEditor.draw(*draft) || isChanged;
         }
+        ImGui::SeparatorText("Variants, tried in order");
+        isChanged = drawVariantsEditor(*draft, context) || isChanged;
         if (isChanged) {
             isDirty = true;
             changedAt = ImGui::GetTime();
         }
-        // Temporary: variants are shown as their text until they are edited here
-        // (step 6 of docs/actor-database.md).
-        ImGui::SeparatorText("Variants");
-        std::string text = formatEntry(*draft);
-        ImGui::InputTextMultiline("##entry", &text, ImVec2(-FLT_MIN, -FLT_MIN),
-                                  ImGuiInputTextFlags_ReadOnly);
+        if (ImGui::CollapsingHeader("As written in actors.toml")) {
+            std::string text = formatEntry(*draft);
+            ImGui::InputTextMultiline("##entry", &text,
+                                      ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 20.0F),
+                                      ImGuiInputTextFlags_ReadOnly);
+        }
     }
     ImGui::EndChild();
 }

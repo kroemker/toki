@@ -25,6 +25,7 @@ namespace {
 
 constexpr float PickerHeight = 260.0F;
 constexpr float LabelWidth = 9.0F;
+constexpr float MinimumTableWidth = 26.0F;
 
 /// The filter of the picker that is open; only one is open at a time.
 std::string pickerFilter;
@@ -94,7 +95,9 @@ std::string pickerFilter;
 } // namespace
 
 bool beginProperties(const char* id) {
-    if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingStretchProp)) {
+    const float width =
+        std::max(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * MinimumTableWidth);
+    if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingStretchProp, ImVec2(width, 0.0F))) {
         return false;
     }
     ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed,
