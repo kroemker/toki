@@ -298,7 +298,9 @@ void ActorsPanel::drawEditor() {
         bool isChanged = drawGeneralEditor(*draft, context);
         if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::PushID("params");
-            isChanged = paramsEditor.draw(*draft) || isChanged;
+            const std::vector<std::string> collections =
+                collectionCatalog.listCollectionNames(draft->actor);
+            isChanged = paramsEditor.draw(*draft, collections) || isChanged;
             ImGui::PopID();
         }
         ImGui::SeparatorText("Variants, tried in order");

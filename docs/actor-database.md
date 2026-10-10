@@ -227,7 +227,10 @@ and one variant per entry of the table ([Later](#later)).
   - **Params** are shown as one strip of 16 bits per source used, each param in its own
     colour. Clicking a bit gives it to the param being edited, or takes it back; bits another
     param has are not clickable and say whose they are. Each param has its name, kind,
-    description, sign and hexadecimal options, and a choice its values and their labels.
+    description, sign and hexadecimal options, and a choice its values and their labels, or
+    the collection it takes them from, picked from the actor's own and the shared ones, and
+    its offset. A condition on a choice is a searchable list of its values to tick; on the
+    scene, of the scene table's.
   - **Variants** are cards, headed by their condition, "1. Type is Golden, and Lit is
     set", or "Otherwise" for a last one that matches everything. A card has bands down a
     labelled left gutter, so what belongs to what shows without deep nesting:

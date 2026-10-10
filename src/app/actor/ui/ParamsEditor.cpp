@@ -98,7 +98,7 @@ void ParamsEditor::select(const ActorEntry& entry, const std::optional<usize> in
     isNameEdited = false;
 }
 
-bool ParamsEditor::draw(ActorEntry& entry) {
+bool ParamsEditor::draw(ActorEntry& entry, const std::span<const std::string> collections) {
     if (entry.actor != editedActor) {
         editedActor = entry.actor;
         select(entry, std::nullopt);
@@ -118,7 +118,7 @@ bool ParamsEditor::draw(ActorEntry& entry) {
     for (const ParamSource source : sources) {
         isChanged = drawStrip(entry, source) || isChanged;
     }
-    return drawList(entry) || isChanged;
+    return drawList(entry, collections) || isChanged;
 }
 
 bool ParamsEditor::drawStrip(ActorEntry& entry, const ParamSource source) {
@@ -170,7 +170,7 @@ bool ParamsEditor::drawBit(ActorEntry& entry, const ParamSource source, const u8
     return true;
 }
 
-bool ParamsEditor::drawList(ActorEntry& entry) {
+bool ParamsEditor::drawList(ActorEntry& entry, const std::span<const std::string> collections) {
     const std::optional<usize> selectedIndex = findSelected(entry);
     bool isChanged = false;
     std::optional<usize> removed;
@@ -206,12 +206,13 @@ bool ParamsEditor::drawList(ActorEntry& entry) {
     }
     if (const std::optional<usize> edited = findSelected(entry)) {
         ImGui::SeparatorText(entry.params[*edited].name.c_str());
-        isChanged = drawParam(entry, entry.params[*edited]) || isChanged;
+        isChanged = drawParam(entry, entry.params[*edited], collections) || isChanged;
     }
     return isChanged;
 }
 
-bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param) {
+bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
+                             const std::span<const std::string> collections) {
     if (!beginProperties("param")) {
         return false;
     }
@@ -248,6 +249,13 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param) {
         ImGui::TextColored(core::palette::Warning, "%s not next to each other",
                            core::icons::Warning);
     }
+    if (param.kind == ParamKind::Choice) {
+        isChanged = editCollection("Values", param.collection, collections) || isChanged;
+        ImGui::SetItemTooltip("Listed in the entry, or taken from the checkout, so they follow it");
+        isChanged = editSignedHex("Offset", param.offset) || isChanged;
+        ImGui::SetItemTooltip("Added to the param's value before it is looked up, as a sign "
+                              "adds 0x300 to its message");
+    }
     if (param.kind == ParamKind::Number) {
         drawPropertyLabel("Shown");
         isChanged = ImGui::Checkbox("Signed", &param.isSigned) || isChanged;
@@ -256,7 +264,7 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param) {
     }
     isChanged = editText("Description", param.description) || isChanged;
     endProperties();
-    if (param.kind == ParamKind::Choice) {
+    if (param.kind == ParamKind::Choice && !param.collection) {
         isChanged = drawChoices(param) || isChanged;
     }
     return isChanged;

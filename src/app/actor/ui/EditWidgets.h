@@ -113,6 +113,14 @@ template <typename Enum, usize Count>
                                       std::span<const object::AssetKind> kinds,
                                       const EditContext& context);
 
+/// The collection of `names` a choice takes its values from, or none, shown as
+/// "Listed here", for values the entry lists itself.
+[[nodiscard]] bool editCollection(const char* label, std::optional<std::string>& collection,
+                                  std::span<const std::string> names);
+
+/// A number that may be negative, typed in hexadecimal.
+[[nodiscard]] bool editSignedHex(const char* label, s64& value);
+
 /// An actor of the actor table by its enum name.
 [[nodiscard]] bool editActor(const char* label, std::string& actor, const EditContext& context);
 

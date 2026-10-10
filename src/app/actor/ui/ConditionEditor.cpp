@@ -6,6 +6,7 @@
 #include "app/actor/domain/ParamReading.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/core/domain/TextSearch.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 
@@ -162,21 +163,64 @@ private:
                                                                     : std::nullopt;
 }
 
-[[nodiscard]] bool editChoices(std::vector<MatchValue>& values, const ActorParam& param) {
+constexpr float ChoiceListWidth = 20.0F;
+constexpr usize ChoiceListRows = 12;
+
+std::string choiceFilter;
+
+[[nodiscard]] bool beginChoiceList(const usize count) {
+    if (ImGui::IsWindowAppearing()) {
+        choiceFilter.clear();
+    }
+    if (count > ChoiceListRows) {
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * ChoiceListWidth);
+        ImGui::InputTextWithHint("##filter", "Filter", &choiceFilter);
+    }
+    const float rows = static_cast<float>(std::min(count, ChoiceListRows));
+    return ImGui::BeginChild("##choices", ImVec2(ImGui::GetFontSize() * ChoiceListWidth,
+                                                 (rows * ImGui::GetFrameHeightWithSpacing()) +
+                                                     ImGui::GetStyle().ItemSpacing.y));
+}
+
+[[nodiscard]] bool toggleChoice(std::vector<MatchValue>& values, const MatchValue& value,
+                                const std::string& label) {
+    if (!core::containsIgnoringCase(label, choiceFilter)) {
+        return false;
+    }
+    const auto found = std::ranges::find(values, value);
+    bool isOn = found != values.end();
+    if (!ImGui::Checkbox(label.c_str(), &isOn)) {
+        return false;
+    }
+    if (isOn) {
+        values.push_back(value);
+    } else {
+        values.erase(found);
+    }
+    return true;
+}
+
+[[nodiscard]] bool editChoices(std::vector<MatchValue>& values,
+                               const std::span<const ChoiceValue> choices, const s64 offset) {
     bool isChanged = false;
-    for (const ChoiceValue& choice : param.values) {
-        const auto found = std::ranges::find(values, MatchValue(choice.value));
-        bool isOn = found != values.end();
-        const std::string label = std::format("{}  ({})", choice.label, choice.value);
-        if (ImGui::Checkbox(label.c_str(), &isOn)) {
-            if (isOn) {
-                values.emplace_back(choice.value);
-            } else {
-                values.erase(found);
-            }
-            isChanged = true;
+    if (beginChoiceList(choices.size())) {
+        for (const ChoiceValue& choice : choices) {
+            const std::string label = std::format("{}  ({})", choice.label, choice.value);
+            isChanged = toggleChoice(values, MatchValue(choice.value - offset), label) || isChanged;
         }
     }
+    ImGui::EndChild();
+    return isChanged;
+}
+
+[[nodiscard]] bool editScenes(std::vector<MatchValue>& values, const ValueCollection& scenes) {
+    bool isChanged = false;
+    if (beginChoiceList(scenes.values.size())) {
+        for (const ChoiceValue& scene : scenes.values) {
+            isChanged = toggleChoice(values, MatchValue(scene.label), scene.label) || isChanged;
+        }
+    }
+    ImGui::EndChild();
     return isChanged;
 }
 
@@ -205,7 +249,8 @@ std::string listText;
     return true;
 }
 
-[[nodiscard]] bool editValues(ParamMatch& match, const ActorParam* param) {
+[[nodiscard]] bool editValues(ParamMatch& match, const ActorParam* param,
+                              const FindCollection& findCollection) {
     if (match.param == "age") {
         const bool isAdult = !match.values.empty() &&
                              describeValue(match.values.front(), nullptr, nullptr) == "Adult";
@@ -219,8 +264,13 @@ std::string listText;
         }
         return false;
     }
-    if (match.param == "scene" || param == nullptr) {
-        return editList(match.values, match.param != "scene");
+    if (match.param == "scene") {
+        const ValueCollection* scenes = findCollection ? findCollection("SceneID") : nullptr;
+        return scenes != nullptr ? editScenes(match.values, *scenes)
+                                 : editList(match.values, false);
+    }
+    if (param == nullptr) {
+        return editList(match.values, true);
     }
     if (param->kind == ParamKind::Flag) {
         const bool isSet = !match.values.empty() && match.values.front() == MatchValue(true);
@@ -234,8 +284,13 @@ std::string listText;
         }
         return false;
     }
-    if (param->kind == ParamKind::Choice && !param->values.empty()) {
-        return editChoices(match.values, *param);
+    if (param->kind == ParamKind::Choice) {
+        if (const ValueCollection* collection = findParamCollection(*param, findCollection)) {
+            return editChoices(match.values, collection->values, param->offset);
+        }
+        if (!param->collection && !param->values.empty()) {
+            return editChoices(match.values, param->values, param->offset);
+        }
     }
     return editList(match.values, true);
 }
@@ -250,8 +305,8 @@ std::string listText;
     if (param != nullptr && param->kind == ParamKind::Flag) {
         return ParamMatch{.param = name, .values = {true}};
     }
-    if (param != nullptr && !param->values.empty()) {
-        return ParamMatch{.param = name, .values = {param->values.front().value}};
+    if (param != nullptr && !param->collection && !param->values.empty()) {
+        return ParamMatch{.param = name, .values = {param->values.front().value - param->offset}};
     }
     return ParamMatch{.param = name, .values = {s64{0}}};
 }
@@ -315,7 +370,7 @@ bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const A
             removed = i;
         }
         if (ImGui::BeginPopup("##values")) {
-            isChanged = editValues(match[i], param) || isChanged;
+            isChanged = editValues(match[i], param, findCollection) || isChanged;
             ImGui::EndPopup();
         }
         ImGui::PopID();

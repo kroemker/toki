@@ -12,11 +12,13 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <charconv>
 #include <format>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace toki::actor {
@@ -242,6 +244,41 @@ bool editActor(const char* label, std::string& actor, const EditContext& context
     drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged = drawPicker("##value", actor, context.actors, nullptr);
+    ImGui::PopID();
+    return isChanged;
+}
+
+bool editCollection(const char* label, std::optional<std::string>& collection,
+                    const std::span<const std::string> names) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    std::string typed = collection.value_or("");
+    const bool isChanged = drawPicker("##value", typed, names, "Listed here");
+    ImGui::PopID();
+    if (!isChanged) {
+        return false;
+    }
+    collection = typed.empty() ? std::nullopt : std::optional(typed);
+    return true;
+}
+
+bool editSignedHex(const char* label, s64& value) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    std::string text = value < 0 ? std::format("-{:X}", -value) : std::format("{:X}", value);
+    bool isChanged = false;
+    if (ImGui::InputText("##value", &text, ImGuiInputTextFlags_CharsHexadecimal)) {
+        const bool isNegative = text.starts_with('-');
+        const std::string_view digits = std::string_view(text).substr(isNegative ? 1 : 0);
+        s64 parsed = 0;
+        const auto [end, error] =
+            std::from_chars(digits.data(), digits.data() + digits.size(), parsed, 16);
+        if (digits.empty() || (error == std::errc() && end == digits.data() + digits.size())) {
+            value = isNegative ? -parsed : parsed;
+            isChanged = true;
+        }
+    }
+    ImGui::SetItemTooltip("In hexadecimal");
     ImGui::PopID();
     return isChanged;
 }
