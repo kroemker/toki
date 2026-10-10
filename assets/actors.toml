@@ -24,7 +24,7 @@ object = "gameplay_dangeon_keep"
 scale = 0.15
 
 [actors.ACTOR_OBJ_TSUBO.params]
-Drop = { mask = 0x001F, kind = "number", description = "The ITEM00 collectible it drops; ITEM00_MAX or more drops nothing" }
+Drop = { mask = 0x001F, kind = "choice", values = "Item00Type", description = "The collectible it drops; ITEM00_MAX or more drops nothing" }
 Type = { mask = 0x0100, kind = "choice", values = { 0 = "Dungeon", 1 = "Plain" }, description = "The dungeon keep's pot, or object_tsubo's" }
 "Collectible Flag" = { mask = 0x7E00, kind = "number", description = "Set when its drop is collected, so it is not dropped again" }
 
@@ -116,7 +116,7 @@ notes = "A rupee, heart, ammunition, key, shield or tunic lying in the world. De
 object = "gameplay_keep"
 
 [actors.ACTOR_EN_ITEM00.params]
-Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Green Rupee", 1 = "Blue Rupee", 2 = "Red Rupee", 3 = "Recovery Heart", 4 = "Bombs", 5 = "Arrow", 6 = "Piece of Heart", 7 = "Heart Container", 8 = "Arrows (5)", 9 = "Arrows (10)", 10 = "Arrows (30)", 11 = "Bombs (B)", 12 = "Deku Nuts", 13 = "Deku Stick", 14 = "Large Magic Jar", 15 = "Small Magic Jar", 16 = "Deku Seeds", 17 = "Small Key", 18 = "Flexible Drop", 19 = "Huge Rupee", 20 = "Purple Rupee", 21 = "Deku Shield", 22 = "Hylian Shield", 23 = "Zora Tunic", 24 = "Goron Tunic", 25 = "Bombs (special)" } }
+Type = { mask = 0x00FF, kind = "choice", values = "Item00Type" }
 "Collectible Flag" = { mask = 0x3F00, kind = "number", description = "The flag that keeps it collected" }
 Collected = { mask = 0x8000, kind = "flag", description = "Given at once when spawned; placed collectibles leave it clear" }
 
@@ -282,7 +282,7 @@ rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_EN_BOX.params]
 "Chest Flag" = { mask = 0x001F, kind = "number", description = "Set once it is opened" }
-Item = { mask = 0x0FE0, kind = "number", description = "The GI item it gives" }
+Item = { mask = 0x0FE0, kind = "choice", values = "GetItemID", description = "The item it gives" }
 Type = { mask = 0xF000, kind = "choice", values = { 0 = "Big", 1 = "Big, appears on room clear", 2 = "Boss Key", 3 = "Big, falls on switch", 4 = "Big, seen through the Lens", 5 = "Small", 6 = "Small, seen through the Lens", 7 = "Small, appears on room clear", 8 = "Small, falls on switch", 9 = "Big, appears to Zelda's Lullaby", 10 = "Big, appears to the Sun's Song", 11 = "Big, appears on switch" } }
 "Switch Flag" = { mask = 0x003F, kind = "number", source = "rotation_z", description = "The switch that makes a switch or falling chest appear" }
 

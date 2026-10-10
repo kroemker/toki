@@ -1,5 +1,7 @@
 #include "app/actor/domain/ValueCollection.h"
 
+#include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/CollectionCatalog.h"
 #include "base/Diagnostic.h"
@@ -137,6 +139,29 @@ TEST_CASE("a real checkout's collections are read without a diagnostic",
     const toki::actor::CollectionsRead own = toki::actor::readActorCollections(*workspace, *box);
     REQUIRE(own.collections.size() == 1);
     REQUIRE(requireCollection(own, "EnBoxType").values.size() > 5);
+
+    const toki::actor::ActorDatabase shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS);
+    for (const auto& [name, entry] : shipped.entries) {
+        const auto actor = std::ranges::find(actors, name, &hackeroot::ActorEntry::enumName);
+        const toki::actor::CollectionsRead entryOwn =
+            actor != actors.end() ? toki::actor::readActorCollections(*workspace, *actor)
+                                  : toki::actor::CollectionsRead{};
+        const std::vector<base::Diagnostic> problems = toki::actor::checkCollections(
+            entry, [&](const std::string_view wanted) -> const toki::actor::ValueCollection* {
+                for (const toki::actor::CollectionsRead* read : {&entryOwn, &shared}) {
+                    const auto found = std::ranges::find(read->collections, wanted,
+                                                         &toki::actor::ValueCollection::name);
+                    if (found != read->collections.end()) {
+                        return &*found;
+                    }
+                }
+                return nullptr;
+            });
+        for (const base::Diagnostic& problem : problems) {
+            UNSCOPED_INFO(problem.message);
+        }
+        CHECK(problems.empty());
+    }
 }
 
 TEST_CASE("how an entry uses collections is checked against the checkout's",

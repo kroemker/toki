@@ -152,8 +152,9 @@ for; the file still holds numbers, in matches and `default_params` alike.
 The headers are read as the build compiles them (`hackeroot::readPrelude`), on a worker
 (`actor::CollectionCatalog`), the shared ones when a checkout is opened and an actor's the
 first time it is asked for, and read again when one of their files changes. A collection
-the checkout does not have, values that do not fit the param's bits once its offset is
-taken off, and matches on values the collection lacks are warnings in the panel
+the checkout does not have, one whose values mostly do not fit the param's bits once its
+offset is taken off (a sentinel such as `ITEM00_NONE` is not the wrong collection), and
+matches on values the collection lacks are warnings in the panel
 (`actor::checkCollections`); a collection is not a warning while it is still being read.
 
 ### Variants

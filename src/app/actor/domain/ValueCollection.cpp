@@ -115,7 +115,7 @@ std::vector<base::Diagnostic> checkCollections(const ActorEntry& entry,
             std::ranges::count_if(collection->values, [&](const ChoiceValue& value) {
                 return value.value < lowest || value.value > highest;
             });
-        if (outside > 0) {
+        if (static_cast<usize>(outside) * 2 > collection->values.size()) {
             report(param.location,
                    std::format("params.{}: {} of the {} values of {} do not fit in {} bits",
                                param.name, outside, collection->values.size(), collection->name,

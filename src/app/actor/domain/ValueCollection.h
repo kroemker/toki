@@ -59,9 +59,10 @@ struct CollectionsRead {
 using FindCollection = std::function<const ValueCollection*(std::string_view name)>;
 
 /// What is wrong with how `entry`'s params use collections, that only the
-/// checkout can tell: a collection it does not have, values of one that do not
-/// fit in a param's bits once its offset is taken off, and matches on values
-/// that are not among them.
+/// checkout can tell: a collection it does not have, one whose values mostly do
+/// not fit in a param's bits once its offset is taken off, which is the wrong
+/// collection or the wrong bits rather than a sentinel such as `ITEM00_NONE`,
+/// and matches on values that are not among them.
 [[nodiscard]] std::vector<base::Diagnostic> checkCollections(const ActorEntry& entry,
                                                              const FindCollection& findCollection);
 
