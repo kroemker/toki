@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <bit>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -63,6 +64,32 @@ u8 findMaskWidth(const u16 mask) {
 
 bool isMaskContiguous(const u16 mask) {
     return mask != 0 && std::popcount(mask) == findMaskWidth(mask);
+}
+
+std::optional<usize> findBitOwner(const std::span<const ActorParam> params,
+                                  const ParamSource source, const u8 bit,
+                                  const std::optional<usize> except) {
+    for (usize i = 0; i < params.size(); ++i) {
+        if (i != except && params[i].source == source && (params[i].mask & (1U << bit)) != 0) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+void renameParam(ActorEntry& entry, const std::string& from, const std::string& to) {
+    for (ActorParam& param : entry.params) {
+        if (param.name == from) {
+            param.name = to;
+        }
+    }
+    for (ActorVariant& variant : entry.variants) {
+        for (ParamMatch& match : variant.match) {
+            if (match.param == from) {
+                match.param = to;
+            }
+        }
+    }
 }
 
 bool isMatchingScene(const ActorVariant& variant, const std::optional<std::string>& scene) {

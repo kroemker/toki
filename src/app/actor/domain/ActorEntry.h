@@ -6,6 +6,7 @@
 
 #include <array>
 #include <optional>
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -173,5 +174,15 @@ struct ActorEntry {
 
 /// Whether the set bits of `mask` are adjacent, as a param's must be.
 [[nodiscard]] bool isMaskContiguous(u16 mask);
+
+/// The index of the param of `params` that has `bit` of `source`, other than
+/// the one at `except`, if one has.
+[[nodiscard]] std::optional<usize> findBitOwner(std::span<const ActorParam> params,
+                                                ParamSource source, u8 bit,
+                                                std::optional<usize> except = std::nullopt);
+
+/// Renames the param `from` of `entry` to `to`, in every match of its variants
+/// too.
+void renameParam(ActorEntry& entry, const std::string& from, const std::string& to);
 
 } // namespace toki::actor

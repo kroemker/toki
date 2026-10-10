@@ -4,6 +4,7 @@
 #include "app/actor/domain/ActorRow.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
+#include "app/actor/ui/ParamsEditor.h"
 #include "app/core/ui/Panel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Workspace.h"
@@ -58,6 +59,7 @@ private:
 
     std::optional<std::string> selected;
     std::optional<ActorEntry> draft;
+    ParamsEditor paramsEditor;
     bool isDirty = false;
     double changedAt = 0.0;
 };

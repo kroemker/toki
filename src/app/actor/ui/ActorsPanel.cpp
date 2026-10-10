@@ -266,13 +266,17 @@ void ActorsPanel::drawEditor() {
         ImGui::Separator();
         const EditContext context{
             .symbolCatalog = symbolCatalog, .objects = objects, .actors = actors};
-        if (drawGeneralEditor(*draft, context)) {
+        bool isChanged = drawGeneralEditor(*draft, context);
+        if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
+            isChanged = paramsEditor.draw(*draft) || isChanged;
+        }
+        if (isChanged) {
             isDirty = true;
             changedAt = ImGui::GetTime();
         }
-        // Temporary: params and variants are shown as their text until they are
-        // edited here (steps 5 and 6 of docs/actor-database.md).
-        ImGui::SeparatorText("Params and variants");
+        // Temporary: variants are shown as their text until they are edited here
+        // (step 6 of docs/actor-database.md).
+        ImGui::SeparatorText("Variants");
         std::string text = formatEntry(*draft);
         ImGui::InputTextMultiline("##entry", &text, ImVec2(-FLT_MIN, -FLT_MIN),
                                   ImGuiInputTextFlags_ReadOnly);

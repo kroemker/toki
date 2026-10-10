@@ -225,6 +225,34 @@ TEST_CASE("a mask gives a param's shift and width, and must have its bits togeth
     REQUIRE_FALSE(toki::actor::isMaskContiguous(0));
 }
 
+TEST_CASE("a bit is owned by the param of its source whose mask has it", "[actor][database]") {
+    const std::vector<toki::actor::ActorParam> params{
+        toki::actor::ActorParam{.name = "Low", .mask = 0x000F},
+        toki::actor::ActorParam{.name = "High", .mask = 0xF000},
+        toki::actor::ActorParam{
+            .name = "Turn", .source = toki::actor::ParamSource::RotationZ, .mask = 0x0001}};
+
+    REQUIRE(toki::actor::findBitOwner(params, toki::actor::ParamSource::Params, 2) == 0U);
+    REQUIRE(toki::actor::findBitOwner(params, toki::actor::ParamSource::Params, 13) == 1U);
+    REQUIRE_FALSE(toki::actor::findBitOwner(params, toki::actor::ParamSource::Params, 8));
+    REQUIRE_FALSE(toki::actor::findBitOwner(params, toki::actor::ParamSource::Params, 2, 0U));
+    REQUIRE(toki::actor::findBitOwner(params, toki::actor::ParamSource::RotationZ, 0) == 2U);
+}
+
+TEST_CASE("a renamed param is renamed in every match", "[actor][database]") {
+    toki::actor::ActorEntry entry{
+        .params = {toki::actor::ActorParam{.name = "type", .mask = 0x0003}},
+        .variants = {toki::actor::ActorVariant{
+            .match = {toki::actor::ParamMatch{.param = "type", .values = {s64{1}}},
+                      toki::actor::ParamMatch{.param = "age", .values = {std::string("child")}}}}}};
+
+    toki::actor::renameParam(entry, "type", "Type");
+
+    REQUIRE(entry.params.front().name == "Type");
+    REQUIRE(entry.variants.front().match[0].param == "Type");
+    REQUIRE(entry.variants.front().match[1].param == "age");
+}
+
 TEST_CASE("an entry is found by its actor's enum name", "[actor][database]") {
     toki::actor::ActorDatabase database;
     database.entries["ACTOR_A"] = toki::actor::ActorEntry{.actor = "ACTOR_A", .name = "mine"};

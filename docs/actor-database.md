@@ -308,6 +308,6 @@ Each step is committed on its own and ends with its tests passing.
 | 1 | Cut what drawing and the Scene panel leave out: animation playback, so a skeleton is posed at its animation's first frame; shadows; what is drawn with a skeleton's limbs; spawn conditions greying actors; "Keep this guess" (done; the format's keys for them go with step 2) |
 | 2 | Format 2: params by mask with choices by number and free-text names, parts in place of display list keys and steps, warnings for masks and overlaps; drawing by parts; the derivation writing parts; Toki's database rewritten (done; until step 4 the Actor Database panel shows an entry as its text) |
 | 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly (done; seeding derives every actor of a vanilla checkout in 0.9 s locally) |
-| 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top |
-| 5 | Params edited on bit strips |
+| 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top (done: the general keys; params and variants are shown as text until steps 5 and 6) |
+| 5 | Params edited on bit strips (done) |
 | 6 | Variants edited as sentences of tokens |
