@@ -7,6 +7,8 @@
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
+#include "app/actor/ui/EditWidgets.h"
+#include "app/actor/ui/EntryEditor.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -58,7 +60,7 @@ constexpr std::array<std::pair<RowFilter, const char*>, 3> FilterNames{{
 
 ActorsPanel::ActorsPanel(const workspace::WorkspaceService& workspaceService,
                          DatabaseStore& databaseStore, SymbolCatalog& symbolCatalog)
-    : Panel("actors", "Actors", core::icons::Users, core::DockSlot::Right),
+    : Panel("actors", "Actor Database", core::icons::Database, core::DockSlot::Right),
       workspaceService(workspaceService), databaseStore(databaseStore),
       symbolCatalog(symbolCatalog) {}
 
@@ -155,6 +157,11 @@ void ActorsPanel::draw() {
     if (!snapshot) {
         ImGui::TextColored(core::palette::TextMuted, "Reading the actor database…");
         return;
+    }
+    ImGui::TextColored(core::palette::TextMuted,
+                       "How Toki shows the checkout's actors. Changes here never touch its code.");
+    if (const std::optional<DatabaseFiles>& files = databaseStore.getFiles()) {
+        ImGui::SetItemTooltip("%s", files->checkout.string().c_str());
     }
     drawList();
     ImGui::SameLine();
@@ -257,8 +264,15 @@ void ActorsPanel::drawEditor() {
                                problem.message.c_str());
         }
         ImGui::Separator();
-        // Temporary: the entry is shown as its text until the editor is rebuilt
-        // for format 2 (steps 4 to 6 of docs/actor-database.md).
+        const EditContext context{
+            .symbolCatalog = symbolCatalog, .objects = objects, .actors = actors};
+        if (drawGeneralEditor(*draft, context)) {
+            isDirty = true;
+            changedAt = ImGui::GetTime();
+        }
+        // Temporary: params and variants are shown as their text until they are
+        // edited here (steps 5 and 6 of docs/actor-database.md).
+        ImGui::SeparatorText("Params and variants");
         std::string text = formatEntry(*draft);
         ImGui::InputTextMultiline("##entry", &text, ImVec2(-FLT_MIN, -FLT_MIN),
                                   ImGuiInputTextFlags_ReadOnly);

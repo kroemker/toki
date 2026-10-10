@@ -11,7 +11,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdio>
+#include <cfloat>
 #include <format>
 #include <optional>
 #include <span>
@@ -23,18 +23,19 @@ namespace toki::actor {
 
 namespace {
 
-constexpr f32 PickerHeight = 260.0F;
+constexpr float PickerHeight = 260.0F;
+constexpr float LabelWidth = 9.0F;
 
 /// The filter of the picker that is open; only one is open at a time.
 std::string pickerFilter;
 
 /// A combo listing `candidates`, filtered by what is typed, with `typed` set
 /// to the one picked. Returns whether one was.
-[[nodiscard]] bool drawPicker(const char* label, std::string& typed,
+[[nodiscard]] bool drawPicker(const char* id, std::string& typed,
                               std::span<const std::string> candidates, const char* emptyLabel) {
     bool isChanged = false;
     const std::string shown = typed.empty() && emptyLabel != nullptr ? emptyLabel : typed;
-    if (!ImGui::BeginCombo(label, shown.c_str(), ImGuiComboFlags_HeightLargest)) {
+    if (!ImGui::BeginCombo(id, shown.c_str(), ImGuiComboFlags_HeightLargest)) {
         return false;
     }
     if (ImGui::IsWindowAppearing()) {
@@ -82,39 +83,67 @@ std::string pickerFilter;
     return names;
 }
 
+/// A checkbox before what it sets, which is drawn disabled while it is off.
+[[nodiscard]] bool drawSetBox(bool& isSet) {
+    const bool isChanged = ImGui::Checkbox("##set", &isSet);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    return isChanged;
+}
+
 } // namespace
 
-bool editText(const char* label, std::string& text) {
-    return ImGui::InputText(label, &text);
-}
-
-bool editNotes(const char* label, std::string& text) {
-    return ImGui::InputTextMultiline(label, &text,
-                                     ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.5F));
-}
-
-bool editOptionalText(const char* label, std::optional<std::string>& text) {
-    std::string edited = text.value_or("");
-    if (!ImGui::InputText(label, &edited)) {
+bool beginProperties(const char* id) {
+    if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingStretchProp)) {
         return false;
     }
-    text = edited.empty() ? std::nullopt : std::optional(edited);
+    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed,
+                            ImGui::GetFontSize() * LabelWidth);
+    ImGui::TableSetupColumn("input", ImGuiTableColumnFlags_WidthStretch);
     return true;
 }
 
+void endProperties() {
+    ImGui::EndTable();
+}
+
+void drawPropertyLabel(const std::string_view label) {
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(label.data(), label.data() + label.size());
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-FLT_MIN);
+}
+
+bool editText(const char* label, std::string& text) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = ImGui::InputText("##value", &text);
+    ImGui::PopID();
+    return isChanged;
+}
+
+bool editNotes(const char* label, std::string& text) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = ImGui::InputTextMultiline(
+        "##value", &text, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.0F));
+    ImGui::PopID();
+    return isChanged;
+}
+
 bool editOptionalNumber(const char* label, std::optional<f32>& value, const f32 shown) {
+    drawPropertyLabel(label);
     ImGui::PushID(label);
     bool isSet = value.has_value();
-    bool isChanged = ImGui::Checkbox("##set", &isSet);
+    bool isChanged = drawSetBox(isSet);
     if (isChanged) {
         value = isSet ? std::optional(value.value_or(shown)) : std::nullopt;
     }
-    ImGui::SameLine();
     ImGui::BeginDisabled(!isSet);
     f32 edited = value.value_or(shown);
-    if (ImGui::DragFloat(label, &edited, 0.001F * std::max(1.0F, std::abs(edited)), 0.0F, 0.0F,
-                         "%.4g") &&
-        isSet) {
+    if (ImGui::InputFloat("##value", &edited, 0.0F, 0.0F, "%.6g") && isSet) {
         value = edited;
         isChanged = true;
     }
@@ -124,28 +153,32 @@ bool editOptionalNumber(const char* label, std::optional<f32>& value, const f32 
 }
 
 bool editVector(const char* label, std::array<f32, 3>& value) {
-    return ImGui::DragFloat3(label, value.data(), 1.0F, 0.0F, 0.0F, "%.4g");
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = ImGui::InputFloat3("##value", value.data(), "%.6g");
+    ImGui::PopID();
+    return isChanged;
 }
 
 bool editOptionalColor(const char* label, std::optional<std::array<u8, 4>>& color) {
+    drawPropertyLabel(label);
     ImGui::PushID(label);
     bool isSet = color.has_value();
-    bool isChanged = ImGui::Checkbox("##set", &isSet);
+    bool isChanged = drawSetBox(isSet);
     if (isChanged) {
         color = isSet ? std::optional(color.value_or(std::array<u8, 4>{255, 255, 255, 255}))
                       : std::nullopt;
     }
-    ImGui::SameLine();
     ImGui::BeginDisabled(!isSet);
     const std::array<u8, 4> current = color.value_or(std::array<u8, 4>{255, 255, 255, 255});
     std::array<f32, 4> edited{};
     for (usize i = 0; i < 4; ++i) {
         edited[i] = static_cast<f32>(current[i]) / 255.0F;
     }
-    if (ImGui::ColorEdit4(label, edited.data(), ImGuiColorEditFlags_Uint8) && isSet) {
+    if (ImGui::ColorEdit4("##value", edited.data(), ImGuiColorEditFlags_Uint8) && isSet) {
         std::array<u8, 4> stored{};
         for (usize i = 0; i < 4; ++i) {
-            stored[i] = static_cast<u8>(std::clamp(edited[i], 0.0F, 1.0F) * 255.0F + 0.5F);
+            stored[i] = static_cast<u8>((std::clamp(edited[i], 0.0F, 1.0F) * 255.0F) + 0.5F);
         }
         color = stored;
         isChanged = true;
@@ -157,9 +190,13 @@ bool editOptionalColor(const char* label, std::optional<std::array<u8, 4>>& colo
 
 bool editObject(const char* label, std::optional<std::string>& object, const EditContext& context,
                 const std::string_view inherited) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
     std::string typed = object.value_or("");
     const std::string empty = std::format("{} (inherited)", inherited);
-    if (!drawPicker(label, typed, context.objects, empty.c_str())) {
+    const bool isChanged = drawPicker("##value", typed, context.objects, empty.c_str());
+    ImGui::PopID();
+    if (!isChanged) {
         return false;
     }
     object = typed.empty() ? std::nullopt : std::optional(typed);
@@ -168,19 +205,25 @@ bool editObject(const char* label, std::optional<std::string>& object, const Edi
 
 bool editSymbol(const char* label, std::string& symbol, const std::optional<std::string>& object,
                 const std::span<const object::AssetKind> kinds, const EditContext& context) {
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
     const std::vector<object::ObjectAsset>* assets =
         object ? context.symbolCatalog.findSymbols(*object) : nullptr;
     const std::vector<std::string> names =
         assets != nullptr ? listSymbols(*assets, kinds) : std::vector<std::string>{};
-    const bool isChanged = drawPicker(label, symbol, names, nullptr);
-    if (object && assets == nullptr) {
-        ImGui::SameLine();
-        ImGui::TextColored(core::palette::TextMuted, "reading %s…", object->c_str());
-    } else if (assets != nullptr && !symbol.empty() &&
-               !std::ranges::contains(*assets, symbol, &object::ObjectAsset::name)) {
-        ImGui::SameLine();
-        ImGui::TextColored(core::palette::Warning, "not in %s", object->c_str());
+    const bool isMissing = assets != nullptr && !symbol.empty() &&
+                           !std::ranges::contains(*assets, symbol, &object::ObjectAsset::name);
+    if (isMissing) {
+        ImGui::PushStyleColor(ImGuiCol_Text, core::palette::Warning);
     }
+    const bool isChanged = drawPicker("##value", symbol, names, nullptr);
+    if (isMissing) {
+        ImGui::PopStyleColor();
+        ImGui::SetItemTooltip("%s is not in %s", symbol.c_str(), object->c_str());
+    } else if (object && assets == nullptr) {
+        ImGui::SetItemTooltip("Reading %s", object->c_str());
+    }
+    ImGui::PopID();
     return isChanged;
 }
 
@@ -197,12 +240,21 @@ bool editOptionalSymbol(const char* label, std::optional<std::string>& symbol,
 }
 
 bool editActor(const char* label, std::string& actor, const EditContext& context) {
-    return drawPicker(label, actor, context.actors, nullptr);
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = drawPicker("##value", actor, context.actors, nullptr);
+    ImGui::PopID();
+    return isChanged;
 }
 
 bool editHex(const char* label, u16& value) {
-    return ImGui::InputScalar(label, ImGuiDataType_U16, &value, nullptr, nullptr, "%04X",
-                              ImGuiInputTextFlags_CharsHexadecimal);
+    drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged =
+        ImGui::InputScalar("##value", ImGuiDataType_U16, &value, nullptr, nullptr, "%04X",
+                           ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::PopID();
+    return isChanged;
 }
 
 bool drawIconButton(const char* icon, const char* tooltip) {

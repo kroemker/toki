@@ -300,7 +300,7 @@ void ScenePanel::drawActorMenu(const SceneActorModel& model,
             return actor::addVariantForParams(checkout, entry, placement);
         });
     }
-    if (ImGui::MenuItem("Edit actor", nullptr, false, openActorEditor != nullptr)) {
+    if (ImGui::MenuItem("Edit in the Actor Database", nullptr, false, openActorEditor != nullptr)) {
         openActorEditor(model.enumName);
     }
 }

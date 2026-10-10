@@ -23,14 +23,23 @@ struct EditContext {
     std::span<const std::string> actors;
 };
 
+/// Starts a table of property rows, each a label on the left and its input
+/// filling the rest. Every `edit` function below draws one row, and must be
+/// called between this and `endProperties` when it returns true.
+[[nodiscard]] bool beginProperties(const char* id);
+
+void endProperties();
+
+/// Starts one property row with `label` on the left, and readies the input
+/// column for the widget drawn next, which fills it.
+void drawPropertyLabel(std::string_view label);
+
 [[nodiscard]] bool editText(const char* label, std::string& text);
 
 [[nodiscard]] bool editNotes(const char* label, std::string& text);
 
-/// Text that is left out when empty.
-[[nodiscard]] bool editOptionalText(const char* label, std::optional<std::string>& text);
-
-/// A number that is left out unless its box is ticked; `shown` while it is.
+/// A number that is left out unless its box is ticked, typed in; `shown`
+/// while it is left out.
 [[nodiscard]] bool editOptionalNumber(const char* label, std::optional<f32>& value, f32 shown);
 
 [[nodiscard]] bool editVector(const char* label, std::array<f32, 3>& value);
@@ -38,44 +47,50 @@ struct EditContext {
 /// A colour that is left out unless its box is ticked.
 [[nodiscard]] bool editOptionalColor(const char* label, std::optional<std::array<u8, 4>>& color);
 
-/// One of the names `names` gives an enum.
+/// One of the values `names` gives an enum, shown by its label.
 template <typename Enum, usize Count>
 [[nodiscard]] bool editName(const char* label, Enum& value,
                             const std::array<EntryName<Enum>, Count>& names) {
+    drawPropertyLabel(label);
     bool isChanged = false;
-    if (ImGui::BeginCombo(label, std::string(getEntryName(names, value)).c_str())) {
+    ImGui::PushID(label);
+    if (ImGui::BeginCombo("##value", std::string(getEntryLabel(names, value)).c_str())) {
         for (const EntryName<Enum>& name : names) {
-            if (ImGui::Selectable(std::string(name.name).c_str(), name.value == value)) {
+            if (ImGui::Selectable(std::string(name.label).c_str(), name.value == value)) {
                 isChanged = value != name.value;
                 value = name.value;
             }
         }
         ImGui::EndCombo();
     }
+    ImGui::PopID();
     return isChanged;
 }
 
-/// One of the names `names` gives an enum, or `inherited` to leave it out.
+/// One of the values `names` gives an enum, or `unset` to leave it out.
 template <typename Enum, usize Count>
 [[nodiscard]] bool editOptionalName(const char* label, std::optional<Enum>& value,
                                     const std::array<EntryName<Enum>, Count>& names,
-                                    const char* inherited) {
+                                    const char* unset) {
+    drawPropertyLabel(label);
     bool isChanged = false;
+    ImGui::PushID(label);
     const std::string shown =
-        value ? std::string(getEntryName(names, *value)) : std::string(inherited);
-    if (ImGui::BeginCombo(label, shown.c_str())) {
-        if (ImGui::Selectable(inherited, !value)) {
+        value ? std::string(getEntryLabel(names, *value)) : std::string(unset);
+    if (ImGui::BeginCombo("##value", shown.c_str())) {
+        if (ImGui::Selectable(unset, !value)) {
             isChanged = value.has_value();
             value.reset();
         }
         for (const EntryName<Enum>& name : names) {
-            if (ImGui::Selectable(std::string(name.name).c_str(), value == name.value)) {
+            if (ImGui::Selectable(std::string(name.label).c_str(), value == name.value)) {
                 isChanged = value != name.value;
                 value = name.value;
             }
         }
         ImGui::EndCombo();
     }
+    ImGui::PopID();
     return isChanged;
 }
 
