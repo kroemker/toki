@@ -1,6 +1,7 @@
 #include "ParamsEditor.h"
 
 #include "app/actor/Types.h"
+#include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
@@ -33,7 +34,7 @@ constexpr std::array ParamColors{
     return ParamColors[index % ParamColors.size()];
 }
 
-[[nodiscard]] ImVec4 dim(const ImVec4 color) {
+[[nodiscard]] ImVec4 makeDimmed(const ImVec4 color) {
     return ImVec4(color.x * 0.55F, color.y * 0.55F, color.z * 0.55F, 1.0F);
 }
 
@@ -48,6 +49,29 @@ constexpr std::array ParamColors{
     return std::format("{}  ·  mask 0x{:04X}", bits, param.mask);
 }
 
+[[nodiscard]] std::optional<std::string>
+findNameProblem(const ActorEntry& entry, const ActorParam& param, const std::string& name) {
+    if (name.empty()) {
+        return "A param needs a name";
+    }
+    if (isBuiltInParam(name)) {
+        return std::format("'{}' is built in", name);
+    }
+    if (name != param.name && std::ranges::contains(entry.params, name, &ActorParam::name)) {
+        return std::format("Another param is named '{}'", name);
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] bool isValueTaken(const ActorParam& param, const s64 value, const usize except) {
+    for (usize i = 0; i < param.values.size(); ++i) {
+        if (i != except && param.values[i].value == value) {
+            return true;
+        }
+    }
+    return false;
+}
+
 [[nodiscard]] std::string makeNewName(const ActorEntry& entry) {
     for (usize i = 1;; ++i) {
         std::string name = std::format("Param {}", i);
@@ -59,10 +83,27 @@ constexpr std::array ParamColors{
 
 } // namespace
 
-bool ParamsEditor::draw(ActorEntry& entry) {
-    if (selected && *selected >= entry.params.size()) {
-        selected.reset();
+std::optional<usize> ParamsEditor::findSelected(const ActorEntry& entry) const {
+    if (!selected) {
+        return std::nullopt;
     }
+    const auto found = std::ranges::find(entry.params, *selected, &ActorParam::name);
+    return found == entry.params.end()
+               ? std::nullopt
+               : std::optional(static_cast<usize>(found - entry.params.begin()));
+}
+
+void ParamsEditor::select(const ActorEntry& entry, const std::optional<usize> index) {
+    selected = index ? std::optional(entry.params[*index].name) : std::nullopt;
+    isNameEdited = false;
+}
+
+bool ParamsEditor::draw(ActorEntry& entry) {
+    if (entry.actor != editedActor) {
+        editedActor = entry.actor;
+        select(entry, std::nullopt);
+    }
+    const std::optional<usize> selectedIndex = findSelected(entry);
     bool isChanged = false;
     std::vector<ParamSource> sources{ParamSource::Params};
     for (const ActorParam& param : entry.params) {
@@ -70,8 +111,8 @@ bool ParamsEditor::draw(ActorEntry& entry) {
             sources.push_back(param.source);
         }
     }
-    if (selected && !std::ranges::contains(sources, entry.params[*selected].source)) {
-        sources.push_back(entry.params[*selected].source);
+    if (selectedIndex && !std::ranges::contains(sources, entry.params[*selectedIndex].source)) {
+        sources.push_back(entry.params[*selectedIndex].source);
     }
     std::ranges::sort(sources);
     for (const ParamSource source : sources) {
@@ -81,6 +122,7 @@ bool ParamsEditor::draw(ActorEntry& entry) {
 }
 
 bool ParamsEditor::drawStrip(ActorEntry& entry, const ParamSource source) {
+    ImGui::PushID("strip");
     ImGui::PushID(static_cast<int>(source));
     ImGui::AlignTextToFramePadding();
     const std::string_view label = getEntryLabel(ParamSourceNames, source);
@@ -94,17 +136,19 @@ bool ParamsEditor::drawStrip(ActorEntry& entry, const ParamSource source) {
         }
     }
     ImGui::PopID();
+    ImGui::PopID();
     return isChanged;
 }
 
 bool ParamsEditor::drawBit(ActorEntry& entry, const ParamSource source, const u8 bit) {
+    const std::optional<usize> selectedIndex = findSelected(entry);
     const std::optional<usize> owner = findBitOwner(entry.params, source, bit);
-    const bool isSelectable = selected && entry.params[*selected].source == source;
-    const bool isMine = owner && owner == selected;
+    const bool isSelectable = selectedIndex && entry.params[*selectedIndex].source == source;
+    const bool isMine = owner && owner == selectedIndex;
     const bool isTaken = owner && !isMine;
     const ImVec4 color = owner ? findParamColor(*owner) : core::palette::SurfaceRaised;
     ImGui::PushID(bit);
-    ImGui::PushStyleColor(ImGuiCol_Button, isMine || !selected ? color : dim(color));
+    ImGui::PushStyleColor(ImGuiCol_Button, isMine || !selectedIndex ? color : makeDimmed(color));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, owner ? color : core::palette::SurfaceHovered);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, owner ? color : core::palette::SurfaceActive);
     ImGui::BeginDisabled(isTaken || !isSelectable);
@@ -122,13 +166,15 @@ bool ParamsEditor::drawBit(ActorEntry& entry, const ParamSource source, const u8
     if (!isClicked) {
         return false;
     }
-    entry.params[*selected].mask ^= static_cast<u16>(1U << bit);
+    entry.params[*selectedIndex].mask ^= static_cast<u16>(1U << bit);
     return true;
 }
 
 bool ParamsEditor::drawList(ActorEntry& entry) {
+    const std::optional<usize> selectedIndex = findSelected(entry);
     bool isChanged = false;
     std::optional<usize> removed;
+    ImGui::PushID("list");
     for (usize i = 0; i < entry.params.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         ImGui::ColorButton("##color", findParamColor(i), ImGuiColorEditFlags_NoTooltip);
@@ -136,8 +182,9 @@ bool ParamsEditor::drawList(ActorEntry& entry) {
         const std::string label = std::format("{}  ·  {}, {}", entry.params[i].name,
                                               getEntryLabel(ParamKindNames, entry.params[i].kind),
                                               describeBits(entry.params[i]));
-        if (ImGui::Selectable(label.c_str(), selected == i, ImGuiSelectableFlags_AllowOverlap)) {
-            selected = selected == i ? std::nullopt : std::optional(i);
+        if (ImGui::Selectable(label.c_str(), selectedIndex == i,
+                              ImGuiSelectableFlags_AllowOverlap)) {
+            select(entry, selectedIndex == i ? std::nullopt : std::optional(i));
         }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() -
                         ImGui::GetFrameHeight());
@@ -146,19 +193,20 @@ bool ParamsEditor::drawList(ActorEntry& entry) {
         }
         ImGui::PopID();
     }
+    ImGui::PopID();
     if (removed) {
         entry.params.erase(entry.params.begin() + static_cast<std::ptrdiff_t>(*removed));
-        selected.reset();
+        select(entry, std::nullopt);
         isChanged = true;
     }
     if (ImGui::Button("Add a param")) {
         entry.params.push_back(ActorParam{.name = makeNewName(entry)});
-        selected = entry.params.size() - 1;
+        select(entry, entry.params.size() - 1);
         isChanged = true;
     }
-    if (selected) {
-        ImGui::SeparatorText(entry.params[*selected].name.c_str());
-        isChanged = drawParam(entry, entry.params[*selected]) || isChanged;
+    if (const std::optional<usize> edited = findSelected(entry)) {
+        ImGui::SeparatorText(entry.params[*edited].name.c_str());
+        isChanged = drawParam(entry, entry.params[*edited]) || isChanged;
     }
     return isChanged;
 }
@@ -167,12 +215,25 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param) {
     if (!beginProperties("param")) {
         return false;
     }
-    std::string name = param.name;
     bool isChanged = false;
-    if (editText("Name", name) && !name.empty() &&
-        !std::ranges::contains(entry.params, name, &ActorParam::name)) {
+    if (!isNameEdited) {
+        nameText = param.name;
+    }
+    drawPropertyLabel("Name");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const bool isNameChanged = ImGui::InputText("##name", &nameText);
+    isNameEdited = ImGui::IsItemActive();
+    const std::optional<std::string> nameProblem = findNameProblem(entry, param, nameText);
+    if (isNameChanged && !nameProblem && nameText != param.name) {
+        const std::string name = nameText;
         renameParam(entry, param.name, name);
+        selected = name;
         isChanged = true;
+    }
+    if (nameProblem && nameText != param.name) {
+        drawPropertyLabel("");
+        ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning,
+                           nameProblem->c_str());
     }
     isChanged = editName("Kind", param.kind, ParamKindNames) || isChanged;
     const ParamSource source = param.source;
@@ -215,8 +276,12 @@ bool ParamsEditor::drawChoices(ActorParam& param) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
-            isChanged = ImGui::InputScalar("##value", ImGuiDataType_S64, &param.values[i].value) ||
-                        isChanged;
+            s64 value = param.values[i].value;
+            if (ImGui::InputScalar("##value", ImGuiDataType_S64, &value) &&
+                !isValueTaken(param, value, i)) {
+                param.values[i].value = value;
+                isChanged = true;
+            }
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
             isChanged = ImGui::InputText("##label", &param.values[i].label) || isChanged;
@@ -233,7 +298,9 @@ bool ParamsEditor::drawChoices(ActorParam& param) {
         isChanged = true;
     }
     if (ImGui::SmallButton("Add a value")) {
-        const s64 next = param.values.empty() ? 0 : param.values.back().value + 1;
+        const s64 next = param.values.empty()
+                             ? 0
+                             : std::ranges::max(param.values, {}, &ChoiceValue::value).value + 1;
         param.values.push_back(ChoiceValue{.value = next, .label = std::format("Value {}", next)});
         isChanged = true;
     }

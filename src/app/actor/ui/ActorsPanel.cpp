@@ -66,6 +66,13 @@ ActorsPanel::ActorsPanel(const workspace::WorkspaceService& workspaceService,
       symbolCatalog(symbolCatalog) {}
 
 void ActorsPanel::setDatabase(DatabaseSnapshot read) {
+    if (snapshot && snapshot->files != read.files) {
+        if (isDirty) {
+            saveDraft();
+        }
+        selected.reset();
+        draft.reset();
+    }
     snapshot = std::move(read);
     areRowsStale = true;
     if (selected && !isDirty) {
@@ -95,16 +102,18 @@ void ActorsPanel::select(const std::string& actor) {
 
 void ActorsPanel::saveDraft() {
     isDirty = false;
-    if (!draft) {
+    if (!draft || !snapshot) {
         return;
     }
-    databaseStore.edit(
-        [entry = *draft](ActorDatabase& database) { return setEntry(database, entry); });
+    databaseStore.editFile(snapshot->files.checkout, [entry = *draft](ActorDatabase& database) {
+        return setEntry(database, entry);
+    });
 }
 
 void ActorsPanel::deriveSelected() {
     isDirty = false;
-    databaseStore.edit(
+    databaseStore.editFile(
+        snapshot->files.checkout,
         [workspace = workspaceService.getSharedWorkspace(), builtIn = snapshot->builtIn,
          actor = *selected](ActorDatabase& database) -> std::expected<void, std::string> {
             if (workspace == nullptr) {
@@ -225,9 +234,10 @@ void ActorsPanel::drawEditorHeader() {
         ImGui::SameLine();
         if (ImGui::SmallButton("Remove the entry")) {
             isDirty = false;
-            databaseStore.edit([actor = *selected](ActorDatabase& database) {
-                return removeEntry(database, actor);
-            });
+            databaseStore.editFile(snapshot->files.checkout,
+                                   [actor = *selected](ActorDatabase& database) {
+                                       return removeEntry(database, actor);
+                                   });
         }
     } else {
         ImGui::TextColored(core::palette::TextMuted,
@@ -269,10 +279,14 @@ void ActorsPanel::drawEditor() {
             .symbolCatalog = symbolCatalog, .objects = objects, .actors = actors};
         bool isChanged = drawGeneralEditor(*draft, context);
         if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::PushID("params");
             isChanged = paramsEditor.draw(*draft) || isChanged;
+            ImGui::PopID();
         }
         ImGui::SeparatorText("Variants, tried in order");
+        ImGui::PushID("variants");
         isChanged = drawVariantsEditor(*draft, context) || isChanged;
+        ImGui::PopID();
         if (isChanged) {
             isDirty = true;
             changedAt = ImGui::GetTime();

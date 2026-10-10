@@ -137,15 +137,26 @@ constexpr f32 DefaultScale = 0.01F;
 
 [[nodiscard]] bool drawVariant(ActorEntry& entry, ActorVariant& variant,
                                const EditContext& context) {
+    ImGui::PushID("condition");
     bool isChanged = drawConditionEditor(variant.match, entry.params);
+    ImGui::PopID();
+    ImGui::PushID("looks");
     isChanged = drawLooks(entry, variant, context) || isChanged;
+    ImGui::PopID();
     ImGui::Indent();
+    ImGui::PushID("parts");
     isChanged =
         drawPartsEditor(variant.parts, variant.object ? variant.object : entry.object, context) ||
         isChanged;
+    ImGui::PopID();
+    ImGui::PushID("children");
     isChanged = drawChildren(variant.children, context) || isChanged;
+    ImGui::PopID();
     ImGui::Unindent();
-    return drawDefaultParams(variant.defaultParams) || isChanged;
+    ImGui::PushID("default");
+    isChanged = drawDefaultParams(variant.defaultParams) || isChanged;
+    ImGui::PopID();
+    return isChanged;
 }
 
 } // namespace

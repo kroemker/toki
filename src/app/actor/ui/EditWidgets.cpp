@@ -27,11 +27,8 @@ constexpr float PickerHeight = 260.0F;
 constexpr float LabelWidth = 9.0F;
 constexpr float MinimumTableWidth = 26.0F;
 
-/// The filter of the picker that is open; only one is open at a time.
 std::string pickerFilter;
 
-/// A combo listing `candidates`, filtered by what is typed, with `typed` set
-/// to the one picked. Returns whether one was.
 [[nodiscard]] bool drawPicker(const char* id, std::string& typed,
                               std::span<const std::string> candidates, const char* emptyLabel) {
     bool isChanged = false;
@@ -84,7 +81,6 @@ std::string pickerFilter;
     return names;
 }
 
-/// A checkbox before what it sets, which is drawn disabled while it is off.
 [[nodiscard]] bool drawSetBox(bool& isSet) {
     const bool isChanged = ImGui::Checkbox("##set", &isSet);
     ImGui::SameLine();

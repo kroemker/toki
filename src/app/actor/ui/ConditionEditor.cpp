@@ -106,8 +106,6 @@ namespace {
     return isChanged;
 }
 
-/// What is typed into the list of the popup that is open; only one is open at
-/// a time, and it is kept while typing so a half-typed value is not lost.
 std::string listText;
 
 [[nodiscard]] bool editList(std::vector<MatchValue>& values, const bool isNumbers) {
@@ -148,7 +146,7 @@ std::string listText;
         return false;
     }
     if (match.param == "scene" || param == nullptr) {
-        return editList(match.values, param != nullptr);
+        return editList(match.values, match.param != "scene");
     }
     if (param->kind == ParamKind::Flag) {
         const bool isSet = !match.values.empty() && match.values.front() == MatchValue(true);
