@@ -77,9 +77,11 @@ draw = "marker"
 
 [[nodiscard]] bool isReported(const toki::actor::ActorDatabase& database,
                               const std::string_view text) {
-    return std::ranges::any_of(database.diagnostics, [text](const base::Diagnostic& diagnostic) {
+    const auto isMentioning = [text](const base::Diagnostic& diagnostic) {
         return diagnostic.message.contains(text);
-    });
+    };
+    return std::ranges::any_of(database.diagnostics, isMentioning) ||
+           std::ranges::any_of(database.problems, isMentioning);
 }
 
 } // namespace
@@ -155,12 +157,14 @@ scale = "big"
 "Lamp"  = { mask = 0x8001, kind = "flag" }
 "age"   = { mask = 0x0100, kind = "number" }
 "Gap"   = { kind = "number" }
+"Wide"  = { mask = 0x10000, kind = "number" }
+"Twice" = { mask = 0x0600, kind = "choice", values = { 1 = "A", 0x1 = "B" } }
 
 [[actors.ACTOR_EN_TEST.variants]]
 parts = [{ display_list = "gTestDL" }]
 
 [[actors.ACTOR_EN_TEST.variants]]
-match = { "Type" = 2, "Missing" = 1, "Other" = true, "Lamp" = 1 }
+match = { "Type" = 2, "Missing" = 1, "Other" = true, "Lamp" = 1, "Twice" = [1, 2.5] }
 parts = [{ display_list = "gTestDL", pose = "gTestAnim" }, { skeleton = "gTestSkel", display_list = "gTestDL" }]
 )",
                                                                                 "actors.toml");
@@ -173,14 +177,20 @@ parts = [{ display_list = "gTestDL", pose = "gTestAnim" }, { skeleton = "gTestSk
     REQUIRE(isReported(database, "the bits of mask 0x8001 are not next to each other"));
     REQUIRE(isReported(database, "params.Lamp: a flag is one bit"));
     REQUIRE(isReported(database, "'age' is a param every actor has"));
-    REQUIRE(isReported(database, "params.Gap.mask: must be a mask"));
+    REQUIRE(isReported(database, "params.Gap: has no bits"));
+    REQUIRE(isReported(database, "params.Wide.mask: must be a mask of up to 16 bits"));
+    REQUIRE(isReported(database, "labels 1 again"));
     REQUIRE(isReported(database, "variants after it are never drawn"));
     REQUIRE(isReported(database, "match.Type: 2 is not one of its values"));
     REQUIRE(isReported(database, "match.Missing: is not a param"));
     REQUIRE(isReported(database, "match.Other: only a flag matches"));
     REQUIRE(isReported(database, "match.Lamp: a flag matches true or false"));
+    REQUIRE(isReported(database, "match.Twice: lists something that is not"));
     REQUIRE(isReported(database, "only a skeleton stands in a pose"));
     REQUIRE(isReported(database, "must draw either a display_list or a skeleton"));
+    REQUIRE_FALSE(std::ranges::any_of(database.diagnostics, [](const base::Diagnostic& diagnostic) {
+        return diagnostic.message.contains("shares bits");
+    }));
     const auto colour =
         std::ranges::find_if(database.diagnostics, [](const base::Diagnostic& diagnostic) {
             return diagnostic.message.contains("colour");
@@ -284,6 +294,79 @@ TEST_CASE("an actor database is saved and read back, and a missing one is empty"
 TEST_CASE("the shipped actor database reads without a diagnostic", "[actor][database]") {
     const toki::actor::ActorDatabase shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS);
 
-    INFO(describe(shipped.diagnostics));
+    INFO(describe(shipped.diagnostics) + describe(shipped.problems));
     REQUIRE(shipped.diagnostics.empty());
+    REQUIRE(shipped.problems.empty());
+}
+
+TEST_CASE("a param renamed by its own name is renamed in every match", "[actor][database]") {
+    toki::actor::ActorEntry entry{
+        .params = {toki::actor::ActorParam{.name = "type", .mask = 0x0003}},
+        .variants = {toki::actor::ActorVariant{
+            .match = {toki::actor::ParamMatch{.param = "type", .values = {s64{1}}}}}}};
+
+    toki::actor::renameParam(entry, entry.params.front().name, "Type");
+
+    REQUIRE(entry.params.front().name == "Type");
+    REQUIRE(entry.variants.front().match.front().param == "Type");
+}
+
+TEST_CASE("a match without values is kept, and matches no placement", "[actor][database]") {
+    toki::actor::ActorDatabase database;
+    database.entries["ACTOR_A"] = toki::actor::ActorEntry{
+        .actor = "ACTOR_A",
+        .params = {toki::actor::ActorParam{.name = "Type", .mask = 0x0003}},
+        .variants = {
+            toki::actor::ActorVariant{.match = {toki::actor::ParamMatch{.param = "Type"},
+                                                toki::actor::ParamMatch{.param = "scene"}}},
+            toki::actor::ActorVariant{}}};
+
+    const toki::actor::ActorDatabase read =
+        toki::actor::parseActorDatabase(toki::actor::formatActorDatabase(database), "a.toml");
+
+    INFO(describe(read.diagnostics));
+    REQUIRE(read.diagnostics.empty());
+    REQUIRE(isReported(read, "match.Type: has no values"));
+    const toki::actor::ActorEntry& entry = read.entries.at("ACTOR_A");
+    REQUIRE(entry.variants.front().match.size() == 2);
+    REQUIRE(entry.variants.front().match.front().values.empty());
+    REQUIRE(toki::actor::findVariant(entry, {.params = 0x0001, .scene = "SCENE_DEKU_TREE"}) ==
+            &entry.variants[1]);
+}
+
+TEST_CASE("a param without bits and a choice with negative values are written as they are",
+          "[actor][database]") {
+    toki::actor::ActorDatabase database;
+    database.entries["ACTOR_A"] = toki::actor::ActorEntry{
+        .actor = "ACTOR_A",
+        .params = {toki::actor::ActorParam{.name = "New"},
+                   toki::actor::ActorParam{.name = "Side",
+                                           .kind = toki::actor::ParamKind::Choice,
+                                           .mask = 0x0300,
+                                           .isSigned = true,
+                                           .values = {{.value = -2, .label = "Left"},
+                                                      {.value = 1, .label = "Right"}}}}};
+
+    const toki::actor::ActorDatabase read =
+        toki::actor::parseActorDatabase(toki::actor::formatActorDatabase(database), "a.toml");
+
+    INFO(describe(read.diagnostics));
+    REQUIRE(read.diagnostics.empty());
+    const toki::actor::ActorEntry& entry = read.entries.at("ACTOR_A");
+    REQUIRE(entry.params.size() == 2);
+    REQUIRE(entry.params[0].mask == 0);
+    REQUIRE(entry.params[1].values.size() == 2);
+    REQUIRE(entry.params[1].values[0].value == -2);
+    REQUIRE(entry.params[1].values[0].label == "Left");
+}
+
+TEST_CASE("a database path that is not a file is a diagnostic, not an empty database",
+          "[actor][database]") {
+    const std::filesystem::path folder =
+        std::filesystem::temp_directory_path() / "toki_tests" / "actor_database_folder";
+    std::filesystem::create_directories(folder);
+
+    REQUIRE(isReported(toki::actor::readActorDatabase(folder), "is not a file"));
+    std::error_code failure;
+    std::filesystem::remove_all(folder, failure);
 }

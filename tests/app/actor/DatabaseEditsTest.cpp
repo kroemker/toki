@@ -49,6 +49,17 @@ parts = [{ display_list = "gPotDL" }]
     return database.entries.at("ACTOR_OBJ_TSUBO");
 }
 
+[[nodiscard]] toki::actor::DatabaseSnapshot waitForSnapshot(toki::actor::DatabaseStore& store) {
+    std::optional<toki::actor::DatabaseSnapshot> snapshot;
+    while (store.isBusy() || !snapshot) {
+        if (std::optional<toki::actor::DatabaseSnapshot> read = store.update()) {
+            snapshot = std::move(read);
+        }
+        std::this_thread::yield();
+    }
+    return *snapshot;
+}
+
 [[nodiscard]] std::filesystem::path makeTemporaryFolder(const std::string_view name) {
     const std::filesystem::path folder =
         std::filesystem::temp_directory_path() / "toki_tests" / name;
@@ -137,18 +148,8 @@ TEST_CASE("the store reads the database, edits it, and reads it again", "[actor]
     const toki::actor::ActorEntry pot = readPot();
     {
         toki::actor::DatabaseStore store;
-        const auto waitForSnapshot = [&store] {
-            std::optional<toki::actor::DatabaseSnapshot> snapshot;
-            while (store.isBusy() || !snapshot) {
-                if (std::optional<toki::actor::DatabaseSnapshot> read = store.update()) {
-                    snapshot = std::move(read);
-                }
-                std::this_thread::yield();
-            }
-            return *snapshot;
-        };
         store.open(files, nullptr);
-        const toki::actor::DatabaseSnapshot opened = waitForSnapshot();
+        const toki::actor::DatabaseSnapshot opened = waitForSnapshot(store);
         REQUIRE(opened.builtIn.entries.contains("ACTOR_OBJ_TSUBO"));
         REQUIRE(opened.database.entries.empty());
 
@@ -161,7 +162,7 @@ TEST_CASE("the store reads the database, edits it, and reads it again", "[actor]
                 return toki::actor::setEntry(database, pot);
             });
         }
-        const toki::actor::DatabaseSnapshot edited = waitForSnapshot();
+        const toki::actor::DatabaseSnapshot edited = waitForSnapshot(store);
         REQUIRE(edited.database.entries.size() == 1);
         REQUIRE(store.takeFailures().size() == 1);
         REQUIRE(store.takeFailures().empty());
@@ -192,6 +193,8 @@ TEST_CASE("a checkout without a database is seeded from Toki's own and derived f
             std::this_thread::yield();
         }
         REQUIRE(store.takeFailures().empty());
+        REQUIRE(snapshot->files == files);
+        REQUIRE(snapshot->database.diagnostics.empty());
         REQUIRE(snapshot->database.entries.at("ACTOR_EN_BOX").name == "Treasure chest");
         REQUIRE(snapshot->database.entries.contains("ACTOR_PLAYER"));
         REQUIRE(toki::actor::listNewActors(workspace->getTables(), snapshot->database).empty());
@@ -220,4 +223,67 @@ TEST_CASE("an actor is derived from Toki's own entry, or else from its C", "[act
     REQUIRE(database.entries.at("ACTOR_PLAYER").variants.empty());
     REQUIRE_FALSE(
         toki::actor::deriveEntries(database, *loaded, builtIn, {"ACTOR_UNSET_1"}).has_value());
+}
+
+TEST_CASE("an edit is written over what the checks find, never over what could not be read",
+          "[actor][edits]") {
+    const std::filesystem::path folder = makeTemporaryFolder("database_problems");
+    std::filesystem::create_directories(folder);
+    const std::filesystem::path file = folder / "actors.toml";
+    const auto rename = [](toki::actor::ActorDatabase& database) {
+        database.entries.begin()->second.name = "Renamed";
+        return std::expected<void, std::string>();
+    };
+
+    std::ofstream(file) << "format = 2\n[actors.ACTOR_A.params]\n\"New\" = { kind = \"number\" }\n";
+    REQUIRE_FALSE(toki::actor::readActorDatabase(file).problems.empty());
+    REQUIRE(toki::actor::applyEdit(file, rename).has_value());
+    REQUIRE(toki::actor::readActorDatabase(file).entries.at("ACTOR_A").name == "Renamed");
+
+    std::ofstream(file) << "format = 2\n[actors.ACTOR_A]\ncolour = \"red\"\n";
+    REQUIRE_FALSE(toki::actor::applyEdit(file, rename).has_value());
+    REQUIRE(toki::actor::readActorDatabase(file).entries.at("ACTOR_A").name.empty());
+    std::error_code failure;
+    std::filesystem::remove_all(folder, failure);
+}
+
+TEST_CASE("a checkout is not seeded while Toki's own database is missing", "[actor][edits]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded = hackeroot::Workspace::load(
+        std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout", {});
+    REQUIRE(loaded.has_value());
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const std::filesystem::path folder = makeTemporaryFolder("database_unseeded");
+    const toki::actor::DatabaseFiles files{.builtIn = folder / "missing.toml",
+                                           .checkout = folder / "actors.toml"};
+    {
+        toki::actor::DatabaseStore store;
+        store.open(files, workspace);
+        const toki::actor::DatabaseSnapshot snapshot = waitForSnapshot(store);
+        REQUIRE(snapshot.database.entries.empty());
+        REQUIRE(store.takeFailures().size() == 1);
+    }
+    REQUIRE_FALSE(std::filesystem::exists(files.checkout));
+}
+
+TEST_CASE("an edit goes to the file it was asked for, not the one open", "[actor][edits]") {
+    const std::filesystem::path folder = makeTemporaryFolder("database_other_file");
+    std::filesystem::create_directories(folder);
+    const toki::actor::DatabaseFiles files{.builtIn = folder / "builtin.toml",
+                                           .checkout = folder / "open.toml"};
+    std::ofstream(files.builtIn) << Shipped;
+    const toki::actor::ActorEntry pot = readPot();
+    {
+        toki::actor::DatabaseStore store;
+        store.open(files, nullptr);
+        static_cast<void>(waitForSnapshot(store));
+        store.editFile(folder / "other.toml", [&pot](toki::actor::ActorDatabase& database) {
+            return toki::actor::setEntry(database, pot);
+        });
+        const toki::actor::DatabaseSnapshot snapshot = waitForSnapshot(store);
+        REQUIRE(snapshot.database.entries.empty());
+        REQUIRE(store.takeFailures().empty());
+    }
+    REQUIRE(toki::actor::readActorDatabase(folder / "other.toml").entries.contains(pot.actor));
+    std::error_code failure;
+    std::filesystem::remove_all(folder, failure);
 }

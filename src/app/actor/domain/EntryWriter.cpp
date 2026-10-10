@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <format>
 #include <optional>
 #include <sstream>
@@ -22,7 +23,10 @@ namespace toki::actor {
 namespace {
 
 [[nodiscard]] double makeNumber(const f32 value) {
-    return std::stod(std::format("{}", value));
+    const std::string text = std::format("{}", value);
+    double number = 0.0;
+    std::from_chars(text.data(), text.data() + text.size(), number);
+    return number;
 }
 
 [[nodiscard]] toml::value<s64> makeHex(const s64 value) {

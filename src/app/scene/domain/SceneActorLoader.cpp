@@ -22,6 +22,7 @@ namespace {
         actor::readActorDatabase(actor::makeCheckoutDatabasePath(reader.getWorkspace().getRoot()));
     SceneActors actors = readSceneActors(reader, request.scene, request.layers, database);
     std::ranges::move(database.diagnostics, std::back_inserter(actors.diagnostics));
+    std::ranges::move(database.problems, std::back_inserter(actors.diagnostics));
     return actors;
 }
 

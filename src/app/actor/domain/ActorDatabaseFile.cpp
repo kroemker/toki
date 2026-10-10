@@ -40,15 +40,27 @@ ActorDatabase parseActorDatabase(const std::string_view text, const std::filesys
     }
     ActorDatabase database = DatabaseReader(file).read(root);
     for (const auto& [name, entry] : database.entries) {
-        std::ranges::move(checkActorEntry(entry), std::back_inserter(database.diagnostics));
+        std::ranges::move(checkActorEntry(entry), std::back_inserter(database.problems));
     }
     return database;
 }
 
 ActorDatabase readActorDatabase(const std::filesystem::path& file) {
     std::error_code status;
-    if (!std::filesystem::is_regular_file(file, status)) {
+    const bool isPresent = std::filesystem::exists(file, status);
+    if (status) {
+        ActorDatabase failed;
+        failed.diagnostics.push_back(base::makeError(
+            {.file = file}, std::format("cannot be looked at: {}", status.message())));
+        return failed;
+    }
+    if (!isPresent) {
         return {};
+    }
+    if (!std::filesystem::is_regular_file(file, status)) {
+        ActorDatabase failed;
+        failed.diagnostics.push_back(base::makeError({.file = file}, "is not a file"));
+        return failed;
     }
     std::ifstream stream(file, std::ios::binary);
     if (!stream) {
@@ -74,12 +86,16 @@ std::expected<void, std::string> saveActorDatabase(const ActorDatabase& database
     {
         std::ofstream stream(written, std::ios::binary | std::ios::trunc);
         stream << formatActorDatabase(database);
+        stream.close();
         if (!stream) {
+            std::filesystem::remove(written, status);
             return std::unexpected(std::format("cannot write {}", written.string()));
         }
     }
     std::filesystem::rename(written, file, status);
     if (status) {
+        std::error_code ignored;
+        std::filesystem::remove(written, ignored);
         return std::unexpected(
             std::format("cannot replace {}: {}", file.string(), status.message()));
     }

@@ -78,14 +78,15 @@ std::optional<usize> findBitOwner(const std::span<const ActorParam> params,
 }
 
 void renameParam(ActorEntry& entry, const std::string& from, const std::string& to) {
+    const std::string oldName = from;
     for (ActorParam& param : entry.params) {
-        if (param.name == from) {
+        if (param.name == oldName) {
             param.name = to;
         }
     }
     for (ActorVariant& variant : entry.variants) {
         for (ParamMatch& match : variant.match) {
-            if (match.param == from) {
+            if (match.param == oldName) {
                 match.param = to;
             }
         }

@@ -171,7 +171,9 @@ ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::Actor
     if (drawing.kind == actor::DrawKind::Marker) {
         return drawing;
     }
-    PartReader(entry, variant, objects, diagnostics).read(drawing);
+    if (drawing.kind == actor::DrawKind::Model) {
+        PartReader(entry, variant, objects, diagnostics).read(drawing);
+    }
     for (const actor::ChildActor& child : variant.children) {
         if (const std::optional<s16> id = findActorId(child.actor)) {
             drawing.children.push_back(

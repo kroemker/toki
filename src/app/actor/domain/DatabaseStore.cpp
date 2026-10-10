@@ -30,7 +30,8 @@ namespace {
 constexpr std::chrono::milliseconds PollInterval{500};
 
 [[nodiscard]] DatabaseSnapshot readSnapshot(const DatabaseFiles& files) {
-    return DatabaseSnapshot{.database = readActorDatabase(files.checkout),
+    return DatabaseSnapshot{.files = files,
+                            .database = readActorDatabase(files.checkout),
                             .builtIn = readActorDatabase(files.builtIn)};
 }
 
@@ -58,9 +59,13 @@ void DatabaseStore::edit(Edit edit) {
         failures.emplace_back("no checkout is open, so there is no actor database to edit");
         return;
     }
+    editFile(openFiles->checkout, std::move(edit));
+}
+
+void DatabaseStore::editFile(std::filesystem::path file, Edit edit) {
     {
         const std::scoped_lock lock(mutex);
-        pending.push_back(std::move(edit));
+        pending.push_back(PendingEdit{.file = std::move(file), .edit = std::move(edit)});
     }
     wake.notify_one();
 }
@@ -85,14 +90,27 @@ std::optional<SeedingProgress> DatabaseStore::findSeeding() const {
     return seeding;
 }
 
-std::optional<std::string> DatabaseStore::seed(const Opened& opened) {
+std::optional<std::string> DatabaseStore::seed(const Opened& opened, const std::stop_token& stop) {
     std::error_code failure;
-    if (opened.workspace == nullptr || std::filesystem::exists(opened.files.checkout, failure)) {
+    const bool isSeeded = std::filesystem::exists(opened.files.checkout, failure);
+    if (failure) {
+        return std::format("{} is not seeded, since whether it exists cannot be told: {}",
+                           opened.files.checkout.string(), failure.message());
+    }
+    if (opened.workspace == nullptr || isSeeded) {
         return std::nullopt;
     }
     const ActorDatabase builtIn = readActorDatabase(opened.files.builtIn);
-    const ActorDatabase seeded =
-        makeSeededDatabase(*opened.workspace, builtIn, [this](const usize done, const usize total) {
+    if (!builtIn.diagnostics.empty() || builtIn.entries.empty()) {
+        return std::format("{} is not seeded, since Toki's own actor database {}",
+                           opened.files.checkout.string(),
+                           builtIn.diagnostics.empty()
+                               ? std::format("at {} has no entries", opened.files.builtIn.string())
+                               : std::format("does not read cleanly: {}",
+                                             base::describe(builtIn.diagnostics.front())));
+    }
+    const std::optional<ActorDatabase> seeded = makeSeededDatabase(
+        *opened.workspace, builtIn, stop, [this](const usize done, const usize total) {
             const std::scoped_lock lock(mutex);
             seeding = SeedingProgress{.done = done, .total = total};
         });
@@ -100,8 +118,11 @@ std::optional<std::string> DatabaseStore::seed(const Opened& opened) {
         const std::scoped_lock lock(mutex);
         seeding.reset();
     }
+    if (!seeded) {
+        return std::nullopt;
+    }
     if (const std::expected<void, std::string> saved =
-            saveActorDatabase(seeded, opened.files.checkout);
+            saveActorDatabase(*seeded, opened.files.checkout);
         !saved) {
         return saved.error();
     }
@@ -113,7 +134,7 @@ void DatabaseStore::runWorker(const std::stop_token& stop) {
     std::optional<hackeroot::FilePoller> poller;
     while (!stop.stop_requested()) {
         std::optional<Opened> reopened;
-        std::deque<Edit> edits;
+        std::deque<PendingEdit> edits;
         {
             std::unique_lock lock(mutex);
             wake.wait_for(lock, stop, PollInterval,
@@ -127,14 +148,17 @@ void DatabaseStore::runWorker(const std::stop_token& stop) {
         }
         std::vector<std::string> failed;
         if (reopened) {
-            if (std::optional<std::string> seedFailure = seed(*reopened)) {
+            if (std::optional<std::string> seedFailure = seed(*reopened, stop)) {
                 failed.push_back(std::move(*seedFailure));
+            }
+            if (stop.stop_requested()) {
+                return;
             }
             files = reopened->files;
             poller.emplace(std::vector{files->builtIn, files->checkout});
         }
-        for (const Edit& edit : edits) {
-            if (const std::expected<void, std::string> edited = applyEdit(files->checkout, edit);
+        for (const PendingEdit& edit : edits) {
+            if (const std::expected<void, std::string> edited = applyEdit(edit.file, edit.edit);
                 !edited) {
                 failed.push_back(edited.error());
             }
@@ -165,8 +189,6 @@ std::expected<void, std::string> applyEdit(const std::filesystem::path& file,
     if (const std::expected<void, std::string> edited = edit(database); !edited) {
         return std::unexpected(std::format("{}: {}", file.string(), edited.error()));
     }
-    std::error_code failure;
-    std::filesystem::create_directories(file.parent_path(), failure);
     if (const std::expected<void, std::string> saved = saveActorDatabase(database, file); !saved) {
         return std::unexpected(saved.error());
     }

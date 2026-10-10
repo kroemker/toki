@@ -34,6 +34,7 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/BuildCommand.h"
 #include "hackeroot/Checkout.h"
+#include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
 
 #include <imgui.h>
@@ -368,22 +369,39 @@ void App::updateActorDatabase() {
         logError("{}", failure);
     }
     std::optional<actor::DatabaseSnapshot> snapshot = databaseStore.update();
-    if (!snapshot) {
+    if (snapshot) {
+        actorDatabase = *snapshot;
+        if (actorsPanel != nullptr) {
+            actorsPanel->setDatabase(std::move(*snapshot));
+        }
+    }
+    offerNewActors(snapshot.has_value());
+}
+
+void App::offerNewActors(const bool isRead) {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (workspace == nullptr || !actorDatabase || (!isRead && workspace == offeredWorkspace) ||
+        databaseStore.getFiles() != actorDatabase->files) {
         return;
     }
-    if (const hackeroot::Workspace* workspace = workspaceService.getWorkspace()) {
-        newActorsPrompt.offer(actor::listNewActors(workspace->getTables(), snapshot->database),
-                              settings.dismissedNewActors);
+    offeredWorkspace = workspace;
+    std::vector<std::string> table;
+    for (const hackeroot::ActorEntry& actor : workspace->getTables().actors) {
+        if (!actor.isUnset) {
+            table.push_back(actor.enumName);
+        }
     }
-    builtInDatabase = snapshot->builtIn;
-    if (actorsPanel != nullptr) {
-        actorsPanel->setDatabase(std::move(*snapshot));
+    if (table == offeredActorTable) {
+        return;
     }
+    offeredActorTable = std::move(table);
+    newActorsPrompt.offer(actor::listNewActors(workspace->getTables(), actorDatabase->database),
+                          settings.dismissedNewActors);
 }
 
 void App::drawNewActorsPrompt() {
     const std::optional<actor::NewActorsAnswer> answer = newActorsPrompt.draw();
-    if (!answer) {
+    if (!answer || !actorDatabase) {
         return;
     }
     if (!answer->isDerived) {
@@ -393,7 +411,7 @@ void App::drawNewActorsPrompt() {
     }
     logInfo("deriving {} new actors into the actor database", answer->actors.size());
     databaseStore.edit([workspace = workspaceService.getSharedWorkspace(),
-                        builtIn = builtInDatabase, actors = answer->actors](
+                        builtIn = actorDatabase->builtIn, actors = answer->actors](
                            actor::ActorDatabase& database) -> std::expected<void, std::string> {
         if (workspace == nullptr) {
             return std::unexpected(std::string("no checkout is open to derive actors from"));
@@ -491,6 +509,7 @@ void App::updateBuild() {
 void App::setHackerootPath(const std::filesystem::path& path) {
     settings.hackerootPath = path;
     settings.dismissedNewActors.clear();
+    offeredActorTable.clear();
     logOk("HackerOoT folder set to {}", encodeUtf8(path));
 
     saveState();

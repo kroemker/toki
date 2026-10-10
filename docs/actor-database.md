@@ -48,10 +48,12 @@ committed with the mod and shared by everyone who works on it.
   database there (`assets/actors.toml`, installed beside the executable), then derives every
   actor the actor table lists that it does not cover, on a worker, and saves the result.
   From then on only the checkout's file is read; a later Toki with a better database of its
-  own does not change it. Deriving an entry again picks up what a newer Toki knows.
+  own does not change it. A checkout is not seeded while Toki's own database is missing or
+  does not read cleanly, nor while whether the file exists cannot be told: seeding over a
+  file that is there would replace it. Deriving an entry again picks up what a newer Toki knows.
 - **Derived.** "Derive" fills an entry from what Toki knows: its own entry for the actor
   when it has one, and otherwise what reading the actor's C finds. Deriving an actor that
-  has an entry shows what would change and asks first.
+  has an entry asks first. Showing what would change is open.
 - **New actors.** At startup and whenever the actor table changes, the table is checked
   against the file. Actors it lists that have no entry are offered: "N new actors were
   found. Derive them?" No is remembered in `config.toml` (`actors.dismissed_new`) until the
@@ -217,7 +219,10 @@ and one variant per entry of the table ([Later](#later)).
 - **Edits draw** in the open scene once they are saved, a moment after the last change.
   `actor::DatabaseStore` makes every edit on a worker: it reads the file as it is, changes
   it, and does not write one that does not read cleanly, since that would drop what could not
-  be read. The file is written with a stable order of actors and keys and params in
+  be read. What the checks find wrong with an entry (a param without bits, a match without
+  values, bits that are not next to each other) is kept as written and does not stop a
+  write: an entry half edited is often wrong for a moment. Each edit goes to the file it was
+  asked for, so a change made just before another checkout is opened lands in the first. The file is written with a stable order of actors and keys and params in
   hexadecimal, so it diffs well, beside itself first and then over itself, so a failed write
   leaves it as it was. Comments in it are not kept.
 

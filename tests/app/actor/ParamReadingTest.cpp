@@ -71,3 +71,12 @@ TEST_CASE("the match for a placement gives every param's value", "[actor][params
     REQUIRE_FALSE(std::get<bool>(findValue("Lit")));
     REQUIRE(std::get<base::s64>(findValue("Type")) == 1);
 }
+
+TEST_CASE("a signed hexadecimal param is shown with its sign before the prefix",
+          "[actor][params]") {
+    const toki::actor::ActorParam param{
+        .name = "Offset", .mask = 0x00FF, .isSigned = true, .isHex = true};
+
+    REQUIRE(toki::actor::makeParamText(param, -5) == "-0x5");
+    REQUIRE(toki::actor::makeParamText(param, 0x1F) == "0x1F");
+}

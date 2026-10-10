@@ -37,9 +37,11 @@ parts = [{ display_list = "gTreasureChestDL" }]
 
 [[nodiscard]] bool isReported(const toki::actor::ActorDatabase& database,
                               const std::string_view text) {
-    return std::ranges::any_of(database.diagnostics, [text](const base::Diagnostic& diagnostic) {
+    const auto isMentioning = [text](const base::Diagnostic& diagnostic) {
         return diagnostic.message.contains(text);
-    });
+    };
+    return std::ranges::any_of(database.diagnostics, isMentioning) ||
+           std::ranges::any_of(database.problems, isMentioning);
 }
 
 } // namespace

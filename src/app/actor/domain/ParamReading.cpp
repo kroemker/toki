@@ -20,7 +20,10 @@ std::string makeParamText(const ActorParam& param, const s64 value) {
         const auto found = std::ranges::find(param.values, value, &ChoiceValue::value);
         return found != param.values.end() ? found->label : std::format("{} (no label)", value);
     }
-    return param.isHex ? std::format("0x{:X}", value) : std::format("{}", value);
+    if (param.isHex) {
+        return value < 0 ? std::format("-0x{:X}", -value) : std::format("0x{:X}", value);
+    }
+    return std::format("{}", value);
 }
 
 std::vector<ParamReading> readParams(const ActorEntry& entry, const PlacementValues& placement) {

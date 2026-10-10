@@ -28,8 +28,10 @@ struct DatabaseFiles {
     friend bool operator==(const DatabaseFiles&, const DatabaseFiles&) = default;
 };
 
-/// The checkout's actor database as it was last read, and Toki's own.
+/// The checkout's actor database as it was last read, Toki's own, and the
+/// files they were read from.
 struct DatabaseSnapshot {
+    DatabaseFiles files;
     ActorDatabase database;
     ActorDatabase builtIn;
 };
@@ -49,7 +51,9 @@ struct SeedingProgress {
 /// and after every edit. Each edit reads the file as it is now, changes it and
 /// saves it; a file that does not read cleanly is not written, since writing
 /// it would drop what could not be read. Edits run in the order they were
-/// asked for.
+/// asked for, each on the file it was asked for, even once another checkout is
+/// open. Seeding needs Toki's own database to read cleanly, and is not done
+/// when whether the file exists cannot be told.
 ///
 /// Every member function is called from the UI thread.
 class DatabaseStore {
@@ -75,6 +79,9 @@ public:
     /// Edits the open checkout's database; without one open, it fails.
     void edit(Edit edit);
 
+    /// Edits the database in `file`, which need not be the open one's.
+    void editFile(std::filesystem::path file, Edit edit);
+
     /// The database, read since the last call, if it was.
     [[nodiscard]] std::optional<DatabaseSnapshot> update();
 
@@ -90,18 +97,26 @@ public:
 private:
     struct Opened {
         DatabaseFiles files;
+        /// Shared with the workspace service, which replaces its workspace on
+        /// a reload while seeding may still be reading this one.
         std::shared_ptr<const hackeroot::Workspace> workspace;
     };
 
+    struct PendingEdit {
+        std::filesystem::path file;
+        Edit edit;
+    };
+
     void runWorker(const std::stop_token& stop);
-    [[nodiscard]] std::optional<std::string> seed(const Opened& opened);
+    [[nodiscard]] std::optional<std::string> seed(const Opened& opened,
+                                                  const std::stop_token& stop);
 
     std::optional<DatabaseFiles> openFiles;
 
     mutable std::mutex mutex;
     std::condition_variable_any wake;
     std::optional<Opened> requested;
-    std::deque<Edit> pending;
+    std::deque<PendingEdit> pending;
     bool isWorking = false;
     std::optional<SeedingProgress> seeding;
     std::optional<DatabaseSnapshot> finished;

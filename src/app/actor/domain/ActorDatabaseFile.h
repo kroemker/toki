@@ -24,11 +24,12 @@ makeShippedDatabasePath(const std::filesystem::path& assetDirectory);
 /// Reads an actor database from the text of `actors.toml`. Whatever cannot be
 /// read is a diagnostic naming the file, the line, the actor and the key, and
 /// is left out; the rest of the file is still read. Entries are also checked
-/// as `checkActorEntry` checks them.
+/// as `checkActorEntry` checks them, into `problems`.
 [[nodiscard]] ActorDatabase parseActorDatabase(std::string_view text,
                                                const std::filesystem::path& file);
 
-/// Reads `file`. One that does not exist is an empty database, not an error.
+/// Reads `file`. One that does not exist is an empty database, not an error;
+/// one that cannot be looked at is a diagnostic.
 [[nodiscard]] ActorDatabase readActorDatabase(const std::filesystem::path& file);
 
 /// The text of `actors.toml` for `database`: actors and keys in a stable

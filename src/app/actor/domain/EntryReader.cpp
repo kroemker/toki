@@ -23,6 +23,10 @@ namespace {
 
 constexpr s64 LargestMask = 0xFFFF;
 
+[[nodiscard]] bool isParams(const s64 value) {
+    return value >= 0 && value <= LargestMask;
+}
+
 [[nodiscard]] std::optional<s64> parseNumber(std::string_view text) {
     const bool isNegative = text.starts_with('-');
     if (isNegative) {
@@ -144,8 +148,8 @@ ActorParam DatabaseReader::readParam(const std::string_view name, const toml::ta
         .name = std::string(name),
         .location = {.file = file, .line = static_cast<u32>(table.source().begin.line)}};
     const std::optional<s64> mask = readInteger(table, "mask", path);
-    if (!mask || *mask <= 0 || *mask > LargestMask) {
-        report(table, makePath(path, "mask"), "must be a mask of 1 to 16 bits, as 0x0F00");
+    if (mask && (*mask < 0 || *mask > LargestMask)) {
+        report(table, makePath(path, "mask"), "must be a mask of up to 16 bits, as 0x0F00");
     }
     param.mask = static_cast<u16>(std::clamp<s64>(mask.value_or(0), 0, LargestMask));
     param.kind = readName(table, "kind", path, ParamKindNames).value_or(ParamKind::Number);
@@ -168,6 +172,10 @@ std::vector<ChoiceValue> DatabaseReader::readChoices(const toml::table& table,
         if (!value || !node.is_string() || !label) {
             report(node, makePath(path, key.str()),
                    "must be a number set to the label shown for it");
+            continue;
+        }
+        if (std::ranges::contains(choices, *value, &ChoiceValue::value)) {
+            report(node, makePath(path, key.str()), std::format("labels {} again", *value));
             continue;
         }
         choices.push_back(ChoiceValue{.value = *value, .label = *label});
@@ -194,7 +202,12 @@ ActorVariant DatabaseReader::readVariant(const toml::table& table, const std::st
         variant.children = readChildren(*children, makePath(path, "children"));
     }
     if (const std::optional<s64> params = readInteger(table, "default_params", path)) {
-        variant.defaultParams = static_cast<u16>(*params);
+        if (isParams(*params)) {
+            variant.defaultParams = static_cast<u16>(*params);
+        } else {
+            report(*table.get("default_params"), makePath(path, "default_params"),
+                   "must be params of 16 bits, 0x0000 to 0xFFFF");
+        }
     }
     return variant;
 }
@@ -204,18 +217,20 @@ std::vector<ParamMatch> DatabaseReader::readMatch(const toml::table& table,
     std::vector<ParamMatch> match;
     for (const auto& [name, node] : table) {
         ParamMatch param{.param = std::string(name.str())};
+        const std::string at = makePath(path, name.str());
         if (const toml::array* values = node.as_array()) {
             for (const toml::node& value : *values) {
                 if (std::optional<MatchValue> read = readMatchValue(value)) {
                     param.values.push_back(std::move(*read));
+                } else {
+                    report(value, at,
+                           "lists something that is not true, false, a number or a name");
                 }
             }
         } else if (std::optional<MatchValue> read = readMatchValue(node)) {
             param.values.push_back(std::move(*read));
-        }
-        if (param.values.empty()) {
-            report(node, makePath(path, name.str()),
-                   "must be true, false, a number or a name, or a list of them");
+        } else {
+            report(node, at, "must be true, false, a number or a name, or a list of them");
             continue;
         }
         match.push_back(std::move(param));
@@ -235,9 +250,15 @@ std::vector<ChildActor> DatabaseReader::readChildren(const toml::array& children
             report(children[i], at, "must be a table with the child's actor");
             continue;
         }
+        const s64 params = readInteger(*table, "params", at).value_or(0);
+        if (!isParams(params)) {
+            report(children[i], makePath(at, "params"),
+                   "must be params of 16 bits, 0x0000 to 0xFFFF");
+            continue;
+        }
         read.push_back(ChildActor{
             .actor = *child,
-            .params = static_cast<u16>(readInteger(*table, "params", at).value_or(0)),
+            .params = static_cast<u16>(params),
             .offset = readVector<3>(*table, "offset", at).value_or(std::array<f32, 3>{})});
     }
     return read;

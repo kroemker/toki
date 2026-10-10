@@ -15,11 +15,14 @@
 namespace toki::actor {
 
 /// The actors one file says how to show, by enum name, and the HackerOoT
-/// commit the file was checked against, for Toki's own.
+/// commit the file was checked against, for Toki's own. `diagnostics` is what
+/// reading the file left out; `problems` is what `checkActorEntry` finds wrong
+/// with the entries read, which are kept as they are written.
 struct ActorDatabase {
     std::optional<std::string> checkedAgainst;
     std::map<std::string, ActorEntry, std::less<>> entries;
     std::vector<base::Diagnostic> diagnostics;
+    std::vector<base::Diagnostic> problems;
 };
 
 /// The entry of `database` for `actor`, if it has one.
@@ -53,12 +56,11 @@ struct PlacementValues {
 [[nodiscard]] bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                               const PlacementValues& placement);
 
-/// What is wrong with `entry` that reading it cannot tell: masks whose bits are
-/// not adjacent, params of one source that share a bit, choices whose values do
-/// not fit, params named as the built-in ones, matches on params the entry does
-/// not have or with values of the wrong kind, parts without a symbol or with a
-/// pose that is not a skeleton's, and variants after one that matches
-/// everything, which are never drawn.
+/// What is wrong with `entry` that reading it cannot tell: params without bits,
+/// masks whose bits are not adjacent, params of one source that share a bit, choices whose values
+/// do not fit, params named as the built-in ones, matches on params the entry does not have,
+/// without values or with values of the wrong kind, parts without a symbol or with a pose that is
+/// not a skeleton's, and variants after one that matches everything, which are never drawn.
 [[nodiscard]] std::vector<base::Diagnostic> checkActorEntry(const ActorEntry& entry);
 
 /// The first variant of `entry` whose match holds for `placement`.

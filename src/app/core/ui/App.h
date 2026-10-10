@@ -28,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace toki::core {
 
@@ -58,6 +59,7 @@ private:
     void updateSceneActors();
     void updateObject();
     void updateActorDatabase();
+    void offerNewActors(bool isRead);
     void drawNewActorsPrompt();
     void openRestoredScene();
     void applySettings(const Settings& applied);
@@ -74,8 +76,9 @@ private:
     actor::DatabaseStore databaseStore;
     actor::SymbolCatalog symbolCatalog;
     actor::NewActorsPrompt newActorsPrompt;
-    /// Toki's own actor database as last read, which deriving takes entries from.
-    actor::ActorDatabase builtInDatabase;
+    std::optional<actor::DatabaseSnapshot> actorDatabase;
+    const hackeroot::Workspace* offeredWorkspace = nullptr;
+    std::vector<std::string> offeredActorTable;
     PanelManager panels;
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;

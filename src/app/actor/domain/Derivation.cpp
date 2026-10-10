@@ -10,6 +10,8 @@
 
 #include <algorithm>
 #include <functional>
+#include <optional>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -35,13 +37,17 @@ std::vector<std::string> listNewActors(const hackeroot::Tables& tables,
     return actors;
 }
 
-ActorDatabase
+std::optional<ActorDatabase>
 makeSeededDatabase(const hackeroot::Workspace& workspace, const ActorDatabase& builtIn,
+                   const std::stop_token& stop,
                    const std::function<void(usize done, usize total)>& reportProgress) {
     ActorDatabase database{.checkedAgainst = builtIn.checkedAgainst, .entries = builtIn.entries};
     const std::vector<std::string> missing = listNewActors(workspace.getTables(), database);
     const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
     for (usize i = 0; i < missing.size(); ++i) {
+        if (stop.stop_requested()) {
+            return std::nullopt;
+        }
         reportProgress(i, missing.size());
         const auto actor = std::ranges::find(table, missing[i], &hackeroot::ActorEntry::enumName);
         database.entries.emplace(missing[i], deriveEntry(workspace, builtIn, *actor));

@@ -54,6 +54,7 @@ void EntryChecker::checkParam(const ActorParam& param) {
                std::format("'{}' is a param every actor has, and cannot be declared", param.name));
     }
     if (param.mask == 0) {
+        report(param.location, path, "has no bits");
         return;
     }
     if (!isMaskContiguous(param.mask)) {
@@ -112,6 +113,9 @@ void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) 
 void EntryChecker::checkMatch(const ActorVariant& variant, const ParamMatch& match,
                               const std::string_view path) {
     const std::string at = std::format("{}.match.{}", path, match.param);
+    if (match.values.empty()) {
+        report(variant.location, at, "has no values, so the variant matches no placement");
+    }
     if (isBuiltInParam(match.param)) {
         for (const MatchValue& value : match.values) {
             const std::string* name = std::get_if<std::string>(&value);

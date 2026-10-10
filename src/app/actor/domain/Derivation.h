@@ -6,6 +6,8 @@
 #include "hackeroot/Workspace.h"
 
 #include <functional>
+#include <optional>
+#include <stop_token>
 #include <string>
 #include <vector>
 
@@ -25,9 +27,10 @@ namespace toki::actor {
 /// A checkout's database to start from: Toki's own, with every actor the
 /// checkout's actor table lists that it does not cover derived from its
 /// overlay. `reportProgress` is told how many of the actors to derive are
-/// done, and of how many.
-[[nodiscard]] ActorDatabase
+/// done, and of how many. Nothing comes back once `stop` is requested.
+[[nodiscard]] std::optional<ActorDatabase>
 makeSeededDatabase(const hackeroot::Workspace& workspace, const ActorDatabase& builtIn,
+                   const std::stop_token& stop,
                    const std::function<void(usize done, usize total)>& reportProgress);
 
 } // namespace toki::actor
