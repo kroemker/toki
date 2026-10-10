@@ -47,32 +47,24 @@ struct ActorDraws {
 
 /// What actors are drawn after, from the game code, which is the content's
 /// first image: `sSetupDL` by index, which a model is drawn after
-/// `SETUPDL_25` of unless its steps say another, and a shadow after
-/// `SETUPDL_44` of; and `gEmptyDL` for segments 8 to 12 where an actor's
-/// `Draw` points them at nothing that could be read.
+/// `SETUPDL_25` of unless it says another; and `gEmptyDL` for segments 8 to 12
+/// where an actor's `Draw` points them at nothing that could be read.
 struct ActorSetup {
     std::vector<u32> setupDisplayLists;
     std::optional<u32> emptyDisplayList;
-    /// The frame animated actors are posed on, counted from when they started
-    /// playing; nothing to leave each on its variant's frame.
-    std::optional<usize> frame;
 };
 
-/// The setup of `code`, an image of `hackeroot::findGameCodeFiles`, for
-/// actors posed on `frame`.
-[[nodiscard]] ActorSetup makeActorSetup(const z64::MemoryImage& code,
-                                        std::optional<usize> frame = std::nullopt);
+/// The setup of `code`, an image of `hackeroot::findGameCodeFiles`.
+[[nodiscard]] ActorSetup makeActorSetup(const z64::MemoryImage& code);
 
 /// Draws every placed actor whose variant draws as `Actor_Draw` would: each
 /// skeleton and display list after its setup display list, with segment 6 or
 /// whichever its object is in pointed at the object and segments 8 to 12
 /// where its steps point them, in its colours, by the actor's matrix and its
 /// own placement; a skeleton's limbs by their matrices, laid out in segment 13
-/// for a flexible skeleton's display lists to find, and the display lists
-/// drawn with a limb by its matrix; display lists facing the camera when they
-/// are billboards; its shadow, as `ActorShadow_Draw` does, on the ground where it
-/// stands; and the children it spawns, by their own entries. Every actor's list
-/// leaves the modelview at the identity, as the rooms drawn after it expect.
+/// for a flexible skeleton's display lists to find; display lists facing the
+/// camera when they are billboards; and the children it spawns, by their own entries. Every actor's
+/// list leaves the modelview at the identity, as the rooms drawn after it expect.
 [[nodiscard]] ActorDraws makeActorDraws(const SceneActors& actors,
                                         std::span<const PlacedActor> placed, usize firstImage,
                                         const ActorSetup& setup);

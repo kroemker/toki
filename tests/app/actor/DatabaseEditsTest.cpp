@@ -56,16 +56,6 @@ display_lists = [{ name = "gPotDL" }]
 
 } // namespace
 
-TEST_CASE("a kept guess goes into the checkout's database, never over an entry", "[actor][edits]") {
-    toki::actor::ActorDatabase checkout;
-    const toki::actor::ActorEntry guess{.actor = "ACTOR_EN_ANI",
-                                        .status = toki::actor::EntryStatus::Checked};
-
-    REQUIRE(toki::actor::keepGuess(checkout, guess).has_value());
-    REQUIRE(checkout.entries.at("ACTOR_EN_ANI").status == toki::actor::EntryStatus::Guessed);
-    REQUIRE_FALSE(toki::actor::keepGuess(checkout, guess).has_value());
-}
-
 TEST_CASE("a variant for these params goes first, drawn as the one they match", "[actor][edits]") {
     toki::actor::ActorDatabase checkout;
     const toki::actor::ActorEntry pot = readPot();
@@ -103,7 +93,10 @@ TEST_CASE("an edit reads the file, changes it and saves it, unless it reads badl
     const std::filesystem::path file = toki::actor::makeCheckoutDatabasePath(folder);
     const toki::actor::ActorEntry pot = readPot();
     const auto addPot = [&pot](toki::actor::ActorDatabase& database) {
-        return toki::actor::keepGuess(database, pot);
+        if (database.entries.contains(pot.actor)) {
+            return std::expected<void, std::string>(std::unexpected(std::string("already there")));
+        }
+        return toki::actor::setCheckoutEntry(database, pot);
     };
 
     REQUIRE(toki::actor::applyEdit(file, addPot).has_value());
@@ -159,7 +152,11 @@ TEST_CASE("the store reads both files, edits the checkout's, and reads them agai
 
         for (int i = 0; i < 2; ++i) {
             store.edit([&pot](toki::actor::ActorDatabase& database) {
-                return toki::actor::keepGuess(database, pot);
+                if (database.entries.contains(pot.actor)) {
+                    return std::expected<void, std::string>(
+                        std::unexpected(std::string("already there")));
+                }
+                return toki::actor::setCheckoutEntry(database, pot);
             });
         }
         const toki::actor::DatabaseSnapshot edited = waitForSnapshot();

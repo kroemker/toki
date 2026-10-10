@@ -108,20 +108,6 @@ SettingsWindow::SettingsWindow() {
         .isChanged = [this, defaults] { return draft.log.maxEntries != defaults.log.maxEntries; },
         .reset = [this, defaults] { draft.log.maxEntries = defaults.log.maxEntries; },
     });
-    entries.push_back(Entry{
-        .category = "Viewport",
-        .label = "Animate actors",
-        .help = "Placed actors play their animation at the game's 20 frames a second, rather "
-                "than stand on its first frame. The viewport then draws continuously.",
-        .drawControl =
-            [this] { ImGui::Checkbox("##animateActors", &draft.viewport.animatesActors); },
-        .isChanged =
-            [this, defaults] {
-                return draft.viewport.animatesActors != defaults.viewport.animatesActors;
-            },
-        .reset = [this,
-                  defaults] { draft.viewport.animatesActors = defaults.viewport.animatesActors; },
-    });
 }
 
 void SettingsWindow::open(const Settings& current) {

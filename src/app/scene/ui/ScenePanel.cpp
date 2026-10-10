@@ -55,9 +55,6 @@ void ScenePanel::setScene(Scene read) {
     } else {
         sceneView = isNew ? makeSceneView(read) : keepSceneView(read, std::move(sceneView));
     }
-    if (animatesActors && !sceneView.actorFrame) {
-        sceneView.actorFrame = 0;
-    }
     if (!isNew) {
         read.actors = std::move(scene->actors);
     }
@@ -103,33 +100,7 @@ void ScenePanel::setActors(SceneActors actors) {
     }
 }
 
-void ScenePanel::setAnimatesActors(const bool animates) {
-    animatesActors = animates;
-    sceneView.actorFrame = animates ? std::optional<usize>(0) : std::nullopt;
-    frameTime = 0.0F;
-    showScene();
-}
-
-void ScenePanel::advanceActors() {
-    constexpr f32 SecondsPerFrame = 1.0F / 20.0F;
-    if (!animatesActors || !scene || !hasAnimatedActors(scene->actors)) {
-        return;
-    }
-    frameTime += ImGui::GetIO().DeltaTime;
-    if (frameTime < SecondsPerFrame) {
-        return;
-    }
-    usize frame = sceneView.actorFrame.value_or(0);
-    while (frameTime >= SecondsPerFrame) {
-        frameTime -= SecondsPerFrame;
-        ++frame;
-    }
-    sceneView.actorFrame = frame;
-    viewportPanel.setNextFrame(makeSceneContent(*scene, sceneView));
-}
-
 void ScenePanel::draw() {
-    advanceActors();
     if (!scene || scene->layers.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
@@ -259,12 +230,9 @@ bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position
     const auto model = scene->actors.models.find(actorId);
     const std::optional<ActorDescription> description =
         model != scene->actors.models.end()
-            ? std::optional(describeActor(model->second, placement,
-                                          findLayerTime(scene->layers[sceneView.layer].index),
-                                          loadedObjects))
+            ? std::optional(describeActor(model->second, placement, loadedObjects))
             : std::nullopt;
     const bool isDrawn = description && description->isDrawn;
-    const bool isSpawned = !description || description->spawn.isSpawned;
     ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",
                        isDrawn ? core::icons::Cube : core::icons::Diamond);
     ImGui::SameLine();
@@ -276,13 +244,7 @@ bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position
     }
     const std::string text =
         std::format("{}##{}_{}_{}_{}", name, actorId, position[0], position[1], position[2]);
-    if (!isSpawned) {
-        ImGui::PushStyleColor(ImGuiCol_Text, core::palette::TextDisabled);
-    }
     const bool isClicked = ImGui::Selectable(text.c_str());
-    if (!isSpawned) {
-        ImGui::PopStyleColor();
-    }
     if (isClicked) {
         viewportPanel.focus(makePoint(position));
     }
@@ -323,15 +285,6 @@ void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& p
         }
         ImGui::EndTable();
     }
-    if (!description.spawn.needs.empty()) {
-        std::string needs;
-        for (const std::string& need : description.spawn.needs) {
-            needs += needs.empty() ? need : ", " + need;
-        }
-        ImGui::TextColored(
-            description.spawn.isSpawned ? core::palette::TextMuted : core::palette::Warning,
-            "%s %s", description.spawn.isSpawned ? "Spawns" : "Not in this layer:", needs.c_str());
-    }
     ImGui::Separator();
     for (const std::string& line : description.lines) {
         ImGui::TextUnformatted(line.c_str());
@@ -347,11 +300,6 @@ void ScenePanel::drawActorMenu(const SceneActorModel& model,
     if (!model.entry) {
         ImGui::TextDisabled("No entry to edit");
         return;
-    }
-    if (ImGui::MenuItem("Keep this guess", nullptr, false, description.canKeepGuess)) {
-        databaseStore.edit([entry = *model.entry](actor::ActorDatabase& checkout) {
-            return actor::keepGuess(checkout, entry);
-        });
     }
     if (ImGui::MenuItem("Add a variant for these params", nullptr, false,
                         description.canAddVariant)) {

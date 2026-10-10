@@ -27,13 +27,6 @@ struct LogSettings {
     usize maxEntries = Log::DefaultMaxEntries;
 };
 
-/// How the viewport draws.
-struct ViewportSettings {
-    /// Whether placed actors play their animation, rather than stand on its
-    /// first frame.
-    bool animatesActors = false;
-};
-
 /// Where an orbit camera stood: the point it circles, its angles in degrees,
 /// and how far it is from the point.
 struct CameraPose {
@@ -68,7 +61,6 @@ struct Settings {
 
     std::optional<WindowGeometry> window;
     LogSettings log;
-    ViewportSettings viewport;
     std::optional<std::vector<std::string>> openPanels;
 
     /// Kept beside `openPanels` so a panel in neither list is one this config

@@ -37,13 +37,6 @@ constexpr u8 FirstActorSegment = 0x08;
 constexpr u8 LastActorSegment = 0x0C;
 constexpr usize CodeImage = 0;
 
-/// `gDPSetCombineLERP(0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0,
-/// COMBINED, 0, 0, 0, COMBINED)`, as `ActorShadow_Draw` sets it.
-constexpr u32 ShadowCombine0 =
-    (15U << 20) | (31U << 15) | (1U << 12) | (3U << 9) | (15U << 5) | 31U;
-constexpr u32 ShadowCombine1 = (15U << 28) | (3U << 15) | (7U << 12) | (7U << 9) | (15U << 24) |
-                               (7U << 21) | (7U << 18) | (7U << 3);
-
 [[nodiscard]] f32 makeRadians(const s16 angle) {
     return static_cast<f32>(angle) * BinaryAngleToRadians;
 }
@@ -74,16 +67,6 @@ void setColors(n64::DisplayListWriter& writer, const actor::DrawColors& colors) 
     }
 }
 
-[[nodiscard]] glm::mat4 makeShadowMatrix(const PlacedActor& actor, const ActorDrawing& drawing) {
-    glm::mat4 matrix = glm::translate(
-        glm::mat4(1.0F), glm::vec3(actor.position[0], actor.position[1], actor.position[2]));
-    if (drawing.shadow->turnsWithActor) {
-        matrix = glm::rotate(matrix, makeRadians(actor.rotation[1]), glm::vec3(0.0F, 1.0F, 0.0F));
-    }
-    const f32 size = drawing.shadow->size * drawing.scale;
-    return glm::scale(matrix, glm::vec3(size, 1.0F, size));
-}
-
 [[nodiscard]] std::optional<u32> findSetup(const ActorSetup& setup, const usize index) {
     return index < setup.setupDisplayLists.size() ? std::optional(setup.setupDisplayLists[index])
                                                   : std::nullopt;
@@ -99,8 +82,6 @@ public:
     void writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4& actorMatrix);
 
     void writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent);
-
-    void writeShadow(const ActorShadow& shadow, const glm::mat4& shadowMatrix);
 
     [[nodiscard]] z64::MemoryImage makeImage() const {
         z64::MemoryImage image;
@@ -122,8 +103,6 @@ private:
         return pass == actor::Pass::Translucent ? draws.translucent : draws.opaque;
     }
 
-    [[nodiscard]] object::Pose poseSkeleton(const SkeletonDrawing& skeleton) const;
-
     [[nodiscard]] std::optional<glm::vec3> findLookAtTarget(const DrawState& state) const {
         return state.isHilit ? std::optional(position) : std::nullopt;
     }
@@ -136,18 +115,8 @@ private:
     glm::vec3 position;
 };
 
-object::Pose ActorWriter::poseSkeleton(const SkeletonDrawing& skeleton) const {
-    if (!setup.frame || !skeleton.animation || skeleton.animation->animation.frameCount == 0) {
-        return skeleton.pose;
-    }
-    const ActorAnimation& animated = *skeleton.animation;
-    const usize frame = (*setup.frame + skeleton.frame) % animated.animation.frameCount;
-    return object::poseSkeleton(animated.skeleton,
-                                object::makeJointTable(animated.animation, frame));
-}
-
 void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4& actorMatrix) {
-    const object::Pose pose = poseSkeleton(skeleton);
+    const object::Pose& pose = skeleton.pose;
     const glm::mat4 placed = actorMatrix * skeleton.state.placement;
     std::vector<u32> matrices;
     matrices.reserve(pose.drawn.size());
@@ -172,11 +141,6 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
                 makeSegmentPointers(skeleton.state.segments, firstImage, setup.emptyDisplayList),
             .lookAtTarget = findLookAtTarget(skeleton.state),
         });
-    for (const LimbDisplayList& limb : skeleton.limbDisplayLists) {
-        if (limb.limb < pose.matrices.size()) {
-            writeDisplayList(limb.displayList, placed * pose.matrices[limb.limb]);
-        }
-    }
 }
 
 void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent) {
@@ -193,20 +157,6 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
         .modelView = parent * list.state.placement,
         .isBillboard = list.state.isBillboard,
         .lookAtTarget = findLookAtTarget(list.state),
-    });
-}
-
-void ActorWriter::writeShadow(const ActorShadow& shadow, const glm::mat4& shadowMatrix) {
-    const u32 start = startList(findSetup(setup, hackeroot::SetupDisplayList44));
-    writer.setCombine(ShadowCombine0, ShadowCombine1);
-    writer.setPrimitiveColor(shadow.color);
-    writer.callDisplayList(shadow.address);
-    writer.endDisplayList();
-    draws.opaque.push_back(viewport::ViewportDraw{
-        .image = imageIndex,
-        .displayList = start,
-        .alsoImages = {firstImage + shadow.object},
-        .modelView = shadowMatrix,
     });
 }
 
@@ -247,9 +197,6 @@ void writeActor(ActorDraws& draws, const PlacedActor& actor, const ActorDrawing&
     for (const ActorDisplayList& list : drawing.displayLists) {
         writer.writeDisplayList(list, matrix);
     }
-    if (drawing.shadow) {
-        writer.writeShadow(*drawing.shadow, makeShadowMatrix(actor, drawing));
-    }
     draws.images.push_back(std::make_shared<const z64::MemoryImage>(writer.makeImage()));
 }
 
@@ -273,10 +220,9 @@ glm::mat4 makeActorMatrix(const PlacedActor& actor, const f32 scale, const f32 y
     return glm::scale(matrix, glm::vec3(scale));
 }
 
-ActorSetup makeActorSetup(const z64::MemoryImage& code, const std::optional<usize> frame) {
+ActorSetup makeActorSetup(const z64::MemoryImage& code) {
     return ActorSetup{.setupDisplayLists = hackeroot::listSetupDisplayLists(code),
-                      .emptyDisplayList = code.findAddress("gEmptyDL"),
-                      .frame = frame};
+                      .emptyDisplayList = code.findAddress("gEmptyDL")};
 }
 
 ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const PlacedActor> placed,

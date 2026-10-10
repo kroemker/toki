@@ -22,9 +22,6 @@ struct SceneView {
     std::vector<bool> hiddenRooms;
     bool showsActors = true;
     bool drawsModels = true;
-    /// The frame placed actors' animations are on while they play; nothing
-    /// while they stand on the first.
-    std::optional<usize> actorFrame;
     /// The player entry Link is drawn at; the others are marked.
     usize shownEntrance = 0;
 };

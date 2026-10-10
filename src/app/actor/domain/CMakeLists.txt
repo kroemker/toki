@@ -15,7 +15,6 @@ target_sources(toki_core PRIVATE
         ModelRules.cpp
         DrawSteps.cpp
         OverlayCode.cpp
-        SpawnCheck.cpp
         StepReader.cpp
         StepWriter.cpp
         SymbolCatalog.cpp)

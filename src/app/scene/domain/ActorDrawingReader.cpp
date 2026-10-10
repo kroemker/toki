@@ -69,8 +69,6 @@ public:
 
     void run(const std::vector<actor::DrawStep>& steps, ActorDrawing& drawing);
 
-    [[nodiscard]] std::optional<ActorShadow> readShadow(const std::optional<actor::Shadow>& shadow);
-
 private:
     [[nodiscard]] std::optional<usize> findObject(const std::optional<std::string>& own,
                                                   const actor::DrawStep& step) {
@@ -95,9 +93,6 @@ private:
 
     void poseSkeleton(const actor::SkeletonStep& skeleton, const object::Skeleton& read,
                       std::optional<usize> object, SkeletonDrawing& drawing);
-
-    void readLimbs(const actor::SkeletonStep& skeleton, const actor::DrawStep& step,
-                   const DrawState& state, SkeletonDrawing& drawing);
 
     const actor::ActorEntry& entry;
     const actor::ActorVariant& variant;
@@ -145,7 +140,6 @@ bool StepRunner::applyState(DrawState& state, const actor::DrawStep& step) {
 
 void StepRunner::run(const std::vector<actor::DrawStep>& steps, ActorDrawing& drawing) {
     DrawState state;
-    std::optional<actor::Shadow> shadow = entry.shadow;
     for (const actor::DrawStep& step : steps) {
         if (applyState(state, step)) {
             continue;
@@ -156,11 +150,8 @@ void StepRunner::run(const std::vector<actor::DrawStep>& steps, ActorDrawing& dr
             }
         } else if (const auto* skeleton = std::get_if<actor::SkeletonStep>(&step.step)) {
             drawing.skeleton = readSkeleton(*skeleton, step, state);
-        } else if (const auto* own = std::get_if<actor::ShadowStep>(&step.step)) {
-            shadow = own->shadow;
         }
     }
-    drawing.shadow = readShadow(shadow);
 }
 
 std::optional<ActorDisplayList> StepRunner::readDisplayList(const actor::DisplayListStep& list,
@@ -190,12 +181,8 @@ std::optional<SkeletonDrawing> StepRunner::readSkeleton(const actor::SkeletonSte
     if (read.limbs.empty()) {
         return std::nullopt;
     }
-    SkeletonDrawing drawing{.object = *object,
-                            .frame = skeleton.frame.value_or(0),
-                            .pass = skeleton.pass,
-                            .state = state};
+    SkeletonDrawing drawing{.object = *object, .pass = skeleton.pass, .state = state};
     poseSkeleton(skeleton, read, object, drawing);
-    readLimbs(skeleton, step, state, drawing);
     return drawing;
 }
 
@@ -222,63 +209,11 @@ void StepRunner::poseSkeleton(const actor::SkeletonStep& skeleton, const object:
                                 *skeleton.animation, animation->jointIndices.size(),
                                 skeleton.skeleton, read.limbs.size())));
             } else if (animation->frameCount > 0) {
-                joints = object::makeJointTable(*animation, drawing.frame % animation->frameCount);
-                drawing.animation = ActorAnimation{.skeleton = read, .animation = *animation};
+                joints = object::makeJointTable(*animation, 0);
             }
         }
     }
     drawing.pose = object::poseSkeleton(read, joints);
-}
-
-void StepRunner::readLimbs(const actor::SkeletonStep& skeleton, const actor::DrawStep& step,
-                           const DrawState& state, SkeletonDrawing& drawing) {
-    for (const actor::LimbSteps& limb : skeleton.limbs) {
-        if (limb.limb == 0 || limb.limb > drawing.pose.matrices.size()) {
-            diagnostics.push_back(base::makeWarning(
-                step.location,
-                std::format("{}: '{}' has limbs 1 to {}, not {}", entry.actor, skeleton.skeleton,
-                            drawing.pose.matrices.size(), limb.limb)));
-            continue;
-        }
-        DrawState limbState = state;
-        limbState.placement = glm::mat4(1.0F);
-        limbState.isBillboard = false;
-        for (const actor::DrawStep& limbStep : limb.steps) {
-            if (applyState(limbState, limbStep)) {
-                continue;
-            }
-            if (const auto* list = std::get_if<actor::DisplayListStep>(&limbStep.step)) {
-                if (std::optional<ActorDisplayList> read =
-                        readDisplayList(*list, limbStep, limbState)) {
-                    drawing.limbDisplayLists.push_back(
-                        LimbDisplayList{.limb = limb.limb - 1U, .displayList = std::move(*read)});
-                }
-            }
-        }
-    }
-}
-
-std::optional<ActorShadow> StepRunner::readShadow(const std::optional<actor::Shadow>& shadow) {
-    if (!shadow || shadow->kind == actor::ShadowKind::None) {
-        return std::nullopt;
-    }
-    const actor::ShadowKind kind = shadow->kind;
-    const std::optional<usize> keep =
-        objects.findObject(std::string(hackeroot::KeepObjectName), diagnostics);
-    const char* list = kind == actor::ShadowKind::Horse ? "gHorseShadowDL" : "gCircleShadowDL";
-    const std::optional<u32> address =
-        keep ? objects.findAddress(*keep, list, diagnostics) : std::nullopt;
-    if (!address) {
-        return std::nullopt;
-    }
-    const u8 shade = kind == actor::ShadowKind::WhiteCircle ? 0xFF : 0;
-    return ActorShadow{
-        .object = *keep,
-        .address = *address,
-        .color = {shade, shade, shade, shadow->alpha},
-        .size = shadow->size,
-        .turnsWithActor = kind == actor::ShadowKind::Horse,
-    };
 }
 
 } // namespace

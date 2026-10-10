@@ -8,12 +8,6 @@
 
 namespace toki::actor {
 
-/// "Keep this guess": adds `guess` to the checkout's database, where it stays
-/// guessed until a person checks it. An actor the checkout already has an
-/// entry for is left as it is, since a guess never overwrites an entry.
-[[nodiscard]] std::expected<void, std::string> keepGuess(ActorDatabase& checkout,
-                                                         const ActorEntry& guess);
-
 /// "Add a variant for these params": a variant matching exactly the values
 /// `placement` gives every field, drawn as the variant it matches now and kept
 /// to that variant's age and scene, ahead of

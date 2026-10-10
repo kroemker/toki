@@ -3,7 +3,6 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
-#include "app/actor/domain/SpawnCheck.h"
 #include "base/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -75,21 +74,4 @@ TEST_CASE("the match for a placement names every field's value", "[actor][fields
     REQUIRE(std::get<base::s64>(findValue("switch")) == 5);
     REQUIRE_FALSE(std::get<bool>(findValue("lit")));
     REQUIRE(std::get<std::string>(findValue("type")) == "timed");
-}
-
-TEST_CASE("a placement spawns where its variant's or entry's conditions hold", "[actor][fields]") {
-    const toki::actor::ActorEntry torch = readTorch();
-
-    const toki::actor::SpawnCheck night =
-        toki::actor::checkSpawn(torch, {.params = 0x0003}, toki::actor::TimeOfDay::Night);
-    const toki::actor::SpawnCheck day =
-        toki::actor::checkSpawn(torch, {.params = 0x0003}, toki::actor::TimeOfDay::Day);
-    const toki::actor::SpawnCheck adult = toki::actor::checkSpawn(
-        torch, {.params = 0x1000, .age = toki::actor::Age::Adult}, std::nullopt);
-
-    REQUIRE(night.isSpawned);
-    REQUIRE(night.needs == std::vector<std::string>{"night only", "switch 3 unset"});
-    REQUIRE_FALSE(day.isSpawned);
-    REQUIRE(adult.isSpawned);
-    REQUIRE(adult.needs == std::vector<std::string>{"adult only"});
 }

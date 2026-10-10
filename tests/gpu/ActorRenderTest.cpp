@@ -154,9 +154,6 @@ struct Box {
                 box.add(*bounds, placedMatrix * limb.matrix);
             }
         }
-        for (const toki::scene::LimbDisplayList& limb : skeleton.limbDisplayLists) {
-            addList(limb.displayList, placedMatrix * skeleton.pose.matrices[limb.limb]);
-        }
     }
     for (const toki::scene::ActorDisplayList& list : drawing.displayLists) {
         addList(list, matrix);

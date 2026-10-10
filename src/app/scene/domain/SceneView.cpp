@@ -84,8 +84,8 @@ struct Placed {
     if (showsEntrance) {
         all.push_back(placed.entrances[view.shownEntrance]);
     }
-    ActorDraws draws = makeActorDraws(scene.actors, all, firstImage,
-                                      makeActorSetup(*scene.images.front(), view.actorFrame));
+    ActorDraws draws =
+        makeActorDraws(scene.actors, all, firstImage, makeActorSetup(*scene.images.front()));
     Placed undrawn;
     const usize actorCount = placed.actors.size();
     const usize transitionEnd = actorCount + placed.transitionActors.size();

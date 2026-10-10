@@ -12,19 +12,6 @@
 
 namespace toki::actor {
 
-std::expected<void, std::string> keepGuess(ActorDatabase& checkout, const ActorEntry& guess) {
-    if (checkout.entries.contains(guess.actor)) {
-        return std::unexpected(std::format(
-            "the checkout's actor database already has an entry for {}, which a guess never "
-            "replaces",
-            guess.actor));
-    }
-    ActorEntry kept = guess;
-    kept.status = EntryStatus::Guessed;
-    checkout.entries.emplace(kept.actor, std::move(kept));
-    return {};
-}
-
 std::expected<void, std::string> addVariantForParams(ActorDatabase& checkout,
                                                      const ActorEntry& current,
                                                      const PlacementValues& placement) {

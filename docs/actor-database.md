@@ -304,7 +304,7 @@ Each step is committed on its own and ends with its tests passing.
 
 | Step | What |
 |---|---|
-| 1 | Cut what format 2 leaves out, still in format 1: shadows, spawn conditions, text IDs, lights, collision, descriptions, status and its guessed-from, roles, limb steps; animation becomes a pose at the first frame, and the viewport stops playing actors |
+| 1 | Cut what drawing and the Scene panel leave out: animation playback, so a skeleton is posed at its animation's first frame; shadows; what is drawn with a skeleton's limbs; spawn conditions greying actors; "Keep this guess" (done; the format's keys for them go with step 2) |
 | 2 | Format 2: params by mask with choices by number and free-text names, parts in place of display list keys and steps, warnings for masks and overlaps; drawing by parts; the derivation writing parts; Toki's database rewritten |
 | 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly |
 | 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top |

@@ -5,7 +5,6 @@
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/DrawSteps.h"
 #include "app/actor/domain/FieldReading.h"
-#include "app/actor/domain/SpawnCheck.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -121,7 +120,6 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
 
 ActorDescription describeActor(const SceneActorModel& actor,
                                const actor::PlacementValues& placement,
-                               const std::optional<actor::TimeOfDay> time,
                                const std::optional<std::span<const std::string>> loadedObjects) {
     const ActorDrawing* drawing = actor.findDrawing(placement);
     const actor::ActorVariant* variant =
@@ -129,13 +127,11 @@ ActorDescription describeActor(const SceneActorModel& actor,
     ActorDescription description{
         .isDrawn = drawing != nullptr && drawing->isDrawn(),
         .status = describeStatus(actor, drawing),
-        .canKeepGuess = actor.source == ModelSource::Guessed && actor.entry.has_value(),
         .canAddVariant = actor.entry && !actor.entry->fields.empty(),
     };
     if (actor.entry) {
         description.name = actor.entry->name;
         description.fields = actor::readFields(*actor.entry, placement);
-        description.spawn = actor::checkSpawn(*actor.entry, placement, time);
     }
     description.lines.push_back(describeSource(actor));
     if (variant != nullptr) {

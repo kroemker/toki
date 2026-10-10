@@ -48,16 +48,14 @@ TEST_CASE("an actor is described by where its entry comes from and what its vari
     const std::array<std::string, 2> loaded{"gameplay_keep", "object_kanban"};
 
     const toki::scene::ActorDescription description = toki::scene::describeActor(
-        actor, {.params = 0x0000}, std::nullopt, std::span<const std::string>(loaded));
+        actor, {.params = 0x0000}, std::span<const std::string>(loaded));
 
     REQUIRE(description.isDrawn);
     REQUIRE(description.name == "Kakariko roof man");
     REQUIRE(description.status == "checked");
     REQUIRE(description.fields.size() == 1);
     REQUIRE(description.fields[0].text == "0");
-    REQUIRE(description.spawn.isSpawned);
     REQUIRE(description.canAddVariant);
-    REQUIRE_FALSE(description.canKeepGuess);
     REQUIRE(description.lines[0] == "From the shipped actor database");
     REQUIRE(std::ranges::contains(description.lines,
                                   std::string("Skeleton gRoofManSkel in object_ani")));
@@ -70,7 +68,7 @@ TEST_CASE("an actor whose params no variant matches is said so", "[scene][actors
     const toki::scene::SceneActorModel actor = makeRoofMan();
 
     const toki::scene::ActorDescription description =
-        toki::scene::describeActor(actor, {.params = 0x0003}, std::nullopt, std::nullopt);
+        toki::scene::describeActor(actor, {.params = 0x0003}, std::nullopt);
 
     REQUIRE_FALSE(description.isDrawn);
     REQUIRE(description.problems.front() == "no variant of its entry matches its params 0x0003");

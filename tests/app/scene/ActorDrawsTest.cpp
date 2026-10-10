@@ -102,10 +102,9 @@ TEST_CASE("each placed actor is drawn by the variant its params match, and the r
     REQUIRE(draw.pointedSegments[1].address == 0x0000'0E50);
 }
 
-TEST_CASE("an actor's shadow is drawn under it and its children beside it", "[scene][actors]") {
+TEST_CASE("an actor's children are drawn beside it, turned with it", "[scene][actors]") {
     toki::scene::SceneActors actors = makePots();
     toki::scene::ActorDrawing ring{
-        .shadow = toki::scene::ActorShadow{.object = 0, .address = 0x0400'0000, .size = 30.0F},
         .children = {toki::scene::ChildPlacement{.id = 7, .params = 0x0100, .offset = {0, 0, 80}}}};
     toki::scene::SceneActorModel parent{.enumName = "ACTOR_OBJ_MURE2"};
     parent.entry = toki::actor::ActorEntry{.actor = "ACTOR_OBJ_MURE2",
@@ -119,9 +118,7 @@ TEST_CASE("an actor's shadow is drawn under it and its children beside it", "[sc
         toki::scene::makeActorDraws(actors, placed, 0, toki::scene::ActorSetup{});
 
     REQUIRE(draws.undrawn.empty());
-    REQUIRE(draws.opaque.size() == 1);
-    REQUIRE((*draws.opaque.front().modelView)[0].x == Catch::Approx(0.3F));
-    REQUIRE((*draws.opaque.front().modelView)[1].y == Catch::Approx(1.0F));
+    REQUIRE(draws.opaque.empty());
     REQUIRE(draws.translucent.size() == 1);
     const glm::vec4 child = *draws.translucent.front().modelView * glm::vec4(0, 0, 0, 1);
     REQUIRE(child.x == Catch::Approx(180.0F));
@@ -143,29 +140,18 @@ TEST_CASE("a billboard faces the camera and keeps its place and size", "[scene][
     REQUIRE(seen[2].z == Catch::Approx(2.0F));
 }
 
-TEST_CASE("a skeleton is placed by its steps, and a limb's display list by the limb",
+TEST_CASE("a skeleton is drawn by its limbs' matrices after its setup display list",
           "[scene][actors]") {
     toki::scene::SceneActors actors = makePots();
-    const glm::mat4 limbMatrix = glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, 10.0F, 0.0F));
-    toki::scene::SkeletonDrawing skeleton{
+    const toki::scene::SkeletonDrawing skeleton{
         .object = 0,
         .pose = {.drawn = {toki::object::PosedLimb{.limb = 0, .displayList = 0x0600'0200}},
-                 .matrices = {glm::mat4(1.0F), limbMatrix}},
-        .state = {.setup = 44, .placement = glm::scale(glm::mat4(1.0F), glm::vec3(2.0F))},
-        .limbDisplayLists = {toki::scene::LimbDisplayList{
-            .limb = 1,
-            .displayList = {.object = 0,
-                            .address = 0x0600'0300,
-                            .pass = toki::actor::Pass::Translucent,
-                            .state = {.placement = glm::translate(glm::mat4(1.0F),
-                                                                  glm::vec3(0.0F, 0.0F, 5.0F))}}}}};
+                 .matrices = {glm::mat4(1.0F)}},
+        .state = {.setup = 44, .placement = glm::scale(glm::mat4(1.0F), glm::vec3(2.0F))}};
     toki::scene::SceneActorModel chest{.enumName = "ACTOR_EN_BOX"};
     chest.entry =
         toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .variants = {toki::actor::ActorVariant{}}};
-    chest.variants = {toki::scene::ActorDrawing{
-        .skeleton = skeleton,
-        .scale = 1.0F,
-        .shadow = toki::scene::ActorShadow{.color = {0, 0, 0, 180}, .size = 1.0F}}};
+    chest.variants = {toki::scene::ActorDrawing{.skeleton = skeleton, .scale = 1.0F}};
     actors.models.emplace(s16{4}, chest);
     const std::array placed{toki::scene::PlacedActor{.id = 4, .position = {100, 0, 0}}};
     std::vector<u32> setups(45);
@@ -176,12 +162,8 @@ TEST_CASE("a skeleton is placed by its steps, and a limb's display list by the l
     const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
         actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = setups});
 
-    REQUIRE(draws.opaque.size() == 2);
-    REQUIRE(draws.translucent.size() == 1);
-    const glm::vec4 lid = *draws.translucent.front().modelView * glm::vec4(0, 0, 0, 1);
-    REQUIRE(lid.x == Catch::Approx(100.0F));
-    REQUIRE(lid.y == Catch::Approx(20.0F));
-    REQUIRE(lid.z == Catch::Approx(10.0F));
+    REQUIRE(draws.opaque.size() == 1);
+    REQUIRE(draws.translucent.empty());
     const std::vector<u8>& bytes = draws.images.back()->segments.front().bytes;
     const auto readWord = [&bytes](const u32 address) {
         const usize at = address & 0x00FF'FFFFU;

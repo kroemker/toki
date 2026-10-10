@@ -66,41 +66,13 @@ struct ActorDisplayList {
     DrawState state;
 };
 
-/// A skeleton and the animation it plays, kept to pose it on any frame.
-struct ActorAnimation {
-    object::Skeleton skeleton;
-    object::Animation animation;
-};
-
-/// A display list drawn with a limb's matrix, by the limb's index in the
-/// skeleton, as a `PostLimbDraw` callback draws one.
-struct LimbDisplayList {
-    usize limb = 0;
-    ActorDisplayList displayList;
-};
-
-/// A skeleton posed on its frame, with every limb's matrix from model space,
-/// what it needs to be posed on another, the state it is drawn under, and
-/// what is drawn with its limbs.
+/// A skeleton posed on the first frame of its animation, or at rest, with
+/// every limb's matrix from model space, and the state it is drawn under.
 struct SkeletonDrawing {
     usize object = 0;
     object::Pose pose;
-    std::optional<ActorAnimation> animation;
-    u32 frame = 0;
     actor::Pass pass = actor::Pass::Opaque;
     DrawState state;
-    std::vector<LimbDisplayList> limbDisplayLists;
-};
-
-/// The shadow `ActorShadow_Draw` draws under an actor: a display list of
-/// `gameplay_keep` in a colour, scaled by its size times the actor's scale.
-struct ActorShadow {
-    usize object = 0;
-    u32 address = 0;
-    /// Black or white, at the shadow's alpha.
-    std::array<u8, 4> color{0, 0, 0, 0xFF};
-    f32 size = 0.0F;
-    bool turnsWithActor = false;
 };
 
 /// An actor a variant spawns, by ID, drawn by its own entry.
@@ -118,7 +90,6 @@ struct ActorDrawing {
     f32 scale = actor::ActorModel::DefaultScale;
     f32 heightOffset = 0.0F;
     actor::RotationAxes rotates;
-    std::optional<ActorShadow> shadow;
     std::vector<ChildPlacement> children;
 
     /// Whether anything is drawn for it: a model, or children in its place.
@@ -180,9 +151,6 @@ struct SceneActors {
     /// What was wrong with the actor databases the actors were read by.
     std::vector<base::Diagnostic> diagnostics;
 };
-
-/// Whether any actor of `actors` plays an animation.
-[[nodiscard]] bool hasAnimatedActors(const SceneActors& actors);
 
 /// Link's age in a scene layer: child in the first two, adult in the next two,
 /// none in a cutscene layer.

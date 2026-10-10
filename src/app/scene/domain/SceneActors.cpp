@@ -194,14 +194,6 @@ const ActorDrawing* SceneActorModel::findDrawing(const actor::PlacementValues& p
     return index < variants.size() ? &variants[index] : nullptr;
 }
 
-bool hasAnimatedActors(const SceneActors& actors) {
-    return std::ranges::any_of(actors.models, [](const auto& entry) {
-        return std::ranges::any_of(entry.second.variants, [](const ActorDrawing& drawing) {
-            return drawing.skeleton && drawing.skeleton->animation;
-        });
-    });
-}
-
 std::optional<actor::Age> findLayerAge(const usize layerIndex) {
     if (layerIndex >= PlayedLayers) {
         return std::nullopt;
