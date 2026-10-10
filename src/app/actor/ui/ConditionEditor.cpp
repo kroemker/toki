@@ -4,8 +4,10 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ParamReading.h"
-#include "app/actor/ui/Sentence.h"
+#include "app/actor/ui/EditWidgets.h"
+#include "app/actor/ui/ItemRow.h"
 #include "app/core/ui/Icons.h"
+#include "app/core/ui/Theme.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
@@ -45,15 +47,77 @@ namespace {
     return name;
 }
 
-[[nodiscard]] std::string describeMatch(const ParamMatch& match, const ActorParam* param) {
-    const std::string name = match.param == "age"     ? "Age"
-                             : match.param == "scene" ? "Scene"
-                                                      : match.param;
+constexpr float ChipValueShare = 0.7F;
+
+[[nodiscard]] std::string describeParam(const std::string& name) {
+    return name == "age" ? "Age" : name == "scene" ? "Scene" : name;
+}
+
+[[nodiscard]] std::string describeValues(const ParamMatch& match, const ActorParam* param) {
+    if (match.values.empty()) {
+        return "nothing";
+    }
     std::string values;
     for (usize i = 0; i < match.values.size(); ++i) {
         values += (i == 0 ? "" : " or ") + describeValue(match.values[i], param);
     }
-    return std::format("{} is {}", name, values);
+    return values;
+}
+
+[[nodiscard]] std::string describeMatch(const ParamMatch& match, const ActorParam* param) {
+    return std::format("{} is {}", describeParam(match.param), describeValues(match, param));
+}
+
+class Flow {
+public:
+    void placeNext(const float width) {
+        if (!isFirst) {
+            ImGui::SameLine();
+            if (ImGui::GetContentRegionAvail().x < width) {
+                ImGui::NewLine();
+            }
+        }
+        isFirst = false;
+    }
+
+private:
+    bool isFirst = true;
+};
+
+[[nodiscard]] bool drawChip(const std::string& key, const std::string& value,
+                            const float maxValueWidth) {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const std::string shown = makeFittedText(value, maxValueWidth);
+    const float keyWidth = ImGui::CalcTextSize(key.c_str()).x;
+    const float valueWidth = ImGui::CalcTextSize(shown.c_str()).x;
+    const ImVec2 size(keyWidth + valueWidth + style.ItemInnerSpacing.x +
+                          (style.FramePadding.x * 2.0F),
+                      ImGui::GetFrameHeight());
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    const bool isClicked = ImGui::InvisibleButton("##chip", size);
+    const ImVec4 background =
+        ImGui::IsItemHovered() ? core::palette::SurfaceHovered : core::palette::SurfaceRaised;
+    ImDrawList& drawList = *ImGui::GetWindowDrawList();
+    drawList.AddRectFilled(start, ImVec2(start.x + size.x, start.y + size.y),
+                           ImGui::GetColorU32(background), size.y * 0.5F);
+    const float textY = start.y + style.FramePadding.y;
+    const float keyX = start.x + style.FramePadding.x;
+    drawList.AddText(ImVec2(keyX, textY), ImGui::GetColorU32(core::palette::TextMuted),
+                     key.c_str());
+    drawList.AddText(ImVec2(keyX + keyWidth + style.ItemInnerSpacing.x, textY),
+                     ImGui::GetColorU32(core::palette::Warning), shown.c_str());
+    if (shown != value) {
+        ImGui::SetItemTooltip("%s is %s", key.c_str(), value.c_str());
+    }
+    return isClicked;
+}
+
+[[nodiscard]] float measureChip(const std::string& key, const std::string& value,
+                                const float maxValueWidth) {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    return ImGui::CalcTextSize(key.c_str()).x +
+           std::min(ImGui::CalcTextSize(value.c_str()).x, maxValueWidth) +
+           style.ItemInnerSpacing.x + (style.FramePadding.x * 2.0F) + ImGui::GetFrameHeight();
 }
 
 [[nodiscard]] std::vector<std::string> splitList(const std::string_view text) {
@@ -183,45 +247,64 @@ std::string listText;
 }
 
 [[nodiscard]] bool drawAddCondition(std::vector<ParamMatch>& match,
-                                    const std::span<const ActorParam> params, Sentence& sentence) {
-    return sentence.addToken("##add", "+ Condition", [&] {
-        std::vector<std::string> names;
-        for (const ActorParam& param : params) {
-            names.push_back(param.name);
-        }
-        names.emplace_back("age");
-        names.emplace_back("scene");
-        for (const std::string& name : names) {
-            if (std::ranges::contains(match, name, &ParamMatch::param)) {
-                continue;
-            }
-            const std::string label = name == "age" ? "Age" : name == "scene" ? "Scene" : name;
-            if (ImGui::Selectable(label.c_str())) {
-                match.push_back(makeMatch(name, findParam(params, name)));
-                return true;
-            }
-        }
+                                    const std::span<const ActorParam> params, Flow& flow) {
+    constexpr const char* AddLabel = "+ Condition";
+    flow.placeNext(ImGui::CalcTextSize(AddLabel).x + (ImGui::GetStyle().FramePadding.x * 2.0F));
+    if (ImGui::SmallButton(AddLabel)) {
+        ImGui::OpenPopup("##add");
+    }
+    if (!ImGui::BeginPopup("##add")) {
         return false;
-    });
+    }
+    std::vector<std::string> names;
+    for (const ActorParam& param : params) {
+        names.push_back(param.name);
+    }
+    names.emplace_back("age");
+    names.emplace_back("scene");
+    bool isChanged = false;
+    for (const std::string& name : names) {
+        if (std::ranges::contains(match, name, &ParamMatch::param)) {
+            continue;
+        }
+        if (ImGui::Selectable(describeParam(name).c_str())) {
+            match.push_back(makeMatch(name, findParam(params, name)));
+            isChanged = true;
+        }
+    }
+    ImGui::EndPopup();
+    return isChanged;
 }
 
 } // namespace
 
 bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const ActorParam> params) {
-    Sentence sentence;
+    Flow flow;
     bool isChanged = false;
     std::optional<usize> removed;
+    const float maxValueWidth = ImGui::GetContentRegionAvail().x * ChipValueShare;
     if (match.empty()) {
-        sentence.addWords("Every placement");
+        const char* every = "Every placement";
+        flow.placeNext(ImGui::CalcTextSize(every).x);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextColored(core::palette::TextMuted, "%s", every);
     }
     for (usize i = 0; i < match.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         const ActorParam* param = findParam(params, match[i].param);
-        isChanged = sentence.addToken("##match", describeMatch(match[i], param), [&] {
-            return editValues(match[i], param);
-        }) || isChanged;
-        if (sentence.addButton(core::icons::X, "Remove this condition")) {
+        const std::string key = describeParam(match[i].param);
+        const std::string values = describeValues(match[i], param);
+        flow.placeNext(measureChip(key, values, maxValueWidth));
+        if (drawChip(key, values, maxValueWidth)) {
+            ImGui::OpenPopup("##values");
+        }
+        ImGui::SameLine(0.0F, 0.0F);
+        if (drawIconButton(core::icons::X, "Remove this condition")) {
             removed = i;
+        }
+        if (ImGui::BeginPopup("##values")) {
+            isChanged = editValues(match[i], param) || isChanged;
+            ImGui::EndPopup();
         }
         ImGui::PopID();
     }
@@ -229,7 +312,7 @@ bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const A
         match.erase(match.begin() + static_cast<std::ptrdiff_t>(*removed));
         isChanged = true;
     }
-    return drawAddCondition(match, params, sentence) || isChanged;
+    return drawAddCondition(match, params, flow) || isChanged;
 }
 
 std::string describeCondition(const std::span<const ParamMatch> match,

@@ -207,13 +207,19 @@ and one variant per entry of the table ([Later](#later)).
     colour. Clicking a bit gives it to the param being edited, or takes it back; bits another
     param has are not clickable and say whose they are. Each param has its name, kind,
     description, sign and hexadecimal options, and a choice its values and their labels.
-  - **Variants** read as sentences. The condition is one line of chips, "Type is Small,
-    appears on room clear  ·  Age is Child", each opening the param's own control, a checkbox
-    or the choice's values or a list of numbers. Each part is one row, "Display list
-    **gPotDL** from **gameplay_dangeon_keep** at **0, 52, 0**", whose bold tokens open a
-    picker of objects or of the object's symbols, a number, or a colour; what is rarely set,
-    setup, pass, hilite, billboard and segments, is behind the row's "⋯". Children are rows
-    the same way.
+  - **Variants** are cards, headed by their condition, "1. Type is Golden, and Lit is
+    set", or "Otherwise" for a last one that matches everything. A card has bands down a
+    labelled left gutter, so what belongs to what shows without deep nesting:
+    - **WHEN**, tinted, holds the condition as chips that wrap, "Type  Golden", each opening
+      the param's own control, a checkbox, the choice's values or a list of numbers.
+    - **DRAWS** holds a line of the variant's object, scale and the rest, then one row per
+      part: a tag for its kind (DL, SK), its symbol, its own object when it names one, and
+      badges for what is set, "faces cam", "xlu", "shiny", "setup 66".
+    - **SPAWNS**, when there are children, holds one row per child the same way.
+
+    Rows never wrap: what does not fit is cut with "…" and shown whole on hover. Clicking a
+    row opens its properties below it, labels on the left as everywhere else. A row's tools,
+    up, copy and remove, show while it is hovered.
   - Objects are picked from the object table, and skeletons, animations and display lists
     from the object's catalog, read on a worker (`actor::SymbolCatalog`).
 - **Edits draw** in the open scene once they are saved, a moment after the last change.
@@ -287,8 +293,9 @@ every checkout is seeded from.
   posed at the first frame of an animation, never played.
 - **Left out**: animation playback, limb drawing, shadows, spawn conditions, lights,
   collision, text IDs, roles of params, descriptions of entries.
-- **Variants edited as sentences** of tokens that open pickers, rather than as a text
-  language or as nested forms.
+- **Variants edited as cards** of a condition, the parts and the children, each a row that
+  opens in place, rather than as a text language, as nested forms or as sentences of
+  tokens, which read well but wrapped badly once names grew long.
 - **Objects are read by the spec**, so `gameplay_keep` takes `gameplay_hacker_keep` as the
   build links it.
 - **Link is drawn as a marker** until his pose can be read.
@@ -315,4 +322,4 @@ Each step is committed on its own and ends with its tests passing.
 | 3 | One file per checkout in `.toki/`, seeded and derived for new actors on a worker; "Derive"; the new-actor question; no drawing by guesses on the fly (done; seeding derives every actor of a vanilla checkout in 0.9 s locally) |
 | 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top (done: the general keys; params and variants are shown as text until steps 5 and 6) |
 | 5 | Params edited on bit strips (done) |
-| 6 | Variants edited as sentences of tokens (done) |
+| 6 | Variants edited as cards of WHEN, DRAWS and SPAWNS bands, with rows that open in place (done) |

@@ -5,11 +5,13 @@
 
 namespace toki::actor {
 
-/// An entry's variants, in the order they are tried, each headed by the
-/// sentence of its condition: the condition's chips, a line of its own object,
-/// scale, height offset and draw kind, its parts, the actors it spawns, and
-/// the params it is placed new with. Variants move up, are copied, removed and
-/// added. Returns whether anything changed.
+/// An entry's variants, in the order they are tried, each a card headed by its
+/// condition, or "Otherwise" for a last one that matches everything, with
+/// bands down a labelled gutter: WHEN, the condition's chips; DRAWS, a row of
+/// its object, scale, height offset, draw kind and the params it is placed new
+/// with, then its parts; and SPAWNS, the actors it spawns, when it has any.
+/// Variants move up, are copied, removed and added. Returns whether anything
+/// changed.
 [[nodiscard]] bool drawVariantsEditor(ActorEntry& entry, const EditContext& context);
 
 } // namespace toki::actor

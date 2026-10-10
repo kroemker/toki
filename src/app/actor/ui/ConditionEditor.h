@@ -8,10 +8,11 @@
 
 namespace toki::actor {
 
-/// A variant's match as a line of chips, "Type is Small or Lens Small",
-/// each opening its param's own control, a choice's values, a flag's state, a
-/// list of numbers, Link's age or the scenes, with one to remove it and one to
-/// add another. Returns whether anything changed.
+/// A variant's match as chips that wrap where the panel ends, "Type Small or
+/// Lens Small", values cut to fit, each opening its param's own control, a
+/// choice's values, a flag's state, a list of numbers, Link's age or the
+/// scenes, with one to remove it and one to add another. Returns whether
+/// anything changed.
 [[nodiscard]] bool drawConditionEditor(std::vector<ParamMatch>& match,
                                        std::span<const ActorParam> params);
 

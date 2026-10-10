@@ -3,8 +3,8 @@ target_sources(toki PRIVATE
         ConditionEditor.cpp
         EditWidgets.cpp
         EntryEditor.cpp
+        ItemRow.cpp
         NewActorsPrompt.cpp
         ParamsEditor.cpp
         PartsEditor.cpp
-        Sentence.cpp
         VariantsEditor.cpp)
