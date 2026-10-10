@@ -148,3 +148,29 @@ TEST_CASE("an enumeration built from an X-macro table reads as the build reads i
     REQUIRE(result.types.findEnumerator("SCENE_MAX") == std::optional<cparser::s64>(2));
     REQUIRE(result.types.findTypedef("Wide")->size == 8);
 }
+
+TEST_CASE("an enumeration is kept whole, by its tag and its typedef", "[cparser][types]") {
+    const Parsed parsed("typedef enum Item { ITEM_NONE, ITEM_BOW = 3, ITEM_ARROW,\n"
+                        "#if 1\n"
+                        "    ITEM_EXTRA,\n"
+                        "#else\n"
+                        "    ITEM_MISSING,\n"
+                        "#endif\n"
+                        "    ITEM_MAX } ItemID;\n"
+                        "enum Tagged { TAGGED_A = -1 };\n"
+                        "typedef enum { ANON_A } Anonymous;\n"
+                        "typedef enum Item* ItemPointer;\n");
+
+    const std::vector<cparser::Enumerator>* item = parsed.result.types.findEnumeration("ItemID");
+    REQUIRE(item != nullptr);
+    REQUIRE(item == parsed.result.types.findEnumeration("Item"));
+    REQUIRE(item->size() == 5);
+    REQUIRE(item->at(1).name == "ITEM_BOW");
+    REQUIRE(item->at(2).value == 4);
+    REQUIRE(item->at(3).name == "ITEM_EXTRA");
+    REQUIRE(item->back().value == 6);
+    REQUIRE(parsed.result.types.findEnumeration("Tagged")->front().value == -1);
+    REQUIRE(parsed.result.types.findEnumeration("Anonymous")->size() == 1);
+    REQUIRE(parsed.result.types.findEnumeration("ItemPointer") == nullptr);
+    REQUIRE(parsed.result.types.findEnumeration("ITEM_BOW") == nullptr);
+}

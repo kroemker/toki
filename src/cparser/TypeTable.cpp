@@ -174,4 +174,18 @@ void TypeTable::defineEnumerator(const std::string_view name, const s64 value) {
     enumerators.insert_or_assign(std::string(name), value);
 }
 
+const std::vector<Enumerator>* TypeTable::findEnumeration(const std::string_view name) const {
+    const auto found = enumerationNames.find(std::string(name));
+    return found == enumerationNames.end() ? nullptr : &enumerations[found->second];
+}
+
+usize TypeTable::defineEnumeration(std::vector<Enumerator> constants) {
+    enumerations.push_back(std::move(constants));
+    return enumerations.size() - 1;
+}
+
+void TypeTable::nameEnumeration(const std::string_view name, const usize enumeration) {
+    enumerationNames.insert_or_assign(std::string(name), enumeration);
+}
+
 } // namespace cparser

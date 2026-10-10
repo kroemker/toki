@@ -16,6 +16,12 @@
 
 namespace cparser {
 
+/// An enumeration constant, as its enumeration lists it.
+struct Enumerator {
+    std::string name;
+    s64 value = 0;
+};
+
 /// The types one reading pass defined: typedef names, struct, union and enum
 /// tags, and enumeration constants, with every type laid out for the target.
 /// Types are never freed or moved while the table lives, so a `const CType*`
@@ -27,6 +33,10 @@ public:
     [[nodiscard]] const CType* findTag(std::string_view name) const;
 
     [[nodiscard]] std::optional<s64> findEnumerator(std::string_view name) const;
+
+    /// The constants of the enumeration that `name` tags or names by a typedef,
+    /// in the order they are written, if one was read.
+    [[nodiscard]] const std::vector<Enumerator>* findEnumeration(std::string_view name) const;
 
     /// The node for a scalar, a pointer to `element`, or an array of `count`
     /// elements, made once and shared. An array of a struct not yet defined is
@@ -51,6 +61,14 @@ public:
 
     void defineEnumerator(std::string_view name, s64 value);
 
+    /// Keeps the constants of one enumeration, and returns what tells it apart
+    /// for `nameEnumeration`.
+    [[nodiscard]] usize defineEnumeration(std::vector<Enumerator> constants);
+
+    /// Lets `findEnumeration` find `enumeration` by `name`, its tag or a
+    /// typedef of it.
+    void nameEnumeration(std::string_view name, usize enumeration);
+
     [[nodiscard]] usize countTypedefs() const {
         return typedefs.size();
     }
@@ -62,6 +80,8 @@ private:
     std::unordered_map<std::string, const CType*> typedefs;
     std::unordered_map<std::string, CType*> tags;
     std::unordered_map<std::string, s64> enumerators;
+    std::deque<std::vector<Enumerator>> enumerations;
+    std::unordered_map<std::string, usize> enumerationNames;
     std::map<std::tuple<u8, bool, bool>, const CType*> scalars;
     std::map<const CType*, const CType*> pointers;
     std::map<std::pair<const CType*, std::optional<usize>>, const CType*> arrays;

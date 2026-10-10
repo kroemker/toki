@@ -45,7 +45,13 @@ bool isAttribute(const Token& token) {
 
 struct Specifier {
     const CType* type = nullptr;
+    std::optional<usize> enumeration;
     bool isTypedef = false;
+};
+
+struct EnumRead {
+    const CType* type = nullptr;
+    std::optional<usize> enumeration;
 };
 
 struct Suffix {
@@ -87,7 +93,7 @@ private:
 
     [[nodiscard]] std::optional<Specifier> readSpecifier();
     [[nodiscard]] const CType* readRecord();
-    [[nodiscard]] const CType* readEnum();
+    [[nodiscard]] EnumRead readEnum();
     [[nodiscard]] std::vector<Field> readFields();
     [[nodiscard]] Shape readShape();
     [[nodiscard]] Declarator applyShape(const CType* base, const Shape& shape);
@@ -239,7 +245,9 @@ std::optional<Specifier> TypeReader::readSpecifier() {
         } else if (word == "struct" || word == "union") {
             specifier.type = readRecord();
         } else if (word == "enum") {
-            specifier.type = readEnum();
+            const EnumRead read = readEnum();
+            specifier.type = read.type;
+            specifier.enumeration = read.enumeration;
         } else if (specifier.type == nullptr && words.empty() &&
                    result.types.findTypedef(word) != nullptr) {
             specifier.type = result.types.findTypedef(word);
@@ -332,14 +340,18 @@ std::vector<Field> TypeReader::readFields() {
     return fields;
 }
 
-const CType* TypeReader::readEnum() {
+EnumRead TypeReader::readEnum() {
     static constexpr std::array ValueStops = {std::string_view(","), std::string_view("}")};
     ++cursor;
     static_cast<void>(readAttributes());
+    std::string_view tag;
     if (peek().kind == TokenKind::Identifier) {
+        tag = peek().text;
         ++cursor;
     }
+    std::optional<usize> enumeration;
     if (isAt("{")) {
+        std::vector<Enumerator> enumerators;
         ++cursor;
         s64 next = 0;
         while (!isAtEnd() && !isAt("}")) {
@@ -354,6 +366,7 @@ const CType* TypeReader::readEnum() {
                     next = evaluateUntil(ValueStops).value_or(next);
                 }
                 result.types.defineEnumerator(name, next);
+                enumerators.push_back(Enumerator{.name = std::string(name), .value = next});
                 ++next;
             }
             if (isAt(",")) {
@@ -363,11 +376,16 @@ const CType* TypeReader::readEnum() {
         if (isAt("}")) {
             ++cursor;
         }
+        enumeration = result.types.defineEnumeration(std::move(enumerators));
+        if (!tag.empty()) {
+            result.types.nameEnumeration(tag, *enumeration);
+        }
     }
     static constexpr ScalarType Int{.name = "int", .size = 4};
     const ScalarType* integer =
         context.dialect != nullptr ? findType(*context.dialect, "int") : nullptr;
-    return result.types.getScalar(integer != nullptr ? *integer : Int);
+    return EnumRead{.type = result.types.getScalar(integer != nullptr ? *integer : Int),
+                    .enumeration = enumeration};
 }
 
 bool TypeReader::isNestedDeclarator() const {
@@ -461,6 +479,9 @@ void TypeReader::readStatement() {
         }
         if (specifier->isTypedef && !declarator.name.empty()) {
             result.types.defineTypedef(declarator.name, declarator.type);
+            if (specifier->enumeration && declarator.type == specifier->type) {
+                result.types.nameEnumeration(declarator.name, *specifier->enumeration);
+            }
         }
         if (isAt("=")) {
             ++cursor;
