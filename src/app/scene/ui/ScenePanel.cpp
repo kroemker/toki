@@ -2,7 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/DatabaseEdits.h"
-#include "app/actor/domain/FieldReading.h"
+#include "app/actor/domain/ParamReading.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
@@ -267,21 +267,18 @@ void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& p
     ImGui::Text("%s  ·  actor 0x%04X at %d, %d, %d", findActorName(actorId).c_str(),
                 static_cast<unsigned>(static_cast<u16>(actorId)), position[0], position[1],
                 position[2]);
-    ImGui::TextColored(core::palette::TextMuted,
-                       "Entry %s  ·  %s  ·  click to look at it, "
-                       "right-click to edit",
-                       description.status.c_str(),
-                       description.isDrawn ? "drawn as its model" : "marked");
-    if (!description.fields.empty() &&
-        ImGui::BeginTable("fields", 3, ImGuiTableFlags_SizingFixedFit)) {
-        for (const actor::FieldReading& field : description.fields) {
+    ImGui::TextColored(core::palette::TextMuted, "%s  ·  click to look at it, right-click to edit",
+                       description.isDrawn ? "Drawn as its model" : "Marked");
+    if (!description.params.empty() &&
+        ImGui::BeginTable("params", 3, ImGuiTableFlags_SizingFixedFit)) {
+        for (const actor::ParamReading& param : description.params) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextColored(core::palette::TextMuted, "%s", field.name.c_str());
+            ImGui::TextColored(core::palette::TextMuted, "%s", param.name.c_str());
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(field.text.c_str());
+            ImGui::TextUnformatted(param.text.c_str());
             ImGui::TableNextColumn();
-            ImGui::TextColored(core::palette::TextMuted, "%s", field.meaning.c_str());
+            ImGui::TextColored(core::palette::TextMuted, "%s", param.description.c_str());
         }
         ImGui::EndTable();
     }

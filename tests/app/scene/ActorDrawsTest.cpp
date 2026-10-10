@@ -43,13 +43,12 @@ namespace {
     toki::scene::SceneActorModel pot{.enumName = "ACTOR_OBJ_TSUBO"};
     pot.entry = toki::actor::ActorEntry{
         .actor = "ACTOR_OBJ_TSUBO",
-        .fields = {toki::actor::ParamField{
-            .name = "kind", .kind = toki::actor::FieldKind::Integer, .shift = 8, .width = 1}},
+        .params = {toki::actor::ActorParam{.name = "Kind", .mask = 0x0100}},
         .variants = {
             toki::actor::ActorVariant{
-                .match = {toki::actor::FieldMatch{.field = "kind", .values = {s64{0}}}}},
+                .match = {toki::actor::ParamMatch{.param = "Kind", .values = {s64{0}}}}},
             toki::actor::ActorVariant{
-                .match = {toki::actor::FieldMatch{.field = "kind", .values = {s64{1}}}}},
+                .match = {toki::actor::ParamMatch{.param = "Kind", .values = {s64{1}}}}},
         }};
     pot.variants = {makeListDrawing(toki::actor::Pass::Opaque),
                     makeListDrawing(toki::actor::Pass::Translucent)};
@@ -151,7 +150,7 @@ TEST_CASE("a skeleton is drawn by its limbs' matrices after its setup display li
     toki::scene::SceneActorModel chest{.enumName = "ACTOR_EN_BOX"};
     chest.entry =
         toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .variants = {toki::actor::ActorVariant{}}};
-    chest.variants = {toki::scene::ActorDrawing{.skeleton = skeleton, .scale = 1.0F}};
+    chest.variants = {toki::scene::ActorDrawing{.skeletons = {skeleton}, .scale = 1.0F}};
     actors.models.emplace(s16{4}, chest);
     const std::array placed{toki::scene::PlacedActor{.id = 4, .position = {100, 0, 0}}};
     std::vector<u32> setups(45);

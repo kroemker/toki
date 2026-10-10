@@ -53,24 +53,25 @@ struct PlacementValues {
 [[nodiscard]] bool isMatchingScene(const ActorVariant& variant,
                                    const std::optional<std::string>& scene);
 
-/// Whether `name` is a field every entry has without declaring it.
-[[nodiscard]] bool isBuiltInField(std::string_view name);
+/// Whether `name` is a param every entry has without declaring it: `age` and
+/// `scene`.
+[[nodiscard]] bool isBuiltInParam(std::string_view name);
 
-/// A field's value for a placement: its bits, sign-extended when it is signed.
-[[nodiscard]] s64 readFieldValue(const ParamField& field, const PlacementValues& placement);
+/// A param's value for a placement: its bits shifted down, sign-extended when
+/// it is signed.
+[[nodiscard]] s64 readParamValue(const ActorParam& param, const PlacementValues& placement);
 
-/// Whether every field of `variant`'s match is one of its values for
-/// `placement`. `age` and `scene` are fields every entry has; a match on one
-/// fails where the placement has none.
+/// Whether every param of `variant`'s match is one of its values for
+/// `placement`. A match on `age` or `scene` fails where the placement has none.
 [[nodiscard]] bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                               const PlacementValues& placement);
 
-/// What is wrong with `entry` that reading it cannot tell: fields whose bits
-/// do not fit or overlap, enum values that do not fit their field, matches on
-/// fields the entry does not have or with values of the wrong kind, a variant
-/// that draws both a skeleton and display lists, and variants after one that
-/// matches everything, which are never drawn; steps that draw more than one
-/// skeleton, and steps beside the keys they replace.
+/// What is wrong with `entry` that reading it cannot tell: masks whose bits are
+/// not adjacent, params of one source that share a bit, choices whose values do
+/// not fit, params named as the built-in ones, matches on params the entry does
+/// not have or with values of the wrong kind, parts without a symbol or with a
+/// pose that is not a skeleton's, and variants after one that matches
+/// everything, which are never drawn.
 [[nodiscard]] std::vector<base::Diagnostic> checkActorEntry(const ActorEntry& entry);
 
 /// The first variant of `entry` whose match holds for `placement`.

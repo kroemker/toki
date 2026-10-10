@@ -1,13 +1,13 @@
 #include "ActorsPanel.h"
 
 #include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorRow.h"
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/EditWidgets.h"
-#include "app/actor/ui/EntryEditor.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
@@ -33,27 +33,25 @@ namespace {
 constexpr double SaveDelay = 0.6;
 constexpr float ListWidth = 18.0F;
 
-constexpr std::array<std::pair<RowFilter, const char*>, 5> FilterNames{{
+constexpr std::array<std::pair<RowFilter, const char*>, 4> FilterNames{{
     {RowFilter::All, "All actors"},
-    {RowFilter::Checked, "Checked"},
-    {RowFilter::Guessed, "Guessed, in a database"},
-    {RowFilter::Missing, "In no database"},
+    {RowFilter::WithEntry, "With an entry"},
+    {RowFilter::Missing, "Without an entry"},
     {RowFilter::Checkout, "In the checkout's database"},
 }};
 
 [[nodiscard]] const char* findRowIcon(const ActorRow& row) {
-    if (!row.origin) {
-        return core::icons::Question;
-    }
-    return row.status == EntryStatus::Checked ? core::icons::CheckCircle
-                                              : core::icons::CircleDashed;
+    return row.origin ? core::icons::CheckCircle : core::icons::Question;
 }
 
 [[nodiscard]] ImVec4 findRowColor(const ActorRow& row) {
-    if (!row.origin) {
-        return core::palette::TextDisabled;
-    }
-    return row.status == EntryStatus::Checked ? core::palette::Success : core::palette::Warning;
+    return row.origin ? core::palette::Success : core::palette::TextDisabled;
+}
+
+[[nodiscard]] std::string formatEntry(const ActorEntry& entry) {
+    ActorDatabase database;
+    database.entries.emplace(entry.actor, entry);
+    return formatActorDatabase(database);
 }
 
 } // namespace
@@ -236,12 +234,11 @@ void ActorsPanel::drawEditor() {
                                problem.message.c_str());
         }
         ImGui::Separator();
-        const EditContext context{
-            .symbolCatalog = symbolCatalog, .objects = objects, .actors = actors};
-        if (drawEntryEditor(*draft, context)) {
-            isDirty = true;
-            changedAt = ImGui::GetTime();
-        }
+        // Temporary: the entry is shown as its text until the editor is rebuilt
+        // for format 2 (steps 4 to 6 of docs/actor-database.md).
+        std::string text = formatEntry(*draft);
+        ImGui::InputTextMultiline("##entry", &text, ImVec2(-FLT_MIN, -FLT_MIN),
+                                  ImGuiInputTextFlags_ReadOnly);
     }
     ImGui::EndChild();
 }

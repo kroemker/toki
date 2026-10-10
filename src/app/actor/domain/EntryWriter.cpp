@@ -3,7 +3,6 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/EntryNames.h"
-#include "app/actor/domain/TomlWriting.h"
 
 #include <toml++/toml.hpp>
 
@@ -22,124 +21,154 @@ namespace toki::actor {
 
 namespace {
 
-[[nodiscard]] toml::table makeSegments(const std::vector<SegmentSymbol>& segments) {
-    toml::table table = makeInline();
-    for (const SegmentSymbol& segment : segments) {
-        table.insert(std::to_string(segment.segment), segment.name);
-    }
+[[nodiscard]] double makeNumber(const f32 value) {
+    return std::stod(std::format("{}", value));
+}
+
+[[nodiscard]] toml::value<s64> makeHex(const s64 value) {
+    toml::value<s64> hex(value);
+    hex.flags(toml::value_flags::format_as_hexadecimal);
+    return hex;
+}
+
+[[nodiscard]] toml::table makeInline() {
+    toml::table table;
+    table.is_inline(true);
     return table;
 }
 
-[[nodiscard]] toml::table makeSpawn(const SpawnCondition& spawn) {
-    toml::table table = makeInline();
-    if (spawn.age) {
-        table.insert("age", std::string(getEntryName(AgeNames, *spawn.age)));
+template <usize Count>
+[[nodiscard]] toml::array makeNumbers(const std::array<f32, Count>& values) {
+    toml::array array;
+    for (const f32 value : values) {
+        array.push_back(makeNumber(value));
     }
-    if (spawn.time) {
-        table.insert("time", std::string(getEntryName(TimeNames, *spawn.time)));
-    }
-    if (spawn.flagField) {
-        toml::table flag = makeInline();
-        flag.insert("field", *spawn.flagField);
-        flag.insert("is", spawn.isFlagSet ? "set" : "unset");
-        table.insert("flag", std::move(flag));
-    }
-    return table;
+    return array;
 }
 
-[[nodiscard]] toml::table makeField(const ParamField& field) {
+[[nodiscard]] toml::array makeChannels(const std::array<u8, 4>& channels) {
+    toml::array array;
+    for (const u8 channel : channels) {
+        array.push_back(s64{channel});
+    }
+    return array;
+}
+
+[[nodiscard]] bool isZero(const std::array<f32, 3>& values) {
+    return std::ranges::all_of(values, [](const f32 value) { return value == 0.0F; });
+}
+
+void insertText(toml::table& table, const std::string_view key, const std::string& text) {
+    if (!text.empty()) {
+        table.insert(key, text);
+    }
+}
+
+void insertOptional(toml::table& table, const std::string_view key,
+                    const std::optional<std::string>& text) {
+    if (text) {
+        table.insert(key, *text);
+    }
+}
+
+void insertOptional(toml::table& table, const std::string_view key,
+                    const std::optional<f32>& value) {
+    if (value) {
+        table.insert(key, makeNumber(*value));
+    }
+}
+
+void insertPlacement(toml::table& table, const PartPlacement& placement) {
+    if (!isZero(placement.translation)) {
+        table.insert("translation", makeNumbers(placement.translation));
+    }
+    if (!isZero(placement.rotation)) {
+        table.insert("rotation", makeNumbers(placement.rotation));
+    }
+    const std::array<f32, 3>& scale = placement.scale;
+    if (scale[0] == scale[1] && scale[1] == scale[2]) {
+        if (scale[0] != 1.0F) {
+            table.insert("scale", makeNumber(scale[0]));
+        }
+    } else {
+        table.insert("scale", makeNumbers(scale));
+    }
+}
+
+[[nodiscard]] toml::table makeParam(const ActorParam& param) {
     toml::table table = makeInline();
-    table.insert("kind", std::string(getEntryName(FieldKindNames, field.kind)));
-    if (field.source != FieldSource::Params) {
-        table.insert("source", std::string(getEntryName(FieldSourceNames, field.source)));
+    table.insert("mask", makeHex(param.mask));
+    table.insert("kind", std::string(getEntryName(ParamKindNames, param.kind)));
+    if (param.source != ParamSource::Params) {
+        table.insert("source", std::string(getEntryName(ParamSourceNames, param.source)));
     }
-    table.insert("shift", s64{field.shift});
-    if (field.kind != FieldKind::Flag) {
-        table.insert("width", s64{field.width});
-    }
-    if (field.isSigned) {
+    if (param.isSigned) {
         table.insert("signed", true);
     }
-    if (field.isHex) {
+    if (param.isHex) {
         table.insert("hex", true);
     }
-    if (!field.values.empty()) {
+    if (!param.values.empty()) {
         toml::table values = makeInline();
-        for (const EnumValue& value : field.values) {
-            values.insert(value.name, value.value);
+        for (const ChoiceValue& value : param.values) {
+            values.insert(std::format("{}", value.value), value.label);
         }
         table.insert("values", std::move(values));
     }
-    if (field.role != FieldRole::None) {
-        table.insert("role", std::string(getEntryName(FieldRoleNames, field.role)));
-    }
-    insertText(table, "meaning", field.meaning);
+    insertText(table, "description", param.description);
     return table;
 }
 
-[[nodiscard]] toml::table makeDisplayList(const DisplayListPart& part) {
+[[nodiscard]] toml::table makeMatch(const std::vector<ParamMatch>& match) {
     toml::table table = makeInline();
-    table.insert("name", part.name);
-    insertOptional(table, "object", part.object);
-    if (part.pass != Pass::Opaque) {
-        table.insert("pass", std::string(getEntryName(PassNames, part.pass)));
-    }
-    insertPlacement(table, part.placement);
-    if (part.colors.primitive || part.colors.environment) {
-        table.insert("colors", makeColors(part.colors));
-    }
-    if (part.isBillboard) {
-        table.insert("billboard", *part.isBillboard);
-    }
-    if (!part.segments.empty()) {
-        table.insert("segments", makeSegments(part.segments));
-    }
-    return table;
-}
-
-[[nodiscard]] toml::table makeMatch(const std::vector<FieldMatch>& match) {
-    toml::table table = makeInline();
-    for (const FieldMatch& field : match) {
-        if (field.values.size() == 1) {
-            std::visit([&](const auto& value) { table.insert(field.field, value); },
-                       field.values.front());
+    for (const ParamMatch& param : match) {
+        if (param.values.size() == 1) {
+            std::visit([&](const auto& value) { table.insert(param.param, value); },
+                       param.values.front());
             continue;
         }
         toml::array values;
-        for (const MatchValue& value : field.values) {
+        for (const MatchValue& value : param.values) {
             std::visit([&values](const auto& candidate) { values.push_back(candidate); }, value);
         }
-        table.insert(field.field, std::move(values));
+        table.insert(param.param, std::move(values));
     }
     return table;
 }
 
-void insertDrawing(toml::table& table, const ActorVariant& variant) {
-    if (variant.draw) {
-        table.insert("draw", std::string(getEntryName(DrawKindNames, *variant.draw)));
+[[nodiscard]] toml::table makePart(const ActorPart& part) {
+    toml::table table = makeInline();
+    table.insert(part.kind == PartKind::DisplayList ? "display_list" : "skeleton", part.symbol);
+    insertOptional(table, "object", part.object);
+    insertOptional(table, "pose", part.pose);
+    insertOptional(table, "pose_object", part.poseObject);
+    insertPlacement(table, part.placement);
+    if (part.isBillboard) {
+        table.insert("billboard", true);
     }
-    insertOptional(table, "skeleton", variant.skeleton);
-    insertOptional(table, "animation", variant.animation);
-    insertOptional(table, "animation_object", variant.animationObject);
-    if (variant.frame) {
-        table.insert("frame", s64{*variant.frame});
+    if (part.colors.primitive) {
+        table.insert("prim", makeChannels(*part.colors.primitive));
     }
-    if (!variant.displayLists.empty()) {
-        toml::array lists;
-        for (const DisplayListPart& part : variant.displayLists) {
-            lists.push_back(makeDisplayList(part));
+    if (part.colors.environment) {
+        table.insert("env", makeChannels(*part.colors.environment));
+    }
+    if (!part.segments.empty()) {
+        toml::table segments = makeInline();
+        for (const SegmentSymbol& segment : part.segments) {
+            segments.insert(std::to_string(segment.segment), segment.name);
         }
-        table.insert("display_lists", std::move(lists));
+        table.insert("segments", std::move(segments));
     }
-    if (!variant.segments.empty()) {
-        table.insert("segments", makeSegments(variant.segments));
+    if (part.setup) {
+        table.insert("setup", s64{*part.setup});
     }
-    if (variant.colors.primitive || variant.colors.environment) {
-        table.insert("colors", makeColors(variant.colors));
+    if (part.pass != Pass::Opaque) {
+        table.insert("pass", std::string(getEntryName(PassNames, part.pass)));
     }
-    if (variant.isBillboard) {
-        table.insert("billboard", *variant.isBillboard);
+    if (part.isHilit) {
+        table.insert("hilite", true);
     }
+    return table;
 }
 
 [[nodiscard]] toml::table makeVariant(const ActorVariant& variant) {
@@ -150,7 +179,16 @@ void insertDrawing(toml::table& table, const ActorVariant& variant) {
     insertOptional(table, "object", variant.object);
     insertOptional(table, "scale", variant.scale);
     insertOptional(table, "height_offset", variant.heightOffset);
-    insertDrawing(table, variant);
+    if (variant.draw) {
+        table.insert("draw", std::string(getEntryName(DrawKindNames, *variant.draw)));
+    }
+    if (!variant.parts.empty()) {
+        toml::array parts;
+        for (const ActorPart& part : variant.parts) {
+            parts.push_back(makePart(part));
+        }
+        table.insert("parts", std::move(parts));
+    }
     if (!variant.children.empty()) {
         toml::array children;
         for (const ChildActor& child : variant.children) {
@@ -162,59 +200,15 @@ void insertDrawing(toml::table& table, const ActorVariant& variant) {
         }
         table.insert("children", std::move(children));
     }
-    if (variant.spawn) {
-        table.insert("spawn", makeSpawn(*variant.spawn));
-    }
     if (variant.defaultParams) {
         table.insert("default_params", makeHex(*variant.defaultParams));
-    }
-    if (!variant.steps.empty()) {
-        table.insert("steps", makeSteps(variant.steps));
     }
     return table;
 }
 
-void insertExtras(toml::table& table, const ActorEntry& entry) {
-    if (entry.shadow) {
-        table.insert("shadow", makeShadow(*entry.shadow));
-    }
-    if (entry.spawn) {
-        table.insert("spawn", makeSpawn(*entry.spawn));
-    }
-    insertOptional(table, "collision", entry.collision);
-    if (!entry.lights.empty()) {
-        toml::array lights;
-        for (const PointLight& light : entry.lights) {
-            toml::table read = makeInline();
-            read.insert("color", makeChannels(light.color));
-            read.insert("radius", makeNumber(light.radius));
-            read.insert("offset", makeNumbers(light.offset));
-            lights.push_back(std::move(read));
-        }
-        table.insert("lights", std::move(lights));
-    }
-    if (!entry.textIds.empty()) {
-        toml::array ids;
-        for (const u16 id : entry.textIds) {
-            ids.push_back(makeHex(id));
-        }
-        table.insert("text_ids", std::move(ids));
-    }
-}
-
-void insertHeader(toml::table& table, const ActorEntry& entry) {
-    table.insert("status", std::string(getEntryName(StatusNames, entry.status)));
-    if (entry.guessedFrom) {
-        toml::table guessed = makeInline();
-        guessed.insert("file", entry.guessedFrom->file);
-        guessed.insert("modified", entry.guessedFrom->modified);
-        table.insert("guessed_from", std::move(guessed));
-    }
-    if (entry.isUncertain) {
-        table.insert("confidence", "low");
-    }
+[[nodiscard]] toml::table makeEntry(const ActorEntry& entry) {
+    toml::table table;
     insertText(table, "name", entry.name);
-    insertText(table, "description", entry.description);
     insertText(table, "notes", entry.notes);
     insertOptional(table, "object", entry.object);
     insertOptional(table, "scale", entry.scale);
@@ -229,17 +223,12 @@ void insertHeader(toml::table& table, const ActorEntry& entry) {
     if (entry.draw) {
         table.insert("draw", std::string(getEntryName(DrawKindNames, *entry.draw)));
     }
-}
-
-[[nodiscard]] toml::table makeEntry(const ActorEntry& entry) {
-    toml::table table;
-    insertHeader(table, entry);
-    if (!entry.fields.empty()) {
-        toml::table fields;
-        for (const ParamField& field : entry.fields) {
-            fields.insert(field.name, makeField(field));
+    if (!entry.params.empty()) {
+        toml::table params;
+        for (const ActorParam& param : entry.params) {
+            params.insert(param.name, makeParam(param));
         }
-        table.insert("fields", std::move(fields));
+        table.insert("params", std::move(params));
     }
     if (!entry.variants.empty()) {
         toml::array variants;
@@ -248,7 +237,6 @@ void insertHeader(toml::table& table, const ActorEntry& entry) {
         }
         table.insert("variants", std::move(variants));
     }
-    insertExtras(table, entry);
     return table;
 }
 

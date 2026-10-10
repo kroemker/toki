@@ -1,0 +1,73 @@
+#include "app/actor/domain/ParamReading.h"
+
+#include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/ActorDatabaseFile.h"
+#include "app/actor/domain/ActorEntry.h"
+#include "base/Types.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <variant>
+#include <vector>
+
+namespace {
+
+constexpr std::string_view Example = R"(format = 2
+
+[actors.ACTOR_OBJ_SYOKUDAI.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", description = "Set when it is lit" }
+"Lit"         = { mask = 0x0400, kind = "flag" }
+"Type"        = { mask = 0xF000, kind = "choice", values = { 0 = "Golden", 1 = "Timed" } }
+"Text"        = { mask = 0xFFFF, source = "rotation_x", kind = "number", hex = true }
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+match = { "Type" = 1, age = "adult" }
+
+[[actors.ACTOR_OBJ_SYOKUDAI.variants]]
+)";
+
+[[nodiscard]] toki::actor::ActorEntry readTorch() {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(Example, "a.toml");
+    REQUIRE(database.diagnostics.empty());
+    return database.entries.at("ACTOR_OBJ_SYOKUDAI");
+}
+
+} // namespace
+
+TEST_CASE("a placement's params are read as the panels show them", "[actor][params]") {
+    const toki::actor::ActorEntry torch = readTorch();
+
+    const std::vector<toki::actor::ParamReading> params =
+        toki::actor::readParams(torch, {.params = 0x1405, .rotation = {0x0300, 0, 0}});
+
+    REQUIRE(params.size() == 4);
+    REQUIRE(params[0].name == "Switch Flag");
+    REQUIRE(params[0].text == "5");
+    REQUIRE(params[0].description == "Set when it is lit");
+    REQUIRE(params[1].text == "yes");
+    REQUIRE(params[2].text == "Timed");
+    REQUIRE(params[3].text == "0x300");
+    REQUIRE(toki::actor::readParams(torch, {.params = 0x7000})[2].text == "7 (no label)");
+}
+
+TEST_CASE("the match for a placement gives every param's value", "[actor][params]") {
+    const toki::actor::ActorEntry torch = readTorch();
+
+    const std::vector<toki::actor::ParamMatch> match =
+        toki::actor::makeParamsMatch(torch, {.params = 0x1005});
+
+    const auto findValue = [&match](const std::string_view param) {
+        const auto found = std::ranges::find(match, param, &toki::actor::ParamMatch::param);
+        REQUIRE(found != match.end());
+        REQUIRE(found->values.size() == 1);
+        return found->values.front();
+    };
+    REQUIRE(match.size() == 4);
+    REQUIRE(std::get<base::s64>(findValue("Switch Flag")) == 5);
+    REQUIRE_FALSE(std::get<bool>(findValue("Lit")));
+    REQUIRE(std::get<base::s64>(findValue("Type")) == 1);
+}

@@ -25,21 +25,19 @@ TEST_CASE("a guessed skeleton becomes an entry, naming the objects that are not 
     model.scale = 0.02F;
     model.scaleSource = base::SourceLocation{};
 
-    const toki::actor::ActorEntry entry = toki::actor::makeGuessedEntry(
-        model, "ACTOR_EN_KO", toki::actor::GuessSource{.file = "z_en_ko.c", .modified = "now"});
+    const toki::actor::ActorEntry entry = toki::actor::makeGuessedEntry(model, "ACTOR_EN_KO");
 
-    REQUIRE(entry.status == toki::actor::EntryStatus::Guessed);
-    REQUIRE(entry.guessedFrom->file == "z_en_ko.c");
     REQUIRE(entry.object == "object_km1");
     REQUIRE(entry.scale == Catch::Approx(0.02F));
     REQUIRE(entry.variants.size() == 1);
-    const toki::actor::ActorVariant& variant = entry.variants.front();
-    REQUIRE(variant.object == "object_kw1");
-    REQUIRE(variant.skeleton == "gKw1Skel");
-    REQUIRE(variant.animation == "gObjOsAnim_Idle");
-    REQUIRE(variant.animationObject == "object_os_anime");
-    REQUIRE(variant.segments.size() == 1);
-    REQUIRE(variant.segments.front().name == "gEyeTex");
+    const toki::actor::ActorPart& part = entry.variants.front().parts.front();
+    REQUIRE(part.kind == toki::actor::PartKind::Skeleton);
+    REQUIRE(part.object == "object_kw1");
+    REQUIRE(part.symbol == "gKw1Skel");
+    REQUIRE(part.pose == "gObjOsAnim_Idle");
+    REQUIRE(part.poseObject == "object_os_anime");
+    REQUIRE(part.segments.size() == 1);
+    REQUIRE(part.segments.front().name == "gEyeTex");
 }
 
 TEST_CASE("guessed display lists keep their passes and segments, and no model is no variant",
@@ -51,12 +49,11 @@ TEST_CASE("guessed display lists keep their passes and segments, and no model is
         .segments = {toki::actor::SegmentSetting{
             .segment = 8, .pass = toki::actor::Pass::Translucent, .symbol = {.name = "gTex"}}}}};
 
-    const toki::actor::ActorEntry entry =
-        toki::actor::makeGuessedEntry(lists, "ACTOR_OBJ_TEST", std::nullopt);
+    const toki::actor::ActorEntry entry = toki::actor::makeGuessedEntry(lists, "ACTOR_OBJ_TEST");
     const toki::actor::ActorEntry empty = toki::actor::makeGuessedEntry(
-        toki::actor::ActorModel{.actorName = "En_None"}, "ACTOR_EN_NONE", std::nullopt);
+        toki::actor::ActorModel{.actorName = "En_None"}, "ACTOR_EN_NONE");
 
-    const toki::actor::DisplayListPart& part = entry.variants.front().displayLists.front();
+    const toki::actor::ActorPart& part = entry.variants.front().parts.front();
     REQUIRE(part.object == "gameplay_keep");
     REQUIRE(part.pass == toki::actor::Pass::Translucent);
     REQUIRE(part.segments.front().name == "gTex");

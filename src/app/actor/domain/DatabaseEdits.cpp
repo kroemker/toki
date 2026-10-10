@@ -2,7 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
-#include "app/actor/domain/FieldReading.h"
+#include "app/actor/domain/ParamReading.h"
 
 #include <expected>
 #include <format>
@@ -15,16 +15,17 @@ namespace toki::actor {
 std::expected<void, std::string> addVariantForParams(ActorDatabase& checkout,
                                                      const ActorEntry& current,
                                                      const PlacementValues& placement) {
-    if (current.fields.empty()) {
-        return std::unexpected(std::format(
-            "{} has no fields, so a variant cannot tell these params from others", current.actor));
+    if (current.params.empty()) {
+        return std::unexpected(
+            std::format("{} names no params, so a variant cannot tell these params from others",
+                        current.actor));
     }
     ActorEntry& entry = checkout.entries.try_emplace(current.actor, current).first->second;
     const ActorVariant* matched = findVariant(entry, placement);
     ActorVariant variant = matched != nullptr ? *matched : ActorVariant{};
-    std::vector<FieldMatch> match = makeFieldsMatch(entry, placement);
-    for (const FieldMatch& kept : variant.match) {
-        if (isBuiltInField(kept.field)) {
+    std::vector<ParamMatch> match = makeParamsMatch(entry, placement);
+    for (const ParamMatch& kept : variant.match) {
+        if (isBuiltInParam(kept.param)) {
             match.push_back(kept);
         }
     }

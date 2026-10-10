@@ -29,14 +29,15 @@ namespace {
         .actor = "ACTOR_EN_ANI",
         .name = "Kakariko roof man",
         .object = "object_ani",
-        .fields = {toki::actor::ParamField{
-            .name = "type", .kind = toki::actor::FieldKind::Integer, .shift = 0, .width = 4}},
+        .params = {toki::actor::ActorParam{.name = "Type", .mask = 0x000F}},
         .variants = {toki::actor::ActorVariant{
-            .match = {toki::actor::FieldMatch{.field = "type", .values = {base::s64{0}}}},
-            .skeleton = "gRoofManSkel"}},
+            .match = {toki::actor::ParamMatch{.param = "Type", .values = {base::s64{0}}}},
+            .parts = {toki::actor::ActorPart{.kind = toki::actor::PartKind::Skeleton,
+                                             .symbol = "gRoofManSkel"}}}},
     };
-    actor.variants.push_back(toki::scene::ActorDrawing{
-        .skeleton = toki::scene::SkeletonDrawing{.pose = {.drawn = {toki::object::PosedLimb{}}}}});
+    actor.variants.push_back(
+        toki::scene::ActorDrawing{.skeletons = {toki::scene::SkeletonDrawing{
+                                      .pose = {.drawn = {toki::object::PosedLimb{}}}}}});
     return actor;
 }
 
@@ -47,14 +48,13 @@ TEST_CASE("an actor is described by where its entry comes from and what its vari
     const toki::scene::SceneActorModel actor = makeRoofMan();
     const std::array<std::string, 2> loaded{"gameplay_keep", "object_kanban"};
 
-    const toki::scene::ActorDescription description = toki::scene::describeActor(
-        actor, {.params = 0x0000}, std::span<const std::string>(loaded));
+    const toki::scene::ActorDescription description =
+        toki::scene::describeActor(actor, {.params = 0x0000}, std::span<const std::string>(loaded));
 
     REQUIRE(description.isDrawn);
     REQUIRE(description.name == "Kakariko roof man");
-    REQUIRE(description.status == "checked");
-    REQUIRE(description.fields.size() == 1);
-    REQUIRE(description.fields[0].text == "0");
+    REQUIRE(description.params.size() == 1);
+    REQUIRE(description.params[0].text == "0");
     REQUIRE(description.canAddVariant);
     REQUIRE(description.lines[0] == "From the shipped actor database");
     REQUIRE(std::ranges::contains(description.lines,
@@ -93,7 +93,4 @@ TEST_CASE("Link's age is the scene layer's, and cutscene layers have none", "[sc
     REQUIRE(toki::scene::findLayerAge(1) == toki::actor::Age::Child);
     REQUIRE(toki::scene::findLayerAge(2) == toki::actor::Age::Adult);
     REQUIRE_FALSE(toki::scene::findLayerAge(4).has_value());
-    REQUIRE(toki::scene::findLayerTime(1) == toki::actor::TimeOfDay::Night);
-    REQUIRE(toki::scene::findLayerTime(2) == toki::actor::TimeOfDay::Day);
-    REQUIRE_FALSE(toki::scene::findLayerTime(5).has_value());
 }

@@ -2,7 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
-#include "app/actor/domain/FieldReading.h"
+#include "app/actor/domain/ParamReading.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -15,19 +15,17 @@
 
 namespace toki::scene {
 
-/// What the Scene panel says of one placed actor: its name and its entry's
-/// status, its params read by the entry's fields, where its entry comes from,
+/// What the Scene panel says of one placed actor: its name, its params read by
+/// its entry, where its entry comes from,
 /// what the variant its placement matches draws, what keeps it from being
 /// drawn fully, and which edits of the checkout's actor database fit it.
 struct ActorDescription {
     bool isDrawn = false;
     std::string name;
-    /// `checked`, `guessed`, `marker` or `none`.
-    std::string status;
-    std::vector<actor::FieldReading> fields;
+    std::vector<actor::ParamReading> params;
     std::vector<std::string> lines;
     std::vector<std::string> problems;
-    /// Whether its entry has fields that "Add a variant for these params" can
+    /// Whether its entry has params that "Add a variant for these params" can
     /// match on.
     bool canAddVariant = false;
 };

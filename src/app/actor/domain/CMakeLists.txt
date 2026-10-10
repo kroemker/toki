@@ -10,11 +10,9 @@ target_sources(toki_core PRIVATE
         EntryCheck.cpp
         EntryReader.cpp
         EntryWriter.cpp
-        FieldReading.cpp
+        ParamReading.cpp
         GuessedEntry.cpp
         ModelRules.cpp
-        DrawSteps.cpp
         OverlayCode.cpp
-        StepReader.cpp
-        StepWriter.cpp
+        PartReader.cpp
         SymbolCatalog.cpp)

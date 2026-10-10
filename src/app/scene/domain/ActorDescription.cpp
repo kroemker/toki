@@ -3,8 +3,7 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
-#include "app/actor/domain/DrawSteps.h"
-#include "app/actor/domain/FieldReading.h"
+#include "app/actor/domain/ParamReading.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -39,24 +38,11 @@ namespace {
     case ModelSource::Shipped:
         return "From the shipped actor database";
     case ModelSource::Guessed:
-        return actor.entry && actor.entry->guessedFrom
-                   ? std::format("Guessed from {}", actor.entry->guessedFrom->file)
-                   : std::string("Guessed from its C");
+        return "Read from its C, as it has no entry";
     case ModelSource::None:
         break;
     }
     return "In no actor database, and with no overlay to guess from";
-}
-
-[[nodiscard]] std::string describeStatus(const SceneActorModel& actor,
-                                         const ActorDrawing* drawing) {
-    if (!actor.entry) {
-        return "none";
-    }
-    if (drawing != nullptr && drawing->kind == actor::DrawKind::Marker) {
-        return "marker";
-    }
-    return actor.entry->status == actor::EntryStatus::Checked ? "checked" : "guessed";
 }
 
 [[nodiscard]] std::string describeObject(const std::optional<std::string>& own,
@@ -69,34 +55,18 @@ namespace {
     return pass == actor::Pass::Opaque ? "Opaque" : "Translucent";
 }
 
-void describeStep(const actor::DrawStep& step, const std::optional<std::string>& object,
-                  const std::string_view indent, std::vector<std::string>& lines) {
-    if (const auto* skeleton = std::get_if<actor::SkeletonStep>(&step.step)) {
-        lines.push_back(std::format("{}Skeleton {}{}", indent, skeleton->skeleton,
-                                    describeObject(skeleton->object, object)));
-        lines.push_back(skeleton->animation
-                            ? std::format("{}Animation {}{}, frame {}", indent,
-                                          *skeleton->animation,
-                                          describeObject(skeleton->animationObject, object),
-                                          skeleton->frame.value_or(0))
-                            : std::format("{}At rest", indent));
-        for (const actor::LimbSteps& limb : skeleton->limbs) {
-            lines.push_back(std::format("{}Limb {}:", indent, limb.limb));
-            for (const actor::DrawStep& limbStep : limb.steps) {
-                describeStep(limbStep, object, "    ", lines);
-            }
-        }
-    } else if (const auto* list = std::get_if<actor::DisplayListStep>(&step.step)) {
-        lines.push_back(std::format("{}{} {}{}", indent, describePass(list->pass), list->name,
-                                    describeObject(list->object, object)));
-    } else if (const auto* segment = std::get_if<actor::SegmentStep>(&step.step)) {
+void describePart(const actor::ActorPart& part, const std::optional<std::string>& object,
+                  std::vector<std::string>& lines) {
+    if (part.kind == actor::PartKind::Skeleton) {
         lines.push_back(
-            std::format("{}Segment {} at {}", indent, segment->segment, segment->symbol));
-    } else if (const auto* setup = std::get_if<actor::SetupStep>(&step.step)) {
-        lines.push_back(std::format("{}After sSetupDL[{}]", indent, setup->index));
-    } else if (const auto* shadow = std::get_if<actor::ShadowStep>(&step.step)) {
-        lines.push_back(std::format("{}Its own shadow, size {}", indent, shadow->shadow.size));
+            std::format("Skeleton {}{}", part.symbol, describeObject(part.object, object)));
+        lines.push_back(part.pose ? std::format("Posed as {}{}", *part.pose,
+                                                describeObject(part.poseObject, object))
+                                  : std::string("At rest"));
+        return;
     }
+    lines.push_back(std::format("{} {}{}", describePass(part.pass), part.symbol,
+                                describeObject(part.object, object)));
 }
 
 void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
@@ -106,8 +76,8 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
     if (kind == actor::DrawKind::Marker) {
         lines.emplace_back("Marked: it has no model by design");
     }
-    for (const actor::DrawStep& step : actor::makeDrawSteps(variant)) {
-        describeStep(step, object, "", lines);
+    for (const actor::ActorPart& part : variant.parts) {
+        describePart(part, object, lines);
     }
     for (const actor::ChildActor& child : variant.children) {
         lines.push_back(std::format("Spawns {} with params 0x{:04X}", child.actor, child.params));
@@ -126,12 +96,11 @@ ActorDescription describeActor(const SceneActorModel& actor,
         actor.entry ? actor::findVariant(*actor.entry, placement) : nullptr;
     ActorDescription description{
         .isDrawn = drawing != nullptr && drawing->isDrawn(),
-        .status = describeStatus(actor, drawing),
-        .canAddVariant = actor.entry && !actor.entry->fields.empty(),
+        .canAddVariant = actor.entry && !actor.entry->params.empty(),
     };
     if (actor.entry) {
         description.name = actor.entry->name;
-        description.fields = actor::readFields(*actor.entry, placement);
+        description.params = actor::readParams(*actor.entry, placement);
     }
     description.lines.push_back(describeSource(actor));
     if (variant != nullptr) {

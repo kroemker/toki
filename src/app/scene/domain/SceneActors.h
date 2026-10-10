@@ -43,11 +43,10 @@ struct ActorSegment {
     u32 address = 0;
 };
 
-/// What a display list or skeleton is drawn under, as the steps before it
-/// left it: after `sSetupDL[setup]`, in its colours, with a `LookAt` toward
-/// the actor when it is hilit, with segments 8 to 12 pointed where they were,
-/// placed relative to the actor, or to its limb, and facing the camera when
-/// it is a billboard.
+/// What a display list or skeleton is drawn under, as its part says: after
+/// `sSetupDL[setup]`, in its colours, with a `LookAt` toward the actor when it
+/// is hilit, with segments 8 to 12 pointed at its symbols, placed relative to
+/// the actor, and facing the camera when it is a billboard.
 struct DrawState {
     u8 setup = 25;
     actor::DrawColors colors;
@@ -85,7 +84,7 @@ struct ChildPlacement {
 /// What one variant of an actor draws, made ready when the scene is read.
 struct ActorDrawing {
     actor::DrawKind kind = actor::DrawKind::Model;
-    std::optional<SkeletonDrawing> skeleton;
+    std::vector<SkeletonDrawing> skeletons;
     std::vector<ActorDisplayList> displayLists;
     f32 scale = actor::ActorModel::DefaultScale;
     f32 heightOffset = 0.0F;
@@ -95,7 +94,7 @@ struct ActorDrawing {
     /// Whether anything is drawn for it: a model, or children in its place.
     [[nodiscard]] bool isDrawn() const {
         return kind != actor::DrawKind::Marker &&
-               (skeleton.has_value() || !displayLists.empty() || !children.empty());
+               (!skeletons.empty() || !displayLists.empty() || !children.empty());
     }
 };
 
@@ -155,10 +154,6 @@ struct SceneActors {
 /// Link's age in a scene layer: child in the first two, adult in the next two,
 /// none in a cutscene layer.
 [[nodiscard]] std::optional<actor::Age> findLayerAge(usize layerIndex);
-
-/// The time of day in a scene layer: day in the first and third, night in the
-/// second and fourth, none in a cutscene layer.
-[[nodiscard]] std::optional<actor::TimeOfDay> findLayerTime(usize layerIndex);
 
 /// Reads the model of every actor `layers` place, player entries and the
 /// children their variants spawn included: each by its entry in `databases`,

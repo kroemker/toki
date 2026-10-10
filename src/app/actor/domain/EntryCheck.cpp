@@ -15,15 +15,13 @@ namespace toki::actor {
 
 namespace {
 
-constexpr u8 SourceBits = 16;
-
 class EntryChecker {
 public:
     explicit EntryChecker(const ActorEntry& entry) : entry(entry) {}
 
     [[nodiscard]] std::vector<base::Diagnostic> check() && {
-        for (const ParamField& field : entry.fields) {
-            checkField(field);
+        for (const ActorParam& param : entry.params) {
+            checkParam(param);
         }
         checkOverlaps();
         for (usize i = 0; i < entry.variants.size(); ++i) {
@@ -39,60 +37,59 @@ private:
             base::makeWarning(location, std::format("{}.{}: {}", entry.actor, path, message)));
     }
 
-    void checkField(const ParamField& field);
+    void checkParam(const ActorParam& param);
     void checkOverlaps();
     void checkVariant(const ActorVariant& variant, usize index);
-    void checkMatch(const ActorVariant& variant, const FieldMatch& match, std::string_view path);
-    void checkSteps(const ActorVariant& variant, std::string_view path);
+    void checkMatch(const ActorVariant& variant, const ParamMatch& match, std::string_view path);
+    void checkPart(const ActorPart& part, std::string_view path);
 
     const ActorEntry& entry;
     std::vector<base::Diagnostic> diagnostics;
 };
 
-void EntryChecker::checkField(const ParamField& field) {
-    const std::string path = std::format("fields.{}", field.name);
-    if (field.name == "age") {
-        report(field.location, path, "'age' is a field every actor has, and cannot be declared");
+void EntryChecker::checkParam(const ActorParam& param) {
+    const std::string path = std::format("params.{}", param.name);
+    if (isBuiltInParam(param.name)) {
+        report(param.location, path,
+               std::format("'{}' is a param every actor has, and cannot be declared", param.name));
     }
-    if (field.width == 0 || field.shift + field.width > SourceBits) {
-        report(field.location, path,
-               std::format("bits {} to {} do not fit in 16", field.shift,
-                           field.shift + field.width - 1));
+    if (param.mask == 0) {
         return;
     }
-    if (field.kind == FieldKind::Flag && field.width != 1) {
-        report(field.location, path, "a flag is one bit wide");
+    if (!isMaskContiguous(param.mask)) {
+        report(param.location, path,
+               std::format("the bits of mask 0x{:04X} are not next to each other", param.mask));
     }
-    if (field.kind == FieldKind::Enum && field.values.empty()) {
-        report(field.location, path, "an enum needs values");
+    const u8 width = findMaskWidth(param.mask);
+    if (param.kind == ParamKind::Flag && width != 1) {
+        report(param.location, path, "a flag is one bit");
     }
-    const s64 lowest = field.isSigned ? -(s64{1} << (field.width - 1)) : 0;
-    const s64 highest =
-        field.isSigned ? (s64{1} << (field.width - 1)) - 1 : (s64{1} << field.width) - 1;
-    std::set<std::string_view> names;
-    for (const EnumValue& value : field.values) {
+    if (param.kind == ParamKind::Choice && param.values.empty()) {
+        report(param.location, path, "a choice needs values");
+    }
+    const s64 lowest = param.isSigned ? -(s64{1} << (width - 1)) : 0;
+    const s64 highest = param.isSigned ? (s64{1} << (width - 1)) - 1 : (s64{1} << width) - 1;
+    std::set<s64> seen;
+    for (const ChoiceValue& value : param.values) {
         if (value.value < lowest || value.value > highest) {
-            report(field.location, path,
-                   std::format("'{}' is {}, which does not fit in {} bits", value.name, value.value,
-                               field.width));
+            report(
+                param.location, path,
+                std::format("{} ('{}') does not fit in {} bits", value.value, value.label, width));
         }
-        if (!names.insert(value.name).second) {
-            report(field.location, path, std::format("'{}' is named twice", value.name));
+        if (!seen.insert(value.value).second) {
+            report(param.location, path, std::format("{} is labelled twice", value.value));
         }
     }
 }
 
 void EntryChecker::checkOverlaps() {
-    for (usize i = 0; i < entry.fields.size(); ++i) {
-        for (usize j = i + 1; j < entry.fields.size(); ++j) {
-            const ParamField& first = entry.fields[i];
-            const ParamField& second = entry.fields[j];
-            const bool overlaps = first.source == second.source &&
-                                  first.shift < second.shift + second.width &&
-                                  second.shift < first.shift + first.width;
-            if (overlaps) {
-                report(second.location, std::format("fields.{}", second.name),
-                       std::format("shares bits with '{}'", first.name));
+    for (usize i = 0; i < entry.params.size(); ++i) {
+        for (usize j = i + 1; j < entry.params.size(); ++j) {
+            const ActorParam& first = entry.params[i];
+            const ActorParam& second = entry.params[j];
+            if (first.source == second.source && (first.mask & second.mask) != 0) {
+                report(first.location, std::format("params.{}", first.name),
+                       std::format("shares bits with '{}'", second.name));
             }
         }
     }
@@ -100,75 +97,59 @@ void EntryChecker::checkOverlaps() {
 
 void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) {
     const std::string path = std::format("variants[{}]", index);
-    for (const FieldMatch& match : variant.match) {
+    for (const ParamMatch& match : variant.match) {
         checkMatch(variant, match, path);
     }
-    if (variant.skeleton && !variant.displayLists.empty()) {
-        report(variant.location, path, "draws a skeleton and display lists both");
+    for (usize i = 0; i < variant.parts.size(); ++i) {
+        checkPart(variant.parts[i], std::format("{}.parts[{}]", path, i));
     }
-    if (variant.animation && !variant.skeleton) {
-        report(variant.location, path, "has an animation but no skeleton");
-    }
-    checkSteps(variant, path);
     if (variant.match.empty() && index + 1 < entry.variants.size()) {
         report(variant.location, path,
                "matches every placement, so the variants after it are never drawn");
     }
 }
 
-void EntryChecker::checkMatch(const ActorVariant& variant, const FieldMatch& match,
+void EntryChecker::checkMatch(const ActorVariant& variant, const ParamMatch& match,
                               const std::string_view path) {
-    const std::string at = std::format("{}.match.{}", path, match.field);
-    if (match.field == "age" || match.field == "scene") {
+    const std::string at = std::format("{}.match.{}", path, match.param);
+    if (isBuiltInParam(match.param)) {
         for (const MatchValue& value : match.values) {
             const std::string* name = std::get_if<std::string>(&value);
-            if (name == nullptr || (match.field == "age" && *name != "child" && *name != "adult")) {
+            if (name == nullptr || (match.param == "age" && *name != "child" && *name != "adult")) {
                 report(variant.location, at,
-                       match.field == "age" ? "an age is \"child\" or \"adult\""
+                       match.param == "age" ? "an age is \"child\" or \"adult\""
                                             : "a scene is matched by its enum name");
             }
         }
         return;
     }
-    const auto field = std::ranges::find(entry.fields, match.field, &ParamField::name);
-    if (field == entry.fields.end()) {
-        report(variant.location, at, "is not a field of the actor");
+    const auto param = std::ranges::find(entry.params, match.param, &ActorParam::name);
+    if (param == entry.params.end()) {
+        report(variant.location, at, "is not a param of the actor");
         return;
     }
     for (const MatchValue& value : match.values) {
-        if (std::holds_alternative<bool>(value) != (field->kind == FieldKind::Flag)) {
+        if (std::holds_alternative<std::string>(value)) {
             report(variant.location, at,
-                   field->kind == FieldKind::Flag ? "a flag matches true or false"
+                   "a param is matched by a number, or a flag by true or false");
+        } else if (std::holds_alternative<bool>(value) != (param->kind == ParamKind::Flag)) {
+            report(variant.location, at,
+                   param->kind == ParamKind::Flag ? "a flag matches true or false"
                                                   : "only a flag matches true or false");
-            continue;
-        }
-        const std::string* name = std::get_if<std::string>(&value);
-        if (name == nullptr) {
-            continue;
-        }
-        if (field->kind != FieldKind::Enum) {
-            report(variant.location, at, "only an enum's values have names");
-        } else if (!std::ranges::contains(field->values, *name, &EnumValue::name)) {
-            report(variant.location, at, std::format("'{}' is not a value of the field", *name));
+        } else if (const s64* number = std::get_if<s64>(&value);
+                   number != nullptr && param->kind == ParamKind::Choice &&
+                   !std::ranges::contains(param->values, *number, &ChoiceValue::value)) {
+            report(variant.location, at, std::format("{} is not one of its values", *number));
         }
     }
 }
 
-void EntryChecker::checkSteps(const ActorVariant& variant, const std::string_view path) {
-    if (variant.steps.empty()) {
-        return;
+void EntryChecker::checkPart(const ActorPart& part, const std::string_view path) {
+    if (part.symbol.empty()) {
+        report(part.location, path, "draws nothing: it names no display list or skeleton");
     }
-    const auto skeletons = std::ranges::count_if(variant.steps, [](const DrawStep& step) {
-        return std::holds_alternative<SkeletonStep>(step.step);
-    });
-    if (skeletons > 1) {
-        report(variant.location, path, "its steps draw more than one skeleton");
-    }
-    if (variant.skeleton || !variant.displayLists.empty() || !variant.segments.empty() ||
-        variant.colors.primitive || variant.colors.environment || variant.isBillboard) {
-        report(variant.location, path,
-               "has steps, which say how it is drawn, and keys that say it too, which are "
-               "ignored");
+    if (part.kind != PartKind::Skeleton && (part.pose || part.poseObject)) {
+        report(part.location, path, "only a skeleton stands in a pose");
     }
 }
 

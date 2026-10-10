@@ -25,7 +25,6 @@ std::vector<ActorRow> listActorRows(const hackeroot::Tables& tables,
         if (const std::optional<FoundEntry> found =
                 findActorEntry(databases.shipped, databases.checkout, actor.enumName)) {
             row.origin = found->origin;
-            row.status = found->entry->status;
             if (!found->entry->name.empty()) {
                 row.name = found->entry->name;
             }
@@ -44,10 +43,8 @@ bool isRowShown(const ActorRow& row, const RowFilter filter, const std::string_v
     switch (filter) {
     case RowFilter::All:
         return true;
-    case RowFilter::Checked:
-        return row.origin.has_value() && row.status == EntryStatus::Checked;
-    case RowFilter::Guessed:
-        return row.origin.has_value() && row.status == EntryStatus::Guessed;
+    case RowFilter::WithEntry:
+        return row.origin.has_value();
     case RowFilter::Missing:
         return !row.origin.has_value();
     case RowFilter::Checkout:

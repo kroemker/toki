@@ -9,7 +9,7 @@
 namespace toki::actor {
 
 /// "Add a variant for these params": a variant matching exactly the values
-/// `placement` gives every field, drawn as the variant it matches now and kept
+/// `placement` gives every param, drawn as the variant it matches now and kept
 /// to that variant's age and scene, ahead of
 /// the others in the checkout's entry for the actor. An actor without one there
 /// gets `current`, its entry from wherever it was found, copied in first, as a

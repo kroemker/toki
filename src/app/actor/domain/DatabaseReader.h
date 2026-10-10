@@ -26,33 +26,26 @@ using Keys = std::span<const std::string_view>;
 inline constexpr std::array DatabaseKeys = {
     std::string_view("format"), std::string_view("checked_against"), std::string_view("actors")};
 inline constexpr std::array EntryKeys = {
-    std::string_view("status"),        std::string_view("guessed_from"),
-    std::string_view("confidence"),    std::string_view("name"),
-    std::string_view("description"),   std::string_view("notes"),
-    std::string_view("object"),        std::string_view("scale"),
-    std::string_view("height_offset"), std::string_view("rotates"),
-    std::string_view("draw"),          std::string_view("fields"),
-    std::string_view("variants"),      std::string_view("shadow"),
-    std::string_view("spawn"),         std::string_view("collision"),
-    std::string_view("lights"),        std::string_view("text_ids")};
+    std::string_view("name"),  std::string_view("notes"),         std::string_view("object"),
+    std::string_view("scale"), std::string_view("height_offset"), std::string_view("rotates"),
+    std::string_view("draw"),  std::string_view("params"),        std::string_view("variants")};
 inline constexpr std::array VariantKeys = {
-    std::string_view("match"),     std::string_view("object"),
-    std::string_view("scale"),     std::string_view("height_offset"),
-    std::string_view("draw"),      std::string_view("skeleton"),
-    std::string_view("animation"), std::string_view("animation_object"),
-    std::string_view("frame"),     std::string_view("display_lists"),
-    std::string_view("segments"),  std::string_view("colors"),
-    std::string_view("billboard"), std::string_view("children"),
-    std::string_view("spawn"),     std::string_view("default_params"),
-    std::string_view("steps")};
-inline constexpr std::array FieldKeys = {
-    std::string_view("kind"),   std::string_view("source"), std::string_view("shift"),
-    std::string_view("width"),  std::string_view("signed"), std::string_view("hex"),
-    std::string_view("values"), std::string_view("role"),   std::string_view("meaning")};
-inline constexpr std::array ListKeys = {
-    std::string_view("name"),        std::string_view("object"),    std::string_view("pass"),
-    std::string_view("translation"), std::string_view("rotation"),  std::string_view("scale"),
-    std::string_view("colors"),      std::string_view("billboard"), std::string_view("segments")};
+    std::string_view("match"),         std::string_view("object"),        std::string_view("scale"),
+    std::string_view("height_offset"), std::string_view("draw"),          std::string_view("parts"),
+    std::string_view("children"),      std::string_view("default_params")};
+inline constexpr std::array ParamKeys = {std::string_view("mask"),       std::string_view("source"),
+                                         std::string_view("kind"),       std::string_view("signed"),
+                                         std::string_view("hex"),        std::string_view("values"),
+                                         std::string_view("description")};
+inline constexpr std::array PartKeys = {
+    std::string_view("display_list"), std::string_view("skeleton"),
+    std::string_view("object"),       std::string_view("pose"),
+    std::string_view("pose_object"),  std::string_view("translation"),
+    std::string_view("rotation"),     std::string_view("scale"),
+    std::string_view("billboard"),    std::string_view("prim"),
+    std::string_view("env"),          std::string_view("segments"),
+    std::string_view("setup"),        std::string_view("pass"),
+    std::string_view("hilite")};
 
 /// `path.key`, or `key` at the top.
 [[nodiscard]] std::string makePath(std::string_view path, std::string_view key);
@@ -98,34 +91,22 @@ private:
                                                                  std::string_view path);
 
     [[nodiscard]] ActorEntry readEntry(std::string_view name, const toml::table& table);
-    void readEntryExtras(const toml::table& table, ActorEntry& entry);
-    [[nodiscard]] std::vector<ParamField> readFields(const toml::table& table);
-    [[nodiscard]] ParamField readField(std::string_view name, const toml::table& table,
+    [[nodiscard]] std::vector<ActorParam> readParams(const toml::table& table);
+    [[nodiscard]] ActorParam readParam(std::string_view name, const toml::table& table,
                                        std::string_view path);
+    [[nodiscard]] std::vector<ChoiceValue> readChoices(const toml::table& table,
+                                                       std::string_view path);
     [[nodiscard]] ActorVariant readVariant(const toml::table& table, std::string_view path);
-    [[nodiscard]] std::vector<FieldMatch> readMatch(const toml::table& table,
+    [[nodiscard]] std::vector<ParamMatch> readMatch(const toml::table& table,
                                                     std::string_view path);
-    [[nodiscard]] std::vector<DisplayListPart> readDisplayLists(const toml::array& lists,
-                                                                std::string_view path);
+    [[nodiscard]] std::vector<ActorPart> readParts(const toml::array& parts, std::string_view path);
+    [[nodiscard]] std::optional<ActorPart> readPart(const toml::table& table,
+                                                    std::string_view path);
     [[nodiscard]] std::vector<SegmentSymbol> readSegments(const toml::table& table,
                                                           std::string_view path);
-    [[nodiscard]] DrawColors readColors(const toml::table& table, std::string_view path);
     [[nodiscard]] std::vector<ChildActor> readChildren(const toml::array& children,
                                                        std::string_view path);
-    [[nodiscard]] std::optional<SpawnCondition> readSpawn(const toml::table& table,
-                                                          std::string_view path);
-    [[nodiscard]] std::vector<PointLight> readLights(const toml::array& lights,
-                                                     std::string_view path);
     [[nodiscard]] PartPlacement readPlacement(const toml::table& table, std::string_view path);
-    [[nodiscard]] std::optional<Shadow> readShadow(const toml::table& table, std::string_view path);
-    [[nodiscard]] std::vector<u16> readTextIds(const toml::array& ids, std::string_view path);
-    [[nodiscard]] std::vector<DrawStep> readSteps(const toml::array& steps, std::string_view path,
-                                                  bool isInLimb);
-    [[nodiscard]] std::optional<DrawStep> readStep(const toml::table& table, std::string_view path,
-                                                   bool isInLimb);
-    [[nodiscard]] std::optional<DrawStep> readSkeletonStep(const toml::table& table,
-                                                           std::string_view path);
-    [[nodiscard]] TransformStep readTransform(const toml::table& table, std::string_view path);
 
     std::filesystem::path file;
     std::string actor;

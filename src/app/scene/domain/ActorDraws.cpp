@@ -191,8 +191,8 @@ void writeActor(ActorDraws& draws, const PlacedActor& actor, const ActorDrawing&
                        glm::vec3(actor.position[0], actor.position[1], actor.position[2]));
     const glm::mat4 matrix =
         makeActorMatrix(actor, drawing.scale, drawing.heightOffset, drawing.rotates);
-    if (drawing.skeleton) {
-        writer.writeSkeleton(*drawing.skeleton, matrix);
+    for (const SkeletonDrawing& skeleton : drawing.skeletons) {
+        writer.writeSkeleton(skeleton, matrix);
     }
     for (const ActorDisplayList& list : drawing.displayLists) {
         writer.writeDisplayList(list, matrix);

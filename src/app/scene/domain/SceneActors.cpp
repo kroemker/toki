@@ -57,18 +57,6 @@ constexpr usize PlayedLayers = 4;
     return ids;
 }
 
-[[nodiscard]] std::string formatModified(const std::filesystem::path& file) {
-    std::error_code failure;
-    const std::filesystem::file_time_type modified =
-        std::filesystem::last_write_time(file, failure);
-    if (failure) {
-        return {};
-    }
-    return std::format("{:%FT%TZ}",
-                       std::chrono::floor<std::chrono::seconds>(
-                           std::chrono::clock_cast<std::chrono::system_clock>(modified)));
-}
-
 class ActorReader {
 public:
     ActorReader(hackeroot::AssetImageReader& reader, const std::vector<SceneLayer>& layers,
@@ -112,15 +100,11 @@ std::optional<s16> ActorReader::findActorId(const std::string_view enumName) con
 void ActorReader::guessEntry(const hackeroot::ActorEntry& actor, SceneActorModel& model) {
     const auto started = std::chrono::steady_clock::now();
     model.guess = actor::readActorModel(workspace, actor);
-    std::optional<actor::GuessSource> source;
     if (const auto overlay = hackeroot::findOverlayFiles(workspace.getRoot(), actor.name)) {
         std::ranges::copy(overlay->getAllFiles(), std::back_inserter(actors.watched));
-        source = actor::GuessSource{
-            .file = overlay->main.lexically_relative(workspace.getRoot()).generic_string(),
-            .modified = formatModified(overlay->main)};
         model.source = ModelSource::Guessed;
     }
-    model.entry = actor::makeGuessedEntry(*model.guess, actor.enumName, std::move(source));
+    model.entry = actor::makeGuessedEntry(*model.guess, actor.enumName);
     actors.overlaysElapsed += std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
 }
@@ -199,13 +183,6 @@ std::optional<actor::Age> findLayerAge(const usize layerIndex) {
         return std::nullopt;
     }
     return layerIndex < ChildLayers ? actor::Age::Child : actor::Age::Adult;
-}
-
-std::optional<actor::TimeOfDay> findLayerTime(const usize layerIndex) {
-    if (layerIndex >= PlayedLayers) {
-        return std::nullopt;
-    }
-    return layerIndex % 2 == 0 ? actor::TimeOfDay::Day : actor::TimeOfDay::Night;
 }
 
 SceneActors readSceneActors(hackeroot::AssetImageReader& reader, const std::string_view sceneFolder,

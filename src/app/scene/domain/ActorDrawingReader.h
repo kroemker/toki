@@ -16,13 +16,11 @@ namespace toki::scene {
 /// The ID the checkout's actor table gives the actor of an enum name.
 using FindActorId = std::function<std::optional<s16>(std::string_view)>;
 
-/// What `variant` of `entry` draws, found in `objects`, by running its steps
-/// (`actor::makeDrawSteps`): its skeleton posed on its frame, with what is
-/// drawn with its limbs, and its display lists, each under the state the steps
-/// before it left; its scale, height offset and the axes it turns by; its
-/// shadow, its own or its entry's, and its children. A variant takes what it
-/// leaves out from its entry. Whatever the objects do not have is a
-/// diagnostic, and is left out.
+/// What `variant` of `entry` draws, found in `objects`: each of its parts, a
+/// display list or a skeleton posed on the first frame of its pose, under what
+/// the part says it is drawn with; its scale, height offset and the axes it
+/// turns by; and its children. A variant takes what it leaves out from its
+/// entry. Whatever the objects do not have is a diagnostic, and is left out.
 [[nodiscard]] ActorDrawing makeActorDrawing(const actor::ActorEntry& entry,
                                             const actor::ActorVariant& variant,
                                             ActorObjects& objects, const FindActorId& findActorId,

@@ -44,21 +44,24 @@ namespace {
     ActorVariant variant;
     if (model.skeleton) {
         const std::string& skeletonObject = model.skeleton->skeleton.object;
-        variant.object = findOwnObject(model.skeleton->skeleton, object);
-        variant.skeleton = model.skeleton->skeleton.name;
+        ActorPart part{.kind = PartKind::Skeleton,
+                       .symbol = model.skeleton->skeleton.name,
+                       .object = findOwnObject(model.skeleton->skeleton, object),
+                       .segments = listSegments(model.segments, Pass::Opaque)};
         if (model.skeleton->animation) {
-            variant.animation = model.skeleton->animation->name;
-            variant.animationObject = findOwnObject(*model.skeleton->animation, skeletonObject);
+            part.pose = model.skeleton->animation->name;
+            part.poseObject = findOwnObject(*model.skeleton->animation, skeletonObject);
         }
-        variant.segments = listSegments(model.segments, Pass::Opaque);
+        variant.parts.push_back(std::move(part));
         return variant;
     }
     for (const DisplayListDraw& draw : model.displayLists) {
-        variant.displayLists.push_back(DisplayListPart{
-            .name = draw.displayList.name,
+        variant.parts.push_back(ActorPart{
+            .kind = PartKind::DisplayList,
+            .symbol = draw.displayList.name,
             .object = findOwnObject(draw.displayList, object),
-            .pass = draw.pass,
             .segments = listSegments(draw.segments, draw.pass),
+            .pass = draw.pass,
         });
     }
     return variant;
@@ -66,11 +69,8 @@ namespace {
 
 } // namespace
 
-ActorEntry makeGuessedEntry(const ActorModel& model, std::string enumName,
-                            std::optional<GuessSource> source) {
-    ActorEntry entry{.actor = std::move(enumName),
-                     .status = EntryStatus::Guessed,
-                     .guessedFrom = std::move(source)};
+ActorEntry makeGuessedEntry(const ActorModel& model, std::string enumName) {
+    ActorEntry entry{.actor = std::move(enumName)};
     const std::string object = findEntryObject(model);
     if (!object.empty()) {
         entry.object = object;

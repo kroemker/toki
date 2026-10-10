@@ -14,21 +14,19 @@
 namespace toki::actor {
 
 /// One actor of the actor table, as the Actors panel lists it: by ID and enum
-/// name, the name its entry gives it, and where its entry is and how sure.
+/// name, the name its entry gives it, and where its entry is.
 struct ActorRow {
     usize id = 0;
     std::string enumName;
     std::string name;
     /// Nothing when neither database has an entry, so it is guessed.
     std::optional<EntryOrigin> origin;
-    EntryStatus status = EntryStatus::Guessed;
 };
 
 /// Which rows the Actors panel shows.
 enum class RowFilter : u8 {
     All,
-    Checked,
-    Guessed,
+    WithEntry,
     Missing,
     Checkout,
 };

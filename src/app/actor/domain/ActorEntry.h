@@ -12,63 +12,49 @@
 
 namespace toki::actor {
 
-/// What a field's bits mean, and so how they are shown and matched.
-enum class FieldKind : u8 {
+/// What a param's bits mean, and so how they are shown and matched.
+enum class ParamKind : u8 {
     Flag,
-    Enum,
-    Integer,
+    Number,
+    Choice,
 };
 
-/// Where a field's bits are read from: the placed actor's params, or one axis
-/// of its placed rotation, which some actors read extra parameters from.
-enum class FieldSource : u8 {
+/// Where a param's bits are read from: the placed actor's params, or one axis
+/// of its placed rotation, which some actors read more params from.
+enum class ParamSource : u8 {
     Params,
     RotationX,
     RotationY,
     RotationZ,
 };
 
-/// What an integer field holds, for later panels to link it to.
-enum class FieldRole : u8 {
-    None,
-    SwitchFlag,
-    ChestFlag,
-    CollectibleFlag,
-    ClearFlag,
-    Path,
-    TextId,
-    Item,
-    Actor,
-};
-
-/// One named value of an enum field, as a constant is.
-struct EnumValue {
-    std::string name;
+/// One value a choice param may be, and what it is called.
+struct ChoiceValue {
     s64 value = 0;
+    std::string label;
 };
 
-/// A named range of bits of a placed actor's params or rotation.
-struct ParamField {
+/// A named range of bits of a placed actor's params or rotation, given by its
+/// mask, whose bits are adjacent.
+struct ActorParam {
     std::string name;
-    FieldKind kind = FieldKind::Integer;
-    FieldSource source = FieldSource::Params;
-    u8 shift = 0;
-    u8 width = 1;
+    ParamKind kind = ParamKind::Number;
+    ParamSource source = ParamSource::Params;
+    u16 mask = 0;
     bool isSigned = false;
     bool isHex = false;
-    std::vector<EnumValue> values;
-    FieldRole role = FieldRole::None;
-    std::string meaning;
+    std::vector<ChoiceValue> values;
+    std::string description;
     base::SourceLocation location;
 };
 
-/// One value a field may be matched against: a flag's state, an enum's value
-/// by name or number, a number, or for `scene`, a scene's enum name.
+/// One value a param may be matched against: a flag's state or a number, or
+/// for `age` and `scene`, a name.
 using MatchValue = std::variant<bool, s64, std::string>;
 
-/// What one field of a variant's `match` must be: any of `values`.
-struct FieldMatch {
-    std::string field;
+/// What one param of a variant's `match` must be: any of `values`.
+struct ParamMatch {
+    std::string param;
     std::vector<MatchValue> values;
 };
 
@@ -77,27 +63,13 @@ enum class Age : u8 {
     Adult,
 };
 
-enum class TimeOfDay : u8 {
-    Day,
-    Night,
-};
-
-/// What an actor needs to exist.
-struct SpawnCondition {
-    std::optional<Age> age;
-    std::optional<TimeOfDay> time;
-    /// A flag field that must be set, or unset.
-    std::optional<std::string> flagField;
-    bool isFlagSet = true;
-};
-
 /// The primitive and environment colours something is drawn with.
 struct DrawColors {
     std::optional<std::array<u8, 4>> primitive;
     std::optional<std::array<u8, 4>> environment;
 };
 
-/// A segment from 8 to 12 pointed at a symbol of the variant's object.
+/// A segment from 8 to 12 pointed at a symbol.
 struct SegmentSymbol {
     u8 segment = 0;
     std::string name;
@@ -111,16 +83,33 @@ struct PartPlacement {
     std::array<f32, 3> scale{1.0F, 1.0F, 1.0F};
 };
 
-/// One display list a variant draws, and how. Its object is the variant's
-/// unless it names one of its own.
-struct DisplayListPart {
-    std::string name;
+enum class PartKind : u8 {
+    DisplayList,
+    Skeleton,
+};
+
+/// One display list or skeleton a variant draws, with everything it is drawn
+/// with: nothing carries over from one part to the next.
+struct ActorPart {
+    PartKind kind = PartKind::DisplayList;
+    std::string symbol;
+    /// Where `symbol` is, when not in the variant's object.
     std::optional<std::string> object;
-    Pass pass = Pass::Opaque;
+    /// For a skeleton, the animation whose first frame it stands in, and the
+    /// object that is in when not the part's.
+    std::optional<std::string> pose;
+    std::optional<std::string> poseObject;
     PartPlacement placement;
+    bool isBillboard = false;
     DrawColors colors;
-    std::optional<bool> isBillboard;
     std::vector<SegmentSymbol> segments;
+    /// The `sSetupDL` it is drawn after, when not `SETUPDL_25`.
+    std::optional<u8> setup;
+    Pass pass = Pass::Opaque;
+    /// Whether it is drawn with a `LookAt` from the camera toward the actor,
+    /// as `func_8002EBCC` sets one for what shines by `G_TEXTURE_GEN`.
+    bool isHilit = false;
+    base::SourceLocation location;
 };
 
 /// An actor that another spawns, drawn by its own entry, at an offset from its
@@ -131,141 +120,25 @@ struct ChildActor {
     std::array<f32, 3> offset{};
 };
 
-/// How a variant is drawn when it is not a model.
+/// How an actor is drawn when it is not a model.
 enum class DrawKind : u8 {
     Model,
     Marker,
     Children,
 };
 
-enum class ShadowKind : u8 {
-    None,
-    Circle,
-    WhiteCircle,
-    Horse,
-    Feet,
-};
-
-struct Shadow {
-    ShadowKind kind = ShadowKind::None;
-    f32 size = 0.0F;
-    /// `shape.shadowAlpha`: how dark it is.
-    u8 alpha = 0xFF;
-};
-
-/// `Gfx_SetupDL`: the display lists after it are drawn after
-/// `sSetupDL[index]`. Steps start at `SETUPDL_25`.
-struct SetupStep {
-    u8 index = 0;
-};
-
-/// The primitive and environment colours of what follows.
-struct ColorsStep {
-    DrawColors colors;
-};
-
-/// `func_8002EBCC` or `func_8002ED80`: what follows is drawn with a `LookAt`
-/// from the camera toward the actor, which `G_TEXTURE_GEN` maps its normals
-/// by, as rupees and heart pieces shine.
-struct HiliteStep {};
-
-/// `gSPSegment(segment, symbol)` for what follows.
-struct SegmentStep {
-    u8 segment = 0;
-    std::string symbol;
-    std::optional<std::string> object;
-};
-
-/// Moves what follows: from where the steps before left it, or from the
-/// actor's matrix again when `resets`; facing the camera when a billboard.
-struct TransformStep {
-    PartPlacement placement;
-    bool isBillboard = false;
-    bool resets = false;
-};
-
-/// Draws one display list where the steps before have put it.
-struct DisplayListStep {
-    std::string name;
-    std::optional<std::string> object;
-    Pass pass = Pass::Opaque;
-};
-
-struct DrawStep;
-
-/// The steps drawn with one limb's matrix, as a `PostLimbDraw` callback draws.
-struct LimbSteps {
-    u8 limb = 0;
-    std::vector<DrawStep> steps;
-};
-
-/// Draws a skeleton where the steps before have put it, posed on `frame` of
-/// `animation`, and `limbs`' steps with their limbs.
-struct SkeletonStep {
-    std::string skeleton;
-    std::optional<std::string> object;
-    std::optional<std::string> animation;
-    std::optional<std::string> animationObject;
-    std::optional<u32> frame;
-    Pass pass = Pass::Opaque;
-    std::vector<LimbSteps> limbs;
-};
-
-/// The variant's shadow, in place of the entry's.
-struct ShadowStep {
-    Shadow shadow;
-};
-
-/// One step of how a variant is drawn, in the order `Draw` takes it.
-struct DrawStep {
-    std::variant<SetupStep, ColorsStep, HiliteStep, SegmentStep, TransformStep, DisplayListStep,
-                 SkeletonStep, ShadowStep>
-        step;
-    base::SourceLocation location;
-};
-
-struct PointLight {
-    std::array<u8, 3> color{};
-    f32 radius = 0.0F;
-    std::array<f32, 3> offset{};
-};
-
 /// One way an actor is drawn, for the placements its `match` holds for.
 /// What it leaves out, it takes from its entry.
 struct ActorVariant {
-    std::vector<FieldMatch> match;
+    std::vector<ParamMatch> match;
     std::optional<std::string> object;
     std::optional<f32> scale;
     std::optional<f32> heightOffset;
     std::optional<DrawKind> draw;
-    std::optional<std::string> skeleton;
-    std::optional<std::string> animation;
-    /// The object the animation is in, when it is not the variant's, as
-    /// actors that share animations take them from another object.
-    std::optional<std::string> animationObject;
-    std::optional<u32> frame;
-    std::vector<DisplayListPart> displayLists;
-    std::vector<SegmentSymbol> segments;
-    DrawColors colors;
-    std::optional<bool> isBillboard;
+    std::vector<ActorPart> parts;
     std::vector<ChildActor> children;
-    std::optional<SpawnCondition> spawn;
     std::optional<u16> defaultParams;
-    /// How it is drawn, step by step, in place of the keys above that say
-    /// what it draws.
-    std::vector<DrawStep> steps;
     base::SourceLocation location;
-};
-
-enum class EntryStatus : u8 {
-    Guessed,
-    Checked,
-};
-
-/// Where a guessed entry was read from, and when that file last changed then.
-struct GuessSource {
-    std::string file;
-    std::string modified;
 };
 
 /// Which axes of its placed rotation an actor is drawn turned by.
@@ -275,30 +148,30 @@ struct RotationAxes {
     bool z = true;
 };
 
-/// How one actor is drawn and what it is, by its enum name in the actor
-/// table: its fields, its variants in the order they are tried, and what is
-/// true of every variant.
+/// How one actor is shown, by its enum name in the actor table: its params,
+/// its variants in the order they are tried, and what is true of every
+/// variant.
 struct ActorEntry {
     std::string actor;
-    EntryStatus status = EntryStatus::Checked;
-    std::optional<GuessSource> guessedFrom;
-    bool isUncertain = false;
     std::string name;
-    std::string description;
     std::string notes;
     std::optional<std::string> object;
     std::optional<f32> scale;
     std::optional<f32> heightOffset;
     RotationAxes rotates;
     std::optional<DrawKind> draw;
-    std::vector<ParamField> fields;
+    std::vector<ActorParam> params;
     std::vector<ActorVariant> variants;
-    std::optional<Shadow> shadow;
-    std::optional<SpawnCondition> spawn;
-    std::optional<std::string> collision;
-    std::vector<PointLight> lights;
-    std::vector<u16> textIds;
     base::SourceLocation location;
 };
+
+/// The lowest set bit of `mask`, which a param's value is shifted down by.
+[[nodiscard]] u8 findMaskShift(u16 mask);
+
+/// How many bits `mask` spans, from its lowest set bit to its highest.
+[[nodiscard]] u8 findMaskWidth(u16 mask);
+
+/// Whether the set bits of `mask` are adjacent, as a param's must be.
+[[nodiscard]] bool isMaskContiguous(u16 mask);
 
 } // namespace toki::actor

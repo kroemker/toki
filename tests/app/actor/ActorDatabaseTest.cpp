@@ -22,57 +22,49 @@ using base::u16;
 
 namespace {
 
-constexpr std::string_view Example = R"(format = 1
+constexpr std::string_view Example = R"(format = 2
 checked_against = "0123abc"
 
 [actors.ACTOR_OBJ_TSUBO]
-status = "checked"
+name = "Pot"
+notes = "Breaks when cut."
 object = "gameplay_dangeon_keep"
 scale = 0.15
 
-[actors.ACTOR_OBJ_TSUBO.fields]
-type      = { kind = "enum", shift = 8, width = 1, values = { dungeon = 0, field = 1 } }
-drop      = { kind = "integer", shift = 0, width = 5 }
-breakable = { kind = "flag", shift = 6 }
+[actors.ACTOR_OBJ_TSUBO.params]
+"Type"      = { mask = 0x0100, kind = "choice", values = { 0 = "Dungeon", 1 = "Field" } }
+"Drop"      = { mask = 0x001F, kind = "number", description = "What it drops" }
+"Breakable" = { mask = 0x0040, kind = "flag" }
 
 [[actors.ACTOR_OBJ_TSUBO.variants]]
-match = { type = "dungeon" }
-display_lists = [{ name = "gPotDungeonDL" }]
+match = { "Type" = 0 }
+parts = [{ display_list = "gPotDungeonDL" }]
 
 [[actors.ACTOR_OBJ_TSUBO.variants]]
-match = { type = "field" }
+match = { "Type" = 1 }
 object = "gameplay_field_keep"
-display_lists = [{ name = "gPotFieldDL", object = "gameplay_field_keep", pass = "translucent", translation = [0, 10, 0], billboard = true, colors = { prim = [255, 255, 170] } }]
+parts = [{ display_list = "gPotFieldDL", pass = "translucent", translation = [0, 10, 0], billboard = true, prim = [255, 255, 170] }]
 
 [actors.ACTOR_EN_ANI]
-status = "guessed"
-guessed_from = { file = "src/overlays/actors/ovl_En_Ani/z_en_ani.c", modified = "2026-10-06T21:14:03Z" }
 object = "object_ani"
-shadow = { kind = "circle", size = 22 }
-text_ids = [0x1015]
 
 [[actors.ACTOR_EN_ANI.variants]]
-skeleton = "gRoofManSkel"
-animation = "gRoofManIdleAnim"
-frame = 4
-segments = { 8 = "gRoofManEyeOpenTex" }
+parts = [{ skeleton = "gRoofManSkel", pose = "gRoofManIdleAnim", segments = { 8 = "gRoofManEyeOpenTex" } }]
 default_params = 0x0102
 
 [actors.ACTOR_BG_HANEBASI]
 rotates = { x = false, y = true, z = false }
 
-[actors.ACTOR_BG_HANEBASI.fields]
-part = { kind = "enum", source = "rotation_z", shift = 0, width = 2, values = { bridge = 0, chain = 1 } }
-tilt = { kind = "integer", source = "rotation_x", shift = 0, width = 8, signed = true }
+[actors.ACTOR_BG_HANEBASI.params]
+"Part" = { mask = 0x0003, source = "rotation_z", kind = "choice", values = { 0 = "Bridge", 1 = "Chain" } }
+"Tilt" = { mask = 0x00FF, source = "rotation_x", kind = "number", signed = true }
 
 [[actors.ACTOR_BG_HANEBASI.variants]]
-match = { part = "chain", age = "adult" }
+match = { "Part" = 1, age = "adult" }
 children = [{ actor = "ACTOR_EN_KUSA", params = 0x0003, offset = [0, 0, 80] }]
-spawn = { time = "night", flag = { field = "part", is = "unset" } }
 
 [actors.ACTOR_EN_LIGHT]
 draw = "marker"
-lights = [{ color = [255, 160, 64], radius = 250, offset = [0, 60, 0] }]
 )";
 
 [[nodiscard]] std::string describe(const std::vector<base::Diagnostic>& diagnostics) {
@@ -102,35 +94,34 @@ TEST_CASE("an actor database is read with every key it may hold", "[actor][datab
     REQUIRE(database.entries.size() == 4);
 
     const toki::actor::ActorEntry& pot = database.entries.at("ACTOR_OBJ_TSUBO");
-    REQUIRE(pot.fields.size() == 3);
+    REQUIRE(pot.name == "Pot");
+    REQUIRE(pot.notes == "Breaks when cut.");
+    REQUIRE(pot.params.size() == 3);
+    REQUIRE(pot.params[0].name == "Drop");
+    REQUIRE(pot.params[0].description == "What it drops");
+    REQUIRE(pot.params[2].name == "Type");
+    REQUIRE(pot.params[2].values[1].label == "Field");
     REQUIRE(pot.scale == Catch::Approx(0.15F));
-    REQUIRE(pot.variants.size() == 2);
-    const toki::actor::DisplayListPart& field = pot.variants[1].displayLists.front();
-    REQUIRE(field.object == "gameplay_field_keep");
+    const toki::actor::ActorPart& field = pot.variants[1].parts.front();
+    REQUIRE(field.kind == toki::actor::PartKind::DisplayList);
     REQUIRE(field.pass == toki::actor::Pass::Translucent);
     REQUIRE(field.placement.translation[1] == Catch::Approx(10.0F));
-    REQUIRE(field.isBillboard == true);
+    REQUIRE(field.isBillboard);
     REQUIRE(field.colors.primitive == std::array<base::u8, 4>{255, 255, 170, 255});
 
     const toki::actor::ActorEntry& roofMan = database.entries.at("ACTOR_EN_ANI");
-    REQUIRE(roofMan.status == toki::actor::EntryStatus::Guessed);
-    REQUIRE(roofMan.guessedFrom.has_value());
-    REQUIRE(roofMan.shadow->kind == toki::actor::ShadowKind::Circle);
-    REQUIRE(roofMan.textIds == std::vector<u16>{0x1015});
-    REQUIRE(roofMan.variants.front().frame == 4U);
-    REQUIRE(roofMan.variants.front().segments.front().segment == 8);
+    const toki::actor::ActorPart& skeleton = roofMan.variants.front().parts.front();
+    REQUIRE(skeleton.kind == toki::actor::PartKind::Skeleton);
+    REQUIRE(skeleton.pose == "gRoofManIdleAnim");
+    REQUIRE(skeleton.segments.front().segment == 8);
     REQUIRE(roofMan.variants.front().defaultParams == u16{0x0102});
 
     const toki::actor::ActorEntry& bridge = database.entries.at("ACTOR_BG_HANEBASI");
     REQUIRE_FALSE(bridge.rotates.x);
-    REQUIRE(bridge.fields[0].source == toki::actor::FieldSource::RotationZ);
+    REQUIRE(bridge.params[0].source == toki::actor::ParamSource::RotationX);
     REQUIRE(bridge.variants.front().children.front().params == 3);
-    REQUIRE(bridge.variants.front().spawn->time == toki::actor::TimeOfDay::Night);
-    REQUIRE_FALSE(bridge.variants.front().spawn->isFlagSet);
 
-    const toki::actor::ActorEntry& light = database.entries.at("ACTOR_EN_LIGHT");
-    REQUIRE(light.draw == toki::actor::DrawKind::Marker);
-    REQUIRE(light.lights.front().color == std::array<base::u8, 3>{255, 160, 64});
+    REQUIRE(database.entries.at("ACTOR_EN_LIGHT").draw == toki::actor::DrawKind::Marker);
 }
 
 TEST_CASE("an actor database written out reads back the same, in a stable order",
@@ -142,46 +133,54 @@ TEST_CASE("an actor database written out reads back the same, in a stable order"
     const toki::actor::ActorDatabase again = toki::actor::parseActorDatabase(written, "again.toml");
 
     INFO(written);
+    INFO(describe(again.diagnostics));
     REQUIRE(again.diagnostics.empty());
     REQUIRE(toki::actor::formatActorDatabase(again) == written);
     REQUIRE(written.contains("default_params = 0x102"));
-    REQUIRE(written.contains("scale = 0.15"));
+    REQUIRE(written.contains("mask = 0x100"));
+    REQUIRE(written.contains("= 'Field'"));
     REQUIRE(written.find("ACTOR_BG_HANEBASI") < written.find("ACTOR_OBJ_TSUBO"));
 }
 
 TEST_CASE("what an actor database gets wrong is reported by actor, key and line",
           "[actor][database]") {
-    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 1
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 2
 [actors.ACTOR_EN_TEST]
 colour = "red"
 scale = "big"
 
-[actors.ACTOR_EN_TEST.fields]
-type = { kind = "enum", shift = 0, width = 2, values = { a = 0, b = 7 } }
-other = { kind = "integer", shift = 1, width = 4 }
-lamp = { kind = "flag", shift = 15, width = 3 }
+[actors.ACTOR_EN_TEST.params]
+"Type"  = { mask = 0x0003, kind = "choice", values = { 0 = "A", 7 = "B" } }
+"Other" = { mask = 0x0006, kind = "number" }
+"Lamp"  = { mask = 0x8001, kind = "flag" }
+"age"   = { mask = 0x0100, kind = "number" }
+"Gap"   = { kind = "number" }
 
 [[actors.ACTOR_EN_TEST.variants]]
-display_lists = [{ name = "gTestDL" }]
+parts = [{ display_list = "gTestDL" }]
 
 [[actors.ACTOR_EN_TEST.variants]]
-match = { type = "c", missing = 1, other = true }
-skeleton = "gTestSkel"
-display_lists = [{ name = "gTestDL" }]
+match = { "Type" = 2, "Missing" = 1, "Other" = true, "Lamp" = 1 }
+parts = [{ display_list = "gTestDL", pose = "gTestAnim" }, { skeleton = "gTestSkel", display_list = "gTestDL" }]
 )",
                                                                                 "actors.toml");
 
     INFO(describe(database.diagnostics));
     REQUIRE(isReported(database, "ACTOR_EN_TEST.colour: is not a key"));
     REQUIRE(isReported(database, "ACTOR_EN_TEST.scale: must be a number"));
-    REQUIRE(isReported(database, "'b' is 7, which does not fit in 2 bits"));
-    REQUIRE(isReported(database, "fields.type: shares bits with 'other'"));
-    REQUIRE(isReported(database, "do not fit in 16"));
+    REQUIRE(isReported(database, "7 ('B') does not fit in 2 bits"));
+    REQUIRE(isReported(database, "params.Type: shares bits with 'Other'"));
+    REQUIRE(isReported(database, "the bits of mask 0x8001 are not next to each other"));
+    REQUIRE(isReported(database, "params.Lamp: a flag is one bit"));
+    REQUIRE(isReported(database, "'age' is a param every actor has"));
+    REQUIRE(isReported(database, "params.Gap.mask: must be a mask"));
     REQUIRE(isReported(database, "variants after it are never drawn"));
-    REQUIRE(isReported(database, "match.type: 'c' is not a value"));
-    REQUIRE(isReported(database, "match.missing: is not a field"));
-    REQUIRE(isReported(database, "match.other: only a flag matches"));
-    REQUIRE(isReported(database, "draws a skeleton and display lists both"));
+    REQUIRE(isReported(database, "match.Type: 2 is not one of its values"));
+    REQUIRE(isReported(database, "match.Missing: is not a param"));
+    REQUIRE(isReported(database, "match.Other: only a flag matches"));
+    REQUIRE(isReported(database, "match.Lamp: a flag matches true or false"));
+    REQUIRE(isReported(database, "only a skeleton stands in a pose"));
+    REQUIRE(isReported(database, "must draw either a display_list or a skeleton"));
     const auto colour =
         std::ranges::find_if(database.diagnostics, [](const base::Diagnostic& diagnostic) {
             return diagnostic.message.contains("colour");
@@ -190,13 +189,13 @@ display_lists = [{ name = "gTestDL" }]
 }
 
 TEST_CASE("a database of another format, or not TOML at all, is not read", "[actor][database]") {
-    REQUIRE(isReported(toki::actor::parseActorDatabase("format = 2\n", "a.toml"),
-                       "this build reads format 1"));
+    REQUIRE(isReported(toki::actor::parseActorDatabase("format = 1\n", "a.toml"),
+                       "this build reads format 2"));
     REQUIRE(isReported(toki::actor::parseActorDatabase("[actors\n", "b.toml"),
                        "cannot be read as TOML"));
 }
 
-TEST_CASE("a placement picks the first variant its fields match", "[actor][database]") {
+TEST_CASE("a placement picks the first variant its params match", "[actor][database]") {
     const toki::actor::ActorDatabase database =
         toki::actor::parseActorDatabase(Example, "actors.toml");
     const toki::actor::ActorEntry& pot = database.entries.at("ACTOR_OBJ_TSUBO");
@@ -204,15 +203,26 @@ TEST_CASE("a placement picks the first variant its fields match", "[actor][datab
 
     REQUIRE(toki::actor::findVariant(pot, {.params = 0x0000}) == &pot.variants[0]);
     REQUIRE(toki::actor::findVariant(pot, {.params = 0x0105}) == &pot.variants[1]);
-    REQUIRE(toki::actor::readFieldValue(pot.fields[1], {.params = 0x0105}) == 5);
+    REQUIRE(toki::actor::readParamValue(pot.params[0], {.params = 0x0105}) == 5);
 
     const toki::actor::PlacementValues chain{.rotation = {s16{-2}, 0, 1},
                                              .age = toki::actor::Age::Adult};
     REQUIRE(toki::actor::findVariant(bridge, chain) == &bridge.variants[0]);
-    REQUIRE(toki::actor::readFieldValue(bridge.fields[1], chain) == s64{-2});
+    REQUIRE(toki::actor::readParamValue(bridge.params[0], chain) == s64{-2});
     REQUIRE(toki::actor::findVariant(bridge, {.rotation = {0, 0, 1}}) == nullptr);
     REQUIRE(toki::actor::findVariant(
                 bridge, {.rotation = {0, 0, 1}, .age = toki::actor::Age::Child}) == nullptr);
+}
+
+TEST_CASE("a mask gives a param's shift and width, and must have its bits together",
+          "[actor][database]") {
+    REQUIRE(toki::actor::findMaskShift(0x0F00) == 8);
+    REQUIRE(toki::actor::findMaskWidth(0x0F00) == 4);
+    REQUIRE(toki::actor::findMaskWidth(0x8001) == 16);
+    REQUIRE(toki::actor::isMaskContiguous(0x0F00));
+    REQUIRE(toki::actor::isMaskContiguous(0xFFFF));
+    REQUIRE_FALSE(toki::actor::isMaskContiguous(0x0101));
+    REQUIRE_FALSE(toki::actor::isMaskContiguous(0));
 }
 
 TEST_CASE("the checkout's entry replaces the shipped one whole", "[actor][database]") {

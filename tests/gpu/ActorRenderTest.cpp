@@ -69,10 +69,10 @@ constexpr toki::viewport::ViewportLighting RenderLighting{
     return described;
 }
 
-/// Sets `field`'s bits in `bits` to `value`.
-void setField(u16& bits, const toki::actor::ParamField& field, const s64 value) {
-    const u32 mask = ((1U << field.width) - 1U) << field.shift;
-    bits = static_cast<u16>((bits & ~mask) | ((static_cast<u32>(value) << field.shift) & mask));
+/// Sets `param`'s bits in `bits` to `value`.
+void setParam(u16& bits, const toki::actor::ActorParam& param, const s64 value) {
+    const u32 shifted = static_cast<u32>(value) << toki::actor::findMaskShift(param.mask);
+    bits = static_cast<u16>((bits & ~param.mask) | (shifted & param.mask));
 }
 
 /// Params, rotation and age that `variant`'s match holds for.
@@ -80,37 +80,28 @@ void setField(u16& bits, const toki::actor::ParamField& field, const s64 value) 
                                                       const toki::actor::ActorVariant& variant) {
     toki::actor::PlacementValues values{.params = variant.defaultParams.value_or(0),
                                         .age = toki::actor::Age::Child};
-    for (const toki::actor::FieldMatch& match : variant.match) {
+    for (const toki::actor::ParamMatch& match : variant.match) {
         const toki::actor::MatchValue& first = match.values.front();
-        if (match.field == "age") {
+        if (match.param == "age") {
             values.age = std::get<std::string>(first) == "adult" ? toki::actor::Age::Adult
                                                                  : toki::actor::Age::Child;
             continue;
         }
-        if (match.field == "scene") {
+        if (match.param == "scene") {
             values.scene = std::get<std::string>(first);
             continue;
         }
-        const auto field =
-            std::ranges::find(entry.fields, match.field, &toki::actor::ParamField::name);
-        REQUIRE(field != entry.fields.end());
-        s64 value = 0;
-        if (const bool* flag = std::get_if<bool>(&first)) {
-            value = *flag ? 1 : 0;
-        } else if (const s64* number = std::get_if<s64>(&first)) {
-            value = *number;
+        const auto param =
+            std::ranges::find(entry.params, match.param, &toki::actor::ActorParam::name);
+        REQUIRE(param != entry.params.end());
+        const bool* flag = std::get_if<bool>(&first);
+        const s64 value = flag != nullptr ? (*flag ? 1 : 0) : std::get<s64>(first);
+        if (param->source == toki::actor::ParamSource::Params) {
+            setParam(values.params, *param, value);
         } else {
-            const auto named = std::ranges::find(field->values, std::get<std::string>(first),
-                                                 &toki::actor::EnumValue::name);
-            REQUIRE(named != field->values.end());
-            value = named->value;
-        }
-        if (field->source == toki::actor::FieldSource::Params) {
-            setField(values.params, *field, value);
-        } else {
-            const usize axis = static_cast<usize>(field->source) - 1;
+            const usize axis = static_cast<usize>(param->source) - 1;
             u16 rotation = static_cast<u16>(values.rotation[axis]);
-            setField(rotation, *field, value);
+            setParam(rotation, *param, value);
             values.rotation[axis] = static_cast<s16>(rotation);
         }
     }
@@ -145,8 +136,7 @@ struct Box {
             box.add(*bounds, parent * list.state.placement);
         }
     };
-    if (drawing.skeleton) {
-        const toki::scene::SkeletonDrawing& skeleton = *drawing.skeleton;
+    for (const toki::scene::SkeletonDrawing& skeleton : drawing.skeletons) {
         const z64::MemoryImage& image = *actors.objects[skeleton.object].image;
         const glm::mat4 placedMatrix = matrix * skeleton.state.placement;
         for (const toki::object::PosedLimb& limb : skeleton.pose.drawn) {

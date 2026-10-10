@@ -11,70 +11,41 @@
 
 namespace toki::actor {
 
-/// An enumerator and how `actors.toml` spells it.
+/// An enumerator, how `actors.toml` spells it, and how the panels show it.
 template <typename Enum>
 struct EntryName {
     Enum value;
     std::string_view name;
+    std::string_view label;
 };
 
-inline constexpr std::array FieldKindNames = {
-    EntryName<FieldKind>{FieldKind::Flag, "flag"},
-    EntryName<FieldKind>{FieldKind::Enum, "enum"},
-    EntryName<FieldKind>{FieldKind::Integer, "integer"},
+inline constexpr std::array ParamKindNames = {
+    EntryName<ParamKind>{ParamKind::Flag, "flag", "Flag"},
+    EntryName<ParamKind>{ParamKind::Number, "number", "Number"},
+    EntryName<ParamKind>{ParamKind::Choice, "choice", "Choice"},
 };
 
-inline constexpr std::array FieldSourceNames = {
-    EntryName<FieldSource>{FieldSource::Params, "params"},
-    EntryName<FieldSource>{FieldSource::RotationX, "rotation_x"},
-    EntryName<FieldSource>{FieldSource::RotationY, "rotation_y"},
-    EntryName<FieldSource>{FieldSource::RotationZ, "rotation_z"},
-};
-
-inline constexpr std::array FieldRoleNames = {
-    EntryName<FieldRole>{FieldRole::None, "none"},
-    EntryName<FieldRole>{FieldRole::SwitchFlag, "switch_flag"},
-    EntryName<FieldRole>{FieldRole::ChestFlag, "chest_flag"},
-    EntryName<FieldRole>{FieldRole::CollectibleFlag, "collectible_flag"},
-    EntryName<FieldRole>{FieldRole::ClearFlag, "clear_flag"},
-    EntryName<FieldRole>{FieldRole::Path, "path"},
-    EntryName<FieldRole>{FieldRole::TextId, "text_id"},
-    EntryName<FieldRole>{FieldRole::Item, "item"},
-    EntryName<FieldRole>{FieldRole::Actor, "actor"},
-};
-
-inline constexpr std::array AgeNames = {
-    EntryName<Age>{Age::Child, "child"},
-    EntryName<Age>{Age::Adult, "adult"},
-};
-
-inline constexpr std::array TimeNames = {
-    EntryName<TimeOfDay>{TimeOfDay::Day, "day"},
-    EntryName<TimeOfDay>{TimeOfDay::Night, "night"},
+inline constexpr std::array ParamSourceNames = {
+    EntryName<ParamSource>{ParamSource::Params, "params", "Params"},
+    EntryName<ParamSource>{ParamSource::RotationX, "rotation_x", "Rotation X"},
+    EntryName<ParamSource>{ParamSource::RotationY, "rotation_y", "Rotation Y"},
+    EntryName<ParamSource>{ParamSource::RotationZ, "rotation_z", "Rotation Z"},
 };
 
 inline constexpr std::array PassNames = {
-    EntryName<Pass>{Pass::Opaque, "opaque"},
-    EntryName<Pass>{Pass::Translucent, "translucent"},
+    EntryName<Pass>{Pass::Opaque, "opaque", "Opaque"},
+    EntryName<Pass>{Pass::Translucent, "translucent", "Translucent"},
 };
 
 inline constexpr std::array DrawKindNames = {
-    EntryName<DrawKind>{DrawKind::Model, "model"},
-    EntryName<DrawKind>{DrawKind::Marker, "marker"},
-    EntryName<DrawKind>{DrawKind::Children, "children"},
+    EntryName<DrawKind>{DrawKind::Model, "model", "Model"},
+    EntryName<DrawKind>{DrawKind::Marker, "marker", "Marker"},
+    EntryName<DrawKind>{DrawKind::Children, "children", "Children only"},
 };
 
-inline constexpr std::array ShadowKindNames = {
-    EntryName<ShadowKind>{ShadowKind::None, "none"},
-    EntryName<ShadowKind>{ShadowKind::Circle, "circle"},
-    EntryName<ShadowKind>{ShadowKind::WhiteCircle, "white_circle"},
-    EntryName<ShadowKind>{ShadowKind::Horse, "horse"},
-    EntryName<ShadowKind>{ShadowKind::Feet, "feet"},
-};
-
-inline constexpr std::array StatusNames = {
-    EntryName<EntryStatus>{EntryStatus::Guessed, "guessed"},
-    EntryName<EntryStatus>{EntryStatus::Checked, "checked"},
+inline constexpr std::array AgeNames = {
+    EntryName<Age>{Age::Child, "child", "Child"},
+    EntryName<Age>{Age::Adult, "adult", "Adult"},
 };
 
 template <typename Enum, usize Count>
@@ -89,6 +60,13 @@ template <typename Enum, usize Count>
 getEntryName(const std::array<EntryName<Enum>, Count>& names, const Enum value) {
     const auto found = std::ranges::find(names, value, &EntryName<Enum>::value);
     return found == names.end() ? std::string_view() : found->name;
+}
+
+template <typename Enum, usize Count>
+[[nodiscard]] constexpr std::string_view
+getEntryLabel(const std::array<EntryName<Enum>, Count>& names, const Enum value) {
+    const auto found = std::ranges::find(names, value, &EntryName<Enum>::value);
+    return found == names.end() ? std::string_view() : found->label;
 }
 
 } // namespace toki::actor

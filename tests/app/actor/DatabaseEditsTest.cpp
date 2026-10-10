@@ -21,23 +21,22 @@
 
 namespace {
 
-constexpr std::string_view Shipped = R"(format = 1
+constexpr std::string_view Shipped = R"(format = 2
 
 [actors.ACTOR_OBJ_TSUBO]
-status = "checked"
 object = "gameplay_dangeon_keep"
 
-[actors.ACTOR_OBJ_TSUBO.fields]
-drop = { kind = "integer", shift = 0, width = 5 }
-type = { kind = "enum", shift = 8, width = 1, values = { dungeon = 0, plain = 1 } }
+[actors.ACTOR_OBJ_TSUBO.params]
+"Drop" = { mask = 0x001F, kind = "number" }
+"Type" = { mask = 0x0100, kind = "choice", values = { 0 = "Dungeon", 1 = "Plain" } }
 
 [[actors.ACTOR_OBJ_TSUBO.variants]]
-match = { type = "plain", age = "child" }
+match = { "Type" = 1, age = "child" }
 object = "object_tsubo"
-display_lists = [{ name = "gPotPlainDL" }]
+parts = [{ display_list = "gPotPlainDL" }]
 
 [[actors.ACTOR_OBJ_TSUBO.variants]]
-display_lists = [{ name = "gPotDL" }]
+parts = [{ display_list = "gPotDL" }]
 )";
 
 [[nodiscard]] toki::actor::ActorEntry readPot() {
@@ -67,18 +66,18 @@ TEST_CASE("a variant for these params goes first, drawn as the one they match", 
     REQUIRE(entry.variants.size() == 3);
     const toki::actor::ActorVariant& added = entry.variants.front();
     REQUIRE(added.match.size() == 3);
-    REQUIRE(added.match[0].field == "drop");
+    REQUIRE(added.match[0].param == "Drop");
     REQUIRE(std::get<base::s64>(added.match[0].values.front()) == 3);
-    REQUIRE(added.match[1].field == "type");
-    REQUIRE(std::get<std::string>(added.match[1].values.front()) == "plain");
-    REQUIRE(added.match[2].field == "age");
+    REQUIRE(added.match[1].param == "Type");
+    REQUIRE(std::get<base::s64>(added.match[1].values.front()) == 1);
+    REQUIRE(added.match[2].param == "age");
     REQUIRE(added.object == "object_tsubo");
     REQUIRE(added.defaultParams == base::u16{0x0103});
     REQUIRE(toki::actor::findVariant(entry, placement) == &added);
     REQUIRE(toki::actor::checkActorEntry(entry).empty());
 }
 
-TEST_CASE("an entry without fields cannot have a variant for its params", "[actor][edits]") {
+TEST_CASE("an entry without params cannot have a variant for its params", "[actor][edits]") {
     toki::actor::ActorDatabase checkout;
 
     REQUIRE_FALSE(toki::actor::addVariantForParams(

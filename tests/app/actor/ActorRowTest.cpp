@@ -30,8 +30,7 @@ namespace {
         toki::actor::ActorEntry{.actor = "ACTOR_PLAYER", .name = "Link"};
     databases.shipped.entries["ACTOR_EN_BOX"] =
         toki::actor::ActorEntry{.actor = "ACTOR_EN_BOX", .name = "Treasure chest"};
-    databases.checkout.entries["ACTOR_EN_MINE"] = toki::actor::ActorEntry{
-        .actor = "ACTOR_EN_MINE", .status = toki::actor::EntryStatus::Guessed};
+    databases.checkout.entries["ACTOR_EN_MINE"] = toki::actor::ActorEntry{.actor = "ACTOR_EN_MINE"};
     return databases;
 }
 
@@ -47,10 +46,9 @@ TEST_CASE("the actor list has every set actor, named and placed by its entry", "
     REQUIRE(rows[2].name == "En_Ani");
     REQUIRE_FALSE(rows[2].origin.has_value());
     REQUIRE(rows[3].origin == toki::actor::EntryOrigin::Checkout);
-    REQUIRE(rows[3].status == toki::actor::EntryStatus::Guessed);
 }
 
-TEST_CASE("the actor list is filtered by status and by name", "[actor][rows]") {
+TEST_CASE("the actor list is filtered by its entries and by name", "[actor][rows]") {
     const std::vector<toki::actor::ActorRow> rows =
         toki::actor::listActorRows(makeTables(), makeDatabases());
     const auto count = [&rows](const toki::actor::RowFilter filter, const char* text) {
@@ -60,8 +58,7 @@ TEST_CASE("the actor list is filtered by status and by name", "[actor][rows]") {
     };
 
     REQUIRE(count(toki::actor::RowFilter::All, "") == 4);
-    REQUIRE(count(toki::actor::RowFilter::Checked, "") == 2);
-    REQUIRE(count(toki::actor::RowFilter::Guessed, "") == 1);
+    REQUIRE(count(toki::actor::RowFilter::WithEntry, "") == 3);
     REQUIRE(count(toki::actor::RowFilter::Missing, "") == 1);
     REQUIRE(count(toki::actor::RowFilter::Checkout, "") == 1);
     REQUIRE(count(toki::actor::RowFilter::All, "chest") == 1);

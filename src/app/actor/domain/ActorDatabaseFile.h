@@ -10,7 +10,7 @@
 namespace toki::actor {
 
 /// The version of `actors.toml` this build reads and writes.
-inline constexpr int DatabaseFormat = 1;
+inline constexpr int DatabaseFormat = 2;
 
 /// Where the shipped actor database is installed: `actors.toml` in the assets
 /// folder beside the executable.

@@ -4,6 +4,7 @@
 #include "app/actor/domain/ActorEntry.h"
 
 #include <algorithm>
+#include <bit>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -13,31 +14,25 @@ namespace toki::actor {
 
 namespace {
 
-[[nodiscard]] u16 readSource(const FieldSource source, const PlacementValues& placement) {
+[[nodiscard]] u16 readSource(const ParamSource source, const PlacementValues& placement) {
     switch (source) {
-    case FieldSource::Params:
+    case ParamSource::Params:
         return placement.params;
-    case FieldSource::RotationX:
+    case ParamSource::RotationX:
         return static_cast<u16>(placement.rotation[0]);
-    case FieldSource::RotationY:
+    case ParamSource::RotationY:
         return static_cast<u16>(placement.rotation[1]);
-    case FieldSource::RotationZ:
+    case ParamSource::RotationZ:
         return static_cast<u16>(placement.rotation[2]);
     }
     return 0;
 }
 
-[[nodiscard]] std::optional<s64> findEnumValue(const ParamField& field,
-                                               const std::string_view name) {
-    const auto found = std::ranges::find(field.values, name, &EnumValue::name);
-    return found == field.values.end() ? std::nullopt : std::optional(found->value);
-}
-
-[[nodiscard]] bool isBuiltInMatching(const FieldMatch& match, const PlacementValues& placement) {
+[[nodiscard]] bool isBuiltInMatching(const ParamMatch& match, const PlacementValues& placement) {
     std::optional<std::string> value;
-    if (match.field == "age" && placement.age) {
+    if (match.param == "age" && placement.age) {
         value = *placement.age == Age::Child ? "child" : "adult";
-    } else if (match.field == "scene") {
+    } else if (match.param == "scene") {
         value = placement.scene;
     }
     return value && std::ranges::any_of(match.values, [&value](const MatchValue& candidate) {
@@ -46,26 +41,37 @@ namespace {
            });
 }
 
-[[nodiscard]] bool isValueMatching(const ParamField& field, const MatchValue& candidate,
-                                   const s64 value) {
+[[nodiscard]] bool isValueMatching(const MatchValue& candidate, const s64 value) {
     if (const bool* flag = std::get_if<bool>(&candidate)) {
         return (value != 0) == *flag;
     }
     if (const s64* number = std::get_if<s64>(&candidate)) {
         return value == *number;
     }
-    return findEnumValue(field, std::get<std::string>(candidate)) == value;
+    return false;
 }
 
 } // namespace
 
+u8 findMaskShift(const u16 mask) {
+    return mask == 0 ? 0 : static_cast<u8>(std::countr_zero(mask));
+}
+
+u8 findMaskWidth(const u16 mask) {
+    return mask == 0 ? 0 : static_cast<u8>(16 - std::countl_zero(mask) - std::countr_zero(mask));
+}
+
+bool isMaskContiguous(const u16 mask) {
+    return mask != 0 && std::popcount(mask) == findMaskWidth(mask);
+}
+
 bool isMatchingScene(const ActorVariant& variant, const std::optional<std::string>& scene) {
-    const auto match = std::ranges::find(variant.match, "scene", &FieldMatch::field);
+    const auto match = std::ranges::find(variant.match, "scene", &ParamMatch::param);
     return match == variant.match.end() ||
            isBuiltInMatching(*match, PlacementValues{.scene = scene});
 }
 
-bool isBuiltInField(const std::string_view name) {
+bool isBuiltInParam(const std::string_view name) {
     return name == "age" || name == "scene";
 }
 
@@ -81,29 +87,29 @@ std::optional<FoundEntry> findActorEntry(const ActorDatabase& shipped,
     return std::nullopt;
 }
 
-s64 readFieldValue(const ParamField& field, const PlacementValues& placement) {
-    const u32 bits = readSource(field.source, placement);
-    const u32 mask = field.width >= 32 ? 0xFFFF'FFFFU : (1U << field.width) - 1U;
-    const u32 raw = (bits >> field.shift) & mask;
-    if (field.isSigned && field.width > 0 && (raw & (1U << (field.width - 1U))) != 0) {
-        return static_cast<s64>(raw) - (s64{1} << field.width);
+s64 readParamValue(const ActorParam& param, const PlacementValues& placement) {
+    const u32 bits = readSource(param.source, placement);
+    const u8 width = findMaskWidth(param.mask);
+    const u32 raw = (bits & param.mask) >> findMaskShift(param.mask);
+    if (param.isSigned && width > 0 && (raw & (1U << (width - 1U))) != 0) {
+        return static_cast<s64>(raw) - (s64{1} << width);
     }
     return raw;
 }
 
 bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                 const PlacementValues& placement) {
-    return std::ranges::all_of(variant.match, [&](const FieldMatch& match) {
-        if (isBuiltInField(match.field)) {
+    return std::ranges::all_of(variant.match, [&](const ParamMatch& match) {
+        if (isBuiltInParam(match.param)) {
             return isBuiltInMatching(match, placement);
         }
-        const auto field = std::ranges::find(entry.fields, match.field, &ParamField::name);
-        if (field == entry.fields.end()) {
+        const auto param = std::ranges::find(entry.params, match.param, &ActorParam::name);
+        if (param == entry.params.end()) {
             return false;
         }
-        const s64 value = readFieldValue(*field, placement);
-        return std::ranges::any_of(match.values, [&](const MatchValue& candidate) {
-            return isValueMatching(*field, candidate, value);
+        const s64 value = readParamValue(*param, placement);
+        return std::ranges::any_of(match.values, [value](const MatchValue& candidate) {
+            return isValueMatching(candidate, value);
         });
     });
 }
