@@ -41,10 +41,11 @@ namespace {
 } // namespace
 
 ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
-                       viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore)
+                       viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore,
+                       actor::CollectionCatalog& collectionCatalog)
     : Panel("scene", "Scene", core::icons::MapTrifold, core::DockSlot::Right),
       workspaceService(workspaceService), viewportPanel(viewportPanel),
-      databaseStore(databaseStore) {}
+      databaseStore(databaseStore), collectionCatalog(collectionCatalog) {}
 
 void ScenePanel::setScene(Scene read) {
     const bool isNew = !scene || !core::isSamePath(scene->directory, read.directory);
@@ -230,7 +231,11 @@ bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position
     const auto model = scene->actors.models.find(actorId);
     const std::optional<ActorDescription> description =
         model != scene->actors.models.end()
-            ? std::optional(describeActor(model->second, placement, loadedObjects))
+            ? std::optional(describeActor(model->second, placement, loadedObjects,
+                                          [this, &model](const std::string_view name) {
+                                              return collectionCatalog.findCollection(
+                                                  model->second.entry->actor, name);
+                                          }))
             : std::nullopt;
     const bool isDrawn = description && description->isDrawn;
     ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",

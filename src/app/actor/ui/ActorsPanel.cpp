@@ -289,8 +289,12 @@ void ActorsPanel::drawEditor() {
                                problem.message.c_str());
         }
         ImGui::Separator();
-        const EditContext context{
-            .symbolCatalog = symbolCatalog, .objects = objects, .actors = actors};
+        const EditContext context{.symbolCatalog = symbolCatalog,
+                                  .objects = objects,
+                                  .actors = actors,
+                                  .findCollection = [this](const std::string_view name) {
+                                      return collectionCatalog.findCollection(draft->actor, name);
+                                  }};
         bool isChanged = drawGeneralEditor(*draft, context);
         if (ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::PushID("params");

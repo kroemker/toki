@@ -146,8 +146,8 @@ std::expected<void, std::string> App::initialize() {
 void App::registerPanels() {
     auto viewport = std::make_unique<viewport::ViewportPanel>(*device);
     viewportPanel = viewport.get();
-    auto sceneView =
-        std::make_unique<scene::ScenePanel>(workspaceService, *viewport, databaseStore);
+    auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport, databaseStore,
+                                                         collectionCatalog);
     scenePanel = sceneView.get();
     auto textures = std::make_unique<texture::TexturePanel>(*device);
     texturePanel = textures.get();

@@ -33,12 +33,14 @@ namespace {
     return found == params.end() ? nullptr : &*found;
 }
 
-[[nodiscard]] std::string describeValue(const MatchValue& value, const ActorParam* param) {
+[[nodiscard]] std::string describeValue(const MatchValue& value, const ActorParam* param,
+                                        const ValueCollection* collection) {
     if (const bool* flag = std::get_if<bool>(&value)) {
         return *flag ? "set" : "not set";
     }
     if (const s64* number = std::get_if<s64>(&value)) {
-        return param != nullptr ? makeParamText(*param, *number) : std::format("{}", *number);
+        return param != nullptr ? makeParamText(*param, *number, collection)
+                                : std::format("{}", *number);
     }
     const std::string& name = std::get<std::string>(value);
     if (name == "child" || name == "adult") {
@@ -53,19 +55,27 @@ constexpr float ChipValueShare = 0.7F;
     return name == "age" ? "Age" : name == "scene" ? "Scene" : name;
 }
 
-[[nodiscard]] std::string describeValues(const ParamMatch& match, const ActorParam* param) {
+[[nodiscard]] std::string describeValues(const ParamMatch& match, const ActorParam* param,
+                                         const ValueCollection* collection) {
     if (match.values.empty()) {
         return "nothing";
     }
     std::string values;
     for (usize i = 0; i < match.values.size(); ++i) {
-        values += (i == 0 ? "" : " or ") + describeValue(match.values[i], param);
+        values += (i == 0 ? "" : " or ") + describeValue(match.values[i], param, collection);
     }
     return values;
 }
 
-[[nodiscard]] std::string describeMatch(const ParamMatch& match, const ActorParam* param) {
-    return std::format("{} is {}", describeParam(match.param), describeValues(match, param));
+[[nodiscard]] std::string describeMatch(const ParamMatch& match, const ActorParam* param,
+                                        const ValueCollection* collection) {
+    return std::format("{} is {}", describeParam(match.param),
+                       describeValues(match, param, collection));
+}
+
+[[nodiscard]] const ValueCollection* findCollectionOf(const ActorParam* param,
+                                                      const FindCollection& findCollection) {
+    return param != nullptr ? findParamCollection(*param, findCollection) : nullptr;
 }
 
 class Flow {
@@ -176,7 +186,7 @@ std::string listText;
     if (ImGui::IsWindowAppearing()) {
         listText.clear();
         for (const MatchValue& value : values) {
-            listText += (listText.empty() ? "" : ", ") + describeValue(value, nullptr);
+            listText += (listText.empty() ? "" : ", ") + describeValue(value, nullptr, nullptr);
         }
     }
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 16.0F);
@@ -197,8 +207,8 @@ std::string listText;
 
 [[nodiscard]] bool editValues(ParamMatch& match, const ActorParam* param) {
     if (match.param == "age") {
-        const bool isAdult =
-            !match.values.empty() && describeValue(match.values.front(), nullptr) == "Adult";
+        const bool isAdult = !match.values.empty() &&
+                             describeValue(match.values.front(), nullptr, nullptr) == "Adult";
         if (ImGui::RadioButton("Child", !isAdult) && isAdult) {
             match.values = {std::string("child")};
             return true;
@@ -278,7 +288,8 @@ std::string listText;
 
 } // namespace
 
-bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const ActorParam> params) {
+bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const ActorParam> params,
+                         const FindCollection& findCollection) {
     Flow flow;
     bool isChanged = false;
     std::optional<usize> removed;
@@ -293,7 +304,8 @@ bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const A
         ImGui::PushID(static_cast<int>(i));
         const ActorParam* param = findParam(params, match[i].param);
         const std::string key = describeParam(match[i].param);
-        const std::string values = describeValues(match[i], param);
+        const std::string values =
+            describeValues(match[i], param, findCollectionOf(param, findCollection));
         flow.placeNext(measureChip(key, values, maxValueWidth));
         if (drawChip(key, values, maxValueWidth)) {
             ImGui::OpenPopup("##values");
@@ -316,14 +328,17 @@ bool drawConditionEditor(std::vector<ParamMatch>& match, const std::span<const A
 }
 
 std::string describeCondition(const std::span<const ParamMatch> match,
-                              const std::span<const ActorParam> params) {
+                              const std::span<const ActorParam> params,
+                              const FindCollection& findCollection) {
     if (match.empty()) {
         return "Every placement";
     }
     std::string described;
     for (usize i = 0; i < match.size(); ++i) {
         described +=
-            (i == 0 ? "" : ", and ") + describeMatch(match[i], findParam(params, match[i].param));
+            (i == 0 ? "" : ", and ") +
+            describeMatch(match[i], findParam(params, match[i].param),
+                          findCollectionOf(findParam(params, match[i].param), findCollection));
     }
     return described;
 }

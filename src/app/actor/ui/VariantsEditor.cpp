@@ -180,7 +180,7 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
     ImGui::TableSetupColumn("body", ImGuiTableColumnFlags_WidthStretch);
     drawBand("WHEN", WhenColor, WhenBackground);
     ImGui::PushID("condition");
-    bool isChanged = drawConditionEditor(variant.match, entry.params);
+    bool isChanged = drawConditionEditor(variant.match, entry.params, context.findCollection);
     ImGui::PopID();
     drawBand("DRAWS", DrawsColor, std::nullopt);
     isChanged = drawDraws(entry, variant, context) || isChanged;
@@ -194,10 +194,11 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
     return isChanged;
 }
 
-[[nodiscard]] std::string makeHeader(const ActorEntry& entry, const usize index) {
+[[nodiscard]] std::string makeHeader(const ActorEntry& entry, const usize index,
+                                     const EditContext& context) {
     const ActorVariant& variant = entry.variants[index];
     if (!variant.match.empty()) {
-        return describeCondition(variant.match, entry.params);
+        return describeCondition(variant.match, entry.params, context.findCollection);
     }
     return index > 0 && index + 1 == entry.variants.size() ? "Otherwise" : "Every placement";
 }
@@ -212,7 +213,7 @@ bool drawVariantsEditor(ActorEntry& entry, const EditContext& context) {
     for (usize i = 0; i < entry.variants.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         const float buttons = ImGui::GetFrameHeight() * HeaderButtons;
-        const std::string header = makeHeader(entry, i);
+        const std::string header = makeHeader(entry, i, context);
         const std::string fitted =
             makeFittedText(header, ImGui::GetContentRegionAvail().x - buttons -
                                        (ImGui::GetFontSize() * HeaderArrow));

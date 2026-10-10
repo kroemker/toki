@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/actor/domain/ActorDatabase.h"
+#include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
@@ -25,7 +26,8 @@ namespace toki::scene {
 class ScenePanel : public core::Panel {
 public:
     ScenePanel(const workspace::WorkspaceService& workspaceService,
-               viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore);
+               viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore,
+               actor::CollectionCatalog& collectionCatalog);
 
     /// Shows `scene` in the viewport. A scene read again keeps how it was
     /// shown and where the camera is; another one starts afresh at its first
@@ -77,6 +79,7 @@ private:
     const workspace::WorkspaceService& workspaceService;
     viewport::ViewportPanel& viewportPanel;
     actor::DatabaseStore& databaseStore;
+    actor::CollectionCatalog& collectionCatalog;
     std::function<void(const std::string&)> openActorEditor;
     std::optional<Scene> scene;
     SceneView sceneView;

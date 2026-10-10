@@ -3,6 +3,7 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/domain/SymbolCatalog.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/object/domain/ObjectAssets.h"
 
 #include <imgui.h>
@@ -21,6 +22,7 @@ struct EditContext {
     SymbolCatalog& symbolCatalog;
     std::span<const std::string> objects;
     std::span<const std::string> actors;
+    FindCollection findCollection;
 };
 
 /// Starts a table of property rows, each a label on the left and its input

@@ -76,7 +76,8 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
 
 ActorDescription describeActor(const SceneActorModel& actor,
                                const actor::PlacementValues& placement,
-                               const std::optional<std::span<const std::string>> loadedObjects) {
+                               const std::optional<std::span<const std::string>> loadedObjects,
+                               const actor::FindCollection& findCollection) {
     const ActorDrawing* drawing = actor.findDrawing(placement);
     const actor::ActorVariant* variant =
         actor.entry ? actor::findVariant(*actor.entry, placement) : nullptr;
@@ -86,7 +87,7 @@ ActorDescription describeActor(const SceneActorModel& actor,
     };
     if (actor.entry) {
         description.name = actor.entry->name;
-        description.params = actor::readParams(*actor.entry, placement);
+        description.params = actor::readParams(*actor.entry, placement, findCollection);
     } else {
         description.problems.emplace_back(
             "It has no entry in the actor database, so it is marked; derive one in the Actor "

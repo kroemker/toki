@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ParamReading.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -33,10 +34,12 @@ struct ActorDescription {
 /// Describes `actor` where it is placed with `placement`.
 /// `loadedObjects`, when given, are the objects the game has loaded there, the
 /// room's object list and the keep objects: an actor whose entry's object is
-/// not among them is not spawned by the game, and is said so.
+/// not among them is not spawned by the game, and is said so. Choices of
+/// collections are named by what `findCollection` finds.
 [[nodiscard]] ActorDescription
 describeActor(const SceneActorModel& actor, const actor::PlacementValues& placement,
-              std::optional<std::span<const std::string>> loadedObjects);
+              std::optional<std::span<const std::string>> loadedObjects,
+              const actor::FindCollection& findCollection);
 
 /// The objects the game has loaded while `room` of `layer` is: `gameplay_keep`,
 /// the scene's keep object, and the room's object list, by name.
