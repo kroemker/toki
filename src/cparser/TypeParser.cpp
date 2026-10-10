@@ -345,6 +345,7 @@ EnumRead TypeReader::readEnum() {
     ++cursor;
     static_cast<void>(readAttributes());
     std::string_view tag;
+    const base::SourceLocation location = locate(peek());
     if (peek().kind == TokenKind::Identifier) {
         tag = peek().text;
         ++cursor;
@@ -376,7 +377,8 @@ EnumRead TypeReader::readEnum() {
         if (isAt("}")) {
             ++cursor;
         }
-        enumeration = result.types.defineEnumeration(std::move(enumerators));
+        enumeration = result.types.defineEnumeration(
+            Enumeration{.constants = std::move(enumerators), .location = location});
         if (!tag.empty()) {
             result.types.nameEnumeration(tag, *enumeration);
         }

@@ -4,6 +4,7 @@ target_sources(toki_core PRIVATE
         ActorModel.cpp
         ActorModelReader.cpp
         ActorRow.cpp
+        CollectionCatalog.cpp
         DatabaseEdits.cpp
         DatabaseReader.cpp
         DatabaseStore.cpp
@@ -16,4 +17,5 @@ target_sources(toki_core PRIVATE
         ModelRules.cpp
         OverlayCode.cpp
         PartReader.cpp
-        SymbolCatalog.cpp)
+        SymbolCatalog.cpp
+        ValueCollection.cpp)

@@ -161,16 +161,20 @@ TEST_CASE("an enumeration is kept whole, by its tag and its typedef", "[cparser]
                         "typedef enum { ANON_A } Anonymous;\n"
                         "typedef enum Item* ItemPointer;\n");
 
-    const std::vector<cparser::Enumerator>* item = parsed.result.types.findEnumeration("ItemID");
-    REQUIRE(item != nullptr);
-    REQUIRE(item == parsed.result.types.findEnumeration("Item"));
+    const cparser::Enumeration* enumeration = parsed.result.types.findEnumeration("ItemID");
+    REQUIRE(enumeration != nullptr);
+    REQUIRE(enumeration == parsed.result.types.findEnumeration("Item"));
+    REQUIRE(enumeration->location.file.filename() == "types.h");
+    REQUIRE(enumeration->location.line == 1);
+    const std::vector<cparser::Enumerator>* item = &enumeration->constants;
     REQUIRE(item->size() == 5);
     REQUIRE(item->at(1).name == "ITEM_BOW");
     REQUIRE(item->at(2).value == 4);
     REQUIRE(item->at(3).name == "ITEM_EXTRA");
     REQUIRE(item->back().value == 6);
-    REQUIRE(parsed.result.types.findEnumeration("Tagged")->front().value == -1);
-    REQUIRE(parsed.result.types.findEnumeration("Anonymous")->size() == 1);
+    REQUIRE(parsed.result.types.findEnumeration("Tagged")->constants.front().value == -1);
+    REQUIRE(parsed.result.types.findEnumeration("Anonymous")->constants.size() == 1);
+    REQUIRE(parsed.result.types.listEnumerationNames().size() == 4);
     REQUIRE(parsed.result.types.findEnumeration("ItemPointer") == nullptr);
     REQUIRE(parsed.result.types.findEnumeration("ITEM_BOW") == nullptr);
 }

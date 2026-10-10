@@ -174,13 +174,22 @@ void TypeTable::defineEnumerator(const std::string_view name, const s64 value) {
     enumerators.insert_or_assign(std::string(name), value);
 }
 
-const std::vector<Enumerator>* TypeTable::findEnumeration(const std::string_view name) const {
+const Enumeration* TypeTable::findEnumeration(const std::string_view name) const {
     const auto found = enumerationNames.find(std::string(name));
     return found == enumerationNames.end() ? nullptr : &enumerations[found->second];
 }
 
-usize TypeTable::defineEnumeration(std::vector<Enumerator> constants) {
-    enumerations.push_back(std::move(constants));
+std::vector<std::string_view> TypeTable::listEnumerationNames() const {
+    std::vector<std::string_view> names;
+    names.reserve(enumerationNames.size());
+    for (const auto& [name, enumeration] : enumerationNames) {
+        names.emplace_back(name);
+    }
+    return names;
+}
+
+usize TypeTable::defineEnumeration(Enumeration enumeration) {
+    enumerations.push_back(std::move(enumeration));
     return enumerations.size() - 1;
 }
 

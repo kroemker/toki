@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/Diagnostic.h"
 #include "cparser/CType.h"
 #include "cparser/ScalarType.h"
 #include "cparser/Types.h"
@@ -22,6 +23,12 @@ struct Enumerator {
     s64 value = 0;
 };
 
+/// An enumeration's constants in the order they are written, and where it is.
+struct Enumeration {
+    std::vector<Enumerator> constants;
+    base::SourceLocation location;
+};
+
 /// The types one reading pass defined: typedef names, struct, union and enum
 /// tags, and enumeration constants, with every type laid out for the target.
 /// Types are never freed or moved while the table lives, so a `const CType*`
@@ -36,7 +43,10 @@ public:
 
     /// The constants of the enumeration that `name` tags or names by a typedef,
     /// in the order they are written, if one was read.
-    [[nodiscard]] const std::vector<Enumerator>* findEnumeration(std::string_view name) const;
+    [[nodiscard]] const Enumeration* findEnumeration(std::string_view name) const;
+
+    /// Every name an enumeration was given, its tag or a typedef, in no order.
+    [[nodiscard]] std::vector<std::string_view> listEnumerationNames() const;
 
     /// The node for a scalar, a pointer to `element`, or an array of `count`
     /// elements, made once and shared. An array of a struct not yet defined is
@@ -63,7 +73,7 @@ public:
 
     /// Keeps the constants of one enumeration, and returns what tells it apart
     /// for `nameEnumeration`.
-    [[nodiscard]] usize defineEnumeration(std::vector<Enumerator> constants);
+    [[nodiscard]] usize defineEnumeration(Enumeration enumeration);
 
     /// Lets `findEnumeration` find `enumeration` by `name`, its tag or a
     /// typedef of it.
@@ -80,7 +90,7 @@ private:
     std::unordered_map<std::string, const CType*> typedefs;
     std::unordered_map<std::string, CType*> tags;
     std::unordered_map<std::string, s64> enumerators;
-    std::deque<std::vector<Enumerator>> enumerations;
+    std::deque<Enumeration> enumerations;
     std::unordered_map<std::string, usize> enumerationNames;
     std::map<std::tuple<u8, bool, bool>, const CType*> scalars;
     std::map<const CType*, const CType*> pointers;

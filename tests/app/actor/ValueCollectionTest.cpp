@@ -1,0 +1,140 @@
+#include "app/actor/domain/ValueCollection.h"
+
+#include "app/actor/domain/ActorEntry.h"
+#include "app/actor/domain/CollectionCatalog.h"
+#include "base/Diagnostic.h"
+#include "base/Types.h"
+#include "hackeroot/Tables.h"
+#include "hackeroot/Workspace.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <expected>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <utility>
+#include <vector>
+
+namespace {
+
+[[nodiscard]] hackeroot::Workspace loadFixture() {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded = hackeroot::Workspace::load(
+        std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout", {});
+    REQUIRE(loaded.has_value());
+    return std::move(*loaded);
+}
+
+[[nodiscard]] const toki::actor::ValueCollection&
+requireCollection(const toki::actor::CollectionsRead& read, const std::string_view name) {
+    const auto found =
+        std::ranges::find(read.collections, name, &toki::actor::ValueCollection::name);
+    REQUIRE(found != read.collections.end());
+    return *found;
+}
+
+[[nodiscard]] bool hasActor(const hackeroot::Tables& tables, const std::string_view actor) {
+    return std::ranges::contains(tables.actors, actor, &hackeroot::ActorEntry::enumName);
+}
+
+} // namespace
+
+TEST_CASE("shared collections are read from the checkout's headers and tables",
+          "[actor][collections]") {
+    const hackeroot::Workspace workspace = loadFixture();
+
+    const toki::actor::CollectionsRead read = toki::actor::readSharedCollections(workspace);
+
+    REQUIRE(read.diagnostics.empty());
+    REQUIRE(read.collections.size() == toki::actor::getSharedCollections().size());
+    const toki::actor::ValueCollection& items = requireCollection(read, "GetItemID");
+    const base::s64 heartPiece = hasActor(workspace.getTables(), "ACTOR_EN_TEST") ? 3 : 2;
+    const auto found =
+        std::ranges::find(items.values, "GI_HEART_PIECE", &toki::actor::ChoiceValue::label);
+    REQUIRE(found != items.values.end());
+    REQUIRE(found->value == heartPiece);
+    REQUIRE(requireCollection(read, "ItemID").values.back().value == 0xFF);
+    REQUIRE(requireCollection(read, "Item00Type").values.size() == 2);
+
+    const toki::actor::ValueCollection& actors = requireCollection(read, "ActorID");
+    REQUIRE(actors.values.front().label == "ACTOR_PLAYER");
+    REQUIRE_FALSE(
+        std::ranges::contains(actors.values, "ACTOR_UNSET_1", &toki::actor::ChoiceValue::label));
+    REQUIRE(std::ranges::any_of(
+        read.files, [](const std::filesystem::path& file) { return file.filename() == "item.h"; }));
+}
+
+TEST_CASE("an actor's collections are the enumerations its own headers define",
+          "[actor][collections]") {
+    const hackeroot::Workspace workspace = loadFixture();
+    const std::vector<hackeroot::ActorEntry>& actors = workspace.getTables().actors;
+    const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);
+    REQUIRE(box != actors.end());
+
+    const toki::actor::CollectionsRead read = toki::actor::readActorCollections(workspace, *box);
+
+    REQUIRE(read.collections.size() == 1);
+    const toki::actor::ValueCollection& types = read.collections.front();
+    REQUIRE(types.name == "EnBoxType");
+    REQUIRE(types.values.size() == 2);
+    REQUIRE(types.values[1].label == "ENBOX_TYPE_SMALL");
+    REQUIRE(types.values[1].value == 5);
+    REQUIRE(toki::actor::readActorCollections(workspace, actors.front()).collections.empty());
+}
+
+TEST_CASE("the catalog finds an actor's own collection before a shared one",
+          "[actor][collections]") {
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(loadFixture());
+    toki::actor::CollectionCatalog catalog;
+    catalog.open(workspace);
+
+    const toki::actor::ValueCollection* own = nullptr;
+    const toki::actor::ValueCollection* shared = nullptr;
+    for (int attempt = 0; attempt < 2000 && (own == nullptr || shared == nullptr); ++attempt) {
+        catalog.update();
+        own = catalog.findCollection("ACTOR_EN_BOX", "EnBoxType");
+        shared = catalog.findCollection("ACTOR_EN_BOX", "GetItemID");
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    REQUIRE(own != nullptr);
+    REQUIRE(shared != nullptr);
+    REQUIRE(catalog.findCollection("ACTOR_PLAYER", "EnBoxType") == nullptr);
+    const std::vector<std::string> names = catalog.listCollectionNames("ACTOR_EN_BOX");
+    REQUIRE(names.front() == "EnBoxType");
+    REQUIRE(std::ranges::contains(names, "SceneID"));
+    REQUIRE(catalog.takeDiagnostics().empty());
+}
+
+TEST_CASE("a real checkout's collections are read without a diagnostic",
+          "[actor][collections][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+
+    const toki::actor::CollectionsRead shared = toki::actor::readSharedCollections(*workspace);
+    for (const base::Diagnostic& diagnostic : shared.diagnostics) {
+        UNSCOPED_INFO(base::describe(diagnostic));
+    }
+    REQUIRE(shared.diagnostics.empty());
+    const toki::actor::ValueCollection& items = requireCollection(shared, "GetItemID");
+    REQUIRE(items.values.size() > 100);
+    REQUIRE(
+        std::ranges::contains(items.values, "GI_HEART_PIECE", &toki::actor::ChoiceValue::label));
+    REQUIRE(requireCollection(shared, "Item00Type").values.size() > 10);
+
+    const std::vector<hackeroot::ActorEntry>& actors = workspace->getTables().actors;
+    const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);
+    REQUIRE(box != actors.end());
+    const toki::actor::CollectionsRead own = toki::actor::readActorCollections(*workspace, *box);
+    REQUIRE(own.collections.size() == 1);
+    REQUIRE(requireCollection(own, "EnBoxType").values.size() > 5);
+}
