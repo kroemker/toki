@@ -33,10 +33,10 @@ inline constexpr std::array VariantKeys = {
     std::string_view("match"),         std::string_view("object"),        std::string_view("scale"),
     std::string_view("height_offset"), std::string_view("draw"),          std::string_view("parts"),
     std::string_view("children"),      std::string_view("default_params")};
-inline constexpr std::array ParamKeys = {std::string_view("mask"),       std::string_view("source"),
-                                         std::string_view("kind"),       std::string_view("signed"),
-                                         std::string_view("hex"),        std::string_view("values"),
-                                         std::string_view("description")};
+inline constexpr std::array ParamKeys = {
+    std::string_view("mask"),   std::string_view("source"),     std::string_view("kind"),
+    std::string_view("signed"), std::string_view("hex"),        std::string_view("values"),
+    std::string_view("offset"), std::string_view("description")};
 inline constexpr std::array PartKeys = {
     std::string_view("display_list"), std::string_view("skeleton"),
     std::string_view("object"),       std::string_view("pose"),

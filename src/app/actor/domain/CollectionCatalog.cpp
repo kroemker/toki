@@ -42,6 +42,7 @@ void CollectionCatalog::open(std::shared_ptr<const hackeroot::Workspace> opened)
     }
     workspace = std::move(opened);
     shared.clear();
+    isSharedRead = false;
     own.clear();
     asked.clear();
     {
@@ -93,6 +94,11 @@ std::vector<std::string> CollectionCatalog::listCollectionNames(const std::strin
     return names;
 }
 
+bool CollectionCatalog::hasRead(const std::string_view actor) {
+    ask(std::string(actor));
+    return isSharedRead && own.contains(actor);
+}
+
 void CollectionCatalog::update() {
     std::vector<Read> reads;
     {
@@ -108,6 +114,7 @@ void CollectionCatalog::update() {
             own.insert_or_assign(std::move(*read.actor), std::move(read.collections.collections));
         } else {
             shared = std::move(read.collections.collections);
+            isSharedRead = true;
         }
     }
 }

@@ -2,6 +2,7 @@
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorRow.h"
+#include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/ParamsEditor.h"
@@ -21,7 +22,7 @@ namespace toki::actor {
 class ActorsPanel : public core::Panel {
 public:
     ActorsPanel(const workspace::WorkspaceService& workspaceService, DatabaseStore& databaseStore,
-                SymbolCatalog& symbolCatalog);
+                SymbolCatalog& symbolCatalog, CollectionCatalog& collectionCatalog);
 
     /// Takes the database as it was read again.
     void setDatabase(DatabaseSnapshot read);
@@ -47,6 +48,7 @@ private:
     const workspace::WorkspaceService& workspaceService;
     DatabaseStore& databaseStore;
     SymbolCatalog& symbolCatalog;
+    CollectionCatalog& collectionCatalog;
     std::optional<DatabaseSnapshot> snapshot;
 
     const hackeroot::Workspace* listedWorkspace = nullptr;

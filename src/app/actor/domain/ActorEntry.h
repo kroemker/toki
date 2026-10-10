@@ -36,7 +36,10 @@ struct ChoiceValue {
 };
 
 /// A named range of bits of a placed actor's params or rotation, given by its
-/// mask, whose bits are adjacent.
+/// mask, whose bits are adjacent. A choice's values are listed in `values`, or
+/// taken from the checkout's `collection` of that name, `GetItemID`; `offset`
+/// is added to the param's value before it is looked up among them, as a sign
+/// adds 0x300 to its message.
 struct ActorParam {
     std::string name;
     ParamKind kind = ParamKind::Number;
@@ -45,6 +48,8 @@ struct ActorParam {
     bool isSigned = false;
     bool isHex = false;
     std::vector<ChoiceValue> values;
+    std::optional<std::string> collection;
+    s64 offset = 0;
     std::string description;
     base::SourceLocation location;
 };

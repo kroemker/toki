@@ -4,9 +4,11 @@
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorRow.h"
+#include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/EntryEditor.h"
 #include "app/actor/ui/VariantsEditor.h"
@@ -24,8 +26,10 @@
 #include <array>
 #include <expected>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -60,10 +64,11 @@ constexpr std::array<std::pair<RowFilter, const char*>, 3> FilterNames{{
 } // namespace
 
 ActorsPanel::ActorsPanel(const workspace::WorkspaceService& workspaceService,
-                         DatabaseStore& databaseStore, SymbolCatalog& symbolCatalog)
+                         DatabaseStore& databaseStore, SymbolCatalog& symbolCatalog,
+                         CollectionCatalog& collectionCatalog)
     : Panel("actors", "Actor Database", core::icons::Database, core::DockSlot::Right),
       workspaceService(workspaceService), databaseStore(databaseStore),
-      symbolCatalog(symbolCatalog) {}
+      symbolCatalog(symbolCatalog), collectionCatalog(collectionCatalog) {}
 
 void ActorsPanel::setDatabase(DatabaseSnapshot read) {
     if (snapshot && snapshot->files != read.files) {
@@ -270,7 +275,16 @@ void ActorsPanel::drawEditor() {
     }
     drawEditorHeader();
     if (draft) {
-        for (const base::Diagnostic& problem : checkActorEntry(*draft)) {
+        std::vector<base::Diagnostic> problems = checkActorEntry(*draft);
+        if (collectionCatalog.hasRead(draft->actor)) {
+            std::ranges::move(checkCollections(*draft,
+                                               [this](const std::string_view name) {
+                                                   return collectionCatalog.findCollection(
+                                                       draft->actor, name);
+                                               }),
+                              std::back_inserter(problems));
+        }
+        for (const base::Diagnostic& problem : problems) {
             ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning,
                                problem.message.c_str());
         }

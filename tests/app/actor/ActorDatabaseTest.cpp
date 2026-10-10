@@ -370,3 +370,28 @@ TEST_CASE("a database path that is not a file is a diagnostic, not an empty data
     std::error_code failure;
     std::filesystem::remove_all(folder, failure);
 }
+
+TEST_CASE("a choice may take its values from a collection, after an offset", "[actor][database]") {
+    const toki::actor::ActorDatabase read = toki::actor::parseActorDatabase(R"(format = 2
+[actors.ACTOR_EN_KANBAN.params]
+"Text" = { mask = 0x00FF, kind = "choice", values = "MessageID", offset = 0x300 }
+"Bad"  = { mask = 0x0F00, kind = "choice", values = 3 }
+"Kind" = { mask = 0xF000, kind = "number", values = "GetItemID" }
+)",
+                                                                            "actors.toml");
+
+    REQUIRE(isReported(read, "params.Bad.values: must be a table of values"));
+    REQUIRE(isReported(read, "params.Kind: only a choice takes its values from a collection"));
+    REQUIRE_FALSE(isReported(read, "params.Text: a choice needs values"));
+    const toki::actor::ActorEntry& sign = read.entries.at("ACTOR_EN_KANBAN");
+    REQUIRE(sign.params[0].collection == "MessageID");
+    REQUIRE(sign.params[0].offset == 0x300);
+    REQUIRE(sign.params[0].values.empty());
+
+    const std::string written = toki::actor::formatActorDatabase(read);
+    REQUIRE(written.contains("values = 'MessageID'"));
+    REQUIRE(written.contains("offset = 0x300"));
+    const toki::actor::ActorDatabase again = toki::actor::parseActorDatabase(written, "again.toml");
+    REQUIRE(again.diagnostics.empty());
+    REQUIRE(again.entries.at("ACTOR_EN_KANBAN").params[0].offset == 0x300);
+}

@@ -138,3 +138,40 @@ TEST_CASE("a real checkout's collections are read without a diagnostic",
     REQUIRE(own.collections.size() == 1);
     REQUIRE(requireCollection(own, "EnBoxType").values.size() > 5);
 }
+
+TEST_CASE("how an entry uses collections is checked against the checkout's",
+          "[actor][collections]") {
+    const toki::actor::ValueCollection items{.name = "GetItemID",
+                                             .values = {{.value = 0, .label = "GI_NONE"},
+                                                        {.value = 0x300, .label = "GI_SIGN"},
+                                                        {.value = 0x400, .label = "GI_TOO_FAR"}}};
+    const toki::actor::ActorEntry entry{
+        .actor = "ACTOR_A",
+        .params = {toki::actor::ActorParam{.name = "Item",
+                                           .kind = toki::actor::ParamKind::Choice,
+                                           .mask = 0x00FF,
+                                           .collection = "GetItemID",
+                                           .offset = 0x300},
+                   toki::actor::ActorParam{.name = "Other",
+                                           .kind = toki::actor::ParamKind::Choice,
+                                           .mask = 0x0F00,
+                                           .collection = "Missing"}},
+        .variants = {toki::actor::ActorVariant{
+            .match = {toki::actor::ParamMatch{.param = "Item",
+                                              .values = {base::s64{0}, base::s64{1}}}}}}};
+
+    const std::vector<base::Diagnostic> problems = toki::actor::checkCollections(
+        entry, [&items](const std::string_view name) -> const toki::actor::ValueCollection* {
+            return name == items.name ? &items : nullptr;
+        });
+
+    std::string described;
+    for (const base::Diagnostic& problem : problems) {
+        described += problem.message + "\n";
+    }
+    INFO(described);
+    REQUIRE(problems.size() == 3);
+    REQUIRE(described.contains("2 of the 3 values of GetItemID do not fit in 8 bits"));
+    REQUIRE(described.contains("match.Item: 1 is not one of GetItemID"));
+    REQUIRE(described.contains("params.Other: the checkout has no collection Missing"));
+}

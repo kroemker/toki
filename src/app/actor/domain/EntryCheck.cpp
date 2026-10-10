@@ -65,8 +65,11 @@ void EntryChecker::checkParam(const ActorParam& param) {
     if (param.kind == ParamKind::Flag && width != 1) {
         report(param.location, path, "a flag is one bit");
     }
-    if (param.kind == ParamKind::Choice && param.values.empty()) {
+    if (param.kind == ParamKind::Choice && param.values.empty() && !param.collection) {
         report(param.location, path, "a choice needs values");
+    }
+    if (param.kind != ParamKind::Choice && param.collection) {
+        report(param.location, path, "only a choice takes its values from a collection");
     }
     const s64 lowest = param.isSigned ? -(s64{1} << (width - 1)) : 0;
     const s64 highest = param.isSigned ? (s64{1} << (width - 1)) - 1 : (s64{1} << width) - 1;
@@ -141,8 +144,9 @@ void EntryChecker::checkMatch(const ActorVariant& variant, const ParamMatch& mat
                    param->kind == ParamKind::Flag ? "a flag matches true or false"
                                                   : "only a flag matches true or false");
         } else if (const s64* number = std::get_if<s64>(&value);
-                   number != nullptr && param->kind == ParamKind::Choice &&
-                   !std::ranges::contains(param->values, *number, &ChoiceValue::value)) {
+                   number != nullptr && param->kind == ParamKind::Choice && !param->collection &&
+                   !std::ranges::contains(param->values, *number + param->offset,
+                                          &ChoiceValue::value)) {
             report(variant.location, at, std::format("{} is not one of its values", *number));
         }
     }

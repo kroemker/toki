@@ -49,6 +49,11 @@ public:
     /// then the shared ones. Asking reads the actor's.
     [[nodiscard]] std::vector<std::string> listCollectionNames(std::string_view actor);
 
+    /// Whether the shared collections and `actor`'s own have been read, so that
+    /// a collection not found is one the checkout does not have. Asking reads
+    /// the actor's.
+    [[nodiscard]] bool hasRead(std::string_view actor);
+
     /// Takes in what the worker has read since the last call.
     void update();
 
@@ -73,6 +78,7 @@ private:
 
     std::shared_ptr<const hackeroot::Workspace> workspace;
     std::vector<ValueCollection> shared;
+    bool isSharedRead = false;
     std::map<std::string, std::vector<ValueCollection>, std::less<>> own;
     std::set<std::string, std::less<>> asked;
     std::vector<base::Diagnostic> diagnostics;

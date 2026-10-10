@@ -127,13 +127,34 @@ rotation, which some actors read more params from. Its name is free text, as peo
 | `mask` | its bits: adjacent ones only, so the shift and width follow from it |
 | `source` | `params` (left out), `rotation_x`, `rotation_y` or `rotation_z` |
 | `kind` | `flag`, one bit shown as a checkbox; `number`; or `choice`, one of its `values` |
-| `values` | for a choice, each number it may be and the label shown for it |
+| `values` | for a choice, each number it may be and the label shown for it; or the name of a collection of the checkout to take them from, `"GetItemID"` (see below) |
+| `offset` | added to the param's value before it is looked up among its values, as a sign adds `0x300` to its message |
 | `signed`, `hex` | a number read as signed, or shown in hexadecimal |
 | `description` | a line on what it is for |
 
 A mask whose bits are not adjacent, two params of one source that share a bit, a choice
 value that does not fit the mask, and a param named `age` or `scene` are each a warning
 naming the actor and the param.
+
+### Value collections
+
+A choice whose values the checkout already lists names them instead of copying them, so
+they follow the checkout and never drift: `values = "GetItemID"`. Each value is labelled
+with its constant's name, `GI_HEART_PIECE`, since that is what modders search the code
+for; the file still holds numbers, in matches and `default_params` alike.
+
+- **Shared collections** every actor can choose from: `GetItemID`, `ItemID` and
+  `GetItemDrawID` from `include/item.h`, `Item00Type` from `include/z_en_item00.h`, and
+  `ActorID`, `ObjectID`, `SceneID` and `EntranceIndex` from the tables the workspace reads.
+- **An actor's own** are the enumerations its overlay headers define, `EnBoxType`; a name
+  is looked up among the actor's own first.
+
+The headers are read as the build compiles them (`hackeroot::readPrelude`), on a worker
+(`actor::CollectionCatalog`), the shared ones when a checkout is opened and an actor's the
+first time it is asked for, and read again when one of their files changes. A collection
+the checkout does not have, values that do not fit the param's bits once its offset is
+taken off, and matches on values the collection lacks are warnings in the panel
+(`actor::checkCollections`); a collection is not a warning while it is still being read.
 
 ### Variants
 

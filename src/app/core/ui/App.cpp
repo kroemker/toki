@@ -153,8 +153,8 @@ void App::registerPanels() {
     texturePanel = textures.get();
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
     objectPanel = objectView.get();
-    auto actors =
-        std::make_unique<actor::ActorsPanel>(workspaceService, databaseStore, symbolCatalog);
+    auto actors = std::make_unique<actor::ActorsPanel>(workspaceService, databaseStore,
+                                                       symbolCatalog, collectionCatalog);
     actorsPanel = actors.get();
     scenePanel->setActorEditor([this](const std::string& actor) { actorsPanel->openActor(actor); });
     panels.add(std::move(viewport));
@@ -356,6 +356,7 @@ void App::updateActorDatabase() {
     if (const std::shared_ptr<const hackeroot::Workspace> workspace =
             workspaceService.getSharedWorkspace()) {
         symbolCatalog.open(workspace);
+        collectionCatalog.open(workspace);
         if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
             databaseStore.open(
                 actor::DatabaseFiles{.builtIn = actor::makeShippedDatabasePath(*assets),
@@ -365,6 +366,10 @@ void App::updateActorDatabase() {
         }
     }
     symbolCatalog.update();
+    collectionCatalog.update();
+    for (const base::Diagnostic& diagnostic : collectionCatalog.takeDiagnostics()) {
+        logWarn("{}", base::describe(diagnostic));
+    }
     for (const std::string& failure : databaseStore.takeFailures()) {
         logError("{}", failure);
     }

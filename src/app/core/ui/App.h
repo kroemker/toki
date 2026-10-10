@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/ActorsPanel.h"
@@ -75,6 +76,7 @@ private:
     Fonts fonts;
     actor::DatabaseStore databaseStore;
     actor::SymbolCatalog symbolCatalog;
+    actor::CollectionCatalog collectionCatalog;
     actor::NewActorsPrompt newActorsPrompt;
     std::optional<actor::DatabaseSnapshot> actorDatabase;
     const hackeroot::Workspace* offeredWorkspace = nullptr;

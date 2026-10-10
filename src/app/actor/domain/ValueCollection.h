@@ -6,6 +6,7 @@
 #include "hackeroot/Workspace.h"
 
 #include <filesystem>
+#include <functional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -53,5 +54,15 @@ struct CollectionsRead {
 /// none.
 [[nodiscard]] CollectionsRead readActorCollections(const hackeroot::Workspace& workspace,
                                                    const hackeroot::ActorEntry& actor);
+
+/// The collection of a name, as an actor sees it, or nothing when there is none.
+using FindCollection = std::function<const ValueCollection*(std::string_view name)>;
+
+/// What is wrong with how `entry`'s params use collections, that only the
+/// checkout can tell: a collection it does not have, values of one that do not
+/// fit in a param's bits once its offset is taken off, and matches on values
+/// that are not among them.
+[[nodiscard]] std::vector<base::Diagnostic> checkCollections(const ActorEntry& entry,
+                                                             const FindCollection& findCollection);
 
 } // namespace toki::actor

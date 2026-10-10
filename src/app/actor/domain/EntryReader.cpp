@@ -157,8 +157,17 @@ ActorParam DatabaseReader::readParam(const std::string_view name, const toml::ta
     param.isSigned = readBool(table, "signed", path).value_or(false);
     param.isHex = readBool(table, "hex", path).value_or(false);
     param.description = readString(table, "description", path).value_or("");
-    if (const toml::table* values = table.get_as<toml::table>("values")) {
-        param.values = readChoices(*values, makePath(path, "values"));
+    param.offset = readInteger(table, "offset", path).value_or(0);
+    if (const toml::node* values = table.get("values")) {
+        if (const toml::table* listed = values->as_table()) {
+            param.values = readChoices(*listed, makePath(path, "values"));
+        } else if (const std::optional<std::string> collection = values->value<std::string>()) {
+            param.collection = *collection;
+        } else {
+            report(*values, makePath(path, "values"),
+                   "must be a table of values and their labels, or the name of a collection, "
+                   "as \"GetItemID\"");
+        }
     }
     return param;
 }

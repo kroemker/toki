@@ -112,12 +112,17 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     if (param.isHex) {
         table.insert("hex", true);
     }
-    if (!param.values.empty()) {
+    if (param.collection) {
+        table.insert("values", *param.collection);
+    } else if (!param.values.empty()) {
         toml::table values = makeInline();
         for (const ChoiceValue& value : param.values) {
             values.insert(std::format("{}", value.value), value.label);
         }
         table.insert("values", std::move(values));
+    }
+    if (param.offset != 0) {
+        table.insert("offset", makeHex(param.offset));
     }
     insertText(table, "description", param.description);
     return table;
