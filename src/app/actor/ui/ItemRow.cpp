@@ -135,7 +135,8 @@ RowResult drawItemRow(const char* id, const ItemRow& row) {
         (row.canRaise ? 1U : 0U) + (row.canCopy ? 1U : 0U) + (row.canRemove ? 1U : 0U);
     const float toolsWidth = static_cast<float>(toolCount) * height;
     const bool isHovered =
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows |
+                               ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
         ImGui::IsMouseHoveringRect(start, ImVec2(start.x + width, start.y + height));
 
     if (ImGui::Selectable("##row", isOpen, ImGuiSelectableFlags_AllowOverlap,

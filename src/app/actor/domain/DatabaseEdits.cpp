@@ -2,7 +2,9 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorEntry.h"
+#include "app/actor/domain/ActorModelReader.h"
 #include "app/actor/domain/Derivation.h"
+#include "app/actor/domain/GuessedEntry.h"
 #include "app/actor/domain/ParamReading.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -57,10 +59,10 @@ std::expected<void, std::string> removeEntry(ActorDatabase& database, const std:
     return {};
 }
 
-std::expected<void, std::string> deriveEntries(ActorDatabase& database,
-                                               const hackeroot::Workspace& workspace,
-                                               const ActorDatabase& builtIn,
-                                               const std::vector<std::string>& actors) {
+std::expected<void, std::string> fillEntries(ActorDatabase& database,
+                                             const hackeroot::Workspace& workspace,
+                                             const ActorDatabase& builtIn,
+                                             const std::vector<std::string>& actors) {
     const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
     for (const std::string& name : actors) {
         const auto actor = std::ranges::find(table, name, &hackeroot::ActorEntry::enumName);
@@ -68,6 +70,34 @@ std::expected<void, std::string> deriveEntries(ActorDatabase& database,
             return std::unexpected(std::format("the actor table has no {} to derive", name));
         }
         database.entries.insert_or_assign(name, deriveEntry(workspace, builtIn, *actor));
+    }
+    return {};
+}
+
+std::expected<void, std::string> deriveEntries(ActorDatabase& database,
+                                               const hackeroot::Workspace& workspace,
+                                               const std::vector<std::string>& actors) {
+    const std::vector<hackeroot::ActorEntry>& table = workspace.getTables().actors;
+    for (const std::string& name : actors) {
+        const auto actor = std::ranges::find(table, name, &hackeroot::ActorEntry::enumName);
+        if (actor == table.end() || actor->isUnset) {
+            return std::unexpected(std::format("the actor table has no {} to derive", name));
+        }
+        database.entries.insert_or_assign(
+            name, makeGuessedEntry(readActorModel(workspace, *actor), name));
+    }
+    return {};
+}
+
+std::expected<void, std::string> resetEntries(ActorDatabase& database, const ActorDatabase& builtIn,
+                                              const std::vector<std::string>& actors) {
+    for (const std::string& name : actors) {
+        const ActorEntry* shipped = findEntry(builtIn, name);
+        if (shipped == nullptr) {
+            return std::unexpected(
+                std::format("Toki has no entry of its own for {} to reset it to", name));
+        }
+        database.entries.insert_or_assign(name, *shipped);
     }
     return {};
 }

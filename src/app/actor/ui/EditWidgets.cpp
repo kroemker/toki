@@ -1,6 +1,7 @@
 #include "EditWidgets.h"
 
 #include "app/actor/Types.h"
+#include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/core/domain/TextSearch.h"
 #include "app/core/ui/Theme.h"
@@ -31,10 +32,22 @@ constexpr float MinimumTableWidth = 26.0F;
 
 std::string pickerFilter;
 
+[[nodiscard]] const std::string& findLabel(const std::span<const std::string> candidates,
+                                           const std::span<const std::string> labels,
+                                           const std::string& candidate) {
+    const auto found = std::ranges::find(candidates, candidate);
+    return found == candidates.end() || labels.empty()
+               ? candidate
+               : labels[static_cast<usize>(found - candidates.begin())];
+}
+
 [[nodiscard]] bool drawPicker(const char* id, std::string& typed,
-                              std::span<const std::string> candidates, const char* emptyLabel) {
+                              std::span<const std::string> candidates, const char* emptyLabel,
+                              std::span<const std::string> labels = {}) {
     bool isChanged = false;
-    const std::string shown = typed.empty() && emptyLabel != nullptr ? emptyLabel : typed;
+    const std::string shown = typed.empty() && emptyLabel != nullptr
+                                  ? std::string(emptyLabel)
+                                  : findLabel(candidates, labels, typed);
     if (!ImGui::BeginCombo(id, shown.c_str(), ImGuiComboFlags_HeightLargest)) {
         return false;
     }
@@ -56,14 +69,21 @@ std::string pickerFilter;
             typed.clear();
             ImGui::CloseCurrentPopup();
         }
-        for (const std::string& candidate : candidates) {
-            if (!core::containsIgnoringCase(candidate, pickerFilter)) {
+        for (usize i = 0; i < candidates.size(); ++i) {
+            const std::string& candidate = candidates[i];
+            const std::string& shownLabel = labels.empty() ? candidate : labels[i];
+            if (!core::containsIgnoringCase(candidate, pickerFilter) &&
+                !core::containsIgnoringCase(shownLabel, pickerFilter)) {
                 continue;
             }
-            if (ImGui::Selectable(candidate.c_str(), candidate == typed)) {
+            const std::string item = std::format("{}##{}", shownLabel, candidate);
+            if (ImGui::Selectable(item.c_str(), candidate == typed)) {
                 isChanged = candidate != typed;
                 typed = candidate;
                 ImGui::CloseCurrentPopup();
+            }
+            if (shownLabel != candidate) {
+                ImGui::SetItemTooltip("%s", candidate.c_str());
             }
         }
     }
@@ -253,7 +273,15 @@ bool editCollection(const char* label, std::optional<std::string>& collection,
     drawPropertyLabel(label);
     ImGui::PushID(label);
     std::string typed = collection.value_or("");
-    const bool isChanged = drawPicker("##value", typed, names, "Listed here");
+    std::vector<std::string> labels;
+    labels.reserve(names.size());
+    for (const std::string& name : names) {
+        labels.push_back(makeReadableName(name));
+    }
+    const bool isChanged = drawPicker("##value", typed, names, "Listed here", labels);
+    if (collection) {
+        ImGui::SetItemTooltip("%s", collection->c_str());
+    }
     ImGui::PopID();
     if (!isChanged) {
         return false;

@@ -50,10 +50,12 @@ committed with the mod and shared by everyone who works on it.
   From then on only the checkout's file is read; a later Toki with a better database of its
   own does not change it. A checkout is not seeded while Toki's own database is missing or
   does not read cleanly, nor while whether the file exists cannot be told: seeding over a
-  file that is there would replace it. Deriving an entry again picks up what a newer Toki knows.
-- **Derived.** "Derive" fills an entry from what Toki knows: its own entry for the actor
-  when it has one, and otherwise what reading the actor's C finds. Deriving an actor that
-  has an entry asks first. Showing what would change is open.
+  file that is there would replace it. Resetting an entry picks up what a newer Toki knows.
+- **Derived.** "Derive" fills an entry from what reading the actor's C finds
+  (`actor::deriveEntries`). "Reset", shown only for an actor Toki has its own entry for,
+  puts that entry back (`actor::resetEntries`). Either asks first when the actor has an
+  entry. "Derive all" and "Reset all" do the same for every actor with an entry, and always
+  ask. Showing what would change is open.
 - **New actors.** At startup and whenever the actor table changes, the table is checked
   against the file. Actors it lists that have no entry are offered: "N new actors were
   found. Derive them?" No is remembered in `config.toml` (`actors.dismissed_new`) until the

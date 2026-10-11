@@ -154,7 +154,7 @@ void App::registerPanels() {
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
     objectPanel = objectView.get();
     auto actors = std::make_unique<actor::ActorsPanel>(workspaceService, databaseStore,
-                                                       symbolCatalog, collectionCatalog);
+                                                       symbolCatalog, collectionCatalog, fonts);
     actorsPanel = actors.get();
     scenePanel->setActorEditor([this](const std::string& actor) { actorsPanel->openActor(actor); });
     panels.add(std::move(viewport));
@@ -421,7 +421,7 @@ void App::drawNewActorsPrompt() {
         if (workspace == nullptr) {
             return std::unexpected(std::string("no checkout is open to derive actors from"));
         }
-        return actor::deriveEntries(database, *workspace, builtIn, actors);
+        return actor::fillEntries(database, *workspace, builtIn, actors);
     });
 }
 

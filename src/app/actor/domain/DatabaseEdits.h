@@ -26,10 +26,24 @@ addVariantForParams(ActorDatabase& database, const ActorEntry& current,
 [[nodiscard]] std::expected<void, std::string> removeEntry(ActorDatabase& database,
                                                            const std::string& actor);
 
-/// "Derive": each of `actors`, by enum name, gets the entry Toki knows for it
-/// (`deriveEntry`), in place of any it has.
+/// Each of `actors`, by enum name, gets the entry Toki knows for it
+/// (`deriveEntry`), Toki's own before what its C says, in place of any it has.
+[[nodiscard]] std::expected<void, std::string> fillEntries(ActorDatabase& database,
+                                                           const hackeroot::Workspace& workspace,
+                                                           const ActorDatabase& builtIn,
+                                                           const std::vector<std::string>& actors);
+
+/// "Derive": each of `actors`, by enum name, gets the entry reading its overlay
+/// in `workspace` finds (`readActorModel`), in place of any it has.
 [[nodiscard]] std::expected<void, std::string>
 deriveEntries(ActorDatabase& database, const hackeroot::Workspace& workspace,
-              const ActorDatabase& builtIn, const std::vector<std::string>& actors);
+              const std::vector<std::string>& actors);
+
+/// "Reset": each of `actors`, by enum name, gets Toki's own entry for it from
+/// `builtIn`, in place of any it has. An actor Toki has no entry for fails
+/// the whole edit.
+[[nodiscard]] std::expected<void, std::string> resetEntries(ActorDatabase& database,
+                                                            const ActorDatabase& builtIn,
+                                                            const std::vector<std::string>& actors);
 
 } // namespace toki::actor

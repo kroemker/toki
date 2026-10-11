@@ -204,7 +204,7 @@ TEST_CASE("a checkout without a database is seeded from Toki's own and derived f
     std::filesystem::remove_all(folder, failure);
 }
 
-TEST_CASE("an actor is derived from Toki's own entry, or else from its C", "[actor][edits]") {
+TEST_CASE("an actor is derived from its C, and reset to Toki's own entry", "[actor][edits]") {
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded = hackeroot::Workspace::load(
         std::filesystem::path(TOKI_TEST_FIXTURES) / "hackeroot/fixtures/checkout", {});
     REQUIRE(loaded.has_value());
@@ -217,12 +217,15 @@ TEST_CASE("an actor is derived from Toki's own entry, or else from its C", "[act
 
     REQUIRE(toki::actor::listNewActors(loaded->getTables(), database) ==
             std::vector<std::string>{"ACTOR_PLAYER"});
-    REQUIRE(toki::actor::deriveEntries(database, *loaded, builtIn, {"ACTOR_EN_BOX", "ACTOR_PLAYER"})
+    REQUIRE(toki::actor::deriveEntries(database, *loaded, {"ACTOR_EN_BOX", "ACTOR_PLAYER"})
                 .has_value());
-    REQUIRE(database.entries.at("ACTOR_EN_BOX").name == "Treasure chest");
+    REQUIRE(database.entries.at("ACTOR_EN_BOX").name.empty());
     REQUIRE(database.entries.at("ACTOR_PLAYER").variants.empty());
-    REQUIRE_FALSE(
-        toki::actor::deriveEntries(database, *loaded, builtIn, {"ACTOR_UNSET_1"}).has_value());
+    REQUIRE_FALSE(toki::actor::deriveEntries(database, *loaded, {"ACTOR_UNSET_1"}).has_value());
+
+    REQUIRE(toki::actor::resetEntries(database, builtIn, {"ACTOR_EN_BOX"}).has_value());
+    REQUIRE(database.entries.at("ACTOR_EN_BOX").name == "Treasure chest");
+    REQUIRE_FALSE(toki::actor::resetEntries(database, builtIn, {"ACTOR_PLAYER"}).has_value());
 }
 
 TEST_CASE("an edit is written over what the checks find, never over what could not be read",
