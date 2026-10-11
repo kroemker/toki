@@ -6,6 +6,7 @@
 #include "cparser/Calls.h"
 #include "cparser/Expression.h"
 #include "cparser/Initializer.h"
+#include "cparser/MacroTable.h"
 #include "cparser/Parser.h"
 #include "cparser/Preprocessor.h"
 #include "cparser/Token.h"
@@ -79,7 +80,17 @@ findLocalArray(const std::span<const cparser::Token> body, const usize name) {
     return body.subspan(begin, close - begin);
 }
 
+constexpr f64 MaskBits = 16.0;
+
 } // namespace
+
+std::span<const cparser::Token> stripParentheses(std::span<const cparser::Token> tokens) {
+    while (tokens.size() > 2 && cparser::isPunctuator(tokens.front(), "(") &&
+           findClose(tokens) + 1 == tokens.size()) {
+        tokens = tokens.subspan(1, tokens.size() - 2);
+    }
+    return tokens;
+}
 
 bool isWholeCall(const std::span<const cparser::Token> tokens, const std::string_view callee) {
     return tokens.size() > 3 && cparser::isIdentifier(tokens[0], callee) &&
@@ -226,6 +237,50 @@ std::vector<ArrayDefinition> OverlayCode::listArrays() const {
         }
     }
     return arrays;
+}
+
+std::optional<ParamsMacro> OverlayCode::findParamsMacro(const std::string_view name) const {
+    if (const auto known = paramsMacros.find(name); known != paramsMacros.end()) {
+        return known->second;
+    }
+    std::optional<ParamsMacro> found = readParamsMacro(name);
+    paramsMacros.emplace(std::string(name), found);
+    return found;
+}
+
+std::optional<ParamsMacro> OverlayCode::readParamsMacro(const std::string_view name) const {
+    const cparser::Macro* macro = unit.macros.find(name);
+    if (macro == nullptr || !macro->functionLike || macro->parameters.empty()) {
+        return std::nullopt;
+    }
+    const std::span<const cparser::Token> body = stripParentheses(macro->body);
+    const std::vector<cparser::Call> calls =
+        cparser::findCalls(body, [](const std::string_view callee) {
+            return callee == "PARAMS_GET_U" || callee == "PARAMS_GET_S";
+        });
+    if (calls.empty() || !isWholeCall(body, calls.front().callee) ||
+        calls.front().arguments.size() != 3) {
+        return std::nullopt;
+    }
+    const cparser::Call& read = calls.front();
+    const std::span<const cparser::Token> source = stripParentheses(read.arguments[0]);
+    const auto isParameter = [&](const cparser::Token& token) {
+        return token.kind == cparser::TokenKind::Identifier &&
+               std::ranges::contains(macro->parameters, token.text);
+    };
+    const bool takesParams = source.size() == 1 && isParameter(source.front());
+    const bool readsActor = !source.empty() && cparser::isIdentifier(source.back(), "params") &&
+                            std::ranges::any_of(source, isParameter);
+    const std::optional<f64> shift = evaluateNumber(read.arguments[1]);
+    const std::optional<f64> width = evaluateNumber(read.arguments[2]);
+    if ((!takesParams && !readsActor) || !shift || !width || *width < 1.0 || *shift < 0.0 ||
+        *shift + *width > MaskBits) {
+        return std::nullopt;
+    }
+    return ParamsMacro{.shift = static_cast<u8>(*shift),
+                       .width = static_cast<u8>(*width),
+                       .isSigned = read.callee == "PARAMS_GET_S",
+                       .takesParams = takesParams};
 }
 
 std::optional<f64> OverlayCode::evaluateNumber(const std::span<const cparser::Token> tokens) const {

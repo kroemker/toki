@@ -8,8 +8,11 @@
 #include "cparser/Token.h"
 
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -21,6 +24,17 @@ struct ArrayDefinition {
     std::string_view name;
     std::vector<std::span<const cparser::Token>> elements;
     base::SourceLocation location;
+};
+
+/// A function-like macro whose body is one literal read of params, as
+/// `#define ENBOX_GET_TYPE(thisx) PARAMS_GET_U((thisx)->params, 12, 4)` is: the
+/// bits it reads, and whether its argument is the params themselves, as in
+/// `MOVEBG_TYPE(thisx->params)`, rather than the actor they are read from.
+struct ParamsMacro {
+    u8 shift = 0;
+    u8 width = 0;
+    bool isSigned = false;
+    bool takesParams = false;
 };
 
 /// An overlay's main file, read for what the model rules ask of it: its
@@ -67,11 +81,15 @@ public:
     /// scope, then every one its main file's functions define, in source order.
     [[nodiscard]] std::vector<ArrayDefinition> listArrays() const;
 
+    /// The macro called `name`, when it reads params as `ParamsMacro` says.
+    [[nodiscard]] std::optional<ParamsMacro> findParamsMacro(std::string_view name) const;
+
     /// A constant expression's value, if every name in it is known.
     [[nodiscard]] std::optional<f64> evaluateNumber(std::span<const cparser::Token> tokens) const;
 
 private:
     [[nodiscard]] const cparser::FunctionDefinition* findFunction(std::string_view name) const;
+    [[nodiscard]] std::optional<ParamsMacro> readParamsMacro(std::string_view name) const;
 
     const cparser::TranslationUnit& unit;
     std::filesystem::path main;
@@ -80,7 +98,13 @@ private:
     /// headers it includes by their location, whichever separators it was
     /// written with.
     std::vector<const cparser::FunctionDefinition*> mainFunctions;
+    /// Asked for every call's callee, so each name is looked at once.
+    mutable std::map<std::string, std::optional<ParamsMacro>, std::less<>> paramsMacros;
 };
+
+/// `tokens` without the parentheses around all of them, as often as they are.
+[[nodiscard]] std::span<const cparser::Token>
+stripParentheses(std::span<const cparser::Token> tokens);
 
 /// Whether `tokens` are one call to `callee` and nothing else.
 [[nodiscard]] bool isWholeCall(std::span<const cparser::Token> tokens, std::string_view callee);

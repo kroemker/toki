@@ -134,15 +134,26 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
 - **Y offset.** The literal second argument of `ActorShape_Init`.
 - **Params** (`actor::findActorParams`). Every literal `PARAMS_GET_U(<x>.params, shift,
   width)` or `PARAMS_GET_S` in the main file is a param of those bits, in the order first
-  read; bits that overlap a param found before are left out. It is named after what it is
-  passed to whole, or negated, when that is a known function's argument
-  (`Flags_GetSwitch` "Switch Flag", `Flags_GetTreasure` "Treasure Flag",
-  `Actor_OfferGetItemNearby` "Item"), else after what it is assigned to (`this->type` "Type",
-  `s32 switchFlag` "Switch Flag"), else after its bits ("Bits 8 to 11"). A known argument
+  read; bits that overlap a param found before are left out. So is a call of a macro whose
+  body is one (`OverlayCode::findParamsMacro`), `DOORSHUTTER_GET_SWITCH_FLAG(&this->actor)`
+  for `PARAMS_GET_U((actor)->params, 0, 6)`, or `MOVEBG_TYPE(thisx->params)` for one of its
+  argument. It is named after what it is passed to whole, or negated, when that is a known
+  function's argument (`Flags_GetSwitch` "Switch Flag", `Flags_GetTreasure` "Treasure
+  Flag", `Actor_OfferGetItemNearby` "Item"), else after the macro, past its `_GET_` ("Switch
+  Flag"), else after what it is assigned to (`this->type` "Type", `s32 switchFlag` "Switch
+  Flag"), else after its bits ("Bits 8 to 11"). A known argument
   with a collection makes it a choice of it: `GetItemID` for the get-item functions,
   `Item00Type` for `Item_DropCollectible`, `ActorID` for `Actor_Spawn`, `SfxId` for
   `Actor_PlaySfx` and the `Sfx_PlaySfx*` functions, `NA_BGM` for `Audio_PlayFanfare` and
-  `SEQCMD_PLAY_SEQUENCE`. One bit with no name is a flag.
+  `SEQCMD_PLAY_SEQUENCE`. One bit is a flag.
+
+  A known argument is also followed back to the param it is: a read passed whole, a member
+  the file assigns a read once (`this->switchFlag = PARAMS_GET_U(...)`, then
+  `Flags_GetSwitch(play, this->switchFlag)` in another function), a local assigned one
+  once, or the whole params. The `Flags_*` functions make the param a scene flag of their
+  kind, read by `Get` and set by `Set` and `Unset`, so a door that reads its switch and a
+  floor switch that sets it are linked in the scene. A param found only this way is added,
+  named after the argument. Flags the room's number or a constant names are not params.
 
   A read that picks an entry of one of the actor's tables of constants is a choice of that
   table: `sGetItemIds[PARAMS_GET_U(...)]`, `sTable[PARAMS_GET_U(...) - 1]` with offset −1,
@@ -152,10 +163,9 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   lookup of it in the same function (`type = PARAMS_GET_U(...); sObjectIds[type]`), the one
   passed to a known function if any, else the first.
 
-  A read through the overlay's own macro (`ENBOX_GET_TYPE(thisx)`) is not seen, and which
-  enumeration a field like `this->type` is compared against is data flow, so an actor's own
-  enumerations are linked by hand. On a vanilla checkout this finds 291 params in 168
-  actors, 12 of them choosing from a collection.
+  Which enumeration a field like `this->type` is compared against is data flow, so an
+  actor's own enumerations are linked by hand. On a vanilla checkout this finds 327 params
+  in 188 actors, 13 of them choosing from a collection, and 107 scene flags.
 
 A name that is not an object's symbol is one of three gaps: the overlay's own data (declared
 in a folder named as the overlay's is, its own or its extracted assets'), a file-scope

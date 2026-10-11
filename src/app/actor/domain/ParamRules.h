@@ -23,8 +23,10 @@ namespace toki::actor {
 /// flag. A read that picks an entry of one of the overlay's tables of
 /// constants (`listTableCollections`) takes its values from that table, as
 /// does one of the whole params, or of the bits `Init` narrowed them to. A
-/// read through a macro of the overlay's own, or of bits that overlap a
-/// param found before, is left out.
+/// macro whose body is a read is one (`OverlayCode::findParamsMacro`). A
+/// known argument is followed back through a member or a local assigned a
+/// read once, and the `Flags_*` functions make the param a scene flag, read
+/// or set. A read of bits that overlap a param found before is left out.
 [[nodiscard]] std::vector<ActorParam> findActorParams(const OverlayCode& code);
 
 /// The bits of the params an index picks by, and what is added to them before

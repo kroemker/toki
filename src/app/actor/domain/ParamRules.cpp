@@ -3,6 +3,7 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/OverlayCode.h"
+#include "app/actor/domain/ParamReads.h"
 #include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/ValueCollection.h"
 #include "cparser/Calls.h"
@@ -13,6 +14,7 @@
 #include <array>
 #include <cctype>
 #include <format>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -31,18 +33,28 @@ struct KnownArgument {
     usize argument = 0;
     std::string_view name;
     std::string_view collection;
+    std::optional<SceneFlag> flag;
+    FlagUse use = FlagUse::Reads;
 };
 
+[[nodiscard]] constexpr KnownArgument makeFlagArgument(const std::string_view callee,
+                                                       const std::string_view name,
+                                                       const SceneFlag flag, const FlagUse use) {
+    return KnownArgument{.callee = callee, .argument = 1, .name = name, .flag = flag, .use = use};
+}
+
 constexpr std::array<KnownArgument, 26> KnownArguments{{
-    {.callee = "Flags_GetSwitch", .argument = 1, .name = "Switch Flag"},
-    {.callee = "Flags_SetSwitch", .argument = 1, .name = "Switch Flag"},
-    {.callee = "Flags_UnsetSwitch", .argument = 1, .name = "Switch Flag"},
-    {.callee = "Flags_GetTreasure", .argument = 1, .name = "Treasure Flag"},
-    {.callee = "Flags_SetTreasure", .argument = 1, .name = "Treasure Flag"},
-    {.callee = "Flags_GetCollectible", .argument = 1, .name = "Collectible Flag"},
-    {.callee = "Flags_SetCollectible", .argument = 1, .name = "Collectible Flag"},
-    {.callee = "Flags_GetClear", .argument = 1, .name = "Clear Flag"},
-    {.callee = "Flags_SetClear", .argument = 1, .name = "Clear Flag"},
+    makeFlagArgument("Flags_GetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Reads),
+    makeFlagArgument("Flags_SetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Sets),
+    makeFlagArgument("Flags_UnsetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Sets),
+    makeFlagArgument("Flags_GetTreasure", "Treasure Flag", SceneFlag::Treasure, FlagUse::Reads),
+    makeFlagArgument("Flags_SetTreasure", "Treasure Flag", SceneFlag::Treasure, FlagUse::Sets),
+    makeFlagArgument("Flags_GetCollectible", "Collectible Flag", SceneFlag::Collectible,
+                     FlagUse::Reads),
+    makeFlagArgument("Flags_SetCollectible", "Collectible Flag", SceneFlag::Collectible,
+                     FlagUse::Sets),
+    makeFlagArgument("Flags_GetClear", "Clear Flag", SceneFlag::Clear, FlagUse::Reads),
+    makeFlagArgument("Flags_SetClear", "Clear Flag", SceneFlag::Clear, FlagUse::Sets),
     {.callee = "Item_DropCollectible", .argument = 2, .name = "Drop", .collection = "Item00Type"},
     {.callee = "Item_DropCollectible2", .argument = 2, .name = "Drop", .collection = "Item00Type"},
     {.callee = "Actor_OfferGetItem", .argument = 2, .name = "Item", .collection = "GetItemID"},
@@ -73,40 +85,8 @@ constexpr std::array<KnownArgument, 26> KnownArguments{{
 
 constexpr std::array<std::string_view, 6> VagueNames{"params", "temp", "tmp", "i", "j", "value"};
 
-[[nodiscard]] bool isParamsRead(const std::string_view callee) {
-    return callee == "PARAMS_GET_U" || callee == "PARAMS_GET_S";
-}
-
-[[nodiscard]] bool isWanted(const std::string_view callee) {
-    return isParamsRead(callee) ||
-           std::ranges::contains(KnownArguments, callee, &KnownArgument::callee);
-}
-
-struct ParamsRead {
-    u8 shift = 0;
-    u8 width = 0;
-    bool isSigned = false;
-    const cparser::Token* first = nullptr;
-    const cparser::Token* last = nullptr;
-};
-
-[[nodiscard]] std::optional<ParamsRead> readParamsCall(const cparser::Call& call,
-                                                       const OverlayCode& code) {
-    if (call.arguments.size() != 3 || call.arguments[0].empty() ||
-        !isIdentifier(call.arguments[0].back(), "params")) {
-        return std::nullopt;
-    }
-    const std::optional<f64> shift = code.evaluateNumber(call.arguments[1]);
-    const std::optional<f64> width = code.evaluateNumber(call.arguments[2]);
-    if (!shift || !width || *width < 1.0 || *shift < 0.0 || *shift + *width > BitCount) {
-        return std::nullopt;
-    }
-    const cparser::Token* last = &call.arguments[2].back();
-    return ParamsRead{.shift = static_cast<u8>(*shift),
-                      .width = static_cast<u8>(*width),
-                      .isSigned = call.callee == "PARAMS_GET_S",
-                      .first = call.arguments[0].data() - 2,
-                      .last = last + 2};
+[[nodiscard]] bool isKnownCallee(const std::string_view callee) {
+    return std::ranges::contains(KnownArguments, callee, &KnownArgument::callee);
 }
 
 struct ParamContext {
@@ -177,15 +157,6 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     return TableLookup{.table = name.text, .first = &name, .last = close + 1, .offset = offset};
 }
 
-[[nodiscard]] const cparser::Token* findAssignedTarget(std::span<const cparser::Token> body,
-                                                       const cparser::Token* first) {
-    if (first - body.data() < 2 || !isPunctuator(*(first - 1), "=")) {
-        return nullptr;
-    }
-    const cparser::Token* target = first - 2;
-    return target->kind == cparser::TokenKind::Identifier ? target : nullptr;
-}
-
 [[nodiscard]] std::optional<std::string> findAssignedName(std::span<const cparser::Token> body,
                                                           const cparser::Token* first) {
     const cparser::Token* target = findAssignedTarget(body, first);
@@ -195,19 +166,20 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     return makeReadableName(target->text);
 }
 
-[[nodiscard]] bool isLocalAssignedOnce(std::span<const cparser::Token> body,
-                                       const cparser::Token* target) {
-    if (target != body.data() &&
-        (isPunctuator(*(target - 1), ".") || isPunctuator(*(target - 1), "->"))) {
-        return false;
+[[nodiscard]] std::string makeMacroName(const std::string_view macro) {
+    const usize get = macro.find("_GET_");
+    const usize underscore = macro.find('_');
+    std::string_view rest = macro;
+    if (get != std::string_view::npos) {
+        rest = macro.substr(get + 5);
+    } else if (underscore != std::string_view::npos && underscore + 1 < macro.size()) {
+        rest = macro.substr(underscore + 1);
     }
-    usize assignments = 0;
-    for (usize at = 0; at + 1 < body.size(); ++at) {
-        if (isIdentifier(body[at], target->text) && isPunctuator(body[at + 1], "=")) {
-            ++assignments;
-        }
-    }
-    return assignments == 1;
+    std::string lowered(rest);
+    std::ranges::transform(lowered, lowered.begin(), [](const char letter) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+    });
+    return makeReadableName(lowered);
 }
 
 [[nodiscard]] std::optional<TableLookup> findLocalLookup(const ParamContext& context,
@@ -235,15 +207,6 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     return chosen;
 }
 
-[[nodiscard]] std::string makeBitsName(const ParamsRead& read) {
-    return read.width == 1 ? std::format("Bit {}", read.shift)
-                           : std::format("Bits {} to {}", read.shift, read.shift + read.width - 1);
-}
-
-[[nodiscard]] u16 makeMask(const ParamsRead& read) {
-    return static_cast<u16>(((1U << read.width) - 1U) << read.shift);
-}
-
 [[nodiscard]] ActorParam makeParam(const ParamContext& context, const ParamsRead& read) {
     ActorParam param{.mask = makeMask(read), .isSigned = read.isSigned};
     const std::optional<TableLookup> direct = findLookup(context, read.first, read.last);
@@ -264,38 +227,23 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     } else if (known != nullptr && !known->collection.empty()) {
         param.kind = ParamKind::Choice;
         param.collection = std::string(known->collection);
+    } else if (read.width == 1) {
+        param.kind = ParamKind::Flag;
     }
-    if (assigned && (isThroughLocal || known == nullptr)) {
+    if (assigned && isThroughLocal) {
         param.name = *assigned;
     } else if (known != nullptr) {
         param.name = std::string(known->name);
+    } else if (!read.macro.empty()) {
+        param.name = makeMacroName(read.macro);
+    } else if (assigned) {
+        param.name = *assigned;
     } else if (lookup) {
         param.name = makeReadableName(lookup->table);
     } else {
-        param.name = makeBitsName(read);
-        param.kind = read.width == 1 ? ParamKind::Flag : ParamKind::Number;
+        param.name = makeBitsName(read.shift, read.width);
     }
     return param;
-}
-
-[[nodiscard]] bool isParamsMember(const std::span<const cparser::Token> index) {
-    if (index.size() < 3 || !isIdentifier(index.back(), "params")) {
-        return false;
-    }
-    for (usize at = 0; at < index.size(); ++at) {
-        const bool isName = at % 2 == 0;
-        if (isName ? index[at].kind != cparser::TokenKind::Identifier
-                   : !isPunctuator(index[at], ".") && !isPunctuator(index[at], "->")) {
-            return false;
-        }
-    }
-    return true;
-}
-
-[[nodiscard]] bool isNarrowing(std::span<const cparser::Token> body, const ParamsRead& read) {
-    const cparser::Token* target = findAssignedTarget(body, read.first);
-    return target != nullptr && target != body.data() && isIdentifier(*target, "params") &&
-           (isPunctuator(*(target - 1), ".") || isPunctuator(*(target - 1), "->"));
 }
 
 [[nodiscard]] std::vector<ActorParam> findWholeLookups(const ParamContext& context,
@@ -327,53 +275,16 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     return params;
 }
 
-[[nodiscard]] std::optional<ParamsRead>
-readWholeParamsCall(const OverlayCode& code, const std::span<const cparser::Token> tokens) {
-    const std::vector<cparser::Call> calls = cparser::findCalls(tokens, isParamsRead);
-    if (calls.empty() || !isWholeCall(tokens, calls.front().callee)) {
-        return std::nullopt;
-    }
-    return readParamsCall(calls.front(), code);
-}
-
-[[nodiscard]] std::optional<ParamsRead> findNarrowing(const OverlayCode& code) {
-    for (const cparser::FunctionDefinition* function : code.listFunctions()) {
-        for (const cparser::Call& call : cparser::findCalls(function->body, isParamsRead)) {
-            const std::optional<ParamsRead> read = readParamsCall(call, code);
-            if (read && isNarrowing(function->body, *read)) {
-                return read;
-            }
-        }
-    }
-    return std::nullopt;
-}
-
-[[nodiscard]] std::optional<ParamsRead> findLocalRead(const OverlayCode& code,
-                                                      const std::span<const cparser::Token> body,
-                                                      const cparser::Token& local) {
-    for (usize at = 0; at + 2 < body.size(); ++at) {
-        if (!isIdentifier(body[at], local.text) || !isPunctuator(body[at + 1], "=")) {
-            continue;
-        }
-        if (!isLocalAssignedOnce(body, &body[at])) {
-            return std::nullopt;
-        }
-        usize end = at + 2;
-        while (end < body.size() && !isPunctuator(body[end], ";")) {
-            ++end;
-        }
-        return readWholeParamsCall(code, body.subspan(at + 2, end - at - 2));
-    }
-    return std::nullopt;
-}
-
 [[nodiscard]] IndexRead makeIndexRead(const ParamsRead& read, const s64 offset) {
     return IndexRead{.mask = makeMask(read), .isSigned = read.isSigned, .offset = offset};
 }
 
+[[nodiscard]] std::string makeMaskName(const u16 mask) {
+    return makeBitsName(findMaskShift(mask), findMaskWidth(mask));
+}
+
 [[nodiscard]] bool isVague(const ActorParam& param) {
-    return param.name == makeBitsName(ParamsRead{.shift = findMaskShift(param.mask),
-                                                 .width = findMaskWidth(param.mask)});
+    return param.name == makeMaskName(param.mask);
 }
 
 void addParam(std::vector<ActorParam>& params, ActorParam param) {
@@ -394,11 +305,125 @@ void addParam(std::vector<ActorParam>& params, ActorParam param) {
         return;
     }
     if (std::ranges::contains(params, param.name, &ActorParam::name)) {
-        param.name = std::format("{} ({})", param.name,
-                                 makeBitsName(ParamsRead{.shift = findMaskShift(param.mask),
-                                                         .width = findMaskWidth(param.mask)}));
+        param.name = std::format("{} ({})", param.name, makeMaskName(param.mask));
     }
     params.push_back(std::move(param));
+}
+
+/// What the params read into the members a file assigns once, by member name.
+using MemberReads = std::map<std::string_view, ParamsRead>;
+
+[[nodiscard]] MemberReads
+findMemberReads(const std::span<const cparser::FunctionDefinition* const> functions,
+                const std::span<const std::vector<cparser::Call>> calls, const OverlayCode& code) {
+    std::map<std::string_view, usize> assignments;
+    for (const cparser::FunctionDefinition* function : functions) {
+        const std::span<const cparser::Token> body = function->body;
+        for (usize at = 0; at + 1 < body.size(); ++at) {
+            if (body[at].kind == cparser::TokenKind::Identifier && isMember(body, &body[at]) &&
+                isPunctuator(body[at + 1], "=")) {
+                ++assignments[body[at].text];
+            }
+        }
+    }
+    MemberReads reads;
+    for (usize i = 0; i < functions.size(); ++i) {
+        for (const cparser::Call& call : calls[i]) {
+            const std::optional<ParamsRead> read =
+                isParamsCall(code, call.callee) ? readParamsCall(call, code) : std::nullopt;
+            if (!read) {
+                continue;
+            }
+            const cparser::Token* target = findAssignedTarget(functions[i]->body, read->first);
+            if (target != nullptr && isMember(functions[i]->body, target) &&
+                target->text != "params" && assignments[target->text] == 1) {
+                reads.emplace(target->text, *read);
+            }
+        }
+    }
+    return reads;
+}
+
+struct ArgumentContext {
+    std::span<const cparser::Token> body;
+    const OverlayCode& code;
+    const MemberReads& members;
+    const std::optional<ParamsRead>& narrowed;
+};
+
+[[nodiscard]] std::optional<ParamsRead> resolveArgument(const ArgumentContext& context,
+                                                        std::span<const cparser::Token> argument) {
+    argument = stripParentheses(argument);
+    if (std::optional<ParamsRead> read = readWholeParamsCall(context.code, argument)) {
+        return read;
+    }
+    if (isParamsMember(argument)) {
+        return context.narrowed ? context.narrowed : std::optional(ParamsRead{.width = BitCount});
+    }
+    if (isMemberChain(argument)) {
+        const auto found = context.members.find(argument.back().text);
+        return found == context.members.end() ? std::nullopt : std::optional(found->second);
+    }
+    if (argument.size() == 1 && argument.front().kind == cparser::TokenKind::Identifier) {
+        return findLocalRead(context.code, context.body, argument.front());
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] FlagUse mergeUse(const FlagUse first, const FlagUse second) {
+    return first == second ? first : FlagUse::Both;
+}
+
+void applyKnownArgument(ActorParam& param, const KnownArgument& known,
+                        const std::vector<ActorParam>& params) {
+    if (isVague(param) && !std::ranges::contains(params, known.name, &ActorParam::name)) {
+        param.name = std::string(known.name);
+    }
+    if (known.flag) {
+        if (!param.sceneFlag) {
+            param.kind = ParamKind::Number;
+            param.sceneFlag = known.flag;
+            param.flagUse = known.use;
+        } else if (param.sceneFlag == known.flag) {
+            param.flagUse = mergeUse(param.flagUse, known.use);
+        }
+    } else if (!known.collection.empty() && !param.collection && param.kind != ParamKind::Choice) {
+        param.kind = ParamKind::Choice;
+        param.collection = std::string(known.collection);
+    }
+}
+
+void linkKnownArguments(std::vector<ActorParam>& params,
+                        const std::span<const cparser::FunctionDefinition* const> functions,
+                        const std::span<const std::vector<cparser::Call>> calls,
+                        const OverlayCode& code, const std::optional<ParamsRead>& narrowed) {
+    const MemberReads members = findMemberReads(functions, calls, code);
+    for (usize i = 0; i < functions.size(); ++i) {
+        const ArgumentContext context{
+            .body = functions[i]->body, .code = code, .members = members, .narrowed = narrowed};
+        for (const cparser::Call& call : calls[i]) {
+            for (const KnownArgument& known : KnownArguments) {
+                if (known.callee != call.callee || known.argument >= call.arguments.size()) {
+                    continue;
+                }
+                const std::optional<ParamsRead> read =
+                    resolveArgument(context, call.arguments[known.argument]);
+                if (!read) {
+                    continue;
+                }
+                const u16 mask = makeMask(*read);
+                if (!std::ranges::contains(params, mask, &ActorParam::mask)) {
+                    addParam(params, ActorParam{.name = std::string(known.name),
+                                                .mask = mask,
+                                                .isSigned = read->isSigned});
+                }
+                const auto param = std::ranges::find(params, mask, &ActorParam::mask);
+                if (param != params.end()) {
+                    applyKnownArgument(*param, known, params);
+                }
+            }
+        }
+    }
 }
 
 } // namespace
@@ -406,6 +431,9 @@ void addParam(std::vector<ActorParam>& params, ActorParam param) {
 std::vector<ActorParam> findActorParams(const OverlayCode& code) {
     const std::vector<ValueCollection> tables = listTableCollections(code);
     const std::vector<const cparser::FunctionDefinition*> functions = code.listFunctions();
+    const auto isWanted = [&code](const std::string_view callee) {
+        return isKnownCallee(callee) || isParamsCall(code, callee);
+    };
     std::vector<std::vector<cparser::Call>> calls;
     calls.reserve(functions.size());
     std::vector<ActorParam> params;
@@ -415,7 +443,7 @@ std::vector<ActorParam> findActorParams(const OverlayCode& code) {
         const ParamContext context{
             .body = function->body, .calls = calls.back(), .tables = tables, .code = code};
         for (const cparser::Call& call : calls.back()) {
-            if (!isParamsRead(call.callee)) {
+            if (isKnownCallee(call.callee) || !isParamsCall(code, call.callee)) {
                 continue;
             }
             if (const std::optional<ParamsRead> read = readParamsCall(call, code)) {
@@ -433,6 +461,7 @@ std::vector<ActorParam> findActorParams(const OverlayCode& code) {
             addParam(params, std::move(param));
         }
     }
+    linkKnownArguments(params, functions, calls, code, narrowed);
     std::ranges::stable_sort(params, {},
                              [](const ActorParam& param) { return findMaskShift(param.mask); });
     return params;

@@ -173,3 +173,59 @@ void EnTest_Draw(Actor* thisx, PlayState* play) {
     REQUIRE(params[0].collection == "soundEffects");
     REQUIRE(params[1].name == "Path Index");
 }
+
+TEST_CASE("a read through the overlay's own macro is a param named by the macro",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+#define DOORSHUTTER_GET_SWITCH_FLAG(actor) PARAMS_GET_U((actor)->params, 0, 6)
+#define DOORSHUTTER_GET_TYPE(thisx) (PARAMS_GET_U((thisx)->params, 6, 4))
+#define MOVEBG_KIND(params) PARAMS_GET_U(params, 12, 4)
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    EnTest* this = (EnTest*)thisx;
+    this->type = DOORSHUTTER_GET_TYPE(thisx);
+    if (Flags_GetSwitch(play, DOORSHUTTER_GET_SWITCH_FLAG(&this->actor))) {
+        Flags_SetSwitch(play, DOORSHUTTER_GET_SWITCH_FLAG(&this->actor));
+    }
+    s32 kind = MOVEBG_KIND(thisx->params);
+}
+)");
+
+    REQUIRE(params.size() == 3);
+    REQUIRE(params[0].name == "Switch Flag");
+    REQUIRE(params[0].mask == 0x003F);
+    REQUIRE(params[0].sceneFlag == toki::actor::SceneFlag::Switch);
+    REQUIRE(params[0].flagUse == toki::actor::FlagUse::Both);
+    REQUIRE(params[1].name == "Type");
+    REQUIRE(params[1].mask == 0x03C0);
+    REQUIRE(params[2].mask == 0xF000);
+    REQUIRE(params[2].name == "Kind");
+}
+
+TEST_CASE("a member assigned a read once is followed to the flags it is passed to",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    EnTest* this = (EnTest*)thisx;
+    this->chestFlag = PARAMS_GET_U(thisx->params, 0, 5);
+    this->lit = PARAMS_GET_U(thisx->params, 10, 1);
+    s32 bits = PARAMS_GET_U(thisx->params, 6, 4);
+    if (Flags_GetCollectible(play, bits)) {
+    }
+}
+void EnTest_Open(EnTest* this, PlayState* play) {
+    if (!Flags_GetTreasure(play, this->chestFlag)) {
+        Flags_SetTreasure(play, this->chestFlag);
+    }
+}
+)");
+
+    REQUIRE(params.size() == 3);
+    REQUIRE(params[0].name == "Chest Flag");
+    REQUIRE(params[0].sceneFlag == toki::actor::SceneFlag::Treasure);
+    REQUIRE(params[0].flagUse == toki::actor::FlagUse::Both);
+    REQUIRE(params[1].name == "Bits");
+    REQUIRE(params[1].sceneFlag == toki::actor::SceneFlag::Collectible);
+    REQUIRE(params[1].flagUse == toki::actor::FlagUse::Reads);
+    REQUIRE(params[2].name == "Lit");
+    REQUIRE(params[2].kind == toki::actor::ParamKind::Flag);
+}

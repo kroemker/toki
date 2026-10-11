@@ -1,5 +1,6 @@
 ﻿#include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ActorModelReader.h"
+#include "app/actor/domain/EntryNames.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
 #include "hackeroot/Tables.h"
@@ -121,10 +122,17 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
     usize params = 0;
     usize withParams = 0;
     std::string collected;
+    std::map<std::string, usize> flags;
     for (const toki::actor::ActorModel& model : models) {
         params += model.params.size();
         withParams += model.params.empty() ? 0 : 1;
         for (const toki::actor::ActorParam& param : model.params) {
+            if (param.sceneFlag) {
+                ++flags[std::format(
+                    "{} {}",
+                    toki::actor::getEntryName(toki::actor::SceneFlagNames, *param.sceneFlag),
+                    toki::actor::getEntryName(toki::actor::FlagUseNames, param.flagUse))];
+            }
             if (param.collection) {
                 collected += std::format("\n  {} {} 0x{:04X}: {}", model.actorName, param.name,
                                          param.mask, *param.collection);
@@ -133,6 +141,26 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
     }
     WARN(params << " params found in " << withParams
                 << " actors, choosing from a collection:" << collected);
+    std::string flagKinds;
+    for (const auto& [kind, count] : flags) {
+        flagKinds += std::format("\n  {}: {}", kind, count);
+    }
+    WARN("scene flags, by kind and use:" << flagKinds);
+    const auto findFlag = [&models](const std::string& actor, const u16 mask) {
+        const std::vector<toki::actor::ActorParam>& actorParams = findModel(models, actor).params;
+        const auto found = std::ranges::find(actorParams, mask, &toki::actor::ActorParam::mask);
+        return found == actorParams.end() ? std::optional<toki::actor::ActorParam>()
+                                          : std::optional(*found);
+    };
+    const std::optional<toki::actor::ActorParam> shutter = findFlag("Door_Shutter", 0x003F);
+    REQUIRE(shutter.has_value());
+    CHECK(shutter->name == "Switch Flag");
+    CHECK(shutter->sceneFlag == toki::actor::SceneFlag::Switch);
+    CHECK(shutter->flagUse == toki::actor::FlagUse::Both);
+    const std::optional<toki::actor::ActorParam> floorSwitch = findFlag("Obj_Switch", 0x3F00);
+    REQUIRE(floorSwitch.has_value());
+    CHECK(floorSwitch->sceneFlag == toki::actor::SceneFlag::Switch);
+    CHECK(floorSwitch->flagUse != toki::actor::FlagUse::Reads);
 
     const std::vector<toki::actor::ActorParam>& chest = findModel(models, "En_Box").params;
     const auto findParam = [&chest](const std::string_view name) {

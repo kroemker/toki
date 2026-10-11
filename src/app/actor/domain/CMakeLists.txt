@@ -16,6 +16,7 @@ target_sources(toki_core PRIVATE
         GuessedEntry.cpp
         ModelRules.cpp
         OverlayCode.cpp
+        ParamReads.cpp
         ParamRules.cpp
         ProblemText.cpp
         ReadableName.cpp
