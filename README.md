@@ -3,7 +3,33 @@
 A desktop workbench for modding The Legend of Zelda: Ocarina of Time on top of the
 [HackerOoT](https://github.com/HackerN64/HackerOoT) decompilation.
 
-See [CLAUDE.md](CLAUDE.md) for architecture, parsing strategy and code style.
+Toki reads the HackerOoT source tree directly, with no ROM and no build, and renders,
+inspects and edits what is in it. It aims to be what decomp modding lacks: an IDE that
+knows the game.
+
+## What it does
+
+- **Reads a checkout as the build does.** A C front end with a real preprocessor, the
+  Makefile and `config.h` answering every `#if`, and the checkout's actor, object, scene
+  and entrance tables. Files are watched and read again on change, off the UI thread.
+- **Renders scenes and objects with its own N64 renderer.** Asset C becomes a memory image
+  with segment addressing, byte for byte as the build compiles it. Display lists run
+  through an F3DEX2 RSP and RDP model on the CPU, then a single ubershader draws them
+  through SDL3's GPU API (D3D12, Vulkan, Metal).
+- **Draws actors as their real models, not cubes.** Each actor's overlay C is read for
+  its object, skeleton, animation, display lists, scale and params, from literal calls in
+  `Init` and `Draw`, without running any code. What it finds is kept in an editable actor
+  database per checkout, seeded from Toki's own.
+- **Knows what params mean.** Params are named bit ranges: numbers, flags, or choices
+  whose values come from the checkout's enums (`GetItemID`, `SfxId`, `NA_BGM`, the actor
+  and scene tables) or the actor's own lookup tables. Variants pick what an actor draws by
+  its params, age and scene.
+- **Links actors by their scene flags.** Switch, treasure, collectible and clear flags are
+  derived from the `Flags_*` calls. The Scene panel lists who reads and sets each flag,
+  and the viewport draws an arrow from a floor switch to the door it opens.
+- **Drives the build** under WSL, with the output decoded.
+
+Geometry editing, an embedded emulator and ROM parsing are out of scope for now.
 
 ## Requirements
 
@@ -17,7 +43,8 @@ D:/dev/tools/vcpkg/bootstrap-vcpkg.bat
 setx VCPKG_ROOT D:\dev\tools\vcpkg
 ```
 
-Dependencies are declared in `vcpkg.json` and are installed by CMake on first configure.
+Dependencies (SDL3, SDL_shadercross, Dear ImGui, glm, toml++, libspng, Catch2) are declared in
+`vcpkg.json` and installed by CMake on first configure.
 
 ## Build
 
@@ -30,11 +57,14 @@ cmake --build --preset debug
 ctest --preset debug
 ```
 
-The executable lands in `build/debug/toki.exe`.
+The executable lands in `build/debug/toki.exe`. Open a HackerOoT checkout from the
+Workspace panel; it may live in WSL.
 
-The tests that read a real HackerOoT checkout skip unless one is configured. To run them
-against a checkout in WSL, copied to the Windows filesystem first because every file open
-over `\\wsl.localhost` costs milliseconds:
+There are two test binaries: `toki_tests` needs no GPU, and `toki_gpu_tests` compares the
+ubershader against the CPU reference and skips without a GPU. The tests that read a real
+HackerOoT checkout skip unless one is configured. To run them against a checkout in WSL,
+copied to the Windows filesystem first because every file open over `\\wsl.localhost`
+costs milliseconds:
 
 ```
 tools\run_checkout_tests.ps1 -Distro Ubuntu -Checkout ~/HackerOoT
@@ -59,13 +89,29 @@ the `debug` profile, which carries both the toolchain file and the compiler pin.
 
 ```
 src/
-  z64/         Pure Zelda64/N64 formats. No filesystem, no processes, no UI.
-  hackeroot/   The user's HackerOoT checkout: discovery, tables, config, build runner.
-  gfx/         Fast3D binding. Empty until Fast3D is vendored.
-  app/         Features, each split into ui/ and domain/.
-third_party/
-  Fast3D/      Not vendored yet; see its README.
+  base/        Width aliases and diagnostics, shared by everything.
+  cparser/     A C front end: lexer, preprocessor, macros, constant expressions,
+               declarations, X-macro tables. Knows nothing of Zelda.
+  makeparser/  A GNU make reader.
+  z64/         Zelda64 formats and decomp conventions: dialect, texture and gbi
+               encoding, the memory image.
+  hackeroot/   The user's checkout: discovery, tables, config, build runner.
+  n64/         The hardware: F3DEX2 on the RSP, RDP state, texture memory. CPU only.
+  gfx/         The GPU side of the renderer: device, ubershader, render targets.
+  app/         Features (core, workspace, assets, build, viewport, actor, scene,
+               object, texture, ...), each split into ui/ and domain/.
+tests/         Catch2 tests and fixture checkouts.
+docs/          How each part works.
 ```
 
-Namespaces are `z64::`, `hackeroot::`, `gfx::`, and `toki::<feature>` for anything under
-`app/`. The `ui/` and `domain/` split is a directory boundary, not a namespace level.
+`domain/` never includes `ui/`, so everything that parses is testable without SDL, ImGui
+or a GPU. Namespaces are `base::`, `cparser::`, `makeparser::`, `z64::`, `hackeroot::`,
+`n64::`, `gfx::`, and `toki::<feature>` for anything under `app/`.
+
+## Documentation
+
+- [CLAUDE.md](CLAUDE.md): architecture, dependency rules and code style
+- [docs/](docs/README.md): reading C, build configuration, the memory image, the renderer,
+  scenes, objects, textures, the actor database and actor rendering
+- [WORK_PACKAGES.md](WORK_PACKAGES.md): what is done and what is planned
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
