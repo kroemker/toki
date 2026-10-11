@@ -1,5 +1,6 @@
 #include "ActorModelReader.h"
 
+#include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ModelRules.h"
 #include "app/actor/domain/OverlayCode.h"
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <expected>
+#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,6 +27,33 @@ namespace {
     diagnostic.severity = base::Severity::Note;
     return ActorModel{.actorName = actor.name,
                       .gaps = {ModelGap{.kind = GapKind::NoOverlay, .diagnostic = diagnostic}}};
+}
+
+void linkDisplayListTables(ActorModel& model) {
+    if (model.displayListTables.empty()) {
+        return;
+    }
+    const DisplayListTable& table = model.displayListTables.front();
+    if (std::ranges::contains(model.params, table.mask, &ActorParam::mask)) {
+        return;
+    }
+    const auto overlapping = std::ranges::find_if(
+        model.params, [&](const ActorParam& param) { return (param.mask & table.mask) != 0; });
+    if (overlapping == model.params.end()) {
+        model.params.push_back(ActorParam{
+            .name = std::string(ModelParam), .mask = table.mask, .isSigned = table.isSigned});
+        std::ranges::stable_sort(model.params, {},
+                                 [](const ActorParam& param) { return findMaskShift(param.mask); });
+        return;
+    }
+    model.gaps.push_back(ModelGap{
+        .kind = GapKind::DisplayListNotLiteral,
+        .diagnostic = base::makeNote(
+            table.location,
+            std::format("the display lists of '{}' are picked by bits 0x{:04X}, which share "
+                        "bits with the param '{}', so which one is drawn is not followed",
+                        table.table, table.mask, overlapping->name))});
+    model.displayListTables.clear();
 }
 
 } // namespace
@@ -50,6 +79,7 @@ ActorModel readActorModel(const hackeroot::Workspace& workspace,
             return found == objects.end() ? std::nullopt : std::optional<std::string>(found->name);
         });
     model.params = findActorParams(code);
+    linkDisplayListTables(model);
     return model;
 }
 

@@ -89,13 +89,39 @@ TEST_CASE("an actor's collections are the enumerations its own headers define",
 
     const toki::actor::CollectionsRead read = toki::actor::readActorCollections(workspace, *box);
 
-    REQUIRE(read.collections.size() == 1);
+    REQUIRE(read.collections.size() == 4);
     const toki::actor::ValueCollection& types = read.collections.front();
     REQUIRE(types.name == "EnBoxType");
     REQUIRE(types.values.size() == 2);
     REQUIRE(types.values[1].label == "ENBOX_TYPE_SMALL");
     REQUIRE(types.values[1].value == 5);
     REQUIRE(toki::actor::readActorCollections(workspace, actors.front()).collections.empty());
+    REQUIRE(std::ranges::any_of(read.files, [](const std::filesystem::path& file) {
+        return file.filename() == "z_en_box.c";
+    }));
+}
+
+TEST_CASE("an actor's tables of named constants are collections of their positions",
+          "[actor][collections]") {
+    const hackeroot::Workspace workspace = loadFixture();
+    const std::vector<hackeroot::ActorEntry>& actors = workspace.getTables().actors;
+    const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);
+    REQUIRE(box != actors.end());
+
+    const toki::actor::CollectionsRead read = toki::actor::readActorCollections(workspace, *box);
+
+    const toki::actor::ValueCollection& items = requireCollection(read, "sGetItemIds");
+    REQUIRE(items.values.size() == 2);
+    REQUIRE(items.values[1].value == 1);
+    REQUIRE(items.values[1].label == "GI_HEART_PIECE");
+    REQUIRE(requireCollection(read, "sTypes").values[0].label == "ENBOX_TYPE_SMALL");
+    const toki::actor::ValueCollection& sounds = requireCollection(read, "sSounds");
+    REQUIRE(sounds.values[0].label == "0");
+    REQUIRE(sounds.values[1].label == "NA_SE_EN_DODO_J_WALK");
+    REQUIRE_FALSE(
+        std::ranges::contains(read.collections, "sScales", &toki::actor::ValueCollection::name));
+    REQUIRE_FALSE(
+        std::ranges::contains(read.collections, "sActions", &toki::actor::ValueCollection::name));
 }
 
 TEST_CASE("the catalog finds an actor's own collection before a shared one",
@@ -149,8 +175,26 @@ TEST_CASE("a real checkout's collections are read without a diagnostic",
     const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);
     REQUIRE(box != actors.end());
     const toki::actor::CollectionsRead own = toki::actor::readActorCollections(*workspace, *box);
-    REQUIRE(own.collections.size() == 1);
+    REQUIRE(own.diagnostics.empty());
     REQUIRE(requireCollection(own, "EnBoxType").values.size() > 5);
+
+    const auto sth = std::ranges::find(actors, "ACTOR_EN_STH", &hackeroot::ActorEntry::enumName);
+    REQUIRE(sth != actors.end());
+    const toki::actor::CollectionsRead sthOwn = toki::actor::readActorCollections(*workspace, *sth);
+    const toki::actor::ValueCollection& rewards = requireCollection(sthOwn, "sGetItemIds");
+    REQUIRE(rewards.values.size() == 6);
+    REQUIRE(rewards.values[2].label == "GI_STONE_OF_AGONY");
+
+    const auto river =
+        std::ranges::find(actors, "ACTOR_EN_RIVER_SOUND", &hackeroot::ActorEntry::enumName);
+    REQUIRE(river != actors.end());
+    const toki::actor::CollectionsRead riverOwn =
+        toki::actor::readActorCollections(*workspace, *river);
+    for (const toki::actor::ValueCollection& collection : riverOwn.collections) {
+        UNSCOPED_INFO(collection.name);
+    }
+    const toki::actor::ValueCollection& sounds = requireCollection(riverOwn, "soundEffects");
+    REQUIRE(sounds.values[1].label == "NA_SE_EV_WATER_WALL");
 
     const toki::actor::ActorDatabase shipped = toki::actor::readActorDatabase(TOKI_SHIPPED_ACTORS);
     for (const auto& [name, entry] : shipped.entries) {

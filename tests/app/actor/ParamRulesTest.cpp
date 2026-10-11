@@ -92,3 +92,84 @@ void EnTest_Init(Actor* thisx, PlayState* play) {
     REQUIRE(params[1].name == "Music");
     REQUIRE(params[1].collection == "NA_BGM");
 }
+
+TEST_CASE("a param that picks an entry of a table of constants chooses from that table",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+static s16 sGetItemIds[] = { GI_RUPEE_GOLD, GI_HEART_PIECE };
+static f32 sScales[] = { 1.0f, 2.0f };
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    static s16 sSounds[] = { 0, NA_SE_EN_DODO_J_WALK - SFX_FLAG, NA_SE_EN_DODO_J_CRY };
+    this->getItemId = sGetItemIds[PARAMS_GET_U(thisx->params, 0, 4)];
+    Actor_PlaySfx(thisx, sSounds[PARAMS_GET_U(thisx->params, 4, 4) - 1]);
+    this->scale = sScales[PARAMS_GET_U(thisx->params, 8, 4)];
+}
+)");
+
+    REQUIRE(params.size() == 3);
+    REQUIRE(params[0].name == "Get Item Id");
+    REQUIRE(params[0].kind == toki::actor::ParamKind::Choice);
+    REQUIRE(params[0].collection == "sGetItemIds");
+    REQUIRE(params[1].name == "Sound");
+    REQUIRE(params[1].collection == "sSounds");
+    REQUIRE(params[1].offset == -1);
+    REQUIRE(params[2].name == "Bits 8 to 11");
+    REQUIRE_FALSE(params[2].collection);
+}
+
+TEST_CASE("a table lookup is followed through a local and found on the whole params",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> local = readParams(R"(
+static s16 sObjectIds[] = { OBJECT_GI_KEY, OBJECT_GI_HEART };
+static s16 sGetItemIds[] = { GI_SMALL_KEY, GI_HEART_PIECE };
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    s32 type = PARAMS_GET_U(thisx->params, 0, 8);
+    s32 slot = Object_GetSlot(&play->objectCtx, sObjectIds[type]);
+    Actor_OfferGetItem(thisx, play, sGetItemIds[type], 30.0f, 50.0f);
+}
+)");
+    REQUIRE(local.size() == 1);
+    REQUIRE(local[0].name == "Type");
+    REQUIRE(local[0].collection == "sGetItemIds");
+
+    const std::vector<toki::actor::ActorParam> whole = readParams(R"(
+static s16 sGetItemIds[] = { GI_RUPEE_GOLD, GI_HEART_PIECE };
+void EnTest_Give(EnTest* this, PlayState* play) {
+    u16 getItemId = sGetItemIds[this->actor.params];
+    s32 other = sGetItemIds[this->actor.params + 1];
+}
+)");
+    REQUIRE(whole.size() == 1);
+    REQUIRE(whole[0].mask == 0xFFFF);
+    REQUIRE(whole[0].name == "Get Item Id");
+    REQUIRE(whole[0].collection == "sGetItemIds");
+}
+
+TEST_CASE("a lookup on params an actor has narrowed to some of their bits is of those bits",
+          "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    EnTest* this = (EnTest*)thisx;
+    this->pathIndex = PARAMS_GET_U(this->actor.params, 8, 8);
+    this->actor.params = PARAMS_GET_U(this->actor.params, 0, 8);
+}
+void EnTest_Draw(Actor* thisx, PlayState* play) {
+    static s16 soundEffects[] = {
+        0,
+        NA_SE_EV_WATER_WALL - SFX_FLAG,
+    };
+    EnTest* this = (EnTest*)thisx;
+    if (this->actor.params == 1) {
+        Sfx_PlaySfxCentered2(soundEffects[this->actor.params]);
+    } else {
+        Actor_PlaySfx(&this->actor, soundEffects[this->actor.params]);
+    }
+}
+)");
+
+    REQUIRE(params.size() == 2);
+    REQUIRE(params[0].name == "Sound");
+    REQUIRE(params[0].mask == 0x00FF);
+    REQUIRE(params[0].collection == "soundEffects");
+    REQUIRE(params[1].name == "Path Index");
+}

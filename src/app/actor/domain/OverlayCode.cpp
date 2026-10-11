@@ -52,6 +52,33 @@ namespace {
     });
 }
 
+[[nodiscard]] std::optional<std::span<const cparser::Token>>
+findLocalArray(const std::span<const cparser::Token> body, const usize name) {
+    if (name + 1 >= body.size() || !cparser::isPunctuator(body[name + 1], "[")) {
+        return std::nullopt;
+    }
+    usize open = name + 1;
+    while (open < body.size() && !cparser::isPunctuator(body[open], "=") &&
+           !cparser::isPunctuator(body[open], ";")) {
+        ++open;
+    }
+    if (open + 1 >= body.size() || !cparser::isPunctuator(body[open], "=") ||
+        !cparser::isPunctuator(body[open + 1], "{")) {
+        return std::nullopt;
+    }
+    const usize begin = open + 2;
+    usize close = begin;
+    int nesting = 1;
+    for (; close < body.size(); ++close) {
+        if (cparser::isPunctuator(body[close], "{")) {
+            ++nesting;
+        } else if (cparser::isPunctuator(body[close], "}") && --nesting == 0) {
+            break;
+        }
+    }
+    return body.subspan(begin, close - begin);
+}
+
 } // namespace
 
 bool isWholeCall(const std::span<const cparser::Token> tokens, const std::string_view callee) {
@@ -154,31 +181,51 @@ OverlayCode::findArrayElements(const std::string_view name,
     }
     const std::span<const cparser::Token> body = within.body;
     for (usize at = 0; at + 1 < body.size(); ++at) {
-        if (!cparser::isIdentifier(body[at], name) || !cparser::isPunctuator(body[at + 1], "[")) {
+        if (!cparser::isIdentifier(body[at], name)) {
             continue;
         }
-        usize open = at + 1;
-        while (open < body.size() && !cparser::isPunctuator(body[open], "=") &&
-               !cparser::isPunctuator(body[open], ";")) {
-            ++open;
+        if (std::optional<std::span<const cparser::Token>> list = findLocalArray(body, at)) {
+            return cparser::splitElements(*list);
         }
-        if (open + 1 >= body.size() || !cparser::isPunctuator(body[open], "=") ||
-            !cparser::isPunctuator(body[open + 1], "{")) {
-            continue;
-        }
-        const usize begin = open + 2;
-        usize close = begin;
-        int nesting = 1;
-        for (; close < body.size(); ++close) {
-            if (cparser::isPunctuator(body[close], "{")) {
-                ++nesting;
-            } else if (cparser::isPunctuator(body[close], "}") && --nesting == 0) {
-                break;
-            }
-        }
-        return cparser::splitElements(body.subspan(begin, close - begin));
     }
     return {};
+}
+
+std::vector<ArrayDefinition> OverlayCode::listArrays() const {
+    std::vector<ArrayDefinition> arrays;
+    const std::filesystem::path folder = main.parent_path().filename();
+    const std::filesystem::path* lastFile = nullptr;
+    bool isLastOwn = false;
+    for (const cparser::Declaration& declaration : parsed.declarations) {
+        if (!declaration.isArray || !declaration.hasInitializer || !declaration.isBraced) {
+            continue;
+        }
+        if (lastFile == nullptr || *lastFile != declaration.location.file) {
+            lastFile = &declaration.location.file;
+            isLastOwn = lastFile->parent_path().filename() == folder;
+        }
+        if (isLastOwn) {
+            arrays.push_back(
+                ArrayDefinition{.name = declaration.name,
+                                .elements = cparser::splitElements(declaration.initializer),
+                                .location = declaration.location});
+        }
+    }
+    for (const cparser::FunctionDefinition* function : mainFunctions) {
+        const std::span<const cparser::Token> body = function->body;
+        for (usize at = 1; at + 1 < body.size(); ++at) {
+            if (body[at].kind != cparser::TokenKind::Identifier ||
+                body[at - 1].kind != cparser::TokenKind::Identifier) {
+                continue;
+            }
+            if (std::optional<std::span<const cparser::Token>> list = findLocalArray(body, at)) {
+                arrays.push_back(ArrayDefinition{.name = body[at].text,
+                                                 .elements = cparser::splitElements(*list),
+                                                 .location = cparser::locate(body[at])});
+            }
+        }
+    }
+    return arrays;
 }
 
 std::optional<f64> OverlayCode::evaluateNumber(const std::span<const cparser::Token> tokens) const {

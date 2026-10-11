@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace toki::actor {
@@ -45,6 +46,25 @@ struct DisplayListDraw {
     std::vector<SegmentSetting> segments;
 };
 
+/// Display lists `Draw` picks out of a table by its params, as
+/// `Gfx_DrawDListOpa(play, sDLists[thisx->params])` does: the bits it picks by,
+/// what is added to them first, and one entry for each of the table's, in
+/// order, empty where it is `NULL` or names no object's display list.
+struct DisplayListTable {
+    std::string table;
+    u16 mask = 0;
+    bool isSigned = false;
+    s64 offset = 0;
+    Pass pass = Pass::Opaque;
+    std::vector<std::optional<ObjectSymbol>> entries;
+    std::vector<SegmentSetting> segments;
+    base::SourceLocation location;
+};
+
+/// What the param a display list table picks by is called when no read of the
+/// C names its bits.
+constexpr std::string_view ModelParam = "Model";
+
 /// Why part of how an actor is drawn could not be read from its C.
 enum class GapKind : u8 {
     NoOverlay,
@@ -75,6 +95,8 @@ struct ActorModel {
     std::string profileObject;
     std::optional<SkeletonModel> skeleton;
     std::vector<DisplayListDraw> displayLists;
+    /// Drawn besides `displayLists`, all picking by the same bits.
+    std::vector<DisplayListTable> displayListTables;
     /// Segments 8 to 12 as `Draw` points them for a skeleton, the first
     /// setting of each a pass.
     std::vector<SegmentSetting> segments;
@@ -89,7 +111,7 @@ struct ActorModel {
     static constexpr f32 DefaultScale = 0.01F;
 
     [[nodiscard]] bool hasModel() const {
-        return skeleton.has_value() || !displayLists.empty();
+        return skeleton.has_value() || !displayLists.empty() || !displayListTables.empty();
     }
 };
 

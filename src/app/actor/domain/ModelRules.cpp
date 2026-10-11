@@ -3,6 +3,7 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/OverlayCode.h"
+#include "app/actor/domain/ParamRules.h"
 #include "base/Diagnostic.h"
 #include "cparser/Calls.h"
 #include "cparser/Initializer.h"
@@ -138,7 +139,16 @@ private:
     void readDisplayLists();
 
     void readDisplayList(const cparser::Call& call, std::span<const cparser::Token> argument,
-                         Pass pass, const std::vector<SegmentSetting>& segments);
+                         Pass pass, const std::vector<SegmentSetting>& segments,
+                         const cparser::FunctionDefinition& function);
+
+    [[nodiscard]] bool readDisplayListTable(const cparser::Call& call,
+                                            std::span<const cparser::Token> argument, Pass pass,
+                                            const std::vector<SegmentSetting>& segments,
+                                            const cparser::FunctionDefinition& function);
+
+    [[nodiscard]] std::optional<ObjectSymbol>
+    readTableEntry(const cparser::Call& call, std::span<const cparser::Token> element);
 
     void readSegments();
 
@@ -336,16 +346,17 @@ void RuleReader::readDisplayLists() {
                 continue;
             }
             if (call.callee != "gSPDisplayList") {
-                readDisplayList(
-                    call, call.arguments[1],
-                    call.callee == "Gfx_DrawDListXlu" ? Pass::Translucent : Pass::Opaque, segments);
+                readDisplayList(call, call.arguments[1],
+                                call.callee == "Gfx_DrawDListXlu" ? Pass::Translucent
+                                                                  : Pass::Opaque,
+                                segments, *function);
                 continue;
             }
             const std::string target = spell(call.arguments[0]);
             if (target.contains("POLY_OPA_DISP")) {
-                readDisplayList(call, call.arguments[1], Pass::Opaque, segments);
+                readDisplayList(call, call.arguments[1], Pass::Opaque, segments, *function);
             } else if (target.contains("POLY_XLU_DISP")) {
-                readDisplayList(call, call.arguments[1], Pass::Translucent, segments);
+                readDisplayList(call, call.arguments[1], Pass::Translucent, segments, *function);
             }
         }
     }
@@ -353,7 +364,11 @@ void RuleReader::readDisplayLists() {
 
 void RuleReader::readDisplayList(const cparser::Call& call,
                                  const std::span<const cparser::Token> argument, const Pass pass,
-                                 const std::vector<SegmentSetting>& segments) {
+                                 const std::vector<SegmentSetting>& segments,
+                                 const cparser::FunctionDefinition& function) {
+    if (readDisplayListTable(call, argument, pass, segments, function)) {
+        return;
+    }
     const cparser::Token* name = findLiteralSymbol(argument);
     if (name == nullptr) {
         addGap(GapKind::DisplayListNotLiteral, call.location,
@@ -382,6 +397,84 @@ void RuleReader::readDisplayList(const cparser::Call& call,
     std::ranges::copy_if(segments, std::back_inserter(drawn.segments),
                          [pass](const SegmentSetting& setting) { return setting.pass == pass; });
     model.displayLists.push_back(std::move(drawn));
+}
+
+bool RuleReader::readDisplayListTable(const cparser::Call& call,
+                                      const std::span<const cparser::Token> argument,
+                                      const Pass pass, const std::vector<SegmentSetting>& segments,
+                                      const cparser::FunctionDefinition& function) {
+    if (argument.size() < 4 || argument.front().kind != cparser::TokenKind::Identifier ||
+        !cparser::isPunctuator(argument[1], "[") || !cparser::isPunctuator(argument.back(), "]")) {
+        return false;
+    }
+    const std::string_view name = argument.front().text;
+    const std::vector<std::span<const cparser::Token>> elements =
+        code.findArrayElements(name, function);
+    if (elements.empty()) {
+        return false;
+    }
+    const std::span<const cparser::Token> index = argument.subspan(2, argument.size() - 3);
+    const std::optional<IndexRead> read = findIndexRead(code, function.body, index);
+    if (!read) {
+        addGap(GapKind::DisplayListNotLiteral, call.location,
+               std::format("the display list {} is given is picked out of '{}' by '{}', which "
+                           "is not a read of the params",
+                           call.callee, name, spell(index)));
+        return true;
+    }
+    const std::vector<DisplayListTable>& tables = model.displayListTables;
+    if (!tables.empty() &&
+        (tables.front().mask != read->mask || tables.front().offset != read->offset)) {
+        addGap(GapKind::DisplayListNotLiteral, call.location,
+               std::format("the display list {} is given is picked out of '{}' by other bits "
+                           "than '{}' is, and only one choice of them is followed",
+                           call.callee, name, tables.front().table));
+        return true;
+    }
+    if (std::ranges::contains(tables, name, &DisplayListTable::table)) {
+        return true;
+    }
+    DisplayListTable table{.table = std::string(name),
+                           .mask = read->mask,
+                           .isSigned = read->isSigned,
+                           .offset = read->offset,
+                           .pass = pass,
+                           .location = call.location};
+    for (const std::span<const cparser::Token> element : elements) {
+        table.entries.push_back(readTableEntry(call, element));
+    }
+    std::ranges::copy_if(segments, std::back_inserter(table.segments),
+                         [pass](const SegmentSetting& setting) { return setting.pass == pass; });
+    model.displayListTables.push_back(std::move(table));
+    return true;
+}
+
+std::optional<ObjectSymbol>
+RuleReader::readTableEntry(const cparser::Call& call,
+                           const std::span<const cparser::Token> element) {
+    const bool isNull =
+        element.size() == 1 &&
+        (cparser::isIdentifier(element.front(), "NULL") ||
+         (element.front().kind == cparser::TokenKind::Integer && element.front().text == "0"));
+    if (isNull) {
+        return std::nullopt;
+    }
+    const cparser::Token* name = findLiteralSymbol(element);
+    if (name == nullptr) {
+        addGap(GapKind::DisplayListNotLiteral, call.location,
+               std::format("an entry of the display lists {} picks from, '{}', is not a symbol",
+                           call.callee, spell(element)));
+        return std::nullopt;
+    }
+    std::optional<ObjectSymbol> symbol =
+        findSymbol(*name, "the display list", GapKind::DisplayListNotLiteral);
+    if (symbol && symbol->type != "Gfx") {
+        addGap(GapKind::DisplayListNotLiteral, symbol->location,
+               std::format("the display list '{}' is declared a {}, not a Gfx", symbol->name,
+                           symbol->type));
+        return std::nullopt;
+    }
+    return symbol;
 }
 
 void RuleReader::readSegments() {

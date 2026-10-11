@@ -118,6 +118,16 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   every `gSPDisplayList(POLY_OPA_DISP++ | POLY_XLU_DISP++, symbol)` with a literal symbol,
   in source order. The pass comes from the call. Calls under a branch are all taken, so a
   `Draw` that picks one display list of three draws all three. The panel says so.
+- **Display list tables.** A call whose display list is an entry of an array of symbols,
+  `Gfx_DrawDListOpa(play, sDLists[index])`, picks by the params when its index is one
+  (`actor::findIndexRead`: a literal read, the whole params or the bits `Init` narrowed them
+  to, a local assigned a read once, each with a literal added or taken). The guess then
+  has a variant for each entry, matched on the param of those bits, or on a new "Model"
+  param when no read names them, drawing that entry beside the literal display lists. A
+  `NULL` entry is a variant that draws nothing. Every table must pick by the same bits; one
+  that does not, one picked by anything else (`sDLists[this->type]`), and bits that share
+  some with a param but are not one are gaps. A table drawn in both passes, as behind the
+  Lens of Truth, is drawn in the first. On a vanilla checkout this draws 12 more actors.
 - **Scale.** The last literal `Actor_SetScale` in `Init`, else the `InitChain`'s
   `ICHAIN_VEC3F_DIV1000(scale, ...)`, else 0.01. The `InitChain` is a file-scope array,
   so the existing initializer reader handles it.
@@ -132,11 +142,20 @@ The rules are Zelda-specific, so they live in `app/actor/domain/`.
   with a collection makes it a choice of it: `GetItemID` for the get-item functions,
   `Item00Type` for `Item_DropCollectible`, `ActorID` for `Actor_Spawn`, `SfxId` for
   `Actor_PlaySfx` and the `Sfx_PlaySfx*` functions, `NA_BGM` for `Audio_PlayFanfare` and
-  `SEQCMD_PLAY_SEQUENCE`. One bit with no name
-  is a flag. A read through the overlay's own macro (`ENBOX_GET_TYPE(thisx)`) is not seen,
-  and which enumeration a field like `this->type` is compared against is data flow, so an
-  actor's own enumerations are linked by hand. On a vanilla checkout this finds 284 params
-  in 161 actors.
+  `SEQCMD_PLAY_SEQUENCE`. One bit with no name is a flag.
+
+  A read that picks an entry of one of the actor's tables of constants is a choice of that
+  table: `sGetItemIds[PARAMS_GET_U(...)]`, `sTable[PARAMS_GET_U(...) - 1]` with offset −1,
+  and `sGetItemIds[this->actor.params]`, of all the bits, or of those `Init` narrowed them
+  to with `this->actor.params = PARAMS_GET_U(...)`. The lookup is then named as a read is,
+  else after the table ("Get Item Ids"). A read assigned once to a local is followed to one
+  lookup of it in the same function (`type = PARAMS_GET_U(...); sObjectIds[type]`), the one
+  passed to a known function if any, else the first.
+
+  A read through the overlay's own macro (`ENBOX_GET_TYPE(thisx)`) is not seen, and which
+  enumeration a field like `this->type` is compared against is data flow, so an actor's own
+  enumerations are linked by hand. On a vanilla checkout this finds 291 params in 168
+  actors, 12 of them choosing from a collection.
 
 A name that is not an object's symbol is one of three gaps: the overlay's own data (declared
 in a folder named as the overlay's is, its own or its extracted assets'), a file-scope

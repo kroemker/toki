@@ -17,6 +17,7 @@ target_sources(toki_core PRIVATE
         ModelRules.cpp
         OverlayCode.cpp
         ParamRules.cpp
+        ReadableName.cpp
         PartReader.cpp
         SymbolCatalog.cpp
         ValueCollection.cpp)

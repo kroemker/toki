@@ -149,8 +149,16 @@ for; the file still holds numbers, in matches and `default_params` alike.
   `ActorID`, `ObjectID`, `SceneID` and `EntranceIndex` from the tables the workspace reads.
   Constants ending in `_BASE`, `_END` or `_MAX` bound an enumeration rather than name a
   value, and are left out.
-- **An actor's own** are the enumerations its overlay headers define, `EnBoxType`; a name
-  is looked up among the actor's own first.
+- **An actor's own** are the enumerations its overlay headers define, `EnBoxType`, and the
+  tables its C defines of constants, `sGetItemIds`; a name is looked up among the actor's
+  own first.
+- **A table** (`actor::listTableCollections`) is an array the overlay defines with a brace
+  list, at file scope or as a `static` in a function, whose every element is a constant.
+  Its values are the positions, each labelled by its constant: a param that picks an entry,
+  `sGetItemIds[params]`, shows the item the entry holds. An element may be a number,
+  labelled as written, or a named constant with others added, taken or masked off, labelled
+  by the first, as En_River_Sound writes `NA_SE_EV_WATER_WALL - SFX_FLAG`. A table without
+  a named constant (`sScales`), of symbols or of structs is none.
 
 The headers are read as the build compiles them (`hackeroot::readPrelude`), on a worker
 (`actor::CollectionCatalog`), the shared ones when a checkout is opened and an actor's the

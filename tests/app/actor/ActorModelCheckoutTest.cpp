@@ -1,4 +1,4 @@
-#include "app/actor/domain/ActorModel.h"
+﻿#include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ActorModelReader.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
@@ -11,7 +11,9 @@
 #include <chrono>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <map>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -57,9 +59,21 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
     usize displayLists = 0;
     std::map<std::string, usize> gaps;
     std::string unreadProfiles;
+    std::string tables;
     for (const toki::actor::ActorModel& model : models) {
         skeletons += model.skeleton.has_value() ? 1 : 0;
-        displayLists += !model.skeleton && !model.displayLists.empty() ? 1 : 0;
+        displayLists +=
+            !model.skeleton && (!model.displayLists.empty() || !model.displayListTables.empty())
+                ? 1
+                : 0;
+        for (const toki::actor::DisplayListTable& table : model.displayListTables) {
+            const auto drawn = std::ranges::count_if(
+                table.entries, [](const std::optional<toki::actor::ObjectSymbol>& entry) {
+                    return entry.has_value();
+                });
+            tables += std::format("\n  {} {} 0x{:04X}: {} of {}", model.actorName, table.table,
+                                  table.mask, drawn, table.entries.size());
+        }
         for (const toki::actor::ModelGap& gap : model.gaps) {
             ++gaps[toki::actor::getGapName(gap.kind)];
             if (gap.kind == toki::actor::GapKind::NoProfile) {
@@ -75,6 +89,8 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
                        << displayLists << " display lists only, "
                        << models.size() - skeletons - displayLists
                        << " without a model; gaps: " << described);
+
+    WARN("display lists picked out of a table:" << tables);
 
     INFO("profiles not read: " << unreadProfiles);
     CHECK(unreadProfiles.empty());
@@ -103,18 +119,20 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
     }));
 
     usize params = 0;
-    usize collected = 0;
     usize withParams = 0;
+    std::string collected;
     for (const toki::actor::ActorModel& model : models) {
         params += model.params.size();
         withParams += model.params.empty() ? 0 : 1;
-        collected += static_cast<usize>(
-            std::ranges::count_if(model.params, [](const toki::actor::ActorParam& param) {
-                return param.collection.has_value();
-            }));
+        for (const toki::actor::ActorParam& param : model.params) {
+            if (param.collection) {
+                collected += std::format("\n  {} {} 0x{:04X}: {}", model.actorName, param.name,
+                                         param.mask, *param.collection);
+            }
+        }
     }
-    WARN(params << " params found in " << withParams << " actors, " << collected
-                << " of them choosing from a collection");
+    WARN(params << " params found in " << withParams
+                << " actors, choosing from a collection:" << collected);
 
     const std::vector<toki::actor::ActorParam>& chest = findModel(models, "En_Box").params;
     const auto findParam = [&chest](const std::string_view name) {
@@ -128,7 +146,15 @@ TEST_CASE("every actor of a real checkout is read for how it is drawn", "[actor]
     REQUIRE(findParam("Treasure Flag") != chest.end());
     CHECK(findParam("Treasure Flag")->mask == 0x001F);
 
-    CHECK(hasGap(findModel(models, "Obj_Tsubo"), toki::actor::GapKind::DisplayListNotLiteral));
+    const toki::actor::ActorModel& pot = findModel(models, "Obj_Tsubo");
+    REQUIRE(pot.displayListTables.size() == 1);
+    CHECK(pot.displayListTables.front().mask == 0x0100);
+    CHECK(std::ranges::all_of(
+        pot.displayListTables.front().entries,
+        [](const std::optional<toki::actor::ObjectSymbol>& entry) { return entry.has_value(); }));
+    const toki::actor::ActorModel& lensWalls = findModel(models, "Bg_Haka_Megane");
+    REQUIRE(lensWalls.displayListTables.size() == 1);
+    CHECK(lensWalls.displayListTables.front().entries.size() == 13);
     CHECK(hasGap(findModel(models, "En_Ko"), toki::actor::GapKind::SkeletonNotLiteral));
     CHECK(hasGap(findModel(models, "Player"), toki::actor::GapKind::NoOverlay));
 }

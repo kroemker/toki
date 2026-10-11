@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <utility>
@@ -19,8 +20,17 @@ namespace {
     if (model.skeleton) {
         return model.skeleton->skeleton.object;
     }
-    return model.displayLists.empty() ? std::string()
-                                      : model.displayLists.front().displayList.object;
+    if (!model.displayLists.empty()) {
+        return model.displayLists.front().displayList.object;
+    }
+    for (const DisplayListTable& table : model.displayListTables) {
+        for (const std::optional<ObjectSymbol>& entry : table.entries) {
+            if (entry) {
+                return entry->object;
+            }
+        }
+    }
+    return {};
 }
 
 [[nodiscard]] std::optional<std::string> findOwnObject(const ObjectSymbol& symbol,
@@ -67,6 +77,36 @@ namespace {
     return variant;
 }
 
+[[nodiscard]] std::vector<ActorVariant> makeTableVariants(const ActorModel& model,
+                                                          const std::string& object) {
+    const auto param =
+        std::ranges::find(model.params, model.displayListTables.front().mask, &ActorParam::mask);
+    usize count = 0;
+    for (const DisplayListTable& table : model.displayListTables) {
+        count = std::max(count, table.entries.size());
+    }
+    std::vector<ActorVariant> variants;
+    for (usize i = 0; i < count; ++i) {
+        ActorVariant variant = makeVariant(model, object);
+        const s64 value = static_cast<s64>(i) - model.displayListTables.front().offset;
+        variant.match.push_back(ParamMatch{.param = param->name, .values = {value}});
+        for (const DisplayListTable& table : model.displayListTables) {
+            if (i >= table.entries.size() || !table.entries[i]) {
+                continue;
+            }
+            variant.parts.push_back(ActorPart{
+                .kind = PartKind::DisplayList,
+                .symbol = table.entries[i]->name,
+                .object = findOwnObject(*table.entries[i], object),
+                .segments = listSegments(table.segments, table.pass),
+                .pass = table.pass,
+            });
+        }
+        variants.push_back(std::move(variant));
+    }
+    return variants;
+}
+
 } // namespace
 
 ActorEntry makeGuessedEntry(const ActorModel& model, std::string enumName) {
@@ -82,7 +122,9 @@ ActorEntry makeGuessedEntry(const ActorModel& model, std::string enumName) {
         entry.heightOffset = model.yOffset;
     }
     entry.params = model.params;
-    if (model.hasModel()) {
+    if (!model.displayListTables.empty()) {
+        entry.variants = makeTableVariants(model, object);
+    } else if (model.hasModel()) {
         entry.variants.push_back(makeVariant(model, object));
     }
     return entry;

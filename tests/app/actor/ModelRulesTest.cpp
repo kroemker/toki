@@ -207,3 +207,32 @@ void EnTest_Draw(Actor* thisx, PlayState* play) {
 
     REQUIRE(model.skeleton.has_value());
 }
+
+TEST_CASE("display lists picked out of a table by the params are read entry by entry",
+          "[actor][rules]") {
+    const toki::actor::ActorModel model = readModel(std::string(Profile) + R"(
+static Gfx* sDLists[] = { gTestDL, NULL, gTestGlassDL };
+
+void EnTest_Draw(Actor* thisx, PlayState* play) {
+    EnTest* this = (EnTest*)thisx;
+    Gfx_DrawDListXlu(play, sDLists[PARAMS_GET_U(thisx->params, 4, 2) - 1]);
+    Gfx_DrawDListOpa(play, sDLists[PARAMS_GET_U(thisx->params, 4, 2) - 1]);
+    Gfx_DrawDListOpa(play, sDLists[this->type]);
+}
+)");
+
+    REQUIRE(model.displayLists.empty());
+    REQUIRE(model.displayListTables.size() == 1);
+    const toki::actor::DisplayListTable& table = model.displayListTables.front();
+    REQUIRE(table.table == "sDLists");
+    REQUIRE(table.mask == 0x0030);
+    REQUIRE(table.offset == -1);
+    REQUIRE(table.pass == toki::actor::Pass::Translucent);
+    REQUIRE(table.entries.size() == 3);
+    REQUIRE(table.entries[0]->name == "gTestDL");
+    REQUIRE(table.entries[0]->object == "object_test");
+    REQUIRE_FALSE(table.entries[1].has_value());
+    REQUIRE(table.entries[2]->name == "gTestGlassDL");
+    REQUIRE(hasGap(model, toki::actor::GapKind::DisplayListNotLiteral));
+    REQUIRE(model.hasModel());
+}

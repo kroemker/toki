@@ -2,6 +2,7 @@
 
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorModel.h"
+#include "base/Diagnostic.h"
 #include "cparser/Parser.h"
 #include "cparser/Preprocessor.h"
 #include "cparser/Token.h"
@@ -13,6 +14,14 @@
 #include <vector>
 
 namespace toki::actor {
+
+/// An array the overlay defines with a brace list, at file scope or in a
+/// function, and its elements as written.
+struct ArrayDefinition {
+    std::string_view name;
+    std::vector<std::span<const cparser::Token>> elements;
+    base::SourceLocation location;
+};
 
 /// An overlay's main file, read for what the model rules ask of it: its
 /// functions, its file-scope data, the object symbols its asset headers
@@ -53,6 +62,10 @@ public:
     /// in `within`, as `Draw` keeps its eye textures.
     [[nodiscard]] std::vector<std::span<const cparser::Token>>
     findArrayElements(std::string_view name, const cparser::FunctionDefinition& within) const;
+
+    /// Every array the overlay's own files define with a brace list at file
+    /// scope, then every one its main file's functions define, in source order.
+    [[nodiscard]] std::vector<ArrayDefinition> listArrays() const;
 
     /// A constant expression's value, if every name in it is known.
     [[nodiscard]] std::optional<f64> evaluateNumber(std::span<const cparser::Token> tokens) const;

@@ -1,4 +1,4 @@
-#include "app/actor/domain/GuessedEntry.h"
+﻿#include "app/actor/domain/GuessedEntry.h"
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
@@ -59,4 +59,27 @@ TEST_CASE("guessed display lists keep their passes and segments, and no model is
     REQUIRE(part.segments.front().name == "gTex");
     REQUIRE_FALSE(entry.scale.has_value());
     REQUIRE(empty.variants.empty());
+}
+
+TEST_CASE("display lists picked out of a table are a variant for each entry", "[actor][guess]") {
+    toki::actor::ActorModel model{.actorName = "Bg_Test", .profileObject = "object_test"};
+    model.params = {toki::actor::ActorParam{.name = "Type", .mask = 0x0030}};
+    model.displayListTables = {toki::actor::DisplayListTable{
+        .table = "sDLists",
+        .mask = 0x0030,
+        .offset = -1,
+        .entries = {toki::actor::ObjectSymbol{.name = "gTestDL", .object = "object_test"},
+                    std::nullopt}}};
+
+    const toki::actor::ActorEntry entry = toki::actor::makeGuessedEntry(model, "ACTOR_BG_TEST");
+
+    REQUIRE(entry.variants.size() == 2);
+    REQUIRE(entry.variants[0].match.front().param == "Type");
+    REQUIRE(entry.variants[0].match.front().values.front() ==
+            toki::actor::MatchValue(base::s64{1}));
+    REQUIRE(entry.variants[0].parts.front().symbol == "gTestDL");
+    REQUIRE_FALSE(entry.variants[0].parts.front().object.has_value());
+    REQUIRE(entry.variants[1].match.front().values.front() ==
+            toki::actor::MatchValue(base::s64{2}));
+    REQUIRE(entry.variants[1].parts.empty());
 }

@@ -14,6 +14,8 @@
 
 namespace toki::actor {
 
+class OverlayCode;
+
 /// The values a choice param can take, read from the checkout rather than
 /// written in the actor database, so they follow the checkout: an enumeration
 /// of its headers, `GetItemID`, or one of its ordinal tables, `ActorID`. Each
@@ -50,10 +52,19 @@ struct CollectionsRead {
 [[nodiscard]] CollectionsRead readSharedCollections(const hackeroot::Workspace& workspace);
 
 /// Reads the enumerations `actor`'s overlay headers define, each a collection
-/// named by its tag or typedef, `EnBoxType`. An actor without an overlay has
-/// none.
+/// named by its tag or typedef, `EnBoxType`, and the tables its C defines
+/// (`listTableCollections`). An actor without an overlay has none.
 [[nodiscard]] CollectionsRead readActorCollections(const hackeroot::Workspace& workspace,
                                                    const hackeroot::ActorEntry& actor);
+
+/// The tables `code` defines whose every element is a constant, each a
+/// collection named as the array is, `sGetItemIds`, of its positions labelled
+/// by their constants: `{ GI_RUPEE_GOLD, GI_WALLET_ADULT }` is 0, labelled
+/// `GI_RUPEE_GOLD`, and 1. An element may be a number, labelled as written, or
+/// a named constant with constants added, taken or masked off, labelled by the
+/// first: `NA_SE_EV_WATER_WALL - SFX_FLAG`. A table with no named constant, of
+/// symbols or of structs, is none.
+[[nodiscard]] std::vector<ValueCollection> listTableCollections(const OverlayCode& code);
 
 /// The collection of a name, as an actor sees it, or nothing when there is none.
 using FindCollection = std::function<const ValueCollection*(std::string_view name)>;

@@ -2,8 +2,11 @@
 
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorEntry.h"
+#include "app/actor/domain/OverlayCode.h"
 #include "base/Diagnostic.h"
+#include "cparser/Preprocessor.h"
 #include "cparser/SourceFile.h"
+#include "cparser/Token.h"
 #include "cparser/TypeTable.h"
 #include "hackeroot/OverlayFiles.h"
 #include "hackeroot/Prelude.h"
@@ -12,12 +15,15 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <expected>
 #include <filesystem>
 #include <format>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -37,6 +43,8 @@ constexpr std::array<SharedCollection, 10> SharedCollections{{
     {.name = "SceneID", .header = {}},
     {.name = "EntranceIndex", .header = {}},
 }};
+
+constexpr std::array<std::string_view, 4> EntryOperators{"+", "-", "|", "&"};
 
 constexpr std::array<std::string_view, 3> BoundSuffixes{"_BASE", "_END", "_MAX"};
 
@@ -101,7 +109,114 @@ void listFiles(const hackeroot::Prelude& prelude, CollectionsRead& read) {
     return first.lexically_normal() == second.lexically_normal();
 }
 
+void readEnumerations(const hackeroot::Workspace& workspace, const hackeroot::OverlayFiles& overlay,
+                      CollectionsRead& read) {
+    const std::filesystem::path sources = workspace.getRoot() / "src";
+    std::vector<std::string> includes;
+    for (const std::filesystem::path& header : overlay.headers) {
+        includes.push_back(header.lexically_relative(sources).generic_string());
+    }
+    const hackeroot::Prelude prelude = hackeroot::readPrelude(workspace, includes);
+    listFiles(prelude, read);
+    std::vector<std::string_view> names = prelude.types.listEnumerationNames();
+    std::ranges::sort(names);
+    for (const std::string_view name : names) {
+        const cparser::Enumeration* enumeration = prelude.types.findEnumeration(name);
+        const bool isOwn =
+            std::ranges::any_of(overlay.headers, [&](const std::filesystem::path& header) {
+                return isSameFile(header, enumeration->location.file);
+            });
+        if (isOwn) {
+            read.collections.push_back(makeCollection(name, *enumeration));
+        }
+    }
+}
+
+[[nodiscard]] bool isConstantName(const std::string_view name) {
+    return !name.empty() && std::isdigit(static_cast<unsigned char>(name.front())) == 0 &&
+           std::ranges::any_of(name,
+                               [](const char letter) {
+                                   return std::isupper(static_cast<unsigned char>(letter)) != 0;
+                               }) &&
+           std::ranges::none_of(name, [](const char letter) {
+               return std::islower(static_cast<unsigned char>(letter)) != 0;
+           });
+}
+
+[[nodiscard]] bool isNamedConstant(const cparser::Token& token) {
+    return token.kind == cparser::TokenKind::Identifier && isConstantName(token.text);
+}
+
+[[nodiscard]] bool isConstant(const cparser::Token& token) {
+    return isNamedConstant(token) || token.kind == cparser::TokenKind::Integer;
+}
+
+[[nodiscard]] std::optional<std::string_view>
+findEntryLabel(const std::span<const cparser::Token> element) {
+    if (element.empty() || element.size() % 2 == 0 || !isConstant(element.front())) {
+        return std::nullopt;
+    }
+    for (usize at = 1; at < element.size(); at += 2) {
+        const bool isOperator =
+            std::ranges::any_of(EntryOperators, [&](const std::string_view spelling) {
+                return isPunctuator(element[at], spelling);
+            });
+        if (!isOperator || !isConstant(element[at + 1])) {
+            return std::nullopt;
+        }
+    }
+    return element.front().text;
+}
+
+[[nodiscard]] bool isConstantTable(const ArrayDefinition& array) {
+    return std::ranges::all_of(array.elements,
+                               [](const std::span<const cparser::Token> element) {
+                                   return findEntryLabel(element).has_value();
+                               }) &&
+           std::ranges::any_of(array.elements, [](const std::span<const cparser::Token> element) {
+               return isNamedConstant(element.front());
+           });
+}
+
+void readTables(const hackeroot::Workspace& workspace, const hackeroot::OverlayFiles& overlay,
+                CollectionsRead& read) {
+    for (const std::filesystem::path& file : overlay.getAllFiles()) {
+        if (!std::ranges::contains(read.files, file)) {
+            read.files.push_back(file);
+        }
+    }
+    const std::expected<cparser::TranslationUnit, base::Diagnostic> unit =
+        hackeroot::preprocessOverlay(workspace, overlay);
+    if (!unit) {
+        read.diagnostics.push_back(unit.error());
+        return;
+    }
+    for (ValueCollection& table : listTableCollections(OverlayCode(*unit, overlay.main))) {
+        if (!std::ranges::contains(read.collections, table.name, &ValueCollection::name)) {
+            read.collections.push_back(std::move(table));
+        }
+    }
+}
+
 } // namespace
+
+std::vector<ValueCollection> listTableCollections(const OverlayCode& code) {
+    std::vector<ValueCollection> tables;
+    for (const ArrayDefinition& array : code.listArrays()) {
+        if (!isConstantTable(array) ||
+            std::ranges::contains(tables, array.name, &ValueCollection::name)) {
+            continue;
+        }
+        ValueCollection collection{.name = std::string(array.name)};
+        for (usize i = 0; i < array.elements.size(); ++i) {
+            collection.values.push_back(
+                ChoiceValue{.value = static_cast<s64>(i),
+                            .label = std::string(*findEntryLabel(array.elements[i]))});
+        }
+        tables.push_back(std::move(collection));
+    }
+    return tables;
+}
 
 std::vector<base::Diagnostic> checkCollections(const ActorEntry& entry,
                                                const FindCollection& findCollection) {
@@ -189,28 +304,13 @@ CollectionsRead readActorCollections(const hackeroot::Workspace& workspace,
     CollectionsRead read;
     const std::expected<hackeroot::OverlayFiles, base::Diagnostic> overlay =
         hackeroot::findOverlayFiles(workspace.getRoot(), actor.name);
-    if (!overlay || overlay->headers.empty()) {
+    if (!overlay) {
         return read;
     }
-    const std::filesystem::path sources = workspace.getRoot() / "src";
-    std::vector<std::string> includes;
-    for (const std::filesystem::path& header : overlay->headers) {
-        includes.push_back(header.lexically_relative(sources).generic_string());
+    if (!overlay->headers.empty()) {
+        readEnumerations(workspace, *overlay, read);
     }
-    const hackeroot::Prelude prelude = hackeroot::readPrelude(workspace, includes);
-    listFiles(prelude, read);
-    std::vector<std::string_view> names = prelude.types.listEnumerationNames();
-    std::ranges::sort(names);
-    for (const std::string_view name : names) {
-        const cparser::Enumeration* enumeration = prelude.types.findEnumeration(name);
-        const bool isOwn =
-            std::ranges::any_of(overlay->headers, [&](const std::filesystem::path& header) {
-                return isSameFile(header, enumeration->location.file);
-            });
-        if (isOwn) {
-            read.collections.push_back(makeCollection(name, *enumeration));
-        }
-    }
+    readTables(workspace, *overlay, read);
     return read;
 }
 
