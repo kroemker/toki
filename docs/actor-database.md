@@ -342,10 +342,13 @@ every checkout is seeded from.
 
 - **Better derivation**: a table indexed by params becomes a choice param and a variant per
   entry, for display lists, skeletons, scales and segments; a one-bit param becomes a flag.
-  Toki's ten curated entries are what a derivation is scored against.
+  Toki's ten curated entries are what a derivation is scored against. *Done in part:*
+  tables of constants become choices and tables of display lists variants; one bit is a
+  flag. Skeletons, scales and segments picked by a table are left.
 - **Editing placed actors' params** in the Scene panel, by their params' controls, written
   back to the scene's C.
-- **Choice labels from the C**, where an `enum` or `#define`s match a table's indices.
+- **Choice labels from the C** (done): value collections, from the checkout's enumerations,
+  tables and an actor's own lookup tables.
 - **Object reading made cheaper**, as [Cost](#cost) says.
 - **The rest of Toki's own database**, every vanilla actor.
 
