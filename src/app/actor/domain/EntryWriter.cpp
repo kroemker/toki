@@ -124,6 +124,12 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     if (param.offset != 0) {
         table.insert("offset", makeHex(param.offset));
     }
+    if (param.sceneFlag) {
+        table.insert("scene_flag", std::string(getEntryName(SceneFlagNames, *param.sceneFlag)));
+        if (param.flagUse != FlagUse::Reads) {
+            table.insert("flag_use", std::string(getEntryName(FlagUseNames, param.flagUse)));
+        }
+    }
     insertText(table, "description", param.description);
     return table;
 }

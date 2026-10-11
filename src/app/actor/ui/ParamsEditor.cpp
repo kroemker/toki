@@ -179,9 +179,13 @@ bool ParamsEditor::drawList(ActorEntry& entry, const std::span<const std::string
         ImGui::PushID(static_cast<int>(i));
         ImGui::ColorButton("##color", findParamColor(i), ImGuiColorEditFlags_NoTooltip);
         ImGui::SameLine();
-        const std::string label = std::format("{}  ·  {}, {}", entry.params[i].name,
-                                              getEntryLabel(ParamKindNames, entry.params[i].kind),
-                                              describeBits(entry.params[i]));
+        const ActorParam& param = entry.params[i];
+        const std::string kind =
+            param.sceneFlag
+                ? std::format("{} flag", getEntryLabel(SceneFlagNames, *param.sceneFlag))
+                : std::string(getEntryLabel(ParamKindNames, param.kind));
+        const std::string label =
+            std::format("{}  ·  {}, {}", param.name, kind, describeBits(param));
         if (ImGui::Selectable(label.c_str(), selectedIndex == i,
                               ImGuiSelectableFlags_AllowOverlap)) {
             select(entry, selectedIndex == i ? std::nullopt : std::optional(i));
@@ -261,6 +265,13 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
         isChanged = ImGui::Checkbox("Signed", &param.isSigned) || isChanged;
         ImGui::SameLine();
         isChanged = ImGui::Checkbox("Hexadecimal", &param.isHex) || isChanged;
+        isChanged =
+            editOptionalName("Scene flag", param.sceneFlag, SceneFlagNames, "None") || isChanged;
+        ImGui::SetItemTooltip("The flag of the scene the number is, which the Scene panel "
+                              "links to the other actors that use it");
+        if (param.sceneFlag) {
+            isChanged = editName("Use", param.flagUse, FlagUseNames) || isChanged;
+        }
     }
     isChanged = editText("Description", param.description) || isChanged;
     endProperties();

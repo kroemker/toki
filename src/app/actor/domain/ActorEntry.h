@@ -29,6 +29,22 @@ enum class ParamSource : u8 {
     RotationZ,
 };
 
+/// The flags of a scene the game keeps for its actors, numbered within the
+/// scene: a switch pressed, a chest opened, a collectible taken, a room cleared.
+enum class SceneFlag : u8 {
+    Switch,
+    Treasure,
+    Collectible,
+    Clear,
+};
+
+/// Whether an actor reads the scene flag a param names, sets it, or both.
+enum class FlagUse : u8 {
+    Reads,
+    Sets,
+    Both,
+};
+
 /// One value a choice param may be, and what it is called.
 struct ChoiceValue {
     s64 value = 0;
@@ -39,7 +55,8 @@ struct ChoiceValue {
 /// mask, whose bits are adjacent. A choice's values are listed in `values`, or
 /// taken from the checkout's `collection` of that name, `GetItemID`; `offset`
 /// is added to the param's value before it is looked up among them, as a sign
-/// adds 0x300 to its message.
+/// adds 0x300 to its message. A number may be the scene flag of `sceneFlag`
+/// that the actor uses as `flagUse` says.
 struct ActorParam {
     std::string name;
     ParamKind kind = ParamKind::Number;
@@ -50,6 +67,8 @@ struct ActorParam {
     std::vector<ChoiceValue> values;
     std::optional<std::string> collection;
     s64 offset = 0;
+    std::optional<SceneFlag> sceneFlag;
+    FlagUse flagUse = FlagUse::Reads;
     std::string description;
     base::SourceLocation location;
 };

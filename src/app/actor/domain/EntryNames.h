@@ -32,6 +32,19 @@ inline constexpr std::array ParamSourceNames = {
     EntryName<ParamSource>{ParamSource::RotationZ, "rotation_z", "Rotation Z"},
 };
 
+inline constexpr std::array SceneFlagNames = {
+    EntryName<SceneFlag>{SceneFlag::Switch, "switch", "Switch"},
+    EntryName<SceneFlag>{SceneFlag::Treasure, "treasure", "Treasure"},
+    EntryName<SceneFlag>{SceneFlag::Collectible, "collectible", "Collectible"},
+    EntryName<SceneFlag>{SceneFlag::Clear, "clear", "Clear"},
+};
+
+inline constexpr std::array FlagUseNames = {
+    EntryName<FlagUse>{FlagUse::Reads, "reads", "Reads it"},
+    EntryName<FlagUse>{FlagUse::Sets, "sets", "Sets it"},
+    EntryName<FlagUse>{FlagUse::Both, "both", "Reads and sets it"},
+};
+
 inline constexpr std::array PassNames = {
     EntryName<Pass>{Pass::Opaque, "opaque", "Opaque"},
     EntryName<Pass>{Pass::Translucent, "translucent", "Translucent"},

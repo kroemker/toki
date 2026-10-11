@@ -132,11 +132,13 @@ rotation, which some actors read more params from. Its name is free text, as peo
 | `values` | for a choice, each number it may be and the label shown for it; or the name of a collection of the checkout to take them from, `"GetItemID"` (see below) |
 | `offset` | added to the param's value before it is looked up among its values, as a sign adds `0x300` to its message |
 | `signed`, `hex` | a number read as signed, or shown in hexadecimal |
+| `scene_flag` | a number that is a flag of the scene: `switch`, `treasure`, `collectible` or `clear` |
+| `flag_use` | whether the actor `reads` the scene flag (left out), `sets` it, or does `both` |
 | `description` | a line on what it is for |
 
 A mask whose bits are not adjacent, two params of one source that share a bit, a choice
-value that does not fit the mask, and a param named `age` or `scene` are each a warning
-naming the actor and the param.
+value that does not fit the mask, a scene flag on anything but a number, and a param named
+`age` or `scene` are each a warning naming the actor and the param.
 
 ### Value collections
 
@@ -330,7 +332,9 @@ every checkout is seeded from.
 - **Parts**, each self-contained, in place of display list keys and steps; a skeleton is
   posed at the first frame of an animation, never played.
 - **Left out**: animation playback, limb drawing, shadows, spawn conditions, lights,
-  collision, text IDs, roles of params, descriptions of entries.
+  collision, text IDs, roles of params other than scene flags, descriptions of entries.
+- **Scene flags** are the one role a param has, since what links actors to each other in a
+  scene is mostly the flags they share: a switch and the door it opens.
 - **Variants edited as cards** of a condition, the parts and the children, each a row that
   opens in place, rather than as a text language, as nested forms or as sentences of
   tokens, which read well but wrapped badly once names grew long.

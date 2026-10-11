@@ -158,6 +158,15 @@ ActorParam DatabaseReader::readParam(const std::string_view name, const toml::ta
     param.isHex = readBool(table, "hex", path).value_or(false);
     param.description = readString(table, "description", path).value_or("");
     param.offset = readInteger(table, "offset", path).value_or(0);
+    param.sceneFlag = readName(table, "scene_flag", path, SceneFlagNames);
+    if (const std::optional<FlagUse> use = readName(table, "flag_use", path, FlagUseNames)) {
+        param.flagUse = *use;
+        if (!param.sceneFlag) {
+            report(table, makePath(path, "flag_use"),
+                   "says how a scene flag is used, so it "
+                   "needs a scene_flag");
+        }
+    }
     if (const toml::node* values = table.get("values")) {
         if (const toml::table* listed = values->as_table()) {
             param.values = readChoices(*listed, makePath(path, "values"));

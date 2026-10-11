@@ -71,6 +71,9 @@ void EntryChecker::checkParam(const ActorParam& param) {
     if (param.kind != ParamKind::Choice && param.collection) {
         report(param.location, path, "only a choice takes its values from a collection");
     }
+    if (param.sceneFlag && param.kind != ParamKind::Number) {
+        report(param.location, path, "only a number is a scene flag");
+    }
     const s64 lowest = param.isSigned ? -(s64{1} << (width - 1)) : 0;
     const s64 highest = param.isSigned ? (s64{1} << (width - 1)) - 1 : (s64{1} << width) - 1;
     std::set<s64> seen;

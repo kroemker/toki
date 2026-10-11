@@ -395,3 +395,29 @@ TEST_CASE("a choice may take its values from a collection, after an offset", "[a
     REQUIRE(again.diagnostics.empty());
     REQUIRE(again.entries.at("ACTOR_EN_KANBAN").params[0].offset == 0x300);
 }
+
+TEST_CASE("a number may be a scene flag the actor reads, sets or both", "[actor][database]") {
+    const toki::actor::ActorDatabase read = toki::actor::parseActorDatabase(R"(format = 2
+[actors.ACTOR_EN_BOX.params]
+"Chest Flag" = { mask = 0x001F, kind = "number", scene_flag = "treasure", flag_use = "both" }
+"Switch Flag" = { mask = 0x0FC0, kind = "number", scene_flag = "switch" }
+"Lit" = { mask = 0x1000, kind = "flag", scene_flag = "switch" }
+"Loose" = { mask = 0x2000, kind = "flag", flag_use = "sets" }
+)",
+                                                                            "actors.toml");
+
+    REQUIRE(isReported(read, "params.Lit: only a number is a scene flag"));
+    REQUIRE(isReported(read, "params.Loose.flag_use: says how a scene flag is used"));
+    const std::vector<toki::actor::ActorParam>& params = read.entries.at("ACTOR_EN_BOX").params;
+    REQUIRE(params[0].sceneFlag == toki::actor::SceneFlag::Treasure);
+    REQUIRE(params[0].flagUse == toki::actor::FlagUse::Both);
+    REQUIRE(params[1].sceneFlag == toki::actor::SceneFlag::Switch);
+    REQUIRE(params[1].flagUse == toki::actor::FlagUse::Reads);
+
+    const std::string written = toki::actor::formatActorDatabase(read);
+    REQUIRE(written.contains("scene_flag = 'treasure'"));
+    REQUIRE(written.contains("flag_use = 'both'"));
+    const toki::actor::ActorDatabase again = toki::actor::parseActorDatabase(written, "again.toml");
+    REQUIRE(again.entries.at("ACTOR_EN_BOX").params[1].sceneFlag == toki::actor::SceneFlag::Switch);
+    REQUIRE(again.entries.at("ACTOR_EN_BOX").params[1].flagUse == toki::actor::FlagUse::Reads);
+}
