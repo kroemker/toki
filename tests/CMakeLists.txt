@@ -31,6 +31,7 @@ add_executable(toki_tests
         app/scene/SceneLoaderTest.cpp
         app/scene/SceneViewTest.cpp
         app/viewport/ViewportFrameTest.cpp
+        app/viewport/ViewportOverlayTest.cpp
         app/workspace/WorkspaceServiceTest.cpp
         cparser/AddressTest.cpp
         cparser/CallsTest.cpp

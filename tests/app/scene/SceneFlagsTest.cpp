@@ -72,3 +72,25 @@ TEST_CASE("switch and collectible flags from 0x20 are reset on leaving the scene
     REQUIRE_FALSE(toki::scene::findFlagNumber(wide, {.params = 0x0040}).has_value());
     REQUIRE_FALSE(toki::scene::findFlagNumber(wide, {.params = 0x007F}).has_value());
 }
+
+TEST_CASE("a flag links each actor that sets it to each that reads it", "[scene][flags]") {
+    toki::scene::SceneFlagUse flag{.users = {{.use = toki::actor::FlagUse::Reads},
+                                             {.use = toki::actor::FlagUse::Sets},
+                                             {.use = toki::actor::FlagUse::Reads},
+                                             {.use = toki::actor::FlagUse::Both}}};
+
+    const std::vector<toki::scene::FlagLink> links = toki::scene::listFlagLinks(flag);
+
+    REQUIRE(links.size() == 5);
+    REQUIRE(links[0].setter == 1);
+    REQUIRE(links[0].reader == 0);
+    REQUIRE_FALSE(links[0].isMutual);
+    REQUIRE(links[3].setter == 1);
+    REQUIRE(links[3].reader == 3);
+    REQUIRE(links[4].setter == 3);
+    REQUIRE(links[4].reader == 2);
+    const toki::scene::SceneFlagUse both{
+        .users = {{.use = toki::actor::FlagUse::Both}, {.use = toki::actor::FlagUse::Both}}};
+    REQUIRE(toki::scene::listFlagLinks(both).size() == 1);
+    REQUIRE(toki::scene::listFlagLinks(both).front().isMutual);
+}

@@ -34,6 +34,18 @@ struct SceneFlagUse {
     [[nodiscard]] bool isRead() const;
 };
 
+/// Two users of one flag, by their place in its list, the first setting what the
+/// second reads, and whether the second sets what the first reads as well.
+struct FlagLink {
+    usize setter = 0;
+    usize reader = 0;
+    bool isMutual = false;
+};
+
+/// Every pair of `flag`'s users of which one sets the flag and the other reads
+/// it, each pair once.
+[[nodiscard]] std::vector<FlagLink> listFlagLinks(const SceneFlagUse& flag);
+
 /// How many flags of `kind` a scene has: 64 switch and collectible flags, 32
 /// treasure and clear flags.
 [[nodiscard]] s64 getSceneFlagCount(actor::SceneFlag kind);

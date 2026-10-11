@@ -43,6 +43,7 @@ public:
         scene.reset();
         sceneView = {};
         pendingSession.reset();
+        viewportPanel.setOverlay({});
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing
@@ -67,7 +68,8 @@ private:
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
-    void drawFlags(const SceneLayer& layer);
+    void drawFlags(const std::vector<SceneFlagUse>& flags);
+    void drawFlagLinks(const std::vector<SceneFlagUse>& flags);
     void drawFlagUser(const FlagUser& user);
     /// One placed actor's row; true when it was clicked.
     bool drawActor(s16 actorId, const std::array<s16, 3>& position,
@@ -87,6 +89,8 @@ private:
     std::optional<Scene> scene;
     SceneView sceneView;
     std::optional<core::SceneSession> pendingSession;
+    bool showsFlagLinks = true;
+    std::optional<std::pair<actor::SceneFlag, s64>> hoveredFlag;
 };
 
 } // namespace toki::scene

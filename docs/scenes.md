@@ -115,6 +115,14 @@ flag at its param's highest value means none, as actors take it, and is left out
 read but set by no actor here says so, since a cutscene, another scene or the player may set
 it. Choosing an actor turns the camera to it.
 
+The viewport links them: a line from each actor that sets a flag to each that reads it,
+headed at the reader, and at both ends when each does both (`listFlagLinks`), coloured by
+kind and raised a little above the placements. Hovering a flag in the list dims every other
+flag's lines. They are drawn over the image with ImGui (`ViewportOverlay`), not through the
+renderer: F3DEX2 has no line, and a link has to be seen through the wall between a switch
+and its door. A line passing behind the camera is cut at it (`projectSegment`). Actors in
+hidden rooms are not linked, and a checkbox hides the lines.
+
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
 view and the camera, and opened again once the checkout has been read. The layer is saved as
 the game's layer number rather than a position in the scene's list, so it means the same

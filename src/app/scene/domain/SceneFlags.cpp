@@ -61,6 +61,29 @@ bool SceneFlagUse::isRead() const {
         users, [](const FlagUser& user) { return user.use != actor::FlagUse::Sets; });
 }
 
+std::vector<FlagLink> listFlagLinks(const SceneFlagUse& flag) {
+    const auto isSetter = [&flag](const usize i) {
+        return flag.users[i].use != actor::FlagUse::Reads;
+    };
+    const auto isReader = [&flag](const usize i) {
+        return flag.users[i].use != actor::FlagUse::Sets;
+    };
+    std::vector<FlagLink> links;
+    for (usize first = 0; first < flag.users.size(); ++first) {
+        for (usize second = first + 1; second < flag.users.size(); ++second) {
+            const bool isForward = isSetter(first) && isReader(second);
+            const bool isBackward = isSetter(second) && isReader(first);
+            if (!isForward && !isBackward) {
+                continue;
+            }
+            links.push_back(FlagLink{.setter = isForward ? first : second,
+                                     .reader = isForward ? second : first,
+                                     .isMutual = isForward && isBackward});
+        }
+    }
+    return links;
+}
+
 s64 getSceneFlagCount(const actor::SceneFlag kind) {
     return kind == actor::SceneFlag::Switch || kind == actor::SceneFlag::Collectible ? 0x40 : 0x20;
 }

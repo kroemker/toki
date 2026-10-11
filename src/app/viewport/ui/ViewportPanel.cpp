@@ -9,6 +9,7 @@
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ReferenceGrid.h"
 #include "app/viewport/domain/ViewportFrame.h"
+#include "app/viewport/domain/ViewportOverlay.h"
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/DrawBatches.h"
@@ -16,6 +17,8 @@
 #include "gfx/Renderer.h"
 
 #include <SDL3/SDL_gpu.h>
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
 
@@ -32,6 +35,26 @@
 namespace toki::viewport {
 
 namespace {
+
+constexpr float OverlayThickness = 2.0F;
+constexpr float ArrowLength = 11.0F;
+constexpr float ArrowWidth = 5.0F;
+constexpr float ArrowGap = 9.0F;
+
+void drawArrowHead(ImDrawList& drawList, const ImVec2 from, const ImVec2 to, const u32 color) {
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    const float length = std::sqrt((dx * dx) + (dy * dy));
+    if (length < ArrowLength + ArrowGap) {
+        return;
+    }
+    const ImVec2 direction{dx / length, dy / length};
+    const ImVec2 tip{to.x - (direction.x * ArrowGap), to.y - (direction.y * ArrowGap)};
+    const ImVec2 base{tip.x - (direction.x * ArrowLength), tip.y - (direction.y * ArrowLength)};
+    const ImVec2 side{-direction.y * ArrowWidth, direction.x * ArrowWidth};
+    drawList.AddTriangleFilled(tip, ImVec2(base.x + side.x, base.y + side.y),
+                               ImVec2(base.x - side.x, base.y - side.y), color);
+}
 
 constexpr f32 DegreesPerPoint = 0.4F;
 constexpr usize ReportedDiagnostics = 8;
@@ -126,6 +149,9 @@ void ViewportPanel::draw() {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     const auto texture = static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(color));
     drawList->AddImage(texture, origin, end);
+    drawList->PushClipRect(origin, end, true);
+    drawOverlay(*drawList, origin, size);
+    drawList->PopClipRect();
     ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
     if (readingName) {
         const std::string note = std::format("Reading {}…", *readingName);
@@ -135,6 +161,32 @@ void ViewportPanel::draw() {
     if (diagnosticCount > 0) {
         const std::string note = std::format("{} diagnostics, see the log", diagnosticCount);
         drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::Warning), note.c_str());
+    }
+}
+
+void ViewportPanel::drawOverlay(ImDrawList& drawList, const ImVec2 origin,
+                                const ImVec2 size) const {
+    if (viewportOverlay.lines.empty()) {
+        return;
+    }
+    const f32 zFar = viewportContent.lighting ? viewportContent.lighting->zFar : OrbitCamera::Far;
+    const glm::mat4 viewProjection =
+        OrbitCamera::makeProjectionMatrix(size.x / size.y, zFar) * orbitCamera.makeViewMatrix();
+    for (const OverlayLine& line : viewportOverlay.lines) {
+        const std::optional<ScreenSegment> segment =
+            projectSegment(viewProjection, line.from, line.to, glm::vec2(size.x, size.y));
+        if (!segment) {
+            continue;
+        }
+        const ImVec2 from{origin.x + segment->from.x, origin.y + segment->from.y};
+        const ImVec2 to{origin.x + segment->to.x, origin.y + segment->to.y};
+        drawList.AddLine(from, to, line.color, OverlayThickness);
+        if (line.hasArrowAtTo && segment->isToWhole) {
+            drawArrowHead(drawList, from, to, line.color);
+        }
+        if (line.hasArrowAtFrom && segment->isFromWhole) {
+            drawArrowHead(drawList, to, from, line.color);
+        }
     }
 }
 

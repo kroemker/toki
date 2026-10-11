@@ -5,6 +5,7 @@
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ViewportFrame.h"
+#include "app/viewport/domain/ViewportOverlay.h"
 #include "gfx/Device.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
@@ -59,6 +60,11 @@ public:
         stale = true;
     }
 
+    /// Replaces what is drawn over the image, on top of everything.
+    void setOverlay(ViewportOverlay overlay) {
+        viewportOverlay = std::move(overlay);
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -70,6 +76,7 @@ public:
 private:
     [[nodiscard]] bool handleInput(ImVec2 size);
     void render(const gfx::RenderTarget& target);
+    void drawOverlay(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
 
     const gfx::Device& device;
     std::optional<gfx::Renderer> renderer;
@@ -78,6 +85,7 @@ private:
     std::optional<std::string> readingName;
     OrbitCamera orbitCamera;
     ViewportContent viewportContent;
+    ViewportOverlay viewportOverlay;
     bool stale = true;
     bool reported = false;
     usize diagnosticCount = 0;

@@ -15,6 +15,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Tables.h"
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
@@ -35,6 +37,23 @@
 namespace toki::scene {
 
 namespace {
+
+constexpr float DimmedLinkAlpha = 0.2F;
+constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
+
+[[nodiscard]] ImVec4 findFlagColor(const actor::SceneFlag kind) {
+    switch (kind) {
+    case actor::SceneFlag::Switch:
+        return core::palette::Warning;
+    case actor::SceneFlag::Treasure:
+        return ImVec4(1.0F, 0.6F, 0.25F, 1.0F);
+    case actor::SceneFlag::Collectible:
+        return core::palette::Success;
+    case actor::SceneFlag::Clear:
+        return core::palette::Danger;
+    }
+    return core::palette::Text;
+}
 
 [[nodiscard]] glm::vec3 makePoint(const std::array<s16, 3>& position) {
     return {position[0], position[1], position[2]};
@@ -118,7 +137,9 @@ void ScenePanel::draw() {
     const SceneLayer& layer = shown.layers[sceneView.layer];
     drawRooms(layer);
     drawPlacements(layer);
-    drawFlags(layer);
+    const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
+    drawFlags(flags);
+    drawFlagLinks(flags);
 }
 
 void ScenePanel::drawPickers(const Scene& shown) {
@@ -313,12 +334,15 @@ void ScenePanel::drawActorMenu(const SceneActorModel& model,
     }
 }
 
-void ScenePanel::drawFlags(const SceneLayer& layer) {
-    const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
+void ScenePanel::drawFlags(const std::vector<SceneFlagUse>& flags) {
+    hoveredFlag.reset();
     const std::string title = std::format("Flags ({})###flags", flags.size());
     if (!ImGui::CollapsingHeader(title.c_str())) {
         return;
     }
+    ImGui::Checkbox("Show links in the viewport", &showsFlagLinks);
+    ImGui::SetItemTooltip("A line from each actor that sets a flag to each that reads it; "
+                          "hover a flag to see only its own");
     if (flags.empty()) {
         ImGui::TextColored(core::palette::TextMuted,
                            "No placed actor's entry names a scene flag in its params.");
@@ -332,6 +356,9 @@ void ScenePanel::drawFlags(const SceneLayer& layer) {
             flag.number, isSavedSceneFlag(flag.kind, flag.number) ? "saved" : "reset on leaving",
             flag.users.size(), flag.users.size() == 1 ? "actor" : "actors");
         const bool isOpen = ImGui::TreeNode("##flag", "%s", label.c_str());
+        if (ImGui::IsItemHovered()) {
+            hoveredFlag = std::pair(flag.kind, flag.number);
+        }
         if (!flag.isSet() || !flag.isRead()) {
             ImGui::SameLine();
             ImGui::TextColored(core::palette::TextMuted, "%s",
@@ -345,6 +372,9 @@ void ScenePanel::drawFlags(const SceneLayer& layer) {
             for (usize i = 0; i < flag.users.size(); ++i) {
                 ImGui::PushID(static_cast<int>(i));
                 drawFlagUser(flag.users[i]);
+                if (ImGui::IsItemHovered()) {
+                    hoveredFlag = std::pair(flag.kind, flag.number);
+                }
                 ImGui::PopID();
             }
             ImGui::TreePop();
@@ -378,6 +408,34 @@ void ScenePanel::drawFlagUser(const FlagUser& user) {
         viewportPanel.focus(makePoint(user.position));
     }
     ImGui::SetItemTooltip("By its param \"%s\"", user.param.c_str());
+}
+
+void ScenePanel::drawFlagLinks(const std::vector<SceneFlagUse>& flags) {
+    viewport::ViewportOverlay overlay;
+    if (!showsFlagLinks || !sceneView.showsActors) {
+        viewportPanel.setOverlay(std::move(overlay));
+        return;
+    }
+    const auto isShown = [this](const FlagUser& user) {
+        return !user.room || *user.room >= sceneView.hiddenRooms.size() ||
+               !sceneView.hiddenRooms[*user.room];
+    };
+    for (const SceneFlagUse& flag : flags) {
+        SceneFlagUse shown{.kind = flag.kind, .number = flag.number};
+        std::ranges::copy_if(flag.users, std::back_inserter(shown.users), isShown);
+        const bool isDimmed = hoveredFlag && *hoveredFlag != std::pair(flag.kind, flag.number);
+        ImVec4 color = findFlagColor(flag.kind);
+        color.w = isDimmed ? DimmedLinkAlpha : 1.0F;
+        for (const FlagLink& link : listFlagLinks(shown)) {
+            overlay.lines.push_back(viewport::OverlayLine{
+                .from = makePoint(shown.users[link.setter].position) + LinkLift,
+                .to = makePoint(shown.users[link.reader].position) + LinkLift,
+                .color = ImGui::GetColorU32(color),
+                .hasArrowAtFrom = link.isMutual,
+                .hasArrowAtTo = true});
+        }
+    }
+    viewportPanel.setOverlay(std::move(overlay));
 }
 
 std::string ScenePanel::findActorName(const s16 actorId) const {
