@@ -7,6 +7,7 @@ target_sources(toki_core PRIVATE
         Scene.cpp
         SceneActorLoader.cpp
         SceneActors.cpp
+        SceneFlags.cpp
         SceneHeader.cpp
         SceneLoader.cpp
         SceneView.cpp)

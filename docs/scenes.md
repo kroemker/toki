@@ -107,6 +107,14 @@ from the checkout's actor table, with how each is drawn. Choosing an actor
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
+Its Flags section lists every scene flag the layer's placed actors use, by the params their
+entries mark as one ([actor-database.md](actor-database.md)), in the rooms and between them
+(`listSceneFlags`): each flag by kind and number, whether it is saved or reset when the
+scene is left, and the actors that read or set it, those more than one actor uses first. A
+flag at its param's highest value means none, as actors take it, and is left out. A flag
+read but set by no actor here says so, since a cutscene, another scene or the player may set
+it. Choosing an actor turns the camera to it.
+
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
 view and the camera, and opened again once the checkout has been read. The layer is saved as
 the game's layer number rather than a position in the scene's list, so it means the same

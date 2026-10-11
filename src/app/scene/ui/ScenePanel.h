@@ -8,6 +8,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -22,7 +23,7 @@
 namespace toki::scene {
 
 /// The open scene: which of its layers and light settings the viewport shows,
-/// which rooms, and what is placed in them.
+/// which rooms, what is placed in them, and the scene flags its actors share.
 class ScenePanel : public core::Panel {
 public:
     ScenePanel(const workspace::WorkspaceService& workspaceService,
@@ -66,6 +67,8 @@ private:
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
+    void drawFlags(const SceneLayer& layer);
+    void drawFlagUser(const FlagUser& user);
     /// One placed actor's row; true when it was clicked.
     bool drawActor(s16 actorId, const std::array<s16, 3>& position,
                    const actor::PlacementValues& placement, const char* label,

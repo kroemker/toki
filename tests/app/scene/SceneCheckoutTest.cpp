@@ -1,6 +1,8 @@
 #include "app/actor/domain/ActorDatabaseFile.h"
+#include "app/actor/domain/Derivation.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
+#include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/domain/OrbitCamera.h"
@@ -17,10 +19,12 @@
 #include <algorithm>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <map>
 #include <memory>
 #include <optional>
 #include <ranges>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -159,4 +163,39 @@ TEST_CASE("how long a scene's actors take to read", "[.measure][scene][checkout]
                              << " ms objects), " << drawn << " of " << actors.models.size()
                              << " drawn, " << actors.objects.size() << " objects");
     }
+}
+
+TEST_CASE("a dungeon's actors share the switch flags their derived entries name",
+          "[scene][flags][checkout]") {
+    std::optional<hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto shared = std::make_shared<const hackeroot::Workspace>(std::move(*workspace));
+    const auto& scenes = shared->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("ydan"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(shared);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    const std::optional<toki::actor::ActorDatabase> database = toki::actor::makeSeededDatabase(
+        *shared, toki::actor::ActorDatabase{}, std::stop_token{}, [](usize, usize) {});
+    REQUIRE(database.has_value());
+    const toki::scene::SceneActors actors =
+        toki::scene::readSceneActors(reader, asset->name, scene.layers, *database);
+
+    const std::vector<toki::scene::SceneFlagUse> flags =
+        toki::scene::listSceneFlags(scene.layers.front(), actors);
+    std::string described;
+    for (const toki::scene::SceneFlagUse& flag : flags) {
+        described += std::format("\n  {} 0x{:02X}:", static_cast<int>(flag.kind), flag.number);
+        for (const toki::scene::FlagUser& user : flag.users) {
+            described += std::format(" {} ({})", actors.models.at(user.actorId).enumName,
+                                     static_cast<int>(user.use));
+        }
+    }
+    WARN("ydan's flags:" << described);
+    CHECK(std::ranges::any_of(flags, [](const toki::scene::SceneFlagUse& flag) {
+        return flag.isSet() && flag.isRead() && flag.users.size() > 1;
+    }));
 }

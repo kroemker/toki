@@ -2,6 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/DatabaseEdits.h"
+#include "app/actor/domain/EntryNames.h"
 #include "app/actor/domain/ParamReading.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
@@ -11,6 +12,7 @@
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
+#include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -116,6 +118,7 @@ void ScenePanel::draw() {
     const SceneLayer& layer = shown.layers[sceneView.layer];
     drawRooms(layer);
     drawPlacements(layer);
+    drawFlags(layer);
 }
 
 void ScenePanel::drawPickers(const Scene& shown) {
@@ -308,6 +311,73 @@ void ScenePanel::drawActorMenu(const SceneActorModel& model,
     if (ImGui::MenuItem("Edit in the Actor Database", nullptr, false, openActorEditor != nullptr)) {
         openActorEditor(model.enumName);
     }
+}
+
+void ScenePanel::drawFlags(const SceneLayer& layer) {
+    const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
+    const std::string title = std::format("Flags ({})###flags", flags.size());
+    if (!ImGui::CollapsingHeader(title.c_str())) {
+        return;
+    }
+    if (flags.empty()) {
+        ImGui::TextColored(core::palette::TextMuted,
+                           "No placed actor's entry names a scene flag in its params.");
+        return;
+    }
+    for (const SceneFlagUse& flag : flags) {
+        ImGui::PushID(static_cast<int>(flag.kind));
+        ImGui::PushID(static_cast<int>(flag.number));
+        const std::string label = std::format(
+            "{} 0x{:02X}  ·  {}  ·  {} {}", actor::getEntryLabel(actor::SceneFlagNames, flag.kind),
+            flag.number, isSavedSceneFlag(flag.kind, flag.number) ? "saved" : "reset on leaving",
+            flag.users.size(), flag.users.size() == 1 ? "actor" : "actors");
+        const bool isOpen = ImGui::TreeNode("##flag", "%s", label.c_str());
+        if (!flag.isSet() || !flag.isRead()) {
+            ImGui::SameLine();
+            ImGui::TextColored(core::palette::TextMuted, "%s",
+                               flag.isSet() ? "read by none here" : "set elsewhere");
+            ImGui::SetItemTooltip("%s", flag.isSet()
+                                            ? "No actor placed in this layer reads it"
+                                            : "Set by no actor placed in this layer: by a "
+                                              "cutscene, another scene or the player, perhaps");
+        }
+        if (isOpen) {
+            for (usize i = 0; i < flag.users.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                drawFlagUser(flag.users[i]);
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+        ImGui::PopID();
+    }
+}
+
+void ScenePanel::drawFlagUser(const FlagUser& user) {
+    const char* icon = core::icons::Eye;
+    if (user.use == actor::FlagUse::Sets) {
+        icon = core::icons::Lightning;
+    } else if (user.use == actor::FlagUse::Both) {
+        icon = core::icons::ArrowsLeftRight;
+    }
+    ImGui::TextColored(user.use == actor::FlagUse::Reads ? core::palette::TextMuted
+                                                         : core::palette::Warning,
+                       "%s", icon);
+    ImGui::SameLine();
+    const auto model = scene->actors.models.find(user.actorId);
+    const std::string name = model != scene->actors.models.end() && model->second.entry &&
+                                     !model->second.entry->name.empty()
+                                 ? model->second.entry->name
+                                 : findActorName(user.actorId);
+    const std::string where =
+        user.room ? std::format("room {}", *user.room) : std::string("between rooms");
+    const std::string text = std::format(
+        "{}  ·  {}, {}", name, actor::getEntryLabel(actor::FlagUseNames, user.use), where);
+    if (ImGui::Selectable(text.c_str())) {
+        viewportPanel.focus(makePoint(user.position));
+    }
+    ImGui::SetItemTooltip("By its param \"%s\"", user.param.c_str());
 }
 
 std::string ScenePanel::findActorName(const s16 actorId) const {
