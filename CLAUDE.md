@@ -106,6 +106,7 @@ src/
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
+    displayList/ ui/ = display list panel   domain/ = a traced frame read into commands, names and RDP state
     actor/     ui/ = actor database panel   domain/ = the actor database, deriving entries from an overlay's C
     scene/  object/  texture/  message/  audio/          each: ui/ + domain/
     tools/
@@ -278,6 +279,10 @@ listed below is only what no change may break.
     the second time.
   - Nothing is written over a file that changed since the plan read it.
   - What a tool adds goes into a `// Toki64 <what> — managed block`.
+- **[The display list viewer](docs/display-list-viewer.md)** — how the commands the viewport's
+  frame ran are shown, explained and tied back to what they drew.
+  - What is shown is what the RSP ran, from its trace, never what the C says.
+  - The viewport traces only while the panel is open.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only
