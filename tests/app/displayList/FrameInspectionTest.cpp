@@ -98,4 +98,6 @@ TEST_CASE("a traced frame reads as its commands, named by the content's symbols"
     }
     REQUIRE(inspection.listScreenTriangles(callRow).size() == 1);
     REQUIRE(inspection.listScreenTriangles(*vertex).empty());
+    REQUIRE(inspection.findSymbolRun("gTestDL") == callRow + 1);
+    REQUIRE_FALSE(inspection.findSymbolRun("gTestVtx"));
 }

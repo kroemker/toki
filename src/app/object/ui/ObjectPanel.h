@@ -9,7 +9,10 @@
 #include "app/texture/ui/TexturePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 
+#include <functional>
 #include <optional>
+#include <string>
+#include <utility>
 
 namespace toki::object {
 
@@ -27,6 +30,11 @@ public:
 
     /// Forgets the open object, when something else takes the viewport.
     void clearObject();
+
+    /// What "Inspect in Display List" opens a display list with, by its name.
+    void setDisplayListInspector(std::function<void(const std::string&)> inspector) {
+        inspectDisplayList = std::move(inspector);
+    }
 
     void draw() override;
 
@@ -48,6 +56,7 @@ private:
     bool isPlaying = false;
     f32 frameTime = 0.0F;
     f32 playbackSpeed = 1.0F;
+    std::function<void(const std::string&)> inspectDisplayList;
 };
 
 } // namespace toki::object

@@ -61,12 +61,18 @@ public:
         openActorEditor = std::move(editor);
     }
 
+    /// What "Inspect in Display List" opens a room's mesh with, by its name.
+    void setDisplayListInspector(std::function<void(const std::string&)> inspector) {
+        inspectDisplayList = std::move(inspector);
+    }
+
     void draw() override;
 
 private:
     void showScene();
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
+    void drawRoomMenu(usize room, const RoomHeader& header);
     void drawPlacements(const SceneLayer& layer);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
     void drawFlagLinks(const std::vector<SceneFlagUse>& flags);
@@ -91,6 +97,7 @@ private:
     std::optional<core::SceneSession> pendingSession;
     bool showsFlagLinks = true;
     std::optional<std::pair<actor::SceneFlag, s64>> hoveredFlag;
+    std::function<void(const std::string&)> inspectDisplayList;
 };
 
 } // namespace toki::scene

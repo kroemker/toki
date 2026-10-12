@@ -41,6 +41,10 @@ public:
     /// clears it while the panel is closed. Runs every frame, open or not.
     void updateHighlight();
 
+    /// Opens the panel on the first command of the display list named
+    /// `symbol`, once the viewport draws a frame that runs it.
+    void inspectSymbol(std::string symbol);
+
 private:
     struct VisibleRow {
         usize row = 0;
@@ -50,6 +54,8 @@ private:
     void updateNames();
     void updateFrame();
     void listVisibleRows();
+    void revealPendingSymbol();
+    void revealRow(usize row);
     void drawToolbar();
     void drawRows();
     void drawRow(const VisibleRow& visible);
@@ -87,6 +93,10 @@ private:
     std::vector<UploadedTile> previews;
     std::optional<usize> previewRow;
     u64 previewGeneration = 0;
+    std::optional<std::string> pendingSymbol;
+    u64 pendingGeneration = 0;
+    std::string notice;
+    std::optional<usize> scrollTarget;
     std::optional<usize> highlightRow;
     u64 highlightGeneration = 0;
 };

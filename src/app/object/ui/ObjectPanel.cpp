@@ -246,6 +246,14 @@ void ObjectPanel::drawKind(const Object& shown, const AssetKind kind, const bool
             if (ImGui::Selectable(asset.name.c_str(), isSelected(asset))) {
                 selectAsset(asset);
             }
+            if (kind == AssetKind::DisplayList && inspectDisplayList != nullptr &&
+                ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Inspect in Display List")) {
+                    selectAsset(asset);
+                    inspectDisplayList(asset.name);
+                }
+                ImGui::EndPopup();
+            }
         } else {
             ImGui::TextUnformatted(asset.name.c_str());
         }

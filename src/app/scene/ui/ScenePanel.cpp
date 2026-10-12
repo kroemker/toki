@@ -20,6 +20,7 @@
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
+#include "z64/MemoryImage.h"
 
 #include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
@@ -57,6 +58,16 @@ constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
 
 [[nodiscard]] glm::vec3 makePoint(const std::array<s16, 3>& position) {
     return {position[0], position[1], position[2]};
+}
+
+[[nodiscard]] std::optional<std::string> findSymbolName(const z64::MemoryImage& image,
+                                                        const u32 address) {
+    for (const auto& [name, symbol] : image.symbols) {
+        if (symbol.segment == (address >> 24) && symbol.offset == (address & 0x00FF'FFFF)) {
+            return name;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace
@@ -201,7 +212,9 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
         const RoomHeader& header = layer.rooms[room];
         const std::string label = std::format("Room {}  ·  {} meshes, {} actors", room,
                                               header.displayLists.size(), header.actors.size());
-        if (ImGui::TreeNode(label.c_str())) {
+        const bool isRoomOpen = ImGui::TreeNode(label.c_str());
+        drawRoomMenu(room, header);
+        if (isRoomOpen) {
             const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
             const std::vector<std::string> loaded =
                 workspace != nullptr ? listLoadedObjects(layer, room, workspace->getTables())
@@ -219,6 +232,25 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
         }
         ImGui::PopID();
     }
+}
+
+void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
+    if (inspectDisplayList == nullptr || !scene || !ImGui::BeginPopupContextItem()) {
+        return;
+    }
+    const usize image = FirstRoomImage + room;
+    for (const RoomDisplayLists& mesh : header.displayLists) {
+        for (const u32 address : {mesh.opaque, mesh.translucent}) {
+            const std::optional<std::string> name =
+                address != 0 && image < scene->images.size()
+                    ? findSymbolName(*scene->images[image], address)
+                    : std::nullopt;
+            if (name && ImGui::MenuItem(std::format("Inspect {}", *name).c_str())) {
+                inspectDisplayList(*name);
+            }
+        }
+    }
+    ImGui::EndPopup();
 }
 
 void ScenePanel::drawPlacements(const SceneLayer& layer) {

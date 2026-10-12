@@ -355,4 +355,15 @@ std::optional<usize> FrameInspection::findFirstRun(const u32 physical) const {
     return std::nullopt;
 }
 
+std::optional<usize> FrameInspection::findSymbolRun(const std::string_view symbol) const {
+    for (const NamedRange& range : symbols) {
+        if (range.name == symbol) {
+            if (const std::optional<usize> row = findFirstRun(range.begin)) {
+                return row;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace toki::displayList

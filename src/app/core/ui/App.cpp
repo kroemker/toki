@@ -169,6 +169,11 @@ void App::registerPanels() {
     auto displayList = std::make_unique<displayList::DisplayListPanel>(*device, *viewportPanel,
                                                                        workspaceService, fonts);
     displayListPanel = displayList.get();
+    const auto inspect = [this](const std::string& symbol) {
+        displayListPanel->inspectSymbol(symbol);
+    };
+    objectPanel->setDisplayListInspector(inspect);
+    scenePanel->setDisplayListInspector(inspect);
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(

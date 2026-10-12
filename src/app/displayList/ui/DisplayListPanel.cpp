@@ -169,15 +169,59 @@ void DisplayListPanel::updateHighlight() {
                                shownFrame != nullptr ? shownFrame->size : viewport::FrameSize{});
 }
 
+void DisplayListPanel::inspectSymbol(std::string symbol) {
+    setOpen(true);
+    ImGui::SetWindowFocus(getWindowTitle().c_str());
+    isFollowing = true;
+    notice.clear();
+    pendingSymbol = std::move(symbol);
+    pendingGeneration = shownFrame != nullptr ? shownFrame->generation : 0;
+}
+
+void DisplayListPanel::revealPendingSymbol() {
+    if (!pendingSymbol || inspection == nullptr || shownFrame->generation <= pendingGeneration) {
+        return;
+    }
+    if (const std::optional<usize> row = inspection->findSymbolRun(*pendingSymbol)) {
+        revealRow(*row);
+    } else {
+        notice = std::format("{} is not drawn in the viewport's frame.", *pendingSymbol);
+    }
+    pendingSymbol.reset();
+}
+
+void DisplayListPanel::revealRow(const usize row) {
+    const std::vector<InspectedCommand>& rows = inspection->getRows();
+    filter.clear();
+    for (usize call = 0; call < row; ++call) {
+        if (rows[call].end > row && rows[call].end > call + 1) {
+            expanded.insert(call);
+        }
+    }
+    const std::vector<LoadGroup>& groups = inspection->getLoadGroups();
+    for (usize group = 0; group < groups.size(); ++group) {
+        if (groups[group].first <= row && row < groups[group].end) {
+            expandedGroups.insert(group);
+        }
+    }
+    selected = row;
+    scrollTarget = row;
+    areRowsStale = true;
+}
+
 void DisplayListPanel::draw() {
     updateNames();
     updateFrame();
+    revealPendingSymbol();
     if (inspection == nullptr) {
         ImGui::TextColored(core::palette::TextMuted,
                            "Open a scene or an object; its frame appears here once drawn.");
         return;
     }
     drawToolbar();
+    if (!notice.empty()) {
+        ImGui::TextColored(core::palette::Warning, "%s", notice.c_str());
+    }
     if (areRowsStale) {
         listVisibleRows();
     }
@@ -259,6 +303,16 @@ z64::FindAddressName DisplayListPanel::makeAddressNamer(const usize row) const {
 
 void DisplayListPanel::drawRows() {
     ImGui::PushFont(fonts.getMono(), core::Fonts::MonoSize);
+    if (scrollTarget) {
+        const auto shown = std::ranges::find(visibleRows, *scrollTarget, &VisibleRow::row);
+        if (shown != visibleRows.end()) {
+            const f32 line = ImGui::GetTextLineHeightWithSpacing();
+            ImGui::SetScrollY(
+                std::max(0.0F, (static_cast<f32>(shown - visibleRows.begin()) * line) -
+                                   (ImGui::GetWindowHeight() / 2.0F)));
+        }
+        scrollTarget.reset();
+    }
     ImGuiListClipper clipper;
     clipper.Begin(static_cast<int>(visibleRows.size()));
     while (clipper.Step()) {

@@ -12,6 +12,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace toki::displayList {
@@ -83,6 +84,10 @@ public:
     /// The row of the first command that runs the display list at physical
     /// address `physical`, as a call's first command.
     [[nodiscard]] std::optional<usize> findFirstRun(u32 physical) const;
+
+    /// The row of the first command that runs the display list named `symbol`
+    /// in any of the frame's images.
+    [[nodiscard]] std::optional<usize> findSymbolRun(std::string_view symbol) const;
 
 private:
     struct NamedRange {
