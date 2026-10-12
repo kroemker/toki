@@ -232,6 +232,10 @@ std::optional<std::string> findDraftProblem(const ActorDraft& draft,
                                       &hackeroot::ObjectEntry::name)) {
         return std::format("the object table has no {}", draft.object);
     }
+    if (draft.description.contains("*/")) {
+        return std::string("a description cannot hold */, which would end the comment it is "
+                           "written in");
+    }
     if (draft.isDynaPoly && !draft.movesCollision && !draft.turnsCollision) {
         return std::string("collision has to move with the actor, turn with it, or both");
     }

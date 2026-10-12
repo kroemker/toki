@@ -130,6 +130,8 @@ TEST_CASE("creating an actor registers it and writes its overlay, once", "[tools
     REQUIRE(toki::tools::findDraftProblem({.name = "En_Bar", .object = "object_none"}, registered)
                 .has_value());
     REQUIRE_FALSE(toki::tools::findDraftProblem({.name = "En_Bar"}, registered).has_value());
+    REQUIRE(toki::tools::findDraftProblem({.name = "En_Bar", .description = "a */ b"}, registered)
+                .has_value());
     std::error_code ignored;
     std::filesystem::remove_all(root, ignored);
 }

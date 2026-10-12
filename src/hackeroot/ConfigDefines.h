@@ -41,8 +41,9 @@ struct DocumentedDefine {
 /// The settings of the configuration headers the build reads under
 /// `defineArguments`, the build's `-D` flags, file by file in the order the
 /// build includes them and line by line, each where the build defines it
-/// last. Function-like macros and `config_safeguards.h`, which overrides
-/// settings rather than holding them, are left out.
+/// last. Function-like macros, macros of no value, as include guards are,
+/// and `config_safeguards.h`, which overrides settings rather than holding
+/// them, are left out.
 [[nodiscard]] std::vector<ConfigDefine>
 readConfigDefines(const std::filesystem::path& repository,
                   std::span<const std::string> defineArguments);

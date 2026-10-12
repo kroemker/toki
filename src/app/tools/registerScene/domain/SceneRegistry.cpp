@@ -56,6 +56,17 @@ constexpr usize SceneLimit = 255;
            });
 }
 
+[[nodiscard]] std::string makeStringLiteral(const std::string_view text) {
+    std::string escaped;
+    for (const char letter : text) {
+        if (letter == '"' || letter == '\\') {
+            escaped += '\\';
+        }
+        escaped += letter;
+    }
+    return escaped;
+}
+
 [[nodiscard]] std::string makeSegment(const std::string_view name,
                                       const std::vector<std::filesystem::path>& files,
                                       const int number) {
@@ -288,7 +299,8 @@ private:
         if (!isPresent) {
             hackeroot::insertLineBefore(header->after, MapSelectAnchor,
                                         std::format("    {{ \"{}\", MapSelect_LoadGame, {} }},",
-                                                    registration.mapSelectLabel, entrance));
+                                                    makeStringLiteral(registration.mapSelectLabel),
+                                                    entrance));
         }
         header->items.push_back(hackeroot::EditItem{
             .status = isPresent ? hackeroot::EditStatus::Present : hackeroot::EditStatus::Add,

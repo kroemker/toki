@@ -156,6 +156,11 @@ TEST_CASE("what would break a registration is refused or warned of", "[tools][re
                       root, makeExport(1),
                       {.mapSelectLabel = "Ocean", .bootsToScene = true, .bootSpawn = 2}, survey)
                       .has_value());
+    const std::expected<hackeroot::EditPlan, std::string> quoted = toki::tools::makeScenePlan(
+        root, makeExport(1), {.mapSelectLabel = "The \"Ocean\""}, survey);
+    REQUIRE(quoted.has_value());
+    REQUIRE(quoted->files[3].after.contains(
+        "{ \"The \\\"Ocean\\\"\", MapSelect_LoadGame, ENTR_OCEAN_TEST_0 },"));
     REQUIRE_FALSE(
         toki::tools::makeScenePlan(root, makeExport(0), {.mapSelectLabel = "Ocean"}, survey)
             .has_value());

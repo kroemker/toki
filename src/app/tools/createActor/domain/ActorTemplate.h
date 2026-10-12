@@ -50,7 +50,8 @@ struct ActorDraft {
 
 /// What is wrong with `draft` as a new actor of the checkout whose tables are
 /// `tables`, or nothing: a name that is no C identifier, an actor the table has
-/// already, an object it does not have, collision that neither moves nor turns.
+/// already, an object it does not have, a description that would end the
+/// comment it is written in, collision that neither moves nor turns.
 [[nodiscard]] std::optional<std::string> findDraftProblem(const ActorDraft& draft,
                                                           const hackeroot::Tables& tables);
 

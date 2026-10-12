@@ -206,6 +206,7 @@ TEST_CASE("the configuration's settings are read where the build defines them",
     REQUIRE(buffer.written == "0x100");
     REQUIRE_FALSE(
         std::ranges::contains(defines, "ONLY_WITHOUT_DEBUG", &hackeroot::ConfigDefine::name));
+    REQUIRE_FALSE(std::ranges::contains(defines, "CONFIG_DEBUG_H", &hackeroot::ConfigDefine::name));
 
     const std::vector<hackeroot::ConfigDefine> release =
         hackeroot::readConfigDefines(getFixture(), {});

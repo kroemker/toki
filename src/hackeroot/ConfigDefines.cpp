@@ -149,7 +149,7 @@ std::vector<ConfigDefine> readConfigDefines(const std::filesystem::path& reposit
     std::vector<Definition> definitions;
     cparser::PreprocessOptions options = makeConfigurationOptions(repository);
     options.onDefine = [&](const cparser::Macro& macro, const cparser::Token& directive) {
-        if (macro.functionLike || directive.file == nullptr ||
+        if (macro.functionLike || macro.body.empty() || directive.file == nullptr ||
             !isSetting(*directive.file, configFolder)) {
             return;
         }
