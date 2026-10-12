@@ -211,17 +211,13 @@ planObjectTable(const std::filesystem::path& repository, const ActorDraft& draft
     if (!spec) {
         return std::unexpected(spec.error());
     }
-    spec->items.push_back(
-        hackeroot::EditItem{.status = hackeroot::putSpecSegment(spec->after, "ovl_" + draft.name,
-                                                                makeOverlaySegment(draft.name),
-                                                                "custom actors", OverlayAnchor),
-                            .label = std::format("overlay segment \"ovl_{}\"", draft.name)});
+    spec->items.push_back(hackeroot::putSpecSegmentItem(
+        *spec, plan, "ovl_" + draft.name, makeOverlaySegment(draft.name), "custom actors",
+        OverlayAnchor, std::format("overlay segment \"ovl_{}\"", draft.name)));
     if (draft.newObject) {
-        spec->items.push_back(hackeroot::EditItem{
-            .status = hackeroot::putSpecSegment(spec->after, *draft.newObject,
-                                                makeObjectSegment(*draft.newObject),
-                                                "custom objects", ObjectAnchor),
-            .label = std::format("object segment \"{}\"", *draft.newObject)});
+        spec->items.push_back(hackeroot::putSpecSegmentItem(
+            *spec, plan, *draft.newObject, makeObjectSegment(*draft.newObject), "custom objects",
+            ObjectAnchor, std::format("object segment \"{}\"", *draft.newObject)));
     }
     plan.files.push_back(std::move(*spec));
     return {};

@@ -159,18 +159,14 @@ private:
             return std::unexpected(spec.error());
         }
         const std::string sceneSegment = scene.name + "_scene";
-        const hackeroot::EditStatus status = hackeroot::putSpecSegment(
-            spec->after, sceneSegment, makeSegment(sceneSegment, scene.sceneFiles, 2), BlockTitle,
-            LastLines);
-        spec->items.push_back(hackeroot::EditItem{
-            .status = status, .label = std::format("scene segment \"{}\"", sceneSegment)});
+        spec->items.push_back(hackeroot::putSpecSegmentItem(
+            *spec, plan, sceneSegment, makeSegment(sceneSegment, scene.sceneFiles, 2), BlockTitle,
+            LastLines, std::format("scene segment \"{}\"", sceneSegment)));
         for (usize room = 0; room < scene.rooms.size(); ++room) {
             const std::string roomSegment = std::format("{}_room_{}", scene.name, room);
-            spec->items.push_back(hackeroot::EditItem{
-                .status = hackeroot::putSpecSegment(spec->after, roomSegment,
-                                                    makeSegment(roomSegment, scene.rooms[room], 3),
-                                                    BlockTitle, LastLines),
-                .label = std::format("room segment \"{}\"", roomSegment)});
+            spec->items.push_back(hackeroot::putSpecSegmentItem(
+                *spec, plan, roomSegment, makeSegment(roomSegment, scene.rooms[room], 3),
+                BlockTitle, LastLines, std::format("room segment \"{}\"", roomSegment)));
         }
         plan.files.push_back(std::move(*spec));
         return {};

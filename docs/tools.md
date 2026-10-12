@@ -75,7 +75,9 @@ checkout's own assets, registered or not, and plans (`makeScenePlan`):
   order fast64 and the vanilla spec list them: the file with the header first, then the
   scene's collision and cutscenes, or the room's model info and model. A segment that is
   there with other files is rewritten where it is, so a scene that gained a room or a file
-  is brought up to date.
+  is brought up to date. A segment is found by its name, whoever wrote it, so a rewrite
+  warns of each line the segment has that the tool does not write, as an `include` added by
+  hand, which it would drop.
 - **The scene table.** `DEFINE_SCENE(<name>_scene, none, SCENE_<NAME>, <draw config>, 0, 0)`,
   the draw config picked from the checkout's `SceneDrawConfig`.
 - **The entrance table.** For each spawn, four entrances, `ENTR_<NAME>_<spawn>` and

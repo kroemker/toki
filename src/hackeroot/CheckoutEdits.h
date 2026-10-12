@@ -95,11 +95,24 @@ void addToManagedBlock(std::string& text, std::string_view title, std::string_vi
 [[nodiscard]] std::optional<TextRange> findSpecSegment(std::string_view spec,
                                                        std::string_view name);
 
+/// The lines of `spec`'s segment named `name` that writing `block` in its place
+/// would lose, as a person wrote them, trimmed: what was added by hand to a
+/// segment a tool writes. None when there is no such segment.
+[[nodiscard]] std::vector<std::string>
+listLostSegmentLines(std::string_view spec, std::string_view name, std::string_view block);
+
 /// Makes the segment named `name` of `spec` read `block`: as it is, replaced
 /// where it is, or added to Toki's block of `title` before `anchor`.
 [[nodiscard]] EditStatus putSpecSegment(std::string& spec, std::string_view name,
                                         std::string_view block, std::string_view title,
                                         std::string_view anchor);
+
+/// `putSpecSegment` as an item of `plan`'s edit `spec`, labelled `label`, and a
+/// warning in `plan` naming each line the segment had that its rewrite loses
+/// (`listLostSegmentLines`), since those are someone's own.
+[[nodiscard]] EditItem putSpecSegmentItem(FileEdit& spec, EditPlan& plan, std::string_view name,
+                                          std::string_view block, std::string_view title,
+                                          std::string_view anchor, std::string label);
 
 /// Replaces the first call to `unsetMacro` in `text`, `DEFINE_ACTOR_UNSET(...)`,
 /// with `entry`, leaving the slot's ID comment in front of it, unless its

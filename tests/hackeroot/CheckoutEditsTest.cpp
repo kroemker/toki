@@ -114,6 +114,17 @@ TEST_CASE("a spec segment is added once, left alone, or rewritten where it is",
     REQUIRE(spec.ends_with("#if TESTSUITE_MODE\n#endif\n"));
 }
 
+TEST_CASE("the lines a rewritten segment loses are what was added to it by hand",
+          "[hackeroot][edits]") {
+    const std::string spec = "beginseg\n    name \"room_1\"\n    compress\n"
+                             "    include \"$(BUILD_DIR)/mine.o\"\n    number 3\nendseg\n";
+    const std::string block = "beginseg\n    name \"room_1\"\n    compress\n    number 3\nendseg";
+
+    REQUIRE(hackeroot::listLostSegmentLines(spec, "room_1", block) ==
+            std::vector<std::string>{"include \"$(BUILD_DIR)/mine.o\""});
+    REQUIRE(hackeroot::listLostSegmentLines(spec, "room_2", block).empty());
+}
+
 TEST_CASE("an unset slot of a table is taken, unless it is one to keep", "[hackeroot][edits]") {
     std::string table = "/* 0x00 */ DEFINE_OBJECT_UNSET(OBJECT_INVALID)\n"
                         "/* 0x01 */ DEFINE_OBJECT(object_a, OBJECT_A)\n"

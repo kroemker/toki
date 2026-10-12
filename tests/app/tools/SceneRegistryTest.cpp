@@ -71,19 +71,19 @@ void writeText(const std::filesystem::path& file, const std::string& text) {
 
 [[nodiscard]] toki::registerScene::SceneSurvey makeSurvey() {
     return toki::registerScene::SceneSurvey{.spawns = 2,
-                                    .listedRooms = 1,
-                                    .config = {{.name = "BOOT_TO_SCENE",
-                                                .file = "include/config/config_debug.h",
-                                                .line = 1,
-                                                .written = "false"},
-                                               {.name = "BOOT_ENTRANCE",
-                                                .file = "include/config/config_debug.h",
-                                                .line = 2,
-                                                .written = "ENTR_HYRULE_FIELD_0"},
-                                               {.name = "ENABLE_HACKER_DEBUG",
-                                                .file = "include/config/config_debug.h",
-                                                .line = 3,
-                                                .written = "true"}}};
+                                            .listedRooms = 1,
+                                            .config = {{.name = "BOOT_TO_SCENE",
+                                                        .file = "include/config/config_debug.h",
+                                                        .line = 1,
+                                                        .written = "false"},
+                                                       {.name = "BOOT_ENTRANCE",
+                                                        .file = "include/config/config_debug.h",
+                                                        .line = 2,
+                                                        .written = "ENTR_HYRULE_FIELD_0"},
+                                                       {.name = "ENABLE_HACKER_DEBUG",
+                                                        .file = "include/config/config_debug.h",
+                                                        .line = 3,
+                                                        .written = "true"}}};
 }
 
 } // namespace
@@ -92,7 +92,8 @@ TEST_CASE("registering a scene writes every place the build learns of it, then n
           "[tools][register]") {
     const std::filesystem::path root = makeCheckout();
     const toki::registerScene::SceneRegistration registration{
-        .mapSelectLabel = toki::registerScene::makeMapSelectLabel("ocean_test"), .bootsToScene = true};
+        .mapSelectLabel = toki::registerScene::makeMapSelectLabel("ocean_test"),
+        .bootsToScene = true};
     REQUIRE(registration.mapSelectLabel == "Ocean Test");
 
     const std::expected<hackeroot::EditPlan, std::string> plan =
@@ -156,8 +157,9 @@ TEST_CASE("what would break a registration is refused or warned of", "[tools][re
                       root, makeExport(1),
                       {.mapSelectLabel = "Ocean", .bootsToScene = true, .bootSpawn = 2}, survey)
                       .has_value());
-    const std::expected<hackeroot::EditPlan, std::string> quoted = toki::registerScene::makeScenePlan(
-        root, makeExport(1), {.mapSelectLabel = "The \"Ocean\""}, survey);
+    const std::expected<hackeroot::EditPlan, std::string> quoted =
+        toki::registerScene::makeScenePlan(root, makeExport(1), {.mapSelectLabel = "The \"Ocean\""},
+                                           survey);
     REQUIRE(quoted.has_value());
     REQUIRE(quoted->files[3].after.contains(
         "{ \"The \\\"Ocean\\\"\", MapSelect_LoadGame, ENTR_OCEAN_TEST_0 },"));
@@ -204,4 +206,26 @@ TEST_CASE("a scene the prototype registered is found registered", "[tools][regis
     }
     WARN("oceantest, " << *surveyed->survey.spawns << " spawns:" << described);
     CHECK_FALSE(plan->hasWork());
+}
+
+TEST_CASE("rewriting a scene's segment warns of the lines someone added to it",
+          "[tools][register]") {
+    const std::filesystem::path root = makeCheckout();
+    writeText(root / "spec/spec",
+              "beginseg\n    name \"ocean_test_room_0\"\n    compress\n    romalign 0x1000\n"
+              "    include \"$(BUILD_DIR)/assets/scenes/ocean_test/ocean_test_room_0_main.o\"\n"
+              "    include \"$(BUILD_DIR)/src/mine.o\"\n    number 3\nendseg\n\n"
+              "#if TESTSUITE_MODE\n#endif\n");
+
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::registerScene::makeScenePlan(
+        root, makeExport(1), {.mapSelectLabel = "Ocean"}, makeSurvey());
+
+    REQUIRE(plan.has_value());
+    REQUIRE(plan->files.front().items[1].status == hackeroot::EditStatus::Update);
+    REQUIRE(plan->warnings.size() == 1);
+    REQUIRE(plan->warnings.front().contains(
+        "rewriting segment \"ocean_test_room_0\" drops what it has now"));
+    REQUIRE(plan->warnings.front().contains("include \"$(BUILD_DIR)/src/mine.o\""));
+    std::error_code ignored;
+    std::filesystem::remove_all(root, ignored);
 }

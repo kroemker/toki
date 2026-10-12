@@ -333,6 +333,29 @@ std::optional<TextRange> findSpecSegment(const std::string_view spec, const std:
     return std::nullopt;
 }
 
+std::vector<std::string> listLostSegmentLines(const std::string_view spec,
+                                              const std::string_view name,
+                                              const std::string_view block) {
+    const std::optional<TextRange> found = findSpecSegment(spec, name);
+    if (!found) {
+        return {};
+    }
+    const std::vector<std::string_view> wanted = splitLines(block);
+    const auto isWanted = [&wanted](const std::string_view line) {
+        return std::ranges::any_of(
+            wanted, [line](const std::string_view kept) { return trimSpaces(kept) == line; });
+    };
+    std::vector<std::string> lost;
+    for (const std::string_view line :
+         splitLines(spec.substr(found->begin, found->end - found->begin))) {
+        const std::string_view trimmed = trimSpaces(line);
+        if (!trimmed.empty() && !isWanted(trimmed)) {
+            lost.emplace_back(trimmed);
+        }
+    }
+    return lost;
+}
+
 EditStatus putSpecSegment(std::string& spec, const std::string_view name,
                           const std::string_view block, const std::string_view title,
                           const std::string_view anchor) {
@@ -345,6 +368,23 @@ EditStatus putSpecSegment(std::string& spec, const std::string_view name,
     }
     addToManagedBlock(spec, title, block, anchor);
     return EditStatus::Add;
+}
+
+EditItem putSpecSegmentItem(FileEdit& spec, EditPlan& plan, const std::string_view name,
+                            const std::string_view block, const std::string_view title,
+                            const std::string_view anchor, std::string label) {
+    const std::vector<std::string> lost = listLostSegmentLines(spec.after, name, block);
+    const EditStatus status = putSpecSegment(spec.after, name, block, title, anchor);
+    if (status == EditStatus::Update && !lost.empty()) {
+        std::string lines;
+        for (const std::string& line : lost) {
+            lines += std::format("{}{}", lines.empty() ? "" : "; ", line);
+        }
+        plan.warnings.push_back(std::format(
+            "{}: rewriting segment \"{}\" drops what it has now and the tool does not write: {}",
+            spec.file.generic_string(), name, lines));
+    }
+    return EditItem{.status = status, .label = std::move(label)};
 }
 
 bool replaceUnsetEntry(std::string& text, const std::string_view unsetMacro,
