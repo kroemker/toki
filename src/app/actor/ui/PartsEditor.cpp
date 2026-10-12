@@ -5,6 +5,7 @@
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/object/domain/ObjectAssets.h"
 
@@ -54,7 +55,7 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
         const std::string label = std::format("Segment {}", segments[i].segment);
         isChanged =
             editSymbol(label.c_str(), segments[i].name, object, SegmentKinds, context) || isChanged;
-        drawPropertyLabel("");
+        core::drawPropertyLabel("");
         if (ImGui::SmallButton(
                 std::format("Point segment {} at nothing", segments[i].segment).c_str())) {
             removed = i;
@@ -65,7 +66,7 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
         segments.erase(segments.begin() + static_cast<std::ptrdiff_t>(*removed));
         isChanged = true;
     }
-    drawPropertyLabel("Segments");
+    core::drawPropertyLabel("Segments");
     for (int segment = FirstSegment; segment <= LastSegment; ++segment) {
         if (std::ranges::contains(segments, static_cast<u8>(segment), &SegmentSymbol::segment)) {
             continue;
@@ -83,7 +84,7 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
 }
 
 [[nodiscard]] bool editSetup(std::optional<u8>& setup) {
-    drawPropertyLabel("Setup");
+    core::drawPropertyLabel("Setup");
     int index = setup.value_or(DefaultSetup);
     if (!ImGui::InputInt("##setup", &index)) {
         return false;
@@ -121,7 +122,7 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
 
 [[nodiscard]] bool editPart(ActorPart& part, const std::optional<std::string>& object,
                             const EditContext& context) {
-    if (!beginProperties("part")) {
+    if (!core::beginProperties("part")) {
         return false;
     }
     bool isChanged = editSymbolOf(part, object, context);
@@ -131,18 +132,18 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
     isChanged = editVector("At", part.placement.translation) || isChanged;
     isChanged = editVector("Turned", part.placement.rotation) || isChanged;
     isChanged = editVector("Scaled", part.placement.scale) || isChanged;
-    drawPropertyLabel("Faces the camera");
+    core::drawPropertyLabel("Faces the camera");
     isChanged = ImGui::Checkbox("##billboard", &part.isBillboard) || isChanged;
     isChanged = editOptionalColor("Primitive", part.colors.primitive) || isChanged;
     isChanged = editOptionalColor("Environment", part.colors.environment) || isChanged;
     isChanged = editName("Pass", part.pass, PassNames) || isChanged;
     isChanged = editSetup(part.setup) || isChanged;
-    drawPropertyLabel("Hilite");
+    core::drawPropertyLabel("Hilite");
     isChanged = ImGui::Checkbox("##hilite", &part.isHilit) || isChanged;
     ImGui::SetItemTooltip("Drawn with a LookAt from the camera toward the actor, for what shines");
     isChanged =
         editSegments(part.segments, part.object ? part.object : object, context) || isChanged;
-    endProperties();
+    core::endProperties();
     return isChanged;
 }
 

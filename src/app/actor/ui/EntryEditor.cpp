@@ -3,6 +3,7 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
+#include "app/core/ui/PropertyTable.h"
 
 #include <imgui.h>
 
@@ -24,7 +25,7 @@ constexpr f32 DefaultScale = 0.01F;
 }
 
 [[nodiscard]] bool editRotates(RotationAxes& rotates) {
-    drawPropertyLabel("Turned about");
+    core::drawPropertyLabel("Turned about");
     bool isChanged = ImGui::Checkbox("X", &rotates.x);
     ImGui::SameLine();
     isChanged = ImGui::Checkbox("Y", &rotates.y) || isChanged;
@@ -37,7 +38,7 @@ constexpr f32 DefaultScale = 0.01F;
 } // namespace
 
 bool drawGeneralEditor(ActorEntry& entry, const EditContext& context) {
-    if (!beginProperties("general")) {
+    if (!core::beginProperties("general")) {
         return false;
     }
     bool isChanged = editText("Name", entry.name);
@@ -47,7 +48,7 @@ bool drawGeneralEditor(ActorEntry& entry, const EditContext& context) {
     isChanged = editOptionalNumber("Height offset", entry.heightOffset, 0.0F) || isChanged;
     isChanged = editDraw(entry) || isChanged;
     isChanged = editRotates(entry.rotates) || isChanged;
-    endProperties();
+    core::endProperties();
     return isChanged;
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/actor/domain/CollectionCatalog.h"
-#include "app/core/ui/Panel.h"
+#include "app/core/ui/Dialog.h"
 #include "app/tools/registerScene/domain/SceneRegistry.h"
 #include "app/tools/ui/EditFlow.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -17,28 +17,21 @@ namespace toki::registerScene {
 /// one of the checkout's scene folders, says how it is registered, and writes
 /// the plan once it has been reviewed. A scene registered before is listed too,
 /// so one that gained a room is brought up to date.
-class RegisterScenePanel : public core::Panel {
+class RegisterSceneDialog : public core::Dialog {
 public:
-    RegisterScenePanel(const workspace::WorkspaceService& workspaceService,
-                       actor::CollectionCatalog& collectionCatalog);
-
-    [[nodiscard]] bool isOpenByDefault() const override {
-        return false;
-    }
-
-    [[nodiscard]] bool isTool() const override {
-        return true;
-    }
+    RegisterSceneDialog(const workspace::WorkspaceService& workspaceService,
+                        actor::CollectionCatalog& collectionCatalog);
 
     void draw() override;
 
 private:
     void drawScenes(const hackeroot::Workspace& workspace);
     void drawOptions(const hackeroot::Workspace& workspace);
+    void drawRegistration();
     void select(const hackeroot::AssetDirectory& scene);
-    [[nodiscard]] bool drawNames(const char* label, std::string& value,
+    [[nodiscard]] bool drawNames(const char* comboId, std::string& value,
                                  std::span<const std::string_view> names);
-    void drawOptionalNames(const char* label, std::optional<std::string>& value,
+    void drawOptionalNames(const char* comboId, std::optional<std::string>& value,
                            std::span<const std::string_view> names);
 
     const workspace::WorkspaceService& workspaceService;

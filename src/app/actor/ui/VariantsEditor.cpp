@@ -8,6 +8,7 @@
 #include "app/actor/ui/ItemRow.h"
 #include "app/actor/ui/PartsEditor.h"
 #include "app/core/ui/Icons.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 
 #include <imgui.h>
@@ -49,7 +50,7 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
 }
 
 [[nodiscard]] bool editLooks(ActorEntry& entry, ActorVariant& variant, const EditContext& context) {
-    if (!beginProperties("looks")) {
+    if (!core::beginProperties("looks")) {
         return false;
     }
     bool isChanged = editObject("Object", variant.object, context, entry.object.value_or("none"));
@@ -65,7 +66,7 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
         variant.defaultParams = params;
         isChanged = true;
     }
-    endProperties();
+    core::endProperties();
     return isChanged;
 }
 
@@ -104,13 +105,13 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
 }
 
 [[nodiscard]] bool editChild(ChildActor& child, const EditContext& context) {
-    if (!beginProperties("child")) {
+    if (!core::beginProperties("child")) {
         return false;
     }
     bool isChanged = editActor("Actor", child.actor, context);
     isChanged = editHex("Params", child.params) || isChanged;
     isChanged = editVector("Offset", child.offset) || isChanged;
-    endProperties();
+    core::endProperties();
     return isChanged;
 }
 

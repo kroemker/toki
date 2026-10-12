@@ -207,6 +207,11 @@ the build graph.
 Dear ImGui's defaults read as a debug tool. Custom theme, font stack, icon font and a
 consistent spacing scale are a budgeted requirement, not polish.
 
+Every form is two columns: the label on the left, its input filling the right
+(`core::beginProperties`, `core::drawPropertyLabel`). Never ImGui's default of the input
+with its label after it. A toggle is a row like any other, its label and then the checkbox
+alone.
+
 ---
 
 ## Concepts

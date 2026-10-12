@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/actor/domain/CollectionCatalog.h"
-#include "app/core/ui/Panel.h"
+#include "app/core/ui/Dialog.h"
 #include "app/tools/configure/domain/ConfigSettings.h"
 #include "app/tools/ui/EditFlow.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -20,18 +20,10 @@ namespace toki::configure {
 /// each setting by its documented name, edited by what it is written as, with
 /// the value the build ends with beside it when the safeguards override it.
 /// Changes are written once their plan has been reviewed.
-class ConfigurePanel : public core::Panel {
+class ConfigureDialog : public core::Dialog {
 public:
-    ConfigurePanel(const workspace::WorkspaceService& workspaceService,
-                   actor::CollectionCatalog& collectionCatalog);
-
-    [[nodiscard]] bool isOpenByDefault() const override {
-        return false;
-    }
-
-    [[nodiscard]] bool isTool() const override {
-        return true;
-    }
+    ConfigureDialog(const workspace::WorkspaceService& workspaceService,
+                    actor::CollectionCatalog& collectionCatalog);
 
     void draw() override;
 

@@ -128,7 +128,7 @@ void EditFlow::drawReview() {
         ImGui::TextWrapped("%s", warning.c_str());
     }
     ImGui::BeginDisabled(editWorker.isBusy());
-    if (ImGui::Button("Write")) {
+    if (ImGui::Button("Write files")) {
         editWorker.apply(plannedRepository, std::move(*reviewed));
         reviewed.reset();
         status = "Writing…";

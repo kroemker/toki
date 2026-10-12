@@ -430,7 +430,7 @@ light settings is still to do.
 
 **Tools** — Configure, Create Actor, Register Scene. All depend on the workspace tables.
 
-*Done:* each a panel of the Tools menu, planning its edits and showing them before they are
+*Done:* each a dialog of the Tools menu, planning its edits and showing them before they are
 written, as [docs/tools.md](docs/tools.md) describes. A scene the prototype registered reads
 as registered.
 

@@ -13,6 +13,7 @@
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
+#include "app/core/ui/Dialog.h"
 #include "app/core/ui/LogPanel.h"
 #include "app/core/ui/MenuBar.h"
 #include "app/core/ui/Panel.h"
@@ -28,9 +29,9 @@
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
-#include "app/tools/configure/ui/ConfigurePanel.h"
-#include "app/tools/createActor/ui/CreateActorPanel.h"
-#include "app/tools/registerScene/ui/RegisterScenePanel.h"
+#include "app/tools/configure/ui/ConfigureDialog.h"
+#include "app/tools/createActor/ui/CreateActorDialog.h"
+#include "app/tools/registerScene/ui/RegisterSceneDialog.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
@@ -131,6 +132,7 @@ std::expected<void, std::string> App::initialize() {
     }
 
     registerPanels();
+    registerDialogs();
     restoreLayout();
 
     if (settings.hackerootPath) {
@@ -190,13 +192,17 @@ void App::registerPanels() {
             objectLoader.open(workspaceService.getSharedWorkspace(), asset);
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
-    panels.add(std::make_unique<configure::ConfigurePanel>(workspaceService, collectionCatalog));
-    panels.add(
-        std::make_unique<registerScene::RegisterScenePanel>(workspaceService, collectionCatalog));
-    panels.add(std::make_unique<createActor::CreateActorPanel>(workspaceService, collectionCatalog,
-                                                               fonts));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
+}
+
+void App::registerDialogs() {
+    dialogs.push_back(
+        std::make_unique<configure::ConfigureDialog>(workspaceService, collectionCatalog));
+    dialogs.push_back(
+        std::make_unique<registerScene::RegisterSceneDialog>(workspaceService, collectionCatalog));
+    dialogs.push_back(std::make_unique<createActor::CreateActorDialog>(workspaceService,
+                                                                       collectionCatalog, fonts));
 }
 
 void App::restoreLayout() {
@@ -242,8 +248,11 @@ void App::drawFrame() {
         }
         viewportPanel->setReadingName(std::move(reading));
     }
-    const MenuActions actions = drawMenuBar(panels, settings, buildRunner.isRunning());
+    const MenuActions actions = drawMenuBar(panels, dialogs, settings, buildRunner.isRunning());
     panels.draw();
+    for (const std::unique_ptr<Dialog>& dialog : dialogs) {
+        dialog->drawWindow();
+    }
     drawNewActorsPrompt();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {

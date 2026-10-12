@@ -4,6 +4,7 @@
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/object/domain/ObjectAssets.h"
 
 #include <imgui.h>
@@ -25,17 +26,6 @@ struct EditContext {
     FindCollection findCollection;
 };
 
-/// Starts a table of property rows, each a label on the left and its input
-/// filling the rest. Every `edit` function below draws one row, and must be
-/// called between this and `endProperties` when it returns true.
-[[nodiscard]] bool beginProperties(const char* id);
-
-void endProperties();
-
-/// Starts one property row with `label` on the left, and readies the input
-/// column for the widget drawn next, which fills it.
-void drawPropertyLabel(std::string_view label);
-
 [[nodiscard]] bool editText(const char* label, std::string& text);
 
 [[nodiscard]] bool editNotes(const char* label, std::string& text);
@@ -53,7 +43,7 @@ void drawPropertyLabel(std::string_view label);
 template <typename Enum, usize Count>
 [[nodiscard]] bool editName(const char* label, Enum& value,
                             const std::array<EntryName<Enum>, Count>& names) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     bool isChanged = false;
     ImGui::PushID(label);
     if (ImGui::BeginCombo("##value", std::string(getEntryLabel(names, value)).c_str())) {
@@ -74,7 +64,7 @@ template <typename Enum, usize Count>
 [[nodiscard]] bool editOptionalName(const char* label, std::optional<Enum>& value,
                                     const std::array<EntryName<Enum>, Count>& names,
                                     const char* unset) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     bool isChanged = false;
     ImGui::PushID(label);
     const std::string shown =

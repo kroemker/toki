@@ -5,6 +5,13 @@ makes a fast64 export part of the build, Create Actor writes a new actor and reg
 They are the only part of Toki that writes the checkout's code, and they share one way of
 doing it.
 
+Each opens from the Tools menu as a dialog (`toki::core::Dialog`), not a panel: a panel is
+a view of the checkout, docked and kept in the layout, and a tool is something done to it.
+Register Scene and Create Actor are actions taken once, so they are modal. Configure is
+closer to the checkout's settings, and floats beside the rest of the window, which stays
+usable while it is open, so a build can be started and watched with it up. A dialog keeps
+what it holds while it is closed.
+
 ## Editing a checkout
 
 Every tool works the same way, in `hackeroot/CheckoutEdits`:
@@ -48,7 +55,7 @@ say, which overrides settings without being one; `BOOT_TO_SCENE` is forced off w
 
 ## Configure
 
-The Configure panel, in the Tools menu, has a tab for each configuration header, named
+The Configure dialog has a tab for each configuration header, named
 after it (`config_debug_controls.h` is "Debug Controls"), and a row for each of its
 settings (`toki::configure::makeConfigGroups`): its name as words, its comment and where it is
 written in a tooltip, and a control chosen by what it is written as. `true` and `false` are
@@ -60,14 +67,14 @@ else is typed as text.
 A setting the safeguards override shows what the build ends with beside it. Changes are
 held until "Review", which plans them (`makeConfigPlan`): one item per changed line, and a
 warning for each overridden setting, since the build will not see what is written. The
-panel reads the configuration again once the plan is written.
+dialog reads the configuration again once the plan is written.
 
 ## Register Scene
 
 fast64 writes a scene's C into `assets/scenes/<name>/` and nothing else, so the build does
 not know the scene until it is named in the spec and the scene and entrance tables.
 Everything else, the `SceneID` and `EntranceIndex` enums, `gSceneTable`, the ROM segment
-symbols, is generated from those. The Register Scene panel lists every scene folder of the
+symbols, is generated from those. The Register Scene dialog lists every scene folder of the
 checkout's own assets, registered or not, and plans (`makeScenePlan`):
 
 - **The spec.** A segment for the scene, `<name>_scene`, and one for each room,
@@ -98,7 +105,7 @@ reads as registered: its segments, entries and markers are the ones this writes.
 
 ## Create Actor
 
-The Create Actor panel writes a new actor from the template the decomp's actors follow,
+The Create Actor dialog writes a new actor from the template the decomp's actors follow,
 the one the Rust prototype wrote (`makeActorHeader`, `makeActorSource`): the actor's struct
 with an action function, an `Actor`, or a `DynaPolyActor` whose collision moves and turns
 with it; its `ActorProfile`; and `Init`, `Destroy`, `Update` and, if it draws, `Draw` to fill

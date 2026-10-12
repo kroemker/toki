@@ -8,6 +8,7 @@
 #include "app/assets/domain/AssetReader.h"
 #include "app/build/domain/BuildRunner.h"
 #include "app/core/domain/Settings.h"
+#include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/SettingsWindow.h"
@@ -50,6 +51,7 @@ public:
 
 private:
     void registerPanels();
+    void registerDialogs();
     void restoreLayout();
     void drawFrame();
     void setHackerootPath(const std::filesystem::path& path);
@@ -83,6 +85,7 @@ private:
     const hackeroot::Workspace* offeredWorkspace = nullptr;
     std::vector<std::string> offeredActorTable;
     PanelManager panels;
+    std::vector<std::unique_ptr<Dialog>> dialogs;
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;
     workspace::WorkspaceService workspaceService;

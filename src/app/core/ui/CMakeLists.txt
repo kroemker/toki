@@ -1,5 +1,6 @@
 target_sources(toki PRIVATE
         App.cpp
+        Dialog.cpp
         FolderDialog.cpp
         Fonts.cpp
         LogPanel.cpp
@@ -7,6 +8,7 @@ target_sources(toki PRIVATE
         Panel.cpp
         PanelManager.cpp
         Paths.cpp
+        PropertyTable.cpp
         SettingsWindow.cpp
         SetupWizard.cpp
         Theme.cpp

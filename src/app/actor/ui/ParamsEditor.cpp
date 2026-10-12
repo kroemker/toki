@@ -6,6 +6,7 @@
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/core/ui/Icons.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 
 #include <imgui.h>
@@ -217,14 +218,14 @@ bool ParamsEditor::drawList(ActorEntry& entry, const std::span<const std::string
 
 bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
                              const std::span<const std::string> collections) {
-    if (!beginProperties("param")) {
+    if (!core::beginProperties("param")) {
         return false;
     }
     bool isChanged = false;
     if (!isNameEdited) {
         nameText = param.name;
     }
-    drawPropertyLabel("Name");
+    core::drawPropertyLabel("Name");
     ImGui::SetNextItemWidth(-FLT_MIN);
     const bool isNameChanged = ImGui::InputText("##name", &nameText);
     isNameEdited = ImGui::IsItemActive();
@@ -236,7 +237,7 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
         isChanged = true;
     }
     if (nameProblem && nameText != param.name) {
-        drawPropertyLabel("");
+        core::drawPropertyLabel("");
         ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning,
                            nameProblem->c_str());
     }
@@ -246,7 +247,7 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
         param.mask = source == param.source ? param.mask : u16{0};
         isChanged = true;
     }
-    drawPropertyLabel("Bits");
+    core::drawPropertyLabel("Bits");
     ImGui::TextUnformatted(describeBits(param).c_str());
     if (param.mask != 0 && !isMaskContiguous(param.mask)) {
         ImGui::SameLine();
@@ -261,7 +262,7 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
                               "adds 0x300 to its message");
     }
     if (param.kind == ParamKind::Number) {
-        drawPropertyLabel("Shown");
+        core::drawPropertyLabel("Shown");
         isChanged = ImGui::Checkbox("Signed", &param.isSigned) || isChanged;
         ImGui::SameLine();
         isChanged = ImGui::Checkbox("Hexadecimal", &param.isHex) || isChanged;
@@ -274,7 +275,7 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
         }
     }
     isChanged = editText("Description", param.description) || isChanged;
-    endProperties();
+    core::endProperties();
     if (param.kind == ParamKind::Choice && !param.collection) {
         isChanged = drawChoices(param) || isChanged;
     }

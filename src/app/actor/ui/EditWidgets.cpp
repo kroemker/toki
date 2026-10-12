@@ -4,6 +4,7 @@
 #include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/object/domain/ObjectAssets.h"
 
@@ -27,8 +28,6 @@ namespace toki::actor {
 namespace {
 
 constexpr float PickerHeight = 260.0F;
-constexpr float LabelWidth = 9.0F;
-constexpr float MinimumTableWidth = 26.0F;
 
 std::string pickerFilter;
 
@@ -112,33 +111,8 @@ std::string pickerFilter;
 
 } // namespace
 
-bool beginProperties(const char* id) {
-    const float width =
-        std::max(ImGui::GetContentRegionAvail().x, ImGui::GetFontSize() * MinimumTableWidth);
-    if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_SizingStretchProp, ImVec2(width, 0.0F))) {
-        return false;
-    }
-    ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed,
-                            ImGui::GetFontSize() * LabelWidth);
-    ImGui::TableSetupColumn("input", ImGuiTableColumnFlags_WidthStretch);
-    return true;
-}
-
-void endProperties() {
-    ImGui::EndTable();
-}
-
-void drawPropertyLabel(const std::string_view label) {
-    ImGui::TableNextRow();
-    ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(label.data(), label.data() + label.size());
-    ImGui::TableNextColumn();
-    ImGui::SetNextItemWidth(-FLT_MIN);
-}
-
 bool editText(const char* label, std::string& text) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged = ImGui::InputText("##value", &text);
     ImGui::PopID();
@@ -146,7 +120,7 @@ bool editText(const char* label, std::string& text) {
 }
 
 bool editNotes(const char* label, std::string& text) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged = ImGui::InputTextMultiline(
         "##value", &text, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 4.0F));
@@ -155,7 +129,7 @@ bool editNotes(const char* label, std::string& text) {
 }
 
 bool editOptionalNumber(const char* label, std::optional<f32>& value, const f32 shown) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     bool isSet = value.has_value();
     bool isChanged = drawSetBox(isSet);
@@ -174,7 +148,7 @@ bool editOptionalNumber(const char* label, std::optional<f32>& value, const f32 
 }
 
 bool editVector(const char* label, std::array<f32, 3>& value) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged = ImGui::InputFloat3("##value", value.data(), "%.6g");
     ImGui::PopID();
@@ -182,7 +156,7 @@ bool editVector(const char* label, std::array<f32, 3>& value) {
 }
 
 bool editOptionalColor(const char* label, std::optional<std::array<u8, 4>>& color) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     bool isSet = color.has_value();
     bool isChanged = drawSetBox(isSet);
@@ -211,7 +185,7 @@ bool editOptionalColor(const char* label, std::optional<std::array<u8, 4>>& colo
 
 bool editObject(const char* label, std::optional<std::string>& object, const EditContext& context,
                 const std::string_view inherited) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     std::string typed = object.value_or("");
     const std::string empty = std::format("{} (inherited)", inherited);
@@ -226,7 +200,7 @@ bool editObject(const char* label, std::optional<std::string>& object, const Edi
 
 bool editSymbol(const char* label, std::string& symbol, const std::optional<std::string>& object,
                 const std::span<const object::AssetKind> kinds, const EditContext& context) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const std::vector<object::ObjectAsset>* assets =
         object ? context.symbolCatalog.findSymbols(*object) : nullptr;
@@ -261,7 +235,7 @@ bool editOptionalSymbol(const char* label, std::optional<std::string>& symbol,
 }
 
 bool editActor(const char* label, std::string& actor, const EditContext& context) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged = drawPicker("##value", actor, context.actors, nullptr);
     ImGui::PopID();
@@ -270,7 +244,7 @@ bool editActor(const char* label, std::string& actor, const EditContext& context
 
 bool editCollection(const char* label, std::optional<std::string>& collection,
                     const std::span<const std::string> names) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     std::string typed = collection.value_or("");
     std::vector<std::string> labels;
@@ -291,7 +265,7 @@ bool editCollection(const char* label, std::optional<std::string>& collection,
 }
 
 bool editSignedHex(const char* label, s64& value) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     std::string text = value < 0 ? std::format("-{:X}", -value) : std::format("{:X}", value);
     bool isChanged = false;
@@ -312,7 +286,7 @@ bool editSignedHex(const char* label, s64& value) {
 }
 
 bool editHex(const char* label, u16& value) {
-    drawPropertyLabel(label);
+    core::drawPropertyLabel(label);
     ImGui::PushID(label);
     const bool isChanged =
         ImGui::InputScalar("##value", ImGuiDataType_U16, &value, nullptr, nullptr, "%04X",

@@ -2,6 +2,7 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
+#include "app/core/ui/Dialog.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/Theme.h"
@@ -9,6 +10,7 @@
 #include <imgui.h>
 
 #include <memory>
+#include <vector>
 
 namespace toki::core {
 
@@ -63,7 +65,7 @@ void drawViewMenu(PanelManager& panels) {
 
     for (const std::unique_ptr<Panel>& panel : panels.getPanels()) {
         bool open = panel->isOpen();
-        if (!panel->isTool() && ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
+        if (ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
             panel->setOpen(open);
         }
     }
@@ -76,14 +78,13 @@ void drawViewMenu(PanelManager& panels) {
     ImGui::EndMenu();
 }
 
-void drawToolsMenu(PanelManager& panels) {
+void drawToolsMenu(const std::vector<std::unique_ptr<Dialog>>& dialogs) {
     if (!ImGui::BeginMenu("Tools")) {
         return;
     }
-    for (const std::unique_ptr<Panel>& panel : panels.getPanels()) {
-        bool open = panel->isOpen();
-        if (panel->isTool() && ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
-            panel->setOpen(open);
+    for (const std::unique_ptr<Dialog>& dialog : dialogs) {
+        if (ImGui::MenuItem(dialog->getMenuLabel().c_str(), nullptr, dialog->isShown())) {
+            dialog->show();
         }
     }
     ImGui::EndMenu();
@@ -91,7 +92,8 @@ void drawToolsMenu(PanelManager& panels) {
 
 } // namespace
 
-MenuActions drawMenuBar(PanelManager& panels, const Settings& settings, const bool buildRunning) {
+MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<Dialog>>& dialogs,
+                        const Settings& settings, const bool buildRunning) {
     MenuActions actions;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(space::Medium, space::Medium));
@@ -103,7 +105,7 @@ MenuActions drawMenuBar(PanelManager& panels, const Settings& settings, const bo
 
     drawFileMenu(settings, actions);
     drawBuildMenu(buildRunning, actions);
-    drawToolsMenu(panels);
+    drawToolsMenu(dialogs);
     drawViewMenu(panels);
 
     ImGui::EndMainMenuBar();

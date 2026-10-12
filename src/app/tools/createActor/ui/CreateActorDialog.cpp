@@ -1,12 +1,13 @@
-#include "CreateActorPanel.h"
+#include "CreateActorDialog.h"
 
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/ValueCollection.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/Icons.h"
-#include "app/core/ui/Panel.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/tools/createActor/domain/ActorTemplate.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -33,9 +34,9 @@ namespace toki::createActor {
 namespace {
 
 constexpr float ObjectListHeight = 12.0F;
-constexpr float FlagListHeight = 12.0F;
 constexpr float PreviewLines = 18.0F;
 constexpr float TooltipWidth = 28.0F;
+constexpr float LabelWidth = 12.0F;
 
 [[nodiscard]] std::string makeLabel(const std::string_view name, const std::string_view prefix) {
     std::string lowered(name.substr(std::min(prefix.size(), name.size())));
@@ -57,13 +58,14 @@ void drawComment(const std::string& comment) {
 
 } // namespace
 
-CreateActorPanel::CreateActorPanel(const workspace::WorkspaceService& workspaceService,
-                                   actor::CollectionCatalog& collectionCatalog,
-                                   const core::Fonts& fonts)
-    : Panel("createActor", "Create Actor", core::icons::FilePlus, core::DockSlot::Right),
+CreateActorDialog::CreateActorDialog(const workspace::WorkspaceService& workspaceService,
+                                     actor::CollectionCatalog& collectionCatalog,
+                                     const core::Fonts& fonts)
+    : Dialog("createActor", "Create Actor", core::icons::FilePlus, core::DialogMode::Modal, 52.0F,
+             38.0F),
       workspaceService(workspaceService), collectionCatalog(collectionCatalog), fonts(fonts) {}
 
-void CreateActorPanel::updateChoices() {
+void CreateActorDialog::updateChoices() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     if (workspace != listedWorkspace && !reading.valid()) {
         listedWorkspace = workspace;
@@ -77,7 +79,7 @@ void CreateActorPanel::updateChoices() {
     }
 }
 
-void CreateActorPanel::draw() {
+void CreateActorDialog::draw() {
     updateChoices();
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     if (workspace == nullptr) {
@@ -101,7 +103,7 @@ void CreateActorPanel::draw() {
         ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning, problem->c_str());
     }
     ImGui::BeginDisabled(problem.has_value() || editFlow.isBusy() || editFlow.isReviewing());
-    if (ImGui::Button("Review")) {
+    if (ImGui::Button("Review changes")) {
         editFlow.requestPlan(workspace->getRoot(), [root = workspace->getRoot(), wanted = draft,
                                                     tables = workspace->getTables()] {
             return makeActorPlan(root, wanted, tables);
@@ -114,11 +116,29 @@ void CreateActorPanel::draw() {
     drawPreview(*workspace);
 }
 
-void CreateActorPanel::drawForm(const hackeroot::Workspace& workspace) {
-    ImGui::InputTextWithHint("Name", "En_Foo", &draft.name);
-    ImGui::InputText("Description", &draft.description);
+void CreateActorDialog::drawForm(const hackeroot::Workspace& workspace) {
+    if (core::beginProperties("##names", LabelWidth)) {
+        core::drawPropertyLabel("Name", "The actor table's name for it. Its files, struct and enum "
+                                        "are named after it.");
+        ImGui::InputTextWithHint("##name", "En_Foo", &draft.name);
+        core::drawPropertyLabel("Description",
+                                "The line that describes the actor at the top of its files.");
+        ImGui::InputText("##description", &draft.description);
+        core::endProperties();
+    }
     ImGui::SeparatorText("Overlay");
-    if (ImGui::BeginCombo("Loaded", makeLabel(draft.allocation, "ACTOROVL_ALLOC_").c_str())) {
+    drawOverlay();
+    ImGui::SeparatorText("Actor");
+    drawActor(workspace);
+}
+
+void CreateActorDialog::drawOverlay() {
+    if (!core::beginProperties("##overlay", LabelWidth)) {
+        return;
+    }
+    core::drawPropertyLabel("Allocation type",
+                            "How the overlay is kept in memory, the actor table's allocType.");
+    if (ImGui::BeginCombo("##allocation", makeLabel(draft.allocation, "ACTOROVL_ALLOC_").c_str())) {
         for (const hackeroot::DocumentedDefine& allocation : (*choices)->allocations) {
             if (ImGui::Selectable(makeLabel(allocation.name, "ACTOROVL_ALLOC_").c_str(),
                                   allocation.name == draft.allocation)) {
@@ -128,72 +148,95 @@ void CreateActorPanel::drawForm(const hackeroot::Workspace& workspace) {
         }
         ImGui::EndCombo();
     }
-    ImGui::Checkbox("Take an unused slot of the actor table", &draft.takesUnsetSlot);
-    ImGui::SetItemTooltip("Keeps every actor ID after it; otherwise it goes at the end");
+    core::drawPropertyLabel("Reuse unused slot",
+                            "Puts the actor, and a new object if there is one, into an unused "
+                            "slot of the actor and object tables instead of appending to the end.");
+    ImGui::Checkbox("##reuseSlot", &draft.takesUnsetSlot);
+    core::endProperties();
+}
 
-    ImGui::SeparatorText("Actor");
-    if (ImGui::BeginCombo("Category", makeLabel(draft.category, "ACTORCAT_").c_str())) {
-        if (const actor::ValueCollection* categories =
-                collectionCatalog.findSharedCollection("ActorCategory")) {
-            for (const actor::ChoiceValue& category : categories->values) {
-                if (ImGui::Selectable(makeLabel(category.label, "ACTORCAT_").c_str(),
-                                      category.label == draft.category)) {
-                    draft.category = category.label;
-                }
-            }
-        }
-        ImGui::EndCombo();
+void CreateActorDialog::drawActor(const hackeroot::Workspace& workspace) {
+    if (!core::beginProperties("##actor", LabelWidth)) {
+        return;
     }
+    core::drawPropertyLabel("Category", "The ACTORCAT_ list the actor is updated and drawn in.");
+    drawCategory();
+    core::drawPropertyLabel("Flags");
     drawFlags();
     drawObject(workspace);
-    ImGui::Checkbox("Draws", &draft.draws);
-    ImGui::SameLine();
-    ImGui::Checkbox("Common includes", &draft.includesCommon);
-    ImGui::SetItemTooltip("The headers most actors include, rather than only play_state.h");
-    ImGui::Checkbox("Has collision of its own (DynaPolyActor)", &draft.isDynaPoly);
+    core::drawPropertyLabel("Add Draw function",
+                            "Writes a Draw function and puts it in the profile.");
+    ImGui::Checkbox("##draws", &draft.draws);
+    core::drawPropertyLabel("Add common includes",
+                            "Includes the headers most actors use, not only play_state.h.");
+    ImGui::Checkbox("##includesCommon", &draft.includesCommon);
+    core::drawPropertyLabel("Enable DynaPoly",
+                            "Makes it a DynaPolyActor, with collision of its own.");
+    ImGui::Checkbox("##isDynaPoly", &draft.isDynaPoly);
     if (draft.isDynaPoly) {
-        ImGui::Indent();
-        ImGui::Checkbox("Moves with it", &draft.movesCollision);
+        core::drawPropertyLabel("DynaPoly settings");
+        ImGui::Checkbox("Move actors", &draft.movesCollision);
+        ImGui::SetItemTooltip("DYNA_TRANSFORM_POS: actors standing on it move with it.");
         ImGui::SameLine();
-        ImGui::Checkbox("Turns with it", &draft.turnsCollision);
-        ImGui::Unindent();
+        ImGui::Checkbox("Turn actors", &draft.turnsCollision);
+        ImGui::SetItemTooltip("DYNA_TRANSFORM_ROT_Y: actors standing on it turn with it.");
     }
+    core::endProperties();
 }
 
-void CreateActorPanel::drawFlags() {
-    const std::string title = std::format("Flags ({})###flags", draft.flags.size());
-    if (!ImGui::TreeNode(title.c_str())) {
+void CreateActorDialog::drawCategory() {
+    if (!ImGui::BeginCombo("##category", makeLabel(draft.category, "ACTORCAT_").c_str())) {
         return;
     }
-    if (ImGui::BeginChild("##flags",
-                          ImVec2(0.0F, ImGui::GetFrameHeightWithSpacing() * FlagListHeight),
-                          ImGuiChildFlags_Borders)) {
-        for (const hackeroot::DocumentedDefine& flag : (*choices)->flags) {
-            bool isOn = std::ranges::contains(draft.flags, flag.name);
-            if (ImGui::Checkbox(makeLabel(flag.name, "ACTOR_FLAG_").c_str(), &isOn)) {
-                if (isOn) {
-                    draft.flags.push_back(flag.name);
-                } else {
-                    std::erase(draft.flags, flag.name);
-                }
+    if (const actor::ValueCollection* categories =
+            collectionCatalog.findSharedCollection("ActorCategory")) {
+        for (const actor::ChoiceValue& category : categories->values) {
+            if (ImGui::Selectable(makeLabel(category.label, "ACTORCAT_").c_str(),
+                                  category.label == draft.category)) {
+                draft.category = category.label;
             }
-            drawComment(flag.comment);
         }
     }
-    ImGui::EndChild();
-    ImGui::TreePop();
+    ImGui::EndCombo();
 }
 
-void CreateActorPanel::drawObject(const hackeroot::Workspace& workspace) {
-    bool isNew = draft.newObject.has_value();
-    if (ImGui::Checkbox("A new object", &isNew)) {
-        draft.newObject = isNew ? std::optional<std::string>("object_") : std::nullopt;
+void CreateActorDialog::drawFlags() {
+    std::string preview;
+    for (const std::string& flag : draft.flags) {
+        preview += std::format("{}{}", preview.empty() ? "" : ", ", makeLabel(flag, "ACTOR_FLAG_"));
     }
-    if (draft.newObject) {
-        ImGui::InputText("Object", &*draft.newObject);
+    if (!ImGui::BeginCombo("##flags", preview.empty() ? "None" : preview.c_str(),
+                           ImGuiComboFlags_HeightLargest)) {
         return;
     }
-    if (!ImGui::BeginCombo("Object", draft.object.c_str(), ImGuiComboFlags_HeightLargest)) {
+    for (const hackeroot::DocumentedDefine& flag : (*choices)->flags) {
+        bool isOn = std::ranges::contains(draft.flags, flag.name);
+        if (ImGui::Checkbox(makeLabel(flag.name, "ACTOR_FLAG_").c_str(), &isOn)) {
+            if (isOn) {
+                draft.flags.push_back(flag.name);
+            } else {
+                std::erase(draft.flags, flag.name);
+            }
+        }
+        drawComment(flag.comment);
+    }
+    ImGui::EndCombo();
+}
+
+void CreateActorDialog::drawObject(const hackeroot::Workspace& workspace) {
+    core::drawPropertyLabel("Create new object",
+                            "Adds a new object to the object table for this actor.");
+    bool isNew = draft.newObject.has_value();
+    if (ImGui::Checkbox("##createObject", &isNew)) {
+        draft.newObject = isNew ? std::optional<std::string>("object_") : std::nullopt;
+    }
+    core::drawPropertyLabel("Object", draft.newObject ? "The name of the new object."
+                                                      : "The object loaded for the actor.");
+    if (draft.newObject) {
+        ImGui::InputText("##object", &*draft.newObject);
+        return;
+    }
+    if (!ImGui::BeginCombo("##object", draft.object.c_str(), ImGuiComboFlags_HeightLargest)) {
         return;
     }
     if (ImGui::IsWindowAppearing()) {
@@ -219,8 +262,8 @@ void CreateActorPanel::drawObject(const hackeroot::Workspace& workspace) {
     ImGui::EndCombo();
 }
 
-void CreateActorPanel::drawPreview(const hackeroot::Workspace& workspace) {
-    if (!ImGui::CollapsingHeader("The files it gets") || draft.name.empty()) {
+void CreateActorDialog::drawPreview(const hackeroot::Workspace& workspace) {
+    if (!ImGui::CollapsingHeader("Generated code") || draft.name.empty()) {
         return;
     }
     if (!ImGui::BeginTabBar("##files")) {

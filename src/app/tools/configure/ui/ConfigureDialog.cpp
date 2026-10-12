@@ -1,11 +1,11 @@
-#include "ConfigurePanel.h"
+#include "ConfigureDialog.h"
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/ValueCollection.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/Dialog.h"
 #include "app/core/ui/Icons.h"
-#include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
 #include "app/tools/configure/domain/ConfigSettings.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -46,12 +46,12 @@ constexpr float ChoiceListHeight = 18.0F;
 
 } // namespace
 
-ConfigurePanel::ConfigurePanel(const workspace::WorkspaceService& workspaceService,
-                               actor::CollectionCatalog& collectionCatalog)
-    : Panel("configure", "Configure", core::icons::Gear, core::DockSlot::Right),
+ConfigureDialog::ConfigureDialog(const workspace::WorkspaceService& workspaceService,
+                                 actor::CollectionCatalog& collectionCatalog)
+    : Dialog("configure", "Configure", core::icons::Gear, core::DialogMode::Floating, 50.0F, 34.0F),
       workspaceService(workspaceService), collectionCatalog(collectionCatalog) {}
 
-void ConfigurePanel::updateSettings() {
+void ConfigureDialog::updateSettings() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     if (workspace != listedWorkspace) {
         isStale = true;
@@ -82,7 +82,7 @@ void ConfigurePanel::updateSettings() {
     }
 }
 
-void ConfigurePanel::draw() {
+void ConfigureDialog::draw() {
     updateSettings();
     if (listedWorkspace == nullptr) {
         ImGui::TextColored(core::palette::TextMuted, "Open a checkout to configure it.");
@@ -126,7 +126,7 @@ void ConfigurePanel::draw() {
     ImGui::EndTabBar();
 }
 
-void ConfigurePanel::drawGroup(const ConfigGroup& group) {
+void ConfigureDialog::drawGroup(const ConfigGroup& group) {
     if (!ImGui::BeginTable("##settings", 3,
                            ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
                                ImGuiTableFlags_SizingStretchProp)) {
@@ -145,7 +145,7 @@ void ConfigurePanel::drawGroup(const ConfigGroup& group) {
     ImGui::EndTable();
 }
 
-void ConfigurePanel::drawSetting(const ConfigSetting& setting) {
+void ConfigureDialog::drawSetting(const ConfigSetting& setting) {
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
     ImGui::AlignTextToFramePadding();
@@ -180,7 +180,7 @@ void ConfigurePanel::drawSetting(const ConfigSetting& setting) {
     }
 }
 
-bool ConfigurePanel::drawControl(const ConfigSetting& setting, std::string& value) {
+bool ConfigureDialog::drawControl(const ConfigSetting& setting, std::string& value) {
     ImGui::SetNextItemWidth(-FLT_MIN);
     switch (setting.control) {
     case SettingControl::Toggle: {
@@ -208,7 +208,7 @@ bool ConfigurePanel::drawControl(const ConfigSetting& setting, std::string& valu
     return false;
 }
 
-bool ConfigurePanel::drawChoice(const ConfigSetting& setting, std::string& value) {
+bool ConfigureDialog::drawChoice(const ConfigSetting& setting, std::string& value) {
     std::vector<std::string> options = setting.options;
     if (!setting.collection.empty()) {
         if (const actor::ValueCollection* collection =
