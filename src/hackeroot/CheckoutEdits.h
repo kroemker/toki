@@ -58,7 +58,9 @@ readCheckoutText(const std::filesystem::path& file);
 /// with the line endings it had (`\n` for a new one), through a file beside
 /// it that replaces it whole. Nothing is written when a file is no longer
 /// what the plan read, or a new one exists already: the plan is stale and is
-/// made again.
+/// made again. When a write fails, every file written before it is put back as
+/// it was, and every file and folder made is removed, so a plan is written
+/// whole or not at all.
 [[nodiscard]] std::expected<EditsApplied, std::string>
 applyEditPlan(const std::filesystem::path& repository, const EditPlan& plan);
 

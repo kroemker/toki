@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <sstream>
@@ -98,6 +99,43 @@ constexpr std::string_view DefineDirective = "#define ";
     return !edit.before || *edit.before != edit.after;
 }
 
+[[nodiscard]] std::vector<std::filesystem::path>
+listMissingFolders(const std::filesystem::path& repository, std::filesystem::path folder) {
+    std::vector<std::filesystem::path> missing;
+    std::error_code status;
+    while (!folder.empty() && folder != repository && !std::filesystem::exists(folder, status)) {
+        missing.push_back(folder);
+        folder = folder.parent_path();
+    }
+    return missing;
+}
+
+void undoWrites(const std::filesystem::path& repository, const EditPlan& plan,
+                const std::vector<std::string>& lineEndings, const usize failed,
+                const std::vector<std::filesystem::path>& madeFolders) {
+    for (usize i = 0; i <= failed; ++i) {
+        const FileEdit& edit = plan.files[i];
+        if (!isChanged(edit)) {
+            continue;
+        }
+        std::error_code ignored;
+        if (edit.before) {
+            static_cast<void>(
+                writeWhole(repository / edit.file, makeLineEndings(*edit.before, lineEndings[i])));
+        } else {
+            std::filesystem::remove(repository / edit.file, ignored);
+        }
+    }
+    std::vector<std::filesystem::path> folders = madeFolders;
+    std::ranges::sort(folders, std::greater{}, [](const std::filesystem::path& folder) {
+        return folder.native().size();
+    });
+    for (const std::filesystem::path& folder : folders) {
+        std::error_code ignored;
+        std::filesystem::remove(folder, ignored);
+    }
+}
+
 [[nodiscard]] std::string_view trimSpaces(std::string_view text) {
     while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
         text.remove_prefix(1);
@@ -170,15 +208,23 @@ std::expected<EditsApplied, std::string> applyEditPlan(const std::filesystem::pa
         }
     }
     EditsApplied applied;
+    std::vector<std::filesystem::path> madeFolders;
     for (usize i = 0; i < plan.files.size(); ++i) {
         const FileEdit& edit = plan.files[i];
         if (!isChanged(edit)) {
             continue;
         }
+        const std::filesystem::path path = repository / edit.file;
+        if (!edit.before) {
+            std::ranges::move(listMissingFolders(repository, path.parent_path()),
+                              std::back_inserter(madeFolders));
+        }
         if (std::expected<void, std::string> written =
-                writeWhole(repository / edit.file, makeLineEndings(edit.after, lineEndings[i]));
+                writeWhole(path, makeLineEndings(edit.after, lineEndings[i]));
             !written) {
-            return std::unexpected(written.error());
+            undoWrites(repository, plan, lineEndings, i, madeFolders);
+            return std::unexpected(std::format(
+                "{}; every file written before it was put back as it was", written.error()));
         }
         applied.written.push_back(edit.file);
     }

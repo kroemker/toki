@@ -17,7 +17,9 @@ Every tool works the same way, in `hackeroot/CheckoutEdits`:
 - **Never over a change it did not see.** `applyEditPlan` writes only when every file is
   still what the plan read, and a file it would create does not exist yet; otherwise
   nothing is written and the plan is made again. A file is written beside itself and then
-  replaces itself whole, with the line endings it had.
+  replaces itself whole, with the line endings it had. When a write fails, every file
+  written before it is put back and every file and folder made is removed, so a plan is
+  written whole or not at all, and running the tool again starts from where it was.
 - **Off the UI thread.** Plans are made and applied on a worker (`toki::tools::EditWorker`),
   since nothing on the UI thread reads the checkout. The workspace sees the change by its
   own polling and reads the checkout again.

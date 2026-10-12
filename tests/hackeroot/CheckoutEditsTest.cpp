@@ -161,6 +161,28 @@ TEST_CASE("a plan is written with each file's line endings, and not when a file 
     std::filesystem::remove_all(folder, ignored);
 }
 
+TEST_CASE("a plan that fails to write a file puts back every file written before it",
+          "[hackeroot][edits]") {
+    const std::filesystem::path folder = makeFolder("checkout_edits_undo");
+    writeRaw(folder / "table.h", "a\r\n");
+    writeRaw(folder / "blocker", "a file where a folder is wanted");
+    hackeroot::EditPlan plan;
+    plan.files.push_back(hackeroot::FileEdit{.file = "table.h", .before = "a\n", .after = "b\n"});
+    plan.files.push_back(hackeroot::FileEdit{.file = "made/one.c", .after = "int x;\n"});
+    plan.files.push_back(hackeroot::FileEdit{.file = "blocker/two.c", .after = "int y;\n"});
+
+    const std::expected<hackeroot::EditsApplied, std::string> applied =
+        hackeroot::applyEditPlan(folder, plan);
+
+    REQUIRE_FALSE(applied.has_value());
+    REQUIRE(applied.error().contains("put back"));
+    REQUIRE(readRaw(folder / "table.h") == "a\r\n");
+    REQUIRE_FALSE(std::filesystem::exists(folder / "made/one.c"));
+    REQUIRE_FALSE(std::filesystem::exists(folder / "made"));
+    std::error_code ignored;
+    std::filesystem::remove_all(folder, ignored);
+}
+
 TEST_CASE("the configuration's settings are read where the build defines them",
           "[hackeroot][config]") {
     const std::vector<std::string> debug{"-DDEBUG_FEATURES=1"};
