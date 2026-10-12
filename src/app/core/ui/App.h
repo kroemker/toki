@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/DatabaseStore.h"
@@ -13,6 +13,7 @@
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
+#include "app/displayList/ui/DisplayListPanel.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneActorLoader.h"
@@ -97,6 +98,7 @@ private:
     actor::ActorsPanel* actorsPanel = nullptr;
     object::ObjectPanel* objectPanel = nullptr;
     texture::TexturePanel* texturePanel = nullptr;
+    displayList::DisplayListPanel* displayListPanel = nullptr;
 };
 
 } // namespace toki::core

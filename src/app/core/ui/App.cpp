@@ -20,6 +20,7 @@
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
+#include "app/displayList/ui/DisplayListPanel.h"
 #include "app/object/domain/Object.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
@@ -165,6 +166,10 @@ void App::registerPanels() {
     panels.add(std::move(objectView));
     panels.add(std::move(textures));
     panels.add(std::move(actors));
+    auto displayList =
+        std::make_unique<displayList::DisplayListPanel>(*viewportPanel, workspaceService, fonts);
+    displayListPanel = displayList.get();
+    panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
@@ -181,9 +186,10 @@ void App::registerPanels() {
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<configure::ConfigurePanel>(workspaceService, collectionCatalog));
-    panels.add(std::make_unique<registerScene::RegisterScenePanel>(workspaceService, collectionCatalog));
     panels.add(
-        std::make_unique<createActor::CreateActorPanel>(workspaceService, collectionCatalog, fonts));
+        std::make_unique<registerScene::RegisterScenePanel>(workspaceService, collectionCatalog));
+    panels.add(std::make_unique<createActor::CreateActorPanel>(workspaceService, collectionCatalog,
+                                                               fonts));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
 }
@@ -217,6 +223,9 @@ void App::drawFrame() {
     updateSceneActors();
     updateObject();
     updateActorDatabase();
+    if (viewportPanel != nullptr && displayListPanel != nullptr) {
+        viewportPanel->setTracing(displayListPanel->isOpen());
+    }
     if (viewportPanel != nullptr) {
         std::optional<std::string> reading = sceneLoader.findReadingName();
         if (!reading) {
