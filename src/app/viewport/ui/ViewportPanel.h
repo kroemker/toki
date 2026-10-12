@@ -19,6 +19,16 @@
 
 namespace toki::viewport {
 
+/// A frame the viewport drew with its commands recorded, the content it drew,
+/// which the frame's addresses point into, and the size it drew it at. The
+/// generation tells one frame from the next.
+struct TracedFrame {
+    Frame frame;
+    ViewportContent content;
+    FrameSize size;
+    u64 generation = 0;
+};
+
 class ViewportPanel : public core::Panel {
 public:
     explicit ViewportPanel(const gfx::Device& device);
@@ -65,6 +75,26 @@ public:
         viewportOverlay = std::move(overlay);
     }
 
+    /// Whether frames are drawn with their commands recorded, for looking
+    /// into them. While they are, the last one is kept.
+    void setTracing(const bool isOn) {
+        if (isOn != isTracing) {
+            isTracing = isOn;
+            tracedFrame.reset();
+            stale = true;
+        }
+    }
+
+    /// The last frame drawn while tracing, if one was.
+    [[nodiscard]] const TracedFrame* findTracedFrame() const {
+        return tracedFrame ? &*tracedFrame : nullptr;
+    }
+
+    /// Where on the screen the viewport's image was last drawn, its top left.
+    [[nodiscard]] ImVec2 getImageOrigin() const {
+        return imageOrigin;
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -76,6 +106,7 @@ public:
 private:
     [[nodiscard]] bool handleInput(ImVec2 size);
     void render(const gfx::RenderTarget& target);
+    static void reportDiagnostics(const Frame& frame);
     void drawOverlay(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
 
     const gfx::Device& device;
@@ -86,6 +117,10 @@ private:
     OrbitCamera orbitCamera;
     ViewportContent viewportContent;
     ViewportOverlay viewportOverlay;
+    bool isTracing = false;
+    std::optional<TracedFrame> tracedFrame;
+    u64 frameGeneration = 0;
+    ImVec2 imageOrigin{};
     bool stale = true;
     bool reported = false;
     usize diagnosticCount = 0;

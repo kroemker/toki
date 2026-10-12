@@ -275,7 +275,8 @@ n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix) {
     return n64::makeFixedMatrix(elements);
 }
 
-Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size) {
+Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size,
+               const bool recordsTrace) {
     Frame frame;
     if (size.width == 0 || size.height == 0) {
         return frame;
@@ -307,9 +308,13 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
     }
     std::array<u32, n64::SegmentCount> segments{};
     segments[FrameSegment] = physical;
+    frame.mappedImages = mapped;
+    frame.frameListAddress = physical;
+    frame.frameListSize = frameList.bytes.size();
 
-    frame.rspResult =
-        n64::runTask(memory, n64::RspTask{.displayList = frameList.start, .segments = segments});
+    frame.rspResult = n64::runTask(memory, n64::RspTask{.displayList = frameList.start,
+                                                        .segments = segments,
+                                                        .recordsTrace = recordsTrace});
     frame.rdpResult = n64::runRdp(frame.rspResult, memory);
     std::ranges::move(frame.rspResult.diagnostics, std::back_inserter(frame.diagnostics));
     std::ranges::move(frame.rdpResult.diagnostics, std::back_inserter(frame.diagnostics));

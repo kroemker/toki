@@ -149,6 +149,7 @@ void ViewportPanel::draw() {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     const auto texture = static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(color));
     drawList->AddImage(texture, origin, end);
+    imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawOverlay(*drawList, origin, size);
     drawList->PopClipRect();
@@ -219,17 +220,27 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     }
     const u32 width = target.getWidth();
     const u32 height = target.getHeight();
-    Frame frame =
-        runFrame(viewportContent, orbitCamera, FrameSize{.width = width, .height = height});
+    const FrameSize size{.width = width, .height = height};
+    Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing);
     std::vector<base::Diagnostic> drawn =
         renderer->render(frame.rspResult, frame.rdpResult, target,
                          gfx::ScreenSize{.width = width, .height = height});
     std::ranges::move(drawn, std::back_inserter(frame.diagnostics));
     diagnosticCount = frame.diagnostics.size();
-    if (reported) {
-        return;
-    }
+    const bool isReported = reported;
     reported = true;
+    if (!isReported) {
+        reportDiagnostics(frame);
+    }
+    if (isTracing) {
+        tracedFrame = TracedFrame{.frame = std::move(frame),
+                                  .content = viewportContent,
+                                  .size = size,
+                                  .generation = ++frameGeneration};
+    }
+}
+
+void ViewportPanel::reportDiagnostics(const Frame& frame) {
     for (usize i = 0; i < std::min(frame.diagnostics.size(), ReportedDiagnostics); ++i) {
         core::logWarn("viewport: {}", base::describe(frame.diagnostics[i]));
     }

@@ -89,11 +89,16 @@ struct FrameSize {
     u32 height = 240;
 };
 
-/// What the RSP and RDP made of one frame, ready for the GPU.
+/// What the RSP and RDP made of one frame, ready for the GPU, and where the
+/// content's images and the frame's own display list were in memory, for
+/// naming the addresses its trace holds.
 struct Frame {
     n64::RspResult rspResult;
     n64::RdpResult rdpResult;
     std::vector<base::Diagnostic> diagnostics;
+    std::vector<z64::MappedImage> mappedImages;
+    u32 frameListAddress = 0;
+    usize frameListSize = 0;
 };
 
 /// The segment the frame's own display list and matrices are written to,
@@ -119,8 +124,10 @@ inline constexpr u8 FrameSegment = 0x01;
 /// Runs one frame the way the game sets one up: a display list of its own
 /// sets the viewport to `size`, loads the camera's view and projection as the
 /// projection matrix and the identity as the modelview, as the game's `View`
-/// does, then calls each of the content's display lists in turn.
+/// does, then calls each of the content's display lists in turn. With
+/// `recordsTrace`, every command the RSP runs is recorded
+/// (`n64::RspTask::recordsTrace`).
 [[nodiscard]] Frame runFrame(const ViewportContent& content, const OrbitCamera& camera,
-                             FrameSize size);
+                             FrameSize size, bool recordsTrace = false);
 
 } // namespace toki::viewport
