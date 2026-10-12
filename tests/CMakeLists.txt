@@ -25,6 +25,7 @@ add_executable(toki_tests
         app/texture/TextureCatalogTest.cpp
         app/tools/ConfigSettingsTest.cpp
         app/tools/EditWorkerTest.cpp
+        app/tools/SceneRegistryTest.cpp
         app/scene/ActorDescriptionTest.cpp
         app/scene/ActorDrawsTest.cpp
         app/scene/SceneCheckoutTest.cpp

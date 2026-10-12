@@ -59,3 +59,35 @@ A setting the safeguards override shows what the build ends with beside it. Chan
 held until "Review", which plans them (`makeConfigPlan`): one item per changed line, and a
 warning for each overridden setting, since the build will not see what is written. The
 panel reads the configuration again once the plan is written.
+
+## Register Scene
+
+fast64 writes a scene's C into `assets/scenes/<name>/` and nothing else, so the build does
+not know the scene until it is named in the spec and the scene and entrance tables.
+Everything else, the `SceneID` and `EntranceIndex` enums, `gSceneTable`, the ROM segment
+symbols, is generated from those. The Register Scene panel lists every scene folder of the
+checkout's own assets, registered or not, and plans (`makeScenePlan`):
+
+- **The spec.** A segment for the scene, `<name>_scene`, and one for each room,
+  `<name>_room_<n>`, compressed and aligned to 0x1000, linking the folder's files in the
+  order fast64 and the vanilla spec list them: the file with the header first, then the
+  scene's collision and cutscenes, or the room's model info and model. A segment that is
+  there with other files is rewritten where it is, so a scene that gained a room or a file
+  is brought up to date.
+- **The scene table.** `DEFINE_SCENE(<name>_scene, none, SCENE_<NAME>, <draw config>, 0, 0)`,
+  the draw config picked from the checkout's `SceneDrawConfig`.
+- **The entrance table.** For each spawn, four entrances, `ENTR_<NAME>_<spawn>` and
+  `_1` to `_3`, for child day and night and adult day and night: the game finds a layer's
+  entrance by its offset from the first, so a group is never split.
+- **The map select.** An entry ahead of the first vanilla one, Hyrule Field, under a name
+  made of the folder's, `ocean_test` as "Ocean Test".
+- **Booting into it**, when asked: `BOOT_ENTRANCE`, `BOOT_TO_SCENE`, `ENABLE_HACKER_DEBUG`,
+  and the age and time of day if picked, on the lines the configuration reads them from,
+  written last, so the build never boots to an entrance a failed write left out.
+
+Before planning, the scene is read as the game loads it (`surveyScene`), so the spawns and
+the room list come from its header's bytes. It warns of a name that is not a C identifier,
+a room list that names another number of rooms than the folder has, a full scene table, a
+scene enum another scene has, and booting into the scene without `DEBUG_FEATURES`, which the
+safeguards answer by booting to the title screen. A scene the Rust prototype registered
+reads as registered: its segments, entries and markers are the ones this writes.

@@ -31,13 +31,14 @@ namespace toki::actor {
 
 namespace {
 
-constexpr std::array<SharedCollection, 10> SharedCollections{{
+constexpr std::array<SharedCollection, 11> SharedCollections{{
     {.name = "GetItemID", .header = "item.h"},
     {.name = "ItemID", .header = "item.h"},
     {.name = "GetItemDrawID", .header = "item.h"},
     {.name = "Item00Type", .header = "z_en_item00.h"},
     {.name = "SfxId", .header = "sfx.h"},
     {.name = "NA_BGM", .header = "sequence.h"},
+    {.name = "SceneDrawConfig", .header = "scene.h"},
     {.name = "ActorID", .header = {}},
     {.name = "ObjectID", .header = {}},
     {.name = "SceneID", .header = {}},

@@ -139,6 +139,11 @@ constexpr std::array<CollectionChoice, 3> CollectionChoices{{
 
 } // namespace
 
+std::span<const std::string_view> findListedOptions(const std::string_view prefix) {
+    const auto found = std::ranges::find(ListedChoices, prefix, &ListedChoice::prefix);
+    return found == ListedChoices.end() ? std::span<const std::string_view>() : found->options;
+}
+
 std::vector<ConfigGroup> makeConfigGroups(const std::span<const hackeroot::ConfigDefine> defines) {
     std::vector<ConfigGroup> groups;
     for (const hackeroot::ConfigDefine& define : defines) {

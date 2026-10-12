@@ -44,6 +44,10 @@ struct ConfigGroup {
     std::vector<ConfigSetting> settings;
 };
 
+/// The names a setting written as one starting with `prefix` may be, as
+/// `LINK_AGE_` is `LINK_AGE_ADULT` or `LINK_AGE_CHILD`, or none.
+[[nodiscard]] std::span<const std::string_view> findListedOptions(std::string_view prefix);
+
 /// `defines`, grouped by their header in order.
 [[nodiscard]] std::vector<ConfigGroup>
 makeConfigGroups(std::span<const hackeroot::ConfigDefine> defines);
