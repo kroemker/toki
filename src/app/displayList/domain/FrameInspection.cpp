@@ -48,8 +48,9 @@ constexpr std::array<std::string_view, 4> SizeNames{"4", "8", "16", "32"};
            name == "gsDPLoadTLUTCmd" || name == "gsDPSetTileSize";
 }
 
-[[nodiscard]] std::string makePlural(const usize count, const std::string_view word) {
-    return std::format("{} {}{}", count, word, count == 1 ? "" : "s");
+[[nodiscard]] std::string makePlural(const usize count, const std::string_view one,
+                                     const std::string_view many) {
+    return std::format("{} {}", count, count == 1 ? one : many);
 }
 
 } // namespace
@@ -206,14 +207,15 @@ std::string FrameInspection::describeEffect(const usize row, const z64::GbiNames
     if (command.name == "gsSPVertex") {
         const u32 count = findField(command, "count");
         const u32 first = findField(command, "first slot");
-        return std::format("Loaded {} into slots {} to {} from {}.", makePlural(count, "vertex"),
-                           first, first + count - 1, nameAddress(findField(command, "address")));
+        return std::format("Loaded {} into slots {} to {} from {}.",
+                           makePlural(count, "vertex", "vertices"), first, first + count - 1,
+                           nameAddress(findField(command, "address")));
     }
     if (isTriangles(command)) {
         if (made == 0 && entry.culled == 0) {
             return "Drew nothing: a vertex it names was never loaded.";
         }
-        std::string text = std::format("Drew {}", makePlural(made, "triangle"));
+        std::string text = std::format("Drew {}", makePlural(made, "triangle", "triangles"));
         if (entry.culled > 0) {
             text += std::format("; {} culled, facing the way culling drops",
                                 entry.culled == 1 ? "1 was" : std::format("{} were", entry.culled));
@@ -223,7 +225,7 @@ std::string FrameInspection::describeEffect(const usize row, const z64::GbiNames
     if (isCall(command)) {
         return std::format("Called {}, which ran {} before returning here.",
                            nameAddress(findField(command, "address")),
-                           makePlural(inspected.end - row - 1, "command"));
+                           makePlural(inspected.end - row - 1, "command", "commands"));
     }
     if (command.name == "gsSPBranchList") {
         return std::format("Continued with {} and did not come back.",
