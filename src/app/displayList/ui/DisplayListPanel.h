@@ -6,7 +6,10 @@
 #include "app/displayList/domain/FrameInspection.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "gfx/Device.h"
+#include "gfx/ImageTexture.h"
 #include "hackeroot/Workspace.h"
+#include "n64/Rdp.h"
 #include "z64/GbiNames.h"
 
 #include <future>
@@ -25,7 +28,7 @@ namespace toki::displayList {
 /// what it did in this frame. It follows the viewport, or holds one frame.
 class DisplayListPanel : public core::Panel {
 public:
-    DisplayListPanel(viewport::ViewportPanel& viewportPanel,
+    DisplayListPanel(const gfx::Device& device, viewport::ViewportPanel& viewportPanel,
                      const workspace::WorkspaceService& workspaceService, const core::Fonts& fonts);
 
     [[nodiscard]] bool isOpenByDefault() const override {
@@ -47,9 +50,18 @@ private:
     void drawRows();
     void drawRow(const VisibleRow& visible);
     void drawDetails();
+    void drawFields(usize row);
+    void drawState(usize row);
+    void drawTilePreviews(usize row, const n64::RdpState& state);
     [[nodiscard]] const std::string& findRowText(usize row);
     [[nodiscard]] z64::FindAddressName makeAddressNamer(usize row) const;
 
+    struct UploadedTile {
+        usize tile = 0;
+        gfx::ImageTexture texture;
+    };
+
+    const gfx::Device& device;
     viewport::ViewportPanel& viewportPanel;
     const workspace::WorkspaceService& workspaceService;
     const core::Fonts& fonts;
@@ -68,6 +80,9 @@ private:
     bool areRowsStale = true;
     std::optional<usize> selected;
     std::map<usize, std::string> rowTexts;
+    std::vector<UploadedTile> previews;
+    std::optional<usize> previewRow;
+    u64 previewGeneration = 0;
 };
 
 } // namespace toki::displayList

@@ -166,8 +166,8 @@ void App::registerPanels() {
     panels.add(std::move(objectView));
     panels.add(std::move(textures));
     panels.add(std::move(actors));
-    auto displayList =
-        std::make_unique<displayList::DisplayListPanel>(*viewportPanel, workspaceService, fonts);
+    auto displayList = std::make_unique<displayList::DisplayListPanel>(*device, *viewportPanel,
+                                                                       workspaceService, fonts);
     displayListPanel = displayList.get();
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));

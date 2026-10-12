@@ -7,20 +7,28 @@
 #include "app/core/ui/Theme.h"
 #include "app/displayList/Types.h"
 #include "app/displayList/domain/FrameInspection.h"
+#include "app/displayList/domain/RdpStateText.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "base/Diagnostic.h"
 #include "cparser/MacroTable.h"
+#include "gfx/ImageTexture.h"
 #include "hackeroot/Gbi.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Workspace.h"
 #include "n64/CombineMode.h"
 #include "n64/CommandDecoder.h"
+#include "n64/OtherMode.h"
+#include "n64/Rdp.h"
+#include "n64/RspResult.h"
 #include "z64/GbiNames.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <expected>
 #include <format>
 #include <future>
@@ -28,6 +36,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace toki::displayList {
 
@@ -37,6 +46,7 @@ constexpr double RefreshInterval = 0.5;
 constexpr float RowsShare = 0.55F;
 constexpr float IndentWidth = 1.2F;
 constexpr float TooltipWidth = 30.0F;
+constexpr f32 PreviewSize = 96.0F;
 
 [[nodiscard]] ImVec4 getKindColor(const n64::CommandKind kind) {
     switch (kind) {
@@ -93,12 +103,13 @@ void drawWrappedTooltip(const std::string_view first, const std::string_view sec
 
 } // namespace
 
-DisplayListPanel::DisplayListPanel(viewport::ViewportPanel& viewportPanel,
+DisplayListPanel::DisplayListPanel(const gfx::Device& device,
+                                   viewport::ViewportPanel& viewportPanel,
                                    const workspace::WorkspaceService& workspaceService,
                                    const core::Fonts& fonts)
     : Panel("displayList", "Display List", core::icons::ListBullets, core::DockSlot::Right),
-      viewportPanel(viewportPanel), workspaceService(workspaceService), fonts(fonts),
-      plainNames(cparser::MacroTable{}) {}
+      device(device), viewportPanel(viewportPanel), workspaceService(workspaceService),
+      fonts(fonts), plainNames(cparser::MacroTable{}) {}
 
 void DisplayListPanel::updateNames() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
@@ -301,9 +312,15 @@ void DisplayListPanel::drawDetails() {
         ImGui::Spacing();
         ImGui::TextColored(core::palette::Accent, "%s %s", core::icons::Lightning, effect.c_str());
     }
-    if (inspected.command.fields.empty()) {
-        return;
+    if (!inspected.command.fields.empty()) {
+        drawFields(row);
     }
+    drawState(row);
+}
+
+void DisplayListPanel::drawFields(const usize row) {
+    const InspectedCommand& inspected = inspection->getRows()[row];
+    const z64::GbiNames& named = names ? *names : plainNames;
     ImGui::SeparatorText("Fields");
     if (!ImGui::BeginTable("##fields", 2,
                            ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
@@ -320,6 +337,91 @@ void DisplayListPanel::drawDetails() {
         drawWrappedTooltip(makeFieldNote(field), {});
     }
     ImGui::EndTable();
+}
+
+void DisplayListPanel::drawState(const usize row) {
+    const n64::RdpState* state = inspection->findDrawState(row);
+    if (state == nullptr) {
+        return;
+    }
+    ImGui::SeparatorText("What it drew with");
+    for (const StateSection& section : describeRdpState(*state)) {
+        if (section.lines.empty()) {
+            continue;
+        }
+        const bool isOpen = ImGui::CollapsingHeader(
+            section.title.c_str(),
+            section.title == "Colour combiner" ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+        drawWrappedTooltip(findGlossaryEntry(section.term), {});
+        if (!isOpen ||
+            !ImGui::BeginTable(section.title.c_str(), 2,
+                               ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+            continue;
+        }
+        for (const StateLine& line : section.lines) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(line.label.c_str());
+            drawWrappedTooltip(line.description, {});
+            ImGui::TableNextColumn();
+            ImGui::TextWrapped("%s", line.value.c_str());
+        }
+        ImGui::EndTable();
+    }
+    drawTilePreviews(row, *state);
+}
+
+void DisplayListPanel::drawTilePreviews(const usize row, const n64::RdpState& state) {
+    if (previewRow != row || previewGeneration != shownFrame->generation) {
+        previewRow = row;
+        previewGeneration = shownFrame->generation;
+        previews.clear();
+        const std::vector<usize> draws = inspection->listDraws(row);
+        const auto* triangle =
+            draws.empty() ? nullptr
+                          : std::get_if<n64::Triangle>(
+                                &shownFrame->frame.rdpResult.draws[draws.front()].primitive);
+        if (triangle != nullptr && triangle->textured &&
+            state.textureMemory < shownFrame->frame.rdpResult.textureMemories.size()) {
+            const bool isTwo = state.otherMode.getCycleType() == n64::CycleType::Two;
+            for (usize tile = triangle->tile; tile <= triangle->tile + (isTwo ? 1U : 0U); ++tile) {
+                const std::optional<TilePreview> preview = makeTilePreview(
+                    state, shownFrame->frame.rdpResult.textureMemories[state.textureMemory],
+                    tile & 7U);
+                if (!preview) {
+                    continue;
+                }
+                std::expected<gfx::ImageTexture, base::Diagnostic> uploaded =
+                    gfx::ImageTexture::create(device, preview->width, preview->height,
+                                              preview->pixels);
+                if (uploaded) {
+                    previews.push_back(
+                        UploadedTile{.tile = tile & 7U, .texture = std::move(*uploaded)});
+                }
+            }
+        }
+    }
+    if (previews.empty()) {
+        return;
+    }
+    ImGui::SeparatorText("Textures it read");
+    drawWrappedTooltip(findGlossaryEntry("texture memory"), {});
+    for (const UploadedTile& uploaded : previews) {
+        const f32 scale =
+            std::max(1.0F, PreviewSize / static_cast<f32>(std::max(uploaded.texture.getWidth(),
+                                                                   uploaded.texture.getHeight())));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        const auto textureId = static_cast<ImTextureID>(
+            reinterpret_cast<std::uintptr_t>(uploaded.texture.getTexture()));
+        ImGui::BeginGroup();
+        ImGui::Image(textureId, ImVec2(static_cast<f32>(uploaded.texture.getWidth()) * scale,
+                                       static_cast<f32>(uploaded.texture.getHeight()) * scale));
+        ImGui::TextColored(core::palette::TextMuted, "tile %zu, %u×%u", uploaded.tile,
+                           uploaded.texture.getWidth(), uploaded.texture.getHeight());
+        ImGui::EndGroup();
+        ImGui::SameLine();
+    }
+    ImGui::NewLine();
 }
 
 } // namespace toki::displayList
