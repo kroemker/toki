@@ -215,6 +215,7 @@ void RspInterpreter::drawTriangle(const u32 indices) {
     }
     const u32 cull = geometryMode & (geometry::CullFront | geometry::CullBack);
     if (cull == (geometry::CullFront | geometry::CullBack)) {
+        ++culled;
         return;
     }
     Triangle triangle{
@@ -233,6 +234,7 @@ void RspInterpreter::drawTriangle(const u32 indices) {
         const f32 facing = computeFacing(triangle.vertices) * mirror;
         if ((cull == geometry::CullBack && facing < 0.0F) ||
             (cull == geometry::CullFront && facing > 0.0F)) {
+            ++culled;
             return;
         }
     }

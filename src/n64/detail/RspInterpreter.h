@@ -25,7 +25,8 @@ namespace n64 {
 class RspInterpreter {
 public:
     RspInterpreter(const Memory& memory, const RspTask& task)
-        : memory(memory), segments(task.segments), pc(resolve(task.displayList) & DmaMask) {}
+        : memory(memory), segments(task.segments), pc(resolve(task.displayList) & DmaMask),
+          recordsTrace(task.recordsTrace) {}
 
     [[nodiscard]] RspResult run();
 
@@ -103,6 +104,8 @@ private:
     RspResult result;
     std::array<u32, SegmentCount> segments;
     u32 pc;
+    bool recordsTrace = false;
+    usize culled = 0;
     u32 commandAddress = 0;
     u64 commandCount = 0;
     std::vector<u32> returnStack;

@@ -23,7 +23,17 @@
 namespace n64 {
 
 RspResult RspInterpreter::run() {
-    while (step()) {
+    while (true) {
+        const usize traced = result.trace.size();
+        const usize culledBefore = culled;
+        const bool isRunning = step();
+        if (result.trace.size() > traced) {
+            result.trace.back().endOutput = result.outputs.size();
+            result.trace.back().culled = culled - culledBefore;
+        }
+        if (!isRunning) {
+            break;
+        }
     }
     return std::move(result);
 }
@@ -44,6 +54,13 @@ bool RspInterpreter::step() {
     const u32 word0 = readU32(*bytes, 0);
     const u32 word1 = readU32(*bytes, 4);
     pc = (pc + 8) & PhysicalMask;
+    if (recordsTrace) {
+        result.trace.push_back(TraceEntry{.address = commandAddress,
+                                          .word0 = word0,
+                                          .word1 = word1,
+                                          .depth = returnStack.size(),
+                                          .firstOutput = result.outputs.size()});
+    }
 
     const auto opcode = static_cast<Opcode>(word0 >> 24);
     switch (opcode) {

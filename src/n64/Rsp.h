@@ -14,6 +14,9 @@ struct RspTask {
     u32 displayList = 0;
     /// The segment table at the start of the task, as physical addresses.
     std::array<u32, SegmentCount> segments{};
+    /// Whether to record every command run (`RspResult::trace`), for looking
+    /// into what a frame did.
+    bool recordsTrace = false;
 };
 
 /// Runs one graphics task the way F3DEX2 would: reads the display list out of

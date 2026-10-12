@@ -445,3 +445,34 @@ TEST_CASE("a light changed between vertex loads lights the later ones", "[n64][r
     REQUIRE(triangles[0].vertices[0].color == std::array<u8, 4>{10, 10, 10, 255});
     REQUIRE(triangles[1].vertices[0].color == std::array<u8, 4>{0x40, 0x40, 0x40, 255});
 }
+
+TEST_CASE("a traced task records every command run, how deep, and what it made", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 called = builder.setGeometryMode(0, CullBack);
+    builder.drawTriangle(0, 1, 2);
+    builder.drawTriangle(0, 2, 1);
+    builder.endDisplayList();
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.callDisplayList(called);
+    builder.callDisplayList(called);
+    builder.endDisplayList();
+
+    n64::Memory memory;
+    REQUIRE(memory.map(SegmentBase, builder.getBytes()));
+    n64::RspTask task{.displayList = start, .recordsTrace = true};
+    task.segments[DisplayListBuilder::Segment] = SegmentBase;
+    const n64::RspResult result = n64::runTask(memory, task);
+
+    REQUIRE(result.trace.size() == 12);
+    REQUIRE(result.trace[0].address == SegmentBase + (start & 0x00FF'FFFF));
+    REQUIRE(result.trace[0].depth == 0);
+    REQUIRE(result.trace[2].depth == 1);
+    REQUIRE(result.trace[3].endOutput - result.trace[3].firstOutput == 1);
+    REQUIRE(result.trace[3].culled == 0);
+    REQUIRE(result.trace[4].endOutput == result.trace[4].firstOutput);
+    REQUIRE(result.trace[4].culled == 1);
+    REQUIRE(result.trace[8].address == result.trace[3].address);
+    REQUIRE(result.trace[8].firstOutput != result.trace[3].firstOutput);
+    REQUIRE(n64::runTask(memory, {.displayList = start, .segments = task.segments}).trace.empty());
+}

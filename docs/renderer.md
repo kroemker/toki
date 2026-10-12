@@ -83,6 +83,11 @@ vertices transformed, lit, fogged and textured, texture rectangles, and every ot
 command as it is, with image addresses resolved. Triangles stay in clip space, because
 the GPU clips them; the viewport each was transformed under travels with it.
 
+A task asked to (`RspTask::recordsTrace`) also records every command it runs, in order:
+its address and words, how many display list calls deep it ran, the outputs it made and how
+many of its triangles were culled. The display list viewer reads a frame through it; it is
+kept by command rather than by address, because one display list runs many times a frame.
+
 It follows F3DEX2's own layouts where that keeps it exact: lights are kept as the 24-byte
 slots `G_MOVEMEM` and `G_MOVEWORD` write into, so a partial write behaves as it does on
 the RSP, and matrices are kept in s15.16, so `G_MW_MATRIX` can overwrite half an element.
