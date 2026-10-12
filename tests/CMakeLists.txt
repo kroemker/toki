@@ -69,6 +69,7 @@ add_executable(toki_tests
         makeparser/MakefileTest.cpp
         makeparser/ShellWordsTest.cpp
         n64/CombinerTest.cpp
+        n64/CommandDecoderTest.cpp
         n64/DisplayListWriterTest.cpp
         n64/FixedMatrixTest.cpp
         n64/MemoryTest.cpp

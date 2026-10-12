@@ -88,6 +88,13 @@ its address and words, how many display list calls deep it ran, the outputs it m
 many of its triangles were culled. The display list viewer reads a frame through it; it is
 kept by command rather than by address, because one display list runs many times a frame.
 
+`n64::decodeCommand` reads a command's two words back into the `gbi.h` macro it is written
+with, its kind and its fields, each with its raw value, how it reads and what it means, for
+people reading a frame. Every F3DEX2 command and every field says what it does; what the
+values are called in `gbi.h`, `G_ZBUFFER` or `G_RM_AA_ZB_OPA_SURF`, is the checkout's, not
+the decoder's. Encoding a `gs*` macro with the checkout's own `gbi.h` and decoding the words
+gives the macro's name back.
+
 It follows F3DEX2's own layouts where that keeps it exact: lights are kept as the 24-byte
 slots `G_MOVEMEM` and `G_MOVEWORD` write into, so a partial write behaves as it does on
 the RSP, and matrices are kept in s15.16, so `G_MW_MATRIX` can overwrite half an element.

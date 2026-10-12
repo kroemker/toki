@@ -1,6 +1,8 @@
 target_sources(toki_core PRIVATE
         Blender.cpp
         CombineMode.cpp
+        CommandDecoder.cpp
+        CommandText.cpp
         Combiner.cpp
         DisplayListWriter.cpp
         FixedMatrix.cpp
@@ -8,6 +10,7 @@ target_sources(toki_core PRIVATE
         Memory.cpp
         OtherMode.cpp
         Rdp.cpp
+        RdpCommandDecoder.cpp
         Rsp.cpp
         RspGeometry.cpp
         Segment.cpp

@@ -11,6 +11,7 @@
 #include "hackeroot/Gbi.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Workspace.h"
+#include "n64/CommandDecoder.h"
 #include "z64/DecompDialect.h"
 #include "z64/DisplayList.h"
 #include "z64/DisplayListEncoder.h"
@@ -209,4 +210,76 @@ TEST_CASE("every display list in the checkout's assets encodes without a warning
     INFO(listed);
     REQUIRE(lists > 1000);
     REQUIRE(problems.empty());
+}
+
+TEST_CASE("every gbi.h macro decodes back under its own name", "[hackeroot][gbi][checkout]") {
+    const Checkout checkout;
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 40> Macros{{
+        {"gsDPNoOp()", "gsDPNoOp"},
+        {"gsSPNoOp()", "gsSPNoOp"},
+        {"gsDPPipeSync()", "gsDPPipeSync"},
+        {"gsDPLoadSync()", "gsDPLoadSync"},
+        {"gsDPTileSync()", "gsDPTileSync"},
+        {"gsDPFullSync()", "gsDPFullSync"},
+        {"gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE)", "gsDPSetCombineMode"},
+        {"gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2)", "gsDPSetRenderMode"},
+        {"gsDPSetCycleType(G_CYC_2CYCLE)", "gsDPSetCycleType"},
+        {"gsDPSetTextureFilter(G_TF_BILERP)", "gsDPSetTextureFilter"},
+        {"gsDPSetTextureLUT(G_TT_NONE)", "gsDPSetTextureLUT"},
+        {"gsDPSetTexturePersp(G_TP_PERSP)", "gsDPSetTexturePersp"},
+        {"gsDPSetTextureLOD(G_TL_TILE)", "gsDPSetTextureLOD"},
+        {"gsDPSetAlphaCompare(G_AC_NONE)", "gsDPSetAlphaCompare"},
+        {"gsDPSetDepthSource(G_ZS_PIXEL)", "gsDPSetDepthSource"},
+        {"gsSPTexture(0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON)", "gsSPTexture"},
+        {"gsSPSetGeometryMode(G_LIGHTING)", "gsSPSetGeometryMode"},
+        {"gsSPClearGeometryMode(G_FOG)", "gsSPClearGeometryMode"},
+        {"gsSPGeometryMode(G_FOG, G_LIGHTING)", "gsSPGeometryMode"},
+        {"gsSPLoadGeometryMode(G_ZBUFFER | G_SHADE)", "gsSPLoadGeometryMode"},
+        {"gsSPVertex(&sVtx[2], 3, 0)", "gsSPVertex"},
+        {"gsSP1Triangle(0, 1, 2, 0)", "gsSP1Triangle"},
+        {"gsSP2Triangles(0, 1, 2, 0, 3, 4, 5, 0)", "gsSP2Triangles"},
+        {"gsSPCullDisplayList(0, 7)", "gsSPCullDisplayList"},
+        {"gsSPModifyVertex(0, G_MWO_POINT_RGBA, 0)", "gsSPModifyVertex"},
+        {"gsSPDisplayList(0x09000000)", "gsSPDisplayList"},
+        {"gsSPBranchList(0x09000000)", "gsSPBranchList"},
+        {"gsSPEndDisplayList()", "gsSPEndDisplayList"},
+        {"gsSPMatrix(0x01000000, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW)", "gsSPMatrix"},
+        {"gsSPPopMatrix(G_MTX_MODELVIEW)", "gsSPPopMatrix"},
+        {"gsSPSegment(8, 0x01000000)", "gsSPSegment"},
+        {"gsSPNumLights(NUMLIGHTS_1)", "gsSPNumLights"},
+        {"gsSPViewport(&sVtx[0])", "gsSPViewport"},
+        {"gsDPSetPrimColor(0, 0, 255, 255, 255, 255)", "gsDPSetPrimColor"},
+        {"gsDPSetEnvColor(0, 0, 0, 255)", "gsDPSetEnvColor"},
+        {"gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, sTex)", "gsDPSetTextureImage"},
+        {"gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR, 5, 0, "
+         "G_TX_MIRROR, 5, 0)",
+         "gsDPSetTile"},
+        {"gsDPSetTileSize(G_TX_RENDERTILE, 0, 0, 124, 124)", "gsDPSetTileSize"},
+        {"gsDPLoadTLUTCmd(G_TX_LOADTILE, 15)", "gsDPLoadTLUTCmd"},
+        {"gsDPFillRectangle(0, 0, 319, 239)", "gsDPFillRectangle"},
+    }};
+    const auto findSymbol =
+        [](const std::string_view name) -> std::optional<cparser::SymbolAddress> {
+        if (name == "sTex") {
+            return cparser::SymbolAddress{.address = 0x06000800, .elementSize = 8};
+        }
+        if (name == "sVtx") {
+            return cparser::SymbolAddress{.address = 0x06000000, .elementSize = 16};
+        }
+        return std::nullopt;
+    };
+    const cparser::MacroTable empty;
+    for (const auto& [macro, name] : Macros) {
+        INFO(macro);
+        const cparser::TranslationUnit source =
+            cparser::preprocessText(empty, "dl.c", std::string(macro) + ",\n", {});
+        const z64::DisplayList list =
+            z64::DisplayListEncoder(
+                z64::DisplayListContext{.macros = &checkout.gbi->macros, .findSymbol = findSymbol})
+                .encode(std::span(source.tokens).first(source.tokens.size() - 1));
+        REQUIRE(list.diagnostics.empty());
+        const std::vector<u32> words = readWords(list);
+        REQUIRE(words.size() >= 2);
+        CHECK(n64::decodeCommand(words[0], words[1]).name == name);
+    }
 }
