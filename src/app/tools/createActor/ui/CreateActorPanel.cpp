@@ -93,17 +93,19 @@ void CreateActorPanel::draw() {
                            choices->error().c_str());
         return;
     }
+    ImGui::BeginDisabled(editFlow.isReviewing() || editFlow.isBusy());
     drawForm(*workspace);
+    ImGui::EndDisabled();
     const std::optional<std::string> problem = findDraftProblem(draft, workspace->getTables());
     if (problem) {
         ImGui::TextColored(core::palette::Warning, "%s %s", core::icons::Warning, problem->c_str());
     }
     ImGui::BeginDisabled(problem.has_value() || editFlow.isBusy() || editFlow.isReviewing());
     if (ImGui::Button("Review")) {
-        editFlow.requestPlan(
-            [root = workspace->getRoot(), wanted = draft, tables = workspace->getTables()] {
-                return makeActorPlan(root, wanted, tables);
-            });
+        editFlow.requestPlan(workspace->getRoot(), [root = workspace->getRoot(), wanted = draft,
+                                                    tables = workspace->getTables()] {
+            return makeActorPlan(root, wanted, tables);
+        });
     }
     ImGui::EndDisabled();
     if (editFlow.draw(workspace->getRoot())) {

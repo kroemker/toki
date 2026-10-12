@@ -64,7 +64,9 @@ void RegisterScenePanel::draw() {
     }
     ImGui::TextColored(core::palette::TextMuted,
                        "Makes a scene fast64 exported to assets/scenes/ part of the build.");
+    ImGui::BeginDisabled(editFlow.isReviewing() || editFlow.isBusy());
     drawScenes(*workspace);
+    ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::BeginChild("##options")) {
         drawOptions(*workspace);
@@ -110,6 +112,7 @@ void RegisterScenePanel::drawOptions(const hackeroot::Workspace& workspace) {
                        isRegistered(workspace, scene->name) ? "registered" : "not registered",
                        scene->roomCount);
 
+    ImGui::BeginDisabled(editFlow.isReviewing() || editFlow.isBusy());
     std::vector<std::string_view> drawConfigs;
     if (const actor::ValueCollection* configs =
             collectionCatalog.findSharedCollection("SceneDrawConfig")) {
@@ -142,10 +145,12 @@ void RegisterScenePanel::drawOptions(const hackeroot::Workspace& workspace) {
         drawOptionalNames("Time", registration.bootTime, findListedOptions("NEXT_TIME_"));
     }
 
+    ImGui::EndDisabled();
     ImGui::Spacing();
     ImGui::BeginDisabled(editFlow.isBusy() || editFlow.isReviewing());
     if (ImGui::Button("Review")) {
         editFlow.requestPlan(
+            workspace.getRoot(),
             [shared = workspaceService.getSharedWorkspace(), asset = *scene,
              wanted = registration]() -> std::expected<hackeroot::EditPlan, std::string> {
                 if (shared == nullptr) {

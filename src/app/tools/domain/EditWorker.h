@@ -3,6 +3,7 @@
 #include "hackeroot/CheckoutEdits.h"
 
 #include <condition_variable>
+#include <deque>
 #include <expected>
 #include <filesystem>
 #include <functional>
@@ -21,8 +22,10 @@ struct EditResult {
 };
 
 /// Makes a tool's edit plans of the checkout, and applies them, on a worker of
-/// its own, since nothing on the UI thread reads the checkout. One job runs at
-/// a time; asking again before it has started replaces it.
+/// its own, since nothing on the UI thread reads the checkout. Jobs run one at
+/// a time in the order asked, except that a plan asked for again before it has
+/// started replaces it; a plan that is to be applied is never dropped, and
+/// every result is kept until it is taken.
 ///
 /// Every member function is called from the UI thread.
 class EditWorker {
@@ -43,22 +46,25 @@ public:
     /// Writes `plan` to the checkout at `repository` (`hackeroot::applyEditPlan`).
     void apply(std::filesystem::path repository, hackeroot::EditPlan plan);
 
-    /// What finished since the last call, if anything did.
+    /// The oldest result not taken yet, if there is one.
     [[nodiscard]] std::optional<EditResult> update();
 
     /// Whether a job is waiting or running.
     [[nodiscard]] bool isBusy() const;
 
 private:
-    using Job = std::function<EditResult()>;
+    struct Job {
+        std::function<EditResult()> run;
+        bool isPlan = false;
+    };
 
     void ask(Job job);
     void runWorker(const std::stop_token& stop);
 
     mutable std::mutex mutex;
     std::condition_variable_any wake;
-    std::optional<Job> pending;
-    std::optional<EditResult> finished;
+    std::deque<Job> pending;
+    std::deque<EditResult> finished;
     bool isRunning = false;
     std::jthread worker;
 };

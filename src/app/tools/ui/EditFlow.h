@@ -14,11 +14,13 @@ namespace toki::tools {
 /// of, and written only once it is confirmed.
 class EditFlow {
 public:
-    /// Makes the plan `makePlan` reads, to be reviewed.
-    void requestPlan(EditWorker::MakePlan makePlan);
+    /// Makes the plan `makePlan` reads of the checkout at `repository`, to be
+    /// reviewed and written there.
+    void requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan);
 
-    /// Draws the plan under review, or how the last one went. True on the frame
-    /// its files were written.
+    /// Draws the plan under review, or how the last one went, while
+    /// `repository` is the checkout open; a plan of another is dropped. True
+    /// on the frame its files were written.
     [[nodiscard]] bool draw(const std::filesystem::path& repository);
 
     [[nodiscard]] bool isBusy() const {
@@ -31,9 +33,10 @@ public:
 
 private:
     [[nodiscard]] bool takeResult();
-    void drawReview(const std::filesystem::path& repository);
+    void drawReview();
 
     EditWorker editWorker;
+    std::filesystem::path plannedRepository;
     std::optional<hackeroot::EditPlan> reviewed;
     std::string status;
     bool isFailure = false;

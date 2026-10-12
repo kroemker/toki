@@ -99,7 +99,7 @@ void ConfigurePanel::draw() {
     const std::string review =
         std::format("Review {} {}", changes, changes == 1 ? "change" : "changes");
     if (ImGui::Button(review.c_str())) {
-        editFlow.requestPlan([root = groupsRoot, groups = groups, values = values] {
+        editFlow.requestPlan(groupsRoot, [root = groupsRoot, groups = groups, values = values] {
             return makeConfigPlan(root, groups, values);
         });
     }
@@ -114,9 +114,12 @@ void ConfigurePanel::draw() {
     if (!ImGui::BeginTabBar("##groups")) {
         return;
     }
+    const bool isLocked = editFlow.isReviewing() || editFlow.isBusy();
     for (const ConfigGroup& group : groups) {
         if (ImGui::BeginTabItem(group.title.c_str())) {
+            ImGui::BeginDisabled(isLocked);
             drawGroup(group);
+            ImGui::EndDisabled();
             ImGui::EndTabItem();
         }
     }

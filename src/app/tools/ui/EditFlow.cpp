@@ -45,7 +45,8 @@ namespace {
 
 } // namespace
 
-void EditFlow::requestPlan(EditWorker::MakePlan makePlan) {
+void EditFlow::requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan) {
+    plannedRepository = std::move(repository);
     reviewed.reset();
     status = "Looking at the checkout…";
     isFailure = false;
@@ -86,8 +87,13 @@ bool EditFlow::takeResult() {
 
 bool EditFlow::draw(const std::filesystem::path& repository) {
     const bool isWritten = takeResult();
+    if (reviewed && repository != plannedRepository) {
+        reviewed.reset();
+        status = "Another checkout was opened, so the plan was dropped; review again.";
+        isFailure = false;
+    }
     if (reviewed) {
-        drawReview(repository);
+        drawReview();
     }
     if (!status.empty()) {
         if (isFailure) {
@@ -100,7 +106,7 @@ bool EditFlow::draw(const std::filesystem::path& repository) {
     return isWritten;
 }
 
-void EditFlow::drawReview(const std::filesystem::path& repository) {
+void EditFlow::drawReview() {
     ImGui::SeparatorText("What will change");
     for (const hackeroot::FileEdit& file : reviewed->files) {
         ImGui::TextUnformatted(file.file.generic_string().c_str());
@@ -123,7 +129,7 @@ void EditFlow::drawReview(const std::filesystem::path& repository) {
     }
     ImGui::BeginDisabled(editWorker.isBusy());
     if (ImGui::Button("Write")) {
-        editWorker.apply(repository, std::move(*reviewed));
+        editWorker.apply(plannedRepository, std::move(*reviewed));
         reviewed.reset();
         status = "Writing…";
         isFailure = false;
