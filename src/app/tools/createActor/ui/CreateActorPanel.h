@@ -45,7 +45,7 @@ private:
     const workspace::WorkspaceService& workspaceService;
     actor::CollectionCatalog& collectionCatalog;
     const core::Fonts& fonts;
-    const hackeroot::Workspace* readWorkspace = nullptr;
+    const hackeroot::Workspace* listedWorkspace = nullptr;
     std::future<std::expected<ActorChoices, std::string>> reading;
     std::optional<std::expected<ActorChoices, std::string>> choices;
     ActorDraft draft;

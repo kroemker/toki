@@ -65,8 +65,8 @@ CreateActorPanel::CreateActorPanel(const workspace::WorkspaceService& workspaceS
 
 void CreateActorPanel::updateChoices() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (workspace != readWorkspace && !reading.valid()) {
-        readWorkspace = workspace;
+    if (workspace != listedWorkspace && !reading.valid()) {
+        listedWorkspace = workspace;
         if (workspace != nullptr) {
             reading = std::async(std::launch::async,
                                  [root = workspace->getRoot()] { return readActorChoices(root); });

@@ -8,6 +8,7 @@
 #include "hackeroot/ConfigDefines.h"
 #include "hackeroot/Workspace.h"
 
+#include <filesystem>
 #include <future>
 #include <map>
 #include <string>
@@ -43,9 +44,10 @@ private:
 
     const workspace::WorkspaceService& workspaceService;
     actor::CollectionCatalog& collectionCatalog;
-    const hackeroot::Workspace* readWorkspace = nullptr;
-    /// Whether to read the configuration again once the read under way is done.
+    const hackeroot::Workspace* listedWorkspace = nullptr;
     bool isStale = true;
+    std::filesystem::path readingRoot;
+    std::filesystem::path groupsRoot;
     std::future<std::vector<hackeroot::ConfigDefine>> reading;
     std::vector<ConfigGroup> groups;
     std::map<std::string, std::string, std::less<>> values;

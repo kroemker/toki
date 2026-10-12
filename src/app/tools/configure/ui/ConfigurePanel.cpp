@@ -53,13 +53,14 @@ ConfigurePanel::ConfigurePanel(const workspace::WorkspaceService& workspaceServi
 
 void ConfigurePanel::updateSettings() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (workspace != readWorkspace) {
+    if (workspace != listedWorkspace) {
         isStale = true;
     }
     if (isStale && !reading.valid()) {
-        readWorkspace = workspace;
+        listedWorkspace = workspace;
         isStale = false;
         if (workspace != nullptr) {
+            readingRoot = workspace->getRoot();
             reading = std::async(
                 std::launch::async,
                 [root = workspace->getRoot(), arguments = workspace->getBuildDefines().arguments] {
@@ -68,6 +69,7 @@ void ConfigurePanel::updateSettings() {
         }
     }
     if (reading.valid() && reading.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        groupsRoot = readingRoot;
         groups = makeConfigGroups(reading.get());
         std::erase_if(values, [this](const auto& value) {
             return std::ranges::none_of(groups, [&value](const ConfigGroup& group) {
@@ -82,7 +84,7 @@ void ConfigurePanel::updateSettings() {
 
 void ConfigurePanel::draw() {
     updateSettings();
-    if (readWorkspace == nullptr) {
+    if (listedWorkspace == nullptr) {
         ImGui::TextColored(core::palette::TextMuted, "Open a checkout to configure it.");
         return;
     }
@@ -97,7 +99,7 @@ void ConfigurePanel::draw() {
     const std::string review =
         std::format("Review {} {}", changes, changes == 1 ? "change" : "changes");
     if (ImGui::Button(review.c_str())) {
-        editFlow.requestPlan([root = readWorkspace->getRoot(), groups = groups, values = values] {
+        editFlow.requestPlan([root = groupsRoot, groups = groups, values = values] {
             return makeConfigPlan(root, groups, values);
         });
     }
@@ -106,7 +108,7 @@ void ConfigurePanel::draw() {
         values.clear();
     }
     ImGui::EndDisabled();
-    if (editFlow.draw(readWorkspace->getRoot())) {
+    if (editFlow.draw(groupsRoot)) {
         isStale = true;
     }
     if (!ImGui::BeginTabBar("##groups")) {
