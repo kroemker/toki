@@ -225,6 +225,7 @@ void App::drawFrame() {
     updateActorDatabase();
     if (viewportPanel != nullptr && displayListPanel != nullptr) {
         viewportPanel->setTracing(displayListPanel->isOpen());
+        displayListPanel->updateHighlight();
     }
     if (viewportPanel != nullptr) {
         std::optional<std::string> reading = sceneLoader.findReadingName();

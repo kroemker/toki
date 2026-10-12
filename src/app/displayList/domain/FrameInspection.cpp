@@ -9,6 +9,8 @@
 #include "z64/GbiNames.h"
 #include "z64/MemoryImage.h"
 
+#include <glm/vec2.hpp>
+
 #include <algorithm>
 #include <array>
 #include <format>
@@ -25,6 +27,7 @@ namespace {
 
 constexpr u32 PhysicalMask = 0x00FF'FFFF;
 constexpr u32 SegmentIndex = 0x06;
+constexpr f32 NearestW = 1.0e-4F;
 constexpr std::array<std::string_view, 5> FormatNames{"RGBA", "YUV", "CI", "IA", "I"};
 constexpr std::array<std::string_view, 4> SizeNames{"4", "8", "16", "32"};
 
@@ -284,6 +287,54 @@ std::vector<usize> FrameInspection::listDraws(const usize row) const {
         }
     }
     return draws;
+}
+
+std::vector<ScreenTriangle> FrameInspection::listScreenTriangles(const usize row) const {
+    std::vector<ScreenTriangle> triangles;
+    const n64::RdpResult& rdp = frame.rdpResult;
+    for (usize ran = row; ran < rows[row].end; ++ran) {
+        for (const usize draw : listDraws(ran)) {
+            appendScreenTriangles(rdp.draws[draw].primitive, triangles);
+        }
+    }
+    return triangles;
+}
+
+void FrameInspection::appendScreenTriangles(const n64::RdpPrimitive& primitive,
+                                            std::vector<ScreenTriangle>& triangles) const {
+    const auto appendRectangle = [&triangles](const f32 left, const f32 top, const f32 right,
+                                              const f32 bottom) {
+        triangles.push_back(
+            {glm::vec2(left, top), glm::vec2(right, top), glm::vec2(right, bottom)});
+        triangles.push_back(
+            {glm::vec2(left, top), glm::vec2(right, bottom), glm::vec2(left, bottom)});
+    };
+    if (const auto* triangle = std::get_if<n64::Triangle>(&primitive)) {
+        if (triangle->viewport >= frame.rspResult.viewports.size()) {
+            return;
+        }
+        const n64::Viewport& viewport = frame.rspResult.viewports[triangle->viewport];
+        ScreenTriangle corners{};
+        for (usize i = 0; i < corners.size(); ++i) {
+            const std::array<f32, 4>& position = triangle->vertices[i].position;
+            if (position[3] <= NearestW) {
+                return;
+            }
+            corners[i] =
+                glm::vec2((position[0] / position[3] * viewport.scale[0]) + viewport.translate[0],
+                          (-position[1] / position[3] * viewport.scale[1]) + viewport.translate[1]);
+        }
+        triangles.push_back(corners);
+    } else if (const auto* fill = std::get_if<n64::FillRectangle>(&primitive)) {
+        appendRectangle(fill->left / 4.0F, fill->top / 4.0F, (fill->right / 4.0F) + 1.0F,
+                        (fill->bottom / 4.0F) + 1.0F);
+    } else if (const auto* rectangle = std::get_if<n64::TextureRectangle>(&primitive)) {
+        const std::array<u32, 4>& words = rectangle->words;
+        appendRectangle(static_cast<f32>((words[1] >> 12) & 0xFFF) / 4.0F,
+                        static_cast<f32>(words[1] & 0xFFF) / 4.0F,
+                        static_cast<f32>((words[0] >> 12) & 0xFFF) / 4.0F,
+                        static_cast<f32>(words[0] & 0xFFF) / 4.0F);
+    }
 }
 
 const n64::RdpState* FrameInspection::findDrawState(const usize row) const {

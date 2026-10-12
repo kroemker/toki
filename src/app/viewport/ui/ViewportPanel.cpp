@@ -37,6 +37,7 @@ namespace toki::viewport {
 namespace {
 
 constexpr float OverlayThickness = 2.0F;
+constexpr f32 HighlightFill = 0.35F;
 constexpr float ArrowLength = 11.0F;
 constexpr float ArrowWidth = 5.0F;
 constexpr float ArrowGap = 9.0F;
@@ -152,6 +153,7 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawOverlay(*drawList, origin, size);
+    drawHighlight(*drawList, origin, size);
     drawList->PopClipRect();
     ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
     if (readingName) {
@@ -188,6 +190,28 @@ void ViewportPanel::drawOverlay(ImDrawList& drawList, const ImVec2 origin,
         if (line.hasArrowAtFrom && segment->isFromWhole) {
             drawArrowHead(drawList, to, from, line.color);
         }
+    }
+}
+
+void ViewportPanel::drawHighlight(ImDrawList& drawList, const ImVec2 origin,
+                                  const ImVec2 size) const {
+    if (highlight.empty() || highlightSize.width == 0 || highlightSize.height == 0) {
+        return;
+    }
+    const ImVec2 scale{size.x / static_cast<f32>(highlightSize.width),
+                       size.y / static_cast<f32>(highlightSize.height)};
+    const auto place = [&](const glm::vec2& corner) {
+        return ImVec2(origin.x + (corner.x * scale.x), origin.y + (corner.y * scale.y));
+    };
+    const u32 fill = ImGui::GetColorU32(ImVec4(core::palette::Accent.x, core::palette::Accent.y,
+                                               core::palette::Accent.z, HighlightFill));
+    const u32 edge = ImGui::GetColorU32(core::palette::Accent);
+    for (const std::array<glm::vec2, 3>& triangle : highlight) {
+        const ImVec2 a = place(triangle[0]);
+        const ImVec2 b = place(triangle[1]);
+        const ImVec2 c = place(triangle[2]);
+        drawList.AddTriangleFilled(a, b, c, fill);
+        drawList.AddTriangle(a, b, c, edge);
     }
 }
 

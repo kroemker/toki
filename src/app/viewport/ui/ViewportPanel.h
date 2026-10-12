@@ -10,12 +10,15 @@
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
 
+#include <glm/vec2.hpp>
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace toki::viewport {
 
@@ -75,6 +78,13 @@ public:
         viewportOverlay = std::move(overlay);
     }
 
+    /// Triangles to pick out over the image, in pixels of a frame of `size`,
+    /// as the display list viewer shows what a command drew.
+    void setHighlight(std::vector<std::array<glm::vec2, 3>> triangles, const FrameSize size) {
+        highlight = std::move(triangles);
+        highlightSize = size;
+    }
+
     /// Whether frames are drawn with their commands recorded, for looking
     /// into them. While they are, the last one is kept.
     void setTracing(const bool isOn) {
@@ -108,6 +118,7 @@ private:
     void render(const gfx::RenderTarget& target);
     static void reportDiagnostics(const Frame& frame);
     void drawOverlay(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
+    void drawHighlight(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
 
     const gfx::Device& device;
     std::optional<gfx::Renderer> renderer;
@@ -117,6 +128,8 @@ private:
     OrbitCamera orbitCamera;
     ViewportContent viewportContent;
     ViewportOverlay viewportOverlay;
+    std::vector<std::array<glm::vec2, 3>> highlight;
+    FrameSize highlightSize;
     bool isTracing = false;
     std::optional<TracedFrame> tracedFrame;
     u64 frameGeneration = 0;

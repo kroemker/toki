@@ -9,6 +9,7 @@
 #include "z64/MemoryImage.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <glm/vec2.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -85,4 +86,16 @@ TEST_CASE("a traced frame reads as its commands, named by the content's symbols"
     REQUIRE(inspection.findFirstRun(frame.mappedImages.front().segments[Segment] +
                                     (start & 0x00FF'FFFF)) == callRow + 1);
     REQUIRE(inspection.findPhysicalName(frame.frameListAddress) == "Toki's frame list");
+
+    const std::vector<toki::displayList::ScreenTriangle> drawn =
+        inspection.listScreenTriangles(*triangle);
+    REQUIRE(drawn.size() == 1);
+    for (const glm::vec2& corner : drawn.front()) {
+        REQUIRE(corner.x >= 0.0F);
+        REQUIRE(corner.x <= 320.0F);
+        REQUIRE(corner.y >= 0.0F);
+        REQUIRE(corner.y <= 240.0F);
+    }
+    REQUIRE(inspection.listScreenTriangles(callRow).size() == 1);
+    REQUIRE(inspection.listScreenTriangles(*vertex).empty());
 }

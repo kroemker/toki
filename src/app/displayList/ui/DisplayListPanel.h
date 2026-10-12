@@ -37,6 +37,10 @@ public:
 
     void draw() override;
 
+    /// Keeps the viewport's highlight on the selected command's triangles, and
+    /// clears it while the panel is closed. Runs every frame, open or not.
+    void updateHighlight();
+
 private:
     struct VisibleRow {
         usize row = 0;
@@ -83,6 +87,8 @@ private:
     std::vector<UploadedTile> previews;
     std::optional<usize> previewRow;
     u64 previewGeneration = 0;
+    std::optional<usize> highlightRow;
+    u64 highlightGeneration = 0;
 };
 
 } // namespace toki::displayList

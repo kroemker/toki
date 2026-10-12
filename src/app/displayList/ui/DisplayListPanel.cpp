@@ -156,6 +156,19 @@ void DisplayListPanel::updateFrame() {
     }
 }
 
+void DisplayListPanel::updateHighlight() {
+    const std::optional<usize> row = isOpen() && inspection != nullptr ? selected : std::nullopt;
+    const u64 generation = shownFrame != nullptr ? shownFrame->generation : 0;
+    if (row == highlightRow && generation == highlightGeneration) {
+        return;
+    }
+    highlightRow = row;
+    highlightGeneration = generation;
+    viewportPanel.setHighlight(row ? inspection->listScreenTriangles(*row)
+                                   : std::vector<ScreenTriangle>(),
+                               shownFrame != nullptr ? shownFrame->size : viewport::FrameSize{});
+}
+
 void DisplayListPanel::draw() {
     updateNames();
     updateFrame();
