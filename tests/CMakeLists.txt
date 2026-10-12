@@ -28,6 +28,7 @@ add_executable(toki_tests
         app/tools/ActorTemplateTest.cpp
         app/tools/ConfigSettingsTest.cpp
         app/tools/EditWorkerTest.cpp
+        app/tools/MemoryLayoutTest.cpp
         app/tools/SceneRegistryTest.cpp
         app/scene/ActorDescriptionTest.cpp
         app/scene/ActorDrawsTest.cpp
@@ -56,6 +57,7 @@ add_executable(toki_tests
         hackeroot/BuildCommandTest.cpp
         hackeroot/CheckoutEditsTest.cpp
         hackeroot/BuildDefinesTest.cpp
+        hackeroot/BuildMapTest.cpp
         hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp
         hackeroot/ConfigurationTest.cpp

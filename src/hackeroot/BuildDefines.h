@@ -19,6 +19,10 @@ struct BuildDefines {
     /// the vanilla assets of that version were extracted into.
     std::string version;
 
+    /// The linker map the build writes, `MAP`, under the checkout. Empty when
+    /// the Makefile names none.
+    std::filesystem::path mapFile;
+
     std::vector<base::Diagnostic> diagnostics;
 };
 

@@ -35,3 +35,7 @@ CFLAGS += $(CPP_DEFINES) -G 0
 
 all: rom
 	CPP_DEFINES += -DNEVER_FROM_A_RECIPE
+
+BUILD_DIR := build/$(VERSION)
+ROM      := $(BUILD_DIR)/hackeroot-$(VERSION).z64
+MAP      := $(ROM:.z64=.map)

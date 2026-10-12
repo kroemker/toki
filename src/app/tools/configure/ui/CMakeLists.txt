@@ -1,2 +1,4 @@
 target_sources(toki PRIVATE
-        ConfigureDialog.cpp)
+        ConfigureDialog.cpp
+        MemoryMap.cpp
+        MemoryStrip.cpp)

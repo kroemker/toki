@@ -3,14 +3,18 @@
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/core/ui/Dialog.h"
 #include "app/tools/configure/domain/ConfigSettings.h"
+#include "app/tools/configure/ui/MemoryMap.h"
 #include "app/tools/ui/EditFlow.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "hackeroot/BuildMap.h"
 #include "hackeroot/ConfigDefines.h"
 #include "hackeroot/Workspace.h"
 
+#include <expected>
 #include <filesystem>
 #include <future>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,8 +33,11 @@ public:
 
 private:
     void updateSettings();
+    void requestBuildMap();
+    void updateBuildMap();
     void drawGroup(const ConfigGroup& group);
     void drawSetting(const ConfigSetting& setting);
+    void drawValue(const ConfigSetting& setting);
     [[nodiscard]] bool drawControl(const ConfigSetting& setting, std::string& value);
     [[nodiscard]] bool drawChoice(const ConfigSetting& setting, std::string& value);
 
@@ -44,6 +51,10 @@ private:
     std::vector<ConfigGroup> groups;
     std::map<std::string, std::string, std::less<>> values;
     std::string choiceFilter;
+    std::future<std::expected<hackeroot::BuildMap, std::string>> mapReading;
+    std::optional<std::expected<hackeroot::BuildMap, std::string>> buildMap;
+    bool isMemoryShown = false;
+    MemoryMap memoryMap;
     tools::EditFlow editFlow;
 };
 

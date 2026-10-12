@@ -57,6 +57,12 @@ TEST_CASE("settings are make's command line, and what depends on them follows",
     REQUIRE(passes(defines, "-DDEBUG_FEATURES=0"));
 }
 
+TEST_CASE("the linker map is where the Makefile has the build write it", "[hackeroot][defines]") {
+    REQUIRE(read().mapFile == getCheckout() / "build/ntsc-1.2/hackeroot-ntsc-1.2.map");
+    REQUIRE(read({{"VERSION", "gc-eu-mq-dbg"}}).mapFile ==
+            getCheckout() / "build/gc-eu-mq-dbg/hackeroot-gc-eu-mq-dbg.map");
+}
+
 TEST_CASE("an explicit VERSION_MACRO is left alone", "[hackeroot][defines]") {
     const hackeroot::BuildDefines defines = read({{"VERSION_MACRO", "SOMETHING_ELSE"}});
 

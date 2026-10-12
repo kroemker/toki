@@ -69,6 +69,22 @@ held until "Review", which plans them (`makeConfigPlan`): one item per changed l
 warning for each overridden setting, since the build will not see what is written. The
 dialog reads the configuration again once the plan is written.
 
+The Memory tab, `config_memory.h`, draws RDRAM as a strip above its settings
+(`toki::configure::makeMemoryLayout`), with a line at every MiB and the 4 MiB line where RAM
+ends without an Expansion Pak. What the configuration sizes, it sizes from the values as
+edited, or as the safeguards force them: the five Gfx buffers, counted in 8-byte commands
+and held twice, the audio heap, Play's allocation with the object bank and GI buffer inside
+it, and the framebuffers below `SYS_CFB_END`. What it does not size, the code and the fixed
+buffers, is placed by the build's map, `MAP` in the Makefile, read off the UI thread when the
+tab is shown (`hackeroot::readBuildMap`); Toki never builds to learn it, so without a map
+there is no strip, only the settings. The settings are rows in address order among the
+regions that follow from them, the system heap, what Play keeps for actors, the RAM past
+`SYS_CFB_END`, and each setting's bar compares it with the vanilla value its own comment
+gives. Hovering a region or a row says what it is and where its size comes from. Play
+larger than the heap is a problem, since `GameState_Realloc` then gives it what is left, and
+so is an object bank larger than Play; where inside Play the bank and GI buffer lie is
+illustrative.
+
 ## Register Scene
 
 fast64 writes a scene's C into `assets/scenes/<name>/` and nothing else, so the build does

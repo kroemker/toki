@@ -1,2 +1,3 @@
 target_sources(toki_core PRIVATE
-        ConfigSettings.cpp)
+        ConfigSettings.cpp
+        MemoryLayout.cpp)

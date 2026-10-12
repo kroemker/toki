@@ -8,7 +8,10 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/tools/configure/domain/ConfigSettings.h"
+#include "app/tools/configure/domain/MemoryLayout.h"
+#include "app/tools/configure/ui/MemoryMap.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "hackeroot/BuildMap.h"
 #include "hackeroot/ConfigDefines.h"
 #include "hackeroot/Workspace.h"
 
@@ -17,6 +20,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <future>
@@ -59,6 +63,8 @@ void ConfigureDialog::updateSettings() {
     if (isStale && !reading.valid()) {
         listedWorkspace = workspace;
         isStale = false;
+        buildMap.reset();
+        requestBuildMap();
         if (workspace != nullptr) {
             readingRoot = workspace->getRoot();
             reading = std::async(
@@ -82,8 +88,31 @@ void ConfigureDialog::updateSettings() {
     }
 }
 
+void ConfigureDialog::requestBuildMap() {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (workspace == nullptr || mapReading.valid()) {
+        return;
+    }
+    const std::filesystem::path mapFile = workspace->getBuildDefines().mapFile;
+    if (mapFile.empty()) {
+        buildMap = std::unexpected(std::string("the Makefile names no MAP"));
+        return;
+    }
+    mapReading = std::async(std::launch::async, [mapFile] {
+        return hackeroot::readBuildMap(mapFile, getMemoryMapSymbols());
+    });
+}
+
+void ConfigureDialog::updateBuildMap() {
+    if (mapReading.valid() &&
+        mapReading.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        buildMap = mapReading.get();
+    }
+}
+
 void ConfigureDialog::draw() {
     updateSettings();
+    updateBuildMap();
     if (listedWorkspace == nullptr) {
         ImGui::TextColored(core::palette::TextMuted, "Open a checkout to configure it.");
         return;
@@ -115,14 +144,26 @@ void ConfigureDialog::draw() {
         return;
     }
     const bool isLocked = editFlow.isReviewing() || editFlow.isBusy();
+    bool showsMemory = false;
     for (const ConfigGroup& group : groups) {
-        if (ImGui::BeginTabItem(group.title.c_str())) {
-            ImGui::BeginDisabled(isLocked);
-            drawGroup(group);
-            ImGui::EndDisabled();
-            ImGui::EndTabItem();
+        if (!ImGui::BeginTabItem(group.title.c_str())) {
+            continue;
         }
+        ImGui::BeginDisabled(isLocked);
+        if (group.file.filename() == "config_memory.h") {
+            if (!isMemoryShown) {
+                requestBuildMap();
+            }
+            showsMemory = true;
+            memoryMap.draw(group, values, buildMap ? &*buildMap : nullptr,
+                           [this](const ConfigSetting& setting) { drawValue(setting); });
+        } else {
+            drawGroup(group);
+        }
+        ImGui::EndDisabled();
+        ImGui::EndTabItem();
     }
+    isMemoryShown = showsMemory;
     ImGui::EndTabBar();
 }
 
@@ -164,10 +205,7 @@ void ConfigureDialog::drawSetting(const ConfigSetting& setting) {
         ImGui::EndTooltip();
     }
     ImGui::TableNextColumn();
-    std::string value = isChanged ? edited->second : setting.define.written;
-    if (drawControl(setting, value)) {
-        values[setting.define.name] = value;
-    }
+    drawValue(setting);
     ImGui::TableNextColumn();
     if (isOverridden(setting.define)) {
         ImGui::AlignTextToFramePadding();
@@ -177,6 +215,14 @@ void ConfigureDialog::drawSetting(const ConfigSetting& setting) {
     } else if (isChanged) {
         ImGui::AlignTextToFramePadding();
         ImGui::TextColored(core::palette::TextMuted, "was %s", setting.define.written.c_str());
+    }
+}
+
+void ConfigureDialog::drawValue(const ConfigSetting& setting) {
+    const auto edited = values.find(setting.define.name);
+    std::string value = edited != values.end() ? edited->second : setting.define.written;
+    if (drawControl(setting, value)) {
+        values[setting.define.name] = value;
     }
 }
 
