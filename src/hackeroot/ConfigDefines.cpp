@@ -119,6 +119,29 @@ struct Definition {
 
 } // namespace
 
+std::vector<DocumentedDefine> listDocumentedDefines(const std::string_view text,
+                                                    const std::string_view prefix) {
+    const std::vector<std::string_view> lines = splitLines(text);
+    std::vector<DocumentedDefine> defines;
+    for (usize at = 0; at < lines.size(); ++at) {
+        std::string_view line = trimSpaces(lines[at]);
+        if (!line.starts_with("#define ")) {
+            continue;
+        }
+        line = trimSpaces(line.substr(std::string_view("#define ").size()));
+        const usize end = line.find_first_of(" \t(");
+        const std::string_view name = line.substr(0, end);
+        const bool isFunctionLike = end != std::string_view::npos && line[end] == '(';
+        if (!name.starts_with(prefix) || isFunctionLike ||
+            std::ranges::contains(defines, name, &DocumentedDefine::name)) {
+            continue;
+        }
+        defines.push_back(
+            DocumentedDefine{.name = std::string(name), .comment = readComment(lines, at + 1)});
+    }
+    return defines;
+}
+
 std::vector<ConfigDefine> readConfigDefines(const std::filesystem::path& repository,
                                             const std::span<const std::string> defineArguments) {
     const std::filesystem::path configFolder =

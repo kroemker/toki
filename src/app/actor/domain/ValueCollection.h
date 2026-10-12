@@ -35,7 +35,7 @@ struct SharedCollection {
 
 /// The collections every actor can use: get items, items and their models, the
 /// collectibles `En_Item00` drops, sound effects, music, scene draw configs,
-/// and the actor, object, scene and entrance tables.
+/// actor categories, and the actor, object, scene and entrance tables.
 [[nodiscard]] std::span<const SharedCollection> getSharedCollections();
 
 /// Collections read, what went wrong reading them, and every file read, for

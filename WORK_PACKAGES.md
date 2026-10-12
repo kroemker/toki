@@ -429,6 +429,11 @@ marked in the viewport. See [docs/scenes.md](docs/scenes.md#showing-it). Editing
 light settings is still to do.
 
 **Tools** — Configure, Create Actor, Register Scene. All depend on the workspace tables.
+
+*Done:* each a panel of the Tools menu, planning its edits and showing them before they are
+written, as [docs/tools.md](docs/tools.md) describes. A scene the prototype registered reads
+as registered.
+
 `scene_registry.rs` is the largest single file in the prototype (~1200 lines) and ports
 close to as-is.
 

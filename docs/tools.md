@@ -91,3 +91,22 @@ a room list that names another number of rooms than the folder has, a full scene
 scene enum another scene has, and booting into the scene without `DEBUG_FEATURES`, which the
 safeguards answer by booting to the title screen. A scene the Rust prototype registered
 reads as registered: its segments, entries and markers are the ones this writes.
+
+## Create Actor
+
+The Create Actor panel writes a new actor from the template the decomp's actors follow,
+the one the Rust prototype wrote (`makeActorHeader`, `makeActorSource`): the actor's struct
+with an action function, an `Actor`, or a `DynaPolyActor` whose collision moves and turns
+with it; its `ActorProfile`; and `Init`, `Destroy`, `Update` and, if it draws, `Draw` to fill
+in. The form's choices are the checkout's own: its categories are the `ActorCategory` enum,
+its flags the `ACTOR_FLAG_`s of `actor.h` and how it is loaded the `ACTOROVL_ALLOC_`s of
+`z_actor_dlftbls.h`, each with the comment that documents it there
+(`hackeroot::listDocumentedDefines`). The files it gets are shown as they will be written.
+
+The plan (`makeActorPlan`) adds `DEFINE_ACTOR` to the actor table, in an unused slot when
+asked, which keeps every ID after it, and the overlay's segment to the spec, ahead of
+`gameplay_keep` as the vanilla overlays are; for a new object, `DEFINE_OBJECT` to the object
+table and its segment ahead of `object_box`, with a warning that it has no files until
+fast64 exports it. A name that is no C identifier, an actor or object the tables have, an
+overlay folder that exists, or collision that neither moves nor turns are refused. Once the
+actor table changes, the actor database offers to derive the new actor.

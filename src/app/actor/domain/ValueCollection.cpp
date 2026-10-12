@@ -31,7 +31,7 @@ namespace toki::actor {
 
 namespace {
 
-constexpr std::array<SharedCollection, 11> SharedCollections{{
+constexpr std::array<SharedCollection, 12> SharedCollections{{
     {.name = "GetItemID", .header = "item.h"},
     {.name = "ItemID", .header = "item.h"},
     {.name = "GetItemDrawID", .header = "item.h"},
@@ -39,6 +39,7 @@ constexpr std::array<SharedCollection, 11> SharedCollections{{
     {.name = "SfxId", .header = "sfx.h"},
     {.name = "NA_BGM", .header = "sequence.h"},
     {.name = "SceneDrawConfig", .header = "scene.h"},
+    {.name = "ActorCategory", .header = "actor_profile.h"},
     {.name = "ActorID", .header = {}},
     {.name = "ObjectID", .header = {}},
     {.name = "SceneID", .header = {}},

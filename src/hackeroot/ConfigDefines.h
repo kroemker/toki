@@ -6,6 +6,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace hackeroot {
@@ -24,6 +25,18 @@ struct ConfigDefine {
     std::string comment;
     std::optional<std::string> effective;
 };
+
+/// A `#define` of a header and the comment above it that documents it.
+struct DocumentedDefine {
+    std::string name;
+    std::string comment;
+};
+
+/// Every object-like `#define` in `text` whose name starts with `prefix`, in
+/// order, each once, with the `/** ... */` or `//` comment right above it, as
+/// `actor.h` documents its `ACTOR_FLAG_`s.
+[[nodiscard]] std::vector<DocumentedDefine> listDocumentedDefines(std::string_view text,
+                                                                  std::string_view prefix);
 
 /// The settings of the configuration headers the build reads under
 /// `defineArguments`, the build's `-D` flags, file by file in the order the
