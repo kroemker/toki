@@ -49,11 +49,32 @@ TEST_CASE("a define is set on its line, keeping its indent and comment", "[hacke
     std::string text =
         "#if X\n    #define SIZE 0x100 // in bytes\n#else\n#define SIZE 0x10\n#endif\n";
 
-    REQUIRE(hackeroot::setDefine(text, 2, "SIZE", "0x200") == hackeroot::EditStatus::Update);
+    REQUIRE(hackeroot::setDefine(text, 2, "SIZE", "0x100", "0x200") ==
+            hackeroot::EditStatus::Update);
     REQUIRE(text ==
             "#if X\n    #define SIZE 0x200 // in bytes\n#else\n#define SIZE 0x10\n#endif\n");
-    REQUIRE(hackeroot::setDefine(text, 2, "SIZE", "0x200") == hackeroot::EditStatus::Present);
-    REQUIRE(hackeroot::setDefine(text, 3, "SIZE", "1") == hackeroot::EditStatus::Add);
+    REQUIRE(hackeroot::setDefine(text, 2, "SIZE", "0x100", "0x200") ==
+            hackeroot::EditStatus::Present);
+    REQUIRE(hackeroot::setDefine(text, 3, "SIZE", "", "1") == hackeroot::EditStatus::Add);
+}
+
+TEST_CASE("a define is only set on a line that still reads as it was read", "[hackeroot][edits]") {
+    const std::string written = "#define BOOT_TO_SCENE_NEW_GAME_ONLY false\n"
+                                "#define BOOT_TO_SCENE false /* boots */\n"
+                                "#define MULTI 1 /* starts\n ends */\n";
+    std::string text = written;
+
+    REQUIRE(hackeroot::setDefine(text, 1, "BOOT_TO_SCENE", "false", "true") ==
+            hackeroot::EditStatus::Add);
+    REQUIRE(hackeroot::setDefine(text, 2, "BOOT_TO_SCENE", "true", "false") ==
+            hackeroot::EditStatus::Present);
+    REQUIRE(hackeroot::setDefine(text, 2, "BOOT_TO_SCENE", "1", "true") ==
+            hackeroot::EditStatus::Add);
+    REQUIRE(hackeroot::setDefine(text, 3, "MULTI", "1", "2") == hackeroot::EditStatus::Add);
+    REQUIRE(text == written);
+    REQUIRE(hackeroot::setDefine(text, 2, "BOOT_TO_SCENE", "false", "true") ==
+            hackeroot::EditStatus::Update);
+    REQUIRE(text.contains("#define BOOT_TO_SCENE true /* boots */\n"));
 }
 
 TEST_CASE("Toki's entries go into its block, made once before the lines that stay last",
@@ -195,8 +216,8 @@ TEST_CASE("a real checkout's settings are each found on their own define line",
         REQUIRE(text.has_value());
         std::string copy = *text;
         INFO(define.file.generic_string() << ":" << define.line << " " << define.name);
-        CHECK(hackeroot::setDefine(copy, define.line, define.name, define.written) ==
-              hackeroot::EditStatus::Present);
+        CHECK(hackeroot::setDefine(copy, define.line, define.name, define.written,
+                                   define.written) == hackeroot::EditStatus::Present);
     }
     for (const char* name : {"BOOT_TO_SCENE", "BOOT_ENTRANCE", "ENABLE_HACKER_DEBUG",
                              "BLOCK_PUSH_SPEED", "DEBUG_BUFFER_SIZE"}) {

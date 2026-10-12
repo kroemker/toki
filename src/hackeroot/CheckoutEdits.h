@@ -63,9 +63,12 @@ readCheckoutText(const std::filesystem::path& file);
 applyEditPlan(const std::filesystem::path& repository, const EditPlan& plan);
 
 /// Sets the `#define name` on line `line` (from 1) of `text` to `value`,
-/// keeping its indent and a `//` comment after it.
+/// keeping its indent and a comment after it. The line must define `name`
+/// itself, not a name that starts with it, as `written`, the value it was read
+/// with; otherwise the file moved on since it was read, and nothing changes:
+/// the status is `Add`, as for a line that defines nothing.
 [[nodiscard]] EditStatus setDefine(std::string& text, usize line, std::string_view name,
-                                   std::string_view value);
+                                   std::string_view written, std::string_view value);
 
 /// Where something is in a text, from its first character to one past its last.
 struct TextRange {

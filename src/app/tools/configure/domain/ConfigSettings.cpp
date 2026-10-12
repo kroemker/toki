@@ -205,10 +205,11 @@ makeConfigPlan(const std::filesystem::path& repository, const std::span<const Co
                     std::format("'{}' is not a value {} can be", value, setting->define.name));
             }
             const hackeroot::EditStatus status =
-                hackeroot::setDefine(edit.after, setting->define.line, setting->define.name, value);
+                hackeroot::setDefine(edit.after, setting->define.line, setting->define.name,
+                                     setting->define.written, value);
             if (status == hackeroot::EditStatus::Add) {
                 return std::unexpected(std::format(
-                    "{}:{} no longer defines {}; read the configuration again",
+                    "{}:{} no longer defines {} as it was read; read the configuration again",
                     group.file.generic_string(), setting->define.line, setting->define.name));
             }
             edit.items.push_back(

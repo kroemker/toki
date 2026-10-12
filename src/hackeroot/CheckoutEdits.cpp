@@ -186,34 +186,42 @@ std::expected<EditsApplied, std::string> applyEditPlan(const std::filesystem::pa
 }
 
 EditStatus setDefine(std::string& text, const usize line, const std::string_view name,
-                     const std::string_view value) {
+                     const std::string_view written, const std::string_view value) {
     const std::optional<TextRange> range = findLine(text, line);
     if (!range) {
         return EditStatus::Add;
     }
-    const std::string_view written(text.data() + range->begin, range->end - range->begin);
-    const usize indent = written.find_first_not_of(" \t");
+    const std::string_view original(text.data() + range->begin, range->end - range->begin);
+    const usize indent = original.find_first_not_of(" \t");
     if (indent == std::string_view::npos) {
         return EditStatus::Add;
     }
-    std::string_view rest = written.substr(indent);
+    std::string_view rest = original.substr(indent);
     if (!rest.starts_with(DefineDirective)) {
         return EditStatus::Add;
     }
     rest.remove_prefix(DefineDirective.size());
     rest = trimSpaces(rest);
-    if (!rest.starts_with(name)) {
+    if (!rest.starts_with(name) ||
+        (rest.size() > name.size() && rest[name.size()] != ' ' && rest[name.size()] != '\t')) {
         return EditStatus::Add;
     }
     rest.remove_prefix(name.size());
-    const usize comment = rest.find("//");
+    const usize comment = std::min(rest.find("//"), rest.find("/*"));
+    if (comment != std::string_view::npos && rest.substr(comment).starts_with("/*") &&
+        !rest.substr(comment).contains("*/")) {
+        return EditStatus::Add;
+    }
     const std::string_view current =
         trimSpaces(comment == std::string_view::npos ? rest : rest.substr(0, comment));
     if (current == value) {
         return EditStatus::Present;
     }
+    if (current != written) {
+        return EditStatus::Add;
+    }
     std::string replaced =
-        std::format("{}{}{} {}", written.substr(0, indent), DefineDirective, name, value);
+        std::format("{}{}{} {}", original.substr(0, indent), DefineDirective, name, value);
     if (comment != std::string_view::npos) {
         replaced += ' ';
         replaced += rest.substr(comment);

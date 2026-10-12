@@ -331,9 +331,9 @@ private:
                 edit = edits.end() - 1;
             }
             const hackeroot::EditStatus status =
-                hackeroot::setDefine(edit->after, define->line, name, value);
+                hackeroot::setDefine(edit->after, define->line, name, define->written, value);
             if (status == hackeroot::EditStatus::Add) {
-                return std::unexpected(std::format("{}:{} no longer defines {}",
+                return std::unexpected(std::format("{}:{} no longer defines {} as it was read",
                                                    define->file.generic_string(), define->line,
                                                    name));
             }
