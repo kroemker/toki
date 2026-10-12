@@ -323,6 +323,39 @@ TEST_CASE("translucency over the framebuffer comes close to the RDP's", "[gpu]")
     }
 }
 
+TEST_CASE("an anti-aliased edge cutout leaves what is below its transparent pixels", "[gpu]") {
+    Gpu gpu = Gpu::create();
+    const Color below{255, 0, 0, 255};
+    const u32 texEdge = 0x3048 | makeBlenderCycle(0, 0, 1, 1);
+    const n64::OtherMode cutout{.high = 0, .low = texEdge};
+    for (const u8 alpha : {u8{0}, u8{31}, u8{32}, u8{255}}) {
+        const Color above{0, 0, 255, alpha};
+        Scene scene;
+        const u32 opaque = scene.addScreenVertices(below);
+        const u32 edge = scene.addScreenVertices(above);
+        scene.beginCommands();
+        scene.setOtherMode(0, 0);
+        scene.setCombine({.d = 4, .alphaD = 4});
+        scene.drawScreen(opaque);
+        scene.setOtherMode(0, cutout.low);
+        scene.drawScreen(edge);
+
+        const Gpu::Frame frame = gpu.draw(scene);
+
+        REQUIRE(frame.diagnostics.empty());
+        const n64::CombinerResult combined =
+            n64::evaluateCombiner(frame.rdp.states.back().combineMode, cutout, {.shade = above});
+        const Color actual = frame.getPixel(160, 120);
+        INFO("alpha " << int{alpha});
+        if (n64::isPixelWritten(cutout, combined.coverage)) {
+            REQUIRE(actual[2] == 255);
+        } else {
+            REQUIRE(actual[0] == 255);
+            REQUIRE(actual[2] == 0);
+        }
+    }
+}
+
 TEST_CASE("a lit, textured, fogged two-cycle scene renders", "[gpu]") {
     Gpu gpu = Gpu::create();
     Scene scene;

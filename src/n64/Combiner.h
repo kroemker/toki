@@ -34,6 +34,8 @@ struct CombinerResult {
     Color color{};
     /// The alpha the alpha compare tests: the first cycle's in two-cycle mode.
     u8 alphaReference = 0;
+    /// Covered subpixels after `CVG_X_ALPHA` scaled them by the final alpha.
+    u8 coverage = 8;
 };
 
 /// Runs the colour combiner as the RDP does, in its 9-bit signed arithmetic:
@@ -49,5 +51,12 @@ struct CombinerResult {
 /// Whether a pixel survives the alpha compare. `threshold` is the blend
 /// colour's alpha, or the random threshold when the compare dithers.
 [[nodiscard]] bool passesAlphaCompare(const OtherMode& otherMode, u8 alphaReference, u8 threshold);
+
+/// Whether the RDP writes a pixel at all. With anti-aliasing on, a pixel left
+/// with no coverage is dropped, colour and depth both: this is how
+/// `CVG_X_ALPHA` cuts out a texture's transparent texels without an alpha
+/// compare. With it off, the pixel's centre decides, and an interior pixel's
+/// centre is always covered.
+[[nodiscard]] bool isPixelWritten(const OtherMode& otherMode, u8 coverage);
 
 } // namespace n64

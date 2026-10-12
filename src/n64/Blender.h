@@ -23,7 +23,8 @@ struct BlenderInputs {
 /// bits, `1 - A` as the bitwise inverse, the first of two cycles shifted
 /// rather than divided, and an 8-bit result that wraps rather than saturates.
 ///
-/// Coverage is not emulated, so every pixel is taken as fully covered: the
+/// Rasterized coverage is not emulated, so every pixel the blender sees is
+/// taken as fully covered (one alpha left uncovered never reaches it): the
 /// final cycle blends only under `FORCE_BL`, which is how an opaque
 /// anti-aliased surface's interior behaves, and colour-on-coverage never
 /// applies. The hardware's divider for the unforced final cycle, reached only

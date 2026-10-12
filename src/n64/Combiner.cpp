@@ -127,6 +127,13 @@ u8 computeAlphaReference(const OtherMode& otherMode, const s32 alpha, const s32 
     return static_cast<u8>(std::clamp(expanded, 0, 0xFF));
 }
 
+u8 computeCoverage(const OtherMode& otherMode, const s32 alpha, const s32 coverage) {
+    if (!otherMode.isCoverageTimesAlpha()) {
+        return static_cast<u8>(coverage);
+    }
+    return static_cast<u8>(((((alpha * coverage) + 4) >> 3) >> 5) & 0xF);
+}
+
 } // namespace
 
 CombinerResult evaluateCombiner(const CombineMode& combineMode, const OtherMode& otherMode,
@@ -152,6 +159,7 @@ CombinerResult evaluateCombiner(const CombineMode& combineMode, const OtherMode&
         result.color[channel] = static_cast<u8>(clampNine(combined[channel]));
     }
     s32 alpha = expandAlpha(clampNine(combined[AlphaChannel]));
+    result.coverage = computeCoverage(otherMode, alpha, inputs.coverage);
     if (otherMode.isAlphaCoverageSelect()) {
         alpha = modulateByCoverage(alpha, inputs.coverage, otherMode.isCoverageTimesAlpha());
     }
@@ -164,6 +172,10 @@ CombinerResult evaluateCombiner(const CombineMode& combineMode, const OtherMode&
 
 bool passesAlphaCompare(const OtherMode& otherMode, const u8 alphaReference, const u8 threshold) {
     return otherMode.getAlphaCompare() == AlphaCompare::None || alphaReference >= threshold;
+}
+
+bool isPixelWritten(const OtherMode& otherMode, const u8 coverage) {
+    return !otherMode.isAntiAliased() || coverage != 0;
 }
 
 } // namespace n64

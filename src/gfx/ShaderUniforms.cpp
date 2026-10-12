@@ -29,6 +29,7 @@ constexpr u32 FlagForceBlend = 1U << 10;
 constexpr u32 FlagColorImage32 = 1U << 11;
 constexpr u32 TlutShift = 12;
 constexpr u32 FilterShift = 14;
+constexpr u32 FlagAntiAlias = 1U << 16;
 
 u32 packColor(const n64::Color& color) {
     return (u32{color[0]} << 24) | (u32{color[1]} << 16) | (u32{color[2]} << 8) | color[3];
@@ -85,6 +86,7 @@ u32 makeFlags(const n64::RdpState& state, const PrimitiveInfo& primitive) {
     flags |= otherMode.isTexturePerspective() || primitive.rectangle ? FlagPerspective : 0;
     flags |= otherMode.isForceBlend() ? FlagForceBlend : 0;
     flags |= state.colorImageSize == n64::TexelSize::Bits32 ? FlagColorImage32 : 0;
+    flags |= otherMode.isAntiAliased() ? FlagAntiAlias : 0;
     flags |= u32{static_cast<u8>(otherMode.getTlutMode())} << TlutShift;
     const n64::TextureFilter filter =
         copy ? n64::TextureFilter::Point : otherMode.getTextureFilter();

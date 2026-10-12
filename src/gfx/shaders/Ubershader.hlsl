@@ -73,6 +73,7 @@ static const uint FlagCoverageTimesAlpha = 1u << 8;
 static const uint FlagPerspective = 1u << 9;
 static const uint FlagForceBlend = 1u << 10;
 static const uint FlagColorImage32 = 1u << 11;
+static const uint FlagAntiAlias = 1u << 16;
 
 static const uint FormatRgba = 0;
 static const uint FormatColorIndex = 2;
@@ -412,6 +413,7 @@ struct CombinerOutput
 {
     int4 color;
     int alphaReference;
+    int coverage;
 };
 
 CombinerOutput combine(CombinerSources sources)
@@ -440,6 +442,7 @@ CombinerOutput combine(CombinerSources sources)
     output.color.g = clampNine(combined.g);
     output.color.b = clampNine(combined.b);
     int alpha = expandAlpha(clampNine(combined.a));
+    output.coverage = timesAlpha ? ((((alpha * 8) + 4) >> 3) >> 5) & 0xF : 8;
     if (coverageSelect)
     {
         alpha = modulateByCoverage(alpha, timesAlpha);
@@ -570,6 +573,10 @@ float4 FragmentMain(Interpolants input) : SV_Target0
         {
             discard;
         }
+    }
+    if ((flags & FlagAntiAlias) != 0 && combined.coverage == 0)
+    {
+        discard;
     }
 
     int4 pixel = combined.color;

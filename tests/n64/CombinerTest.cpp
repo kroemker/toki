@@ -115,6 +115,28 @@ TEST_CASE("the alpha compare tests against the threshold", "[n64][combiner]") {
     REQUIRE(n64::passesAlphaCompare({}, 0, 255));
 }
 
+TEST_CASE("coverage times alpha cuts out what is nearly transparent", "[n64][combiner]") {
+    const n64::CombineMode texel = makeMode({.d = ColorTexel0, .alphaD = AlphaTexel0});
+    const n64::OtherMode texEdge{.low = 0x3078};
+    const auto computeCoverage = [&](const u8 alpha) {
+        return n64::evaluateCombiner(texel, texEdge, {.texel0 = {9, 9, 9, alpha}}).coverage;
+    };
+
+    REQUIRE(computeCoverage(0) == 0);
+    REQUIRE(computeCoverage(31) == 0);
+    REQUIRE(computeCoverage(32) == 1);
+    REQUIRE(computeCoverage(255) == 8);
+    REQUIRE(n64::evaluateCombiner(texel, {}, {.texel0 = {9, 9, 9, 0}}).coverage == 8);
+}
+
+TEST_CASE("an anti-aliased pixel without coverage is not written", "[n64][combiner]") {
+    const n64::OtherMode antiAliased{.low = 0x8};
+
+    REQUIRE_FALSE(n64::isPixelWritten(antiAliased, 0));
+    REQUIRE(n64::isPixelWritten(antiAliased, 1));
+    REQUIRE(n64::isPixelWritten({}, 0));
+}
+
 TEST_CASE("an unforced final blender cycle passes its first colour through", "[n64][blender]") {
     const n64::OtherMode opaque{.low = (1U << 22) | (1U << 18)};
 

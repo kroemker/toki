@@ -150,9 +150,12 @@ result that wraps rather than saturates.
 
 What they leave out, because it needs per-pixel state the CPU stages do not have:
 
-- Coverage. Every pixel is taken as fully covered, so the final blender cycle blends only
-  under `FORCE_BL`, which is how the interior of an opaque anti-aliased surface behaves,
-  and colour-on-coverage never applies. Alpha-to-coverage takes the coverage it is given.
+- Coverage from the rasterizer. Every pixel comes in fully covered, so the final blender
+  cycle blends only under `FORCE_BL`, which is how the interior of an opaque anti-aliased
+  surface behaves, and colour-on-coverage never applies. What alpha does to coverage is
+  reproduced: `CVG_X_ALPHA` scales it by the final alpha, and with `AA_EN` a pixel left
+  with none is not written (`isPixelWritten`). That is how `G_RM_AA_ZB_TEX_EDGE` cuts out
+  a texture's transparent texels with no alpha compare.
 - Dither, for colour and for alpha. The noise input and the level-of-detail fraction are
   taken as given; the GPU stage computes them.
 
@@ -209,7 +212,8 @@ Not reproduced yet:
 - Texture conversion (`G_TC_CONV`) and YUV. Every texel is filtered, never converted.
 - Copy mode decodes texels by their format rather than copying their raw bits into the
   framebuffer, which differs for formats other than RGBA16.
-- Dither, coverage and anti-aliased edges, as on the CPU side.
+- Dither, rasterized coverage and anti-aliased edges, as on the CPU side. A pixel the
+  alpha leaves partly covered is written whole; one it leaves uncovered is discarded.
 - With texture perspective off, coordinates are halved, as RT64 does to match hardware;
   not yet checked against a reference.
 - Rectangle texture coordinates carry a 256th-of-a-texel bias, so interpolation cannot
