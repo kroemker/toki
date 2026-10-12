@@ -5,6 +5,8 @@ target_sources(toki_core PRIVATE
         BuildCommand.cpp
         BuildDefines.cpp
         Checkout.cpp
+        CheckoutEdits.cpp
+        ConfigDefines.cpp
         Configuration.cpp
         FilePoller.cpp
         GameCode.cpp

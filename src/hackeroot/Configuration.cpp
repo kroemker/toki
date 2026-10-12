@@ -32,23 +32,30 @@ constexpr std::string_view CompilerPredefines = "#define _LANGUAGE_C 1\n"
 
 } // namespace
 
-Configuration readConfiguration(const cparser::MacroTable& scraped,
-                                const std::filesystem::path& repository,
-                                std::span<const std::string> defineArguments) {
+cparser::PreprocessOptions makeConfigurationOptions(const std::filesystem::path& repository) {
     const std::filesystem::path include = repository / "include";
-    const cparser::PreprocessOptions options{
+    return cparser::PreprocessOptions{
         .searchPaths = {include, repository},
         .allowedRoots = {include / "config.h", include / "versions.h", include / "config",
                          include / "libc" / "stdbool.h"},
         .dialect = &z64::getDecompDialect(),
     };
+}
 
-    const cparser::MacroTable nothing;
+std::string makeConfigurationSource(const std::span<const std::string> defineArguments) {
     std::string source(CompilerPredefines);
     source += cparser::buildPredefineSource(defineArguments);
     source += "#include \"config.h\"\n";
+    return source;
+}
+
+Configuration readConfiguration(const cparser::MacroTable& scraped,
+                                const std::filesystem::path& repository,
+                                std::span<const std::string> defineArguments) {
+    const cparser::MacroTable nothing;
     cparser::TranslationUnit unit = cparser::preprocessText(
-        nothing, repository / "<build configuration>", std::move(source), options);
+        nothing, repository / "<build configuration>", makeConfigurationSource(defineArguments),
+        makeConfigurationOptions(repository));
 
     Configuration configuration;
     configuration.macros = cparser::MacroTable(&scraped);

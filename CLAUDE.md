@@ -272,6 +272,12 @@ listed below is only what no change may break.
   an overlay's `Init` and `Draw`, and how placed actors are drawn as `Actor_Draw` draws them.
   - Only literals count in a guess. What is not one is a gap with its reason and location.
   - Actor code is never run.
+- **[Tools](docs/tools.md)** — how Configure, Register Scene and Create Actor change the
+  checkout's code.
+  - Every edit is a plan shown before it is written, and a tool run twice writes nothing
+    the second time.
+  - Nothing is written over a file that changed since the plan read it.
+  - What a tool adds goes into a `// Toki64 <what> — managed block`.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only

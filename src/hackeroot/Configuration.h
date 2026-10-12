@@ -2,6 +2,7 @@
 
 #include "base/Diagnostic.h"
 #include "cparser/MacroTable.h"
+#include "cparser/Preprocessor.h"
 #include "cparser/SourceSet.h"
 
 #include <filesystem>
@@ -35,6 +36,15 @@ struct Configuration {
     cparser::MacroTable macros;
     std::vector<base::Diagnostic> diagnostics;
 };
+
+/// What the build's configuration is read with: the checkout's include paths,
+/// and only the headers `config.h` reaches.
+[[nodiscard]] cparser::PreprocessOptions
+makeConfigurationOptions(const std::filesystem::path& repository);
+
+/// The text the build's configuration is read from: the compiler's own
+/// macros, then `defineArguments`, then `#include "config.h"`.
+[[nodiscard]] std::string makeConfigurationSource(std::span<const std::string> defineArguments);
 
 [[nodiscard]] Configuration readConfiguration(const cparser::MacroTable& scraped,
                                               const std::filesystem::path& repository,

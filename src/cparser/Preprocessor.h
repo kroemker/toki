@@ -90,6 +90,11 @@ struct PreprocessOptions {
     /// warning. Ordinal tables set it: there, a condition read wrongly shifts
     /// every following entry's ID, so it must never pass quietly.
     bool strictConditionals = false;
+
+    /// Told of every `#define` in a branch the conditionals take, with the
+    /// directive it was read at, as it is defined. An editor of configuration
+    /// headers finds by it which of a name's lines the build reads.
+    std::function<void(const Macro& macro, const Token& directive)> onDefine;
 };
 
 /// Reads `entry` and everything it reaches, evaluating conditionals against

@@ -1,4 +1,4 @@
-find_package(Catch2 3 CONFIG REQUIRED)
+﻿find_package(Catch2 3 CONFIG REQUIRED)
 
 add_executable(toki_tests
         app/actor/ActorDatabaseTest.cpp
@@ -23,6 +23,7 @@ add_executable(toki_tests
         app/object/ObjectTest.cpp
         app/texture/TextureCatalogCheckoutTest.cpp
         app/texture/TextureCatalogTest.cpp
+        app/tools/EditWorkerTest.cpp
         app/scene/ActorDescriptionTest.cpp
         app/scene/ActorDrawsTest.cpp
         app/scene/SceneCheckoutTest.cpp
@@ -48,6 +49,7 @@ add_executable(toki_tests
         hackeroot/AssetImageCheckoutTest.cpp
         hackeroot/AssetImageTest.cpp
         hackeroot/BuildCommandTest.cpp
+        hackeroot/CheckoutEditsTest.cpp
         hackeroot/BuildDefinesTest.cpp
         hackeroot/CheckoutRootTest.cpp
         hackeroot/CheckoutTest.cpp

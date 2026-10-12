@@ -224,6 +224,9 @@ void Preprocessor::doDefine(const Token& directive, std::span<const Token> line)
             base::makeWarning(locate(directive), "'#define' expects a macro name"));
         return;
     }
+    if (options.onDefine) {
+        options.onDefine(*macro, directive);
+    }
     unit.macros.define(std::move(*macro));
 }
 
