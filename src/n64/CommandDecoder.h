@@ -69,9 +69,10 @@ struct DecodedCommand {
 /// Decodes the command `word0`, `word1`.
 [[nodiscard]] DecodedCommand decodeCommand(u32 word0, u32 word1);
 
-/// What a combiner input is called, as the hardware's documents name it:
-/// `TEXEL0`, `SHADE_ALPHA`.
-[[nodiscard]] std::string_view getCombinerInputName(CombinerInput input);
+/// What a combiner input is called, as `gbi.h` writes it: `TEXEL0`,
+/// `SHADE_ALPHA`. In an alpha slot, where every input is an alpha, an alpha
+/// input is called by its source alone, `SHADE`.
+[[nodiscard]] std::string_view getCombinerInputName(CombinerInput input, bool isAlpha = false);
 
 /// What a combiner input means, for a person learning the combiner.
 [[nodiscard]] std::string_view getCombinerInputDescription(CombinerInput input);

@@ -15,6 +15,7 @@
 #include "z64/DecompDialect.h"
 #include "z64/DisplayList.h"
 #include "z64/DisplayListEncoder.h"
+#include "z64/GbiNames.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -22,6 +23,7 @@
 #include <array>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <map>
 #include <optional>
 #include <span>
@@ -282,4 +284,43 @@ TEST_CASE("every gbi.h macro decodes back under its own name", "[hackeroot][gbi]
         REQUIRE(words.size() >= 2);
         CHECK(n64::decodeCommand(words[0], words[1]).name == name);
     }
+}
+
+TEST_CASE("decoded commands read with the names of the checkout's gbi.h",
+          "[hackeroot][gbi][checkout]") {
+    const Checkout checkout;
+    const z64::GbiNames names(checkout.gbi->macros);
+    constexpr std::array<std::string_view, 10> Macros{
+        "gsDPSetCombineMode(G_CC_MODULATEIDECALA, G_CC_PASS2)",
+        "gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE)",
+        "gsDPSetRenderMode(G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2)",
+        "gsDPSetRenderMode(G_RM_FOG_SHADE_A, G_RM_AA_ZB_XLU_SURF2)",
+        "gsSPGeometryMode(G_FOG, G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING)",
+        "gsDPSetCycleType(G_CYC_2CYCLE)",
+        "gsDPSetTextureFilter(G_TF_BILERP)",
+        "gsDPSetTextureLUT(G_TT_RGBA16)",
+        "gsSPMatrix(0x01000000, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION)",
+        "gsDPSetTile(G_IM_FMT_CI, G_IM_SIZ_4b, 1, 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | "
+        "G_TX_WRAP, 5, 0, G_TX_MIRROR | G_TX_WRAP, 5, 0)",
+    };
+    const cparser::MacroTable empty;
+    std::string described;
+    for (usize i = 0; i < Macros.size(); ++i) {
+        const std::string_view macro = Macros[i];
+        const cparser::TranslationUnit source =
+            cparser::preprocessText(empty, "dl.c", std::string(macro) + ",\n", {});
+        const z64::DisplayList list =
+            z64::DisplayListEncoder(z64::DisplayListContext{.macros = &checkout.gbi->macros})
+                .encode(std::span(source.tokens).first(source.tokens.size() - 1));
+        REQUIRE(list.diagnostics.empty());
+        const std::vector<u32> words = readWords(list);
+        const std::string text = names.makeCommandText(n64::decodeCommand(words[0], words[1]), {});
+        described += std::format("\n  {}\n    {}", macro, text);
+        if (i < 8) {
+            CHECK(text == macro);
+        }
+    }
+    WARN("decoded:" << described);
+    CHECK(names.makeCommandText(n64::decodeCommand(0xE300'0A01, 0x0010'0000), {}) ==
+          "gsDPSetCycleType(G_CYC_2CYCLE)");
 }

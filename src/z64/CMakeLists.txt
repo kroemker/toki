@@ -3,6 +3,7 @@ target_sources(toki_core PRIVATE
         DataEncoder.cpp
         DecompDialect.cpp
         DisplayListEncoder.cpp
+        GbiNames.cpp
         MemoryImage.cpp
         PngImage.cpp
         ImageTexture.cpp

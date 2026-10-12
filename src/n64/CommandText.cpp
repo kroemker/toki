@@ -103,7 +103,31 @@ constexpr std::array<ModeText, 14> ModeTexts{{
 
 } // namespace
 
-std::string_view getCombinerInputName(const CombinerInput input) {
+std::string_view getCombinerInputName(CombinerInput input, const bool isAlpha) {
+    if (isAlpha) {
+        switch (input) {
+        case CombinerInput::CombinedAlpha:
+            input = CombinerInput::Combined;
+            break;
+        case CombinerInput::Texel0Alpha:
+            input = CombinerInput::Texel0;
+            break;
+        case CombinerInput::Texel1Alpha:
+            input = CombinerInput::Texel1;
+            break;
+        case CombinerInput::PrimitiveAlpha:
+            input = CombinerInput::Primitive;
+            break;
+        case CombinerInput::ShadeAlpha:
+            input = CombinerInput::Shade;
+            break;
+        case CombinerInput::EnvironmentAlpha:
+            input = CombinerInput::Environment;
+            break;
+        default:
+            break;
+        }
+    }
     const auto index = static_cast<usize>(input);
     return index < InputTexts.size() ? InputTexts[index].name : std::string_view("?");
 }

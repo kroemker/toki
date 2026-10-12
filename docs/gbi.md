@@ -73,3 +73,16 @@ holds both, and checks the words of the common commands against F3DEX2's known e
 
 Symbols that live in the game's code rather than in an asset, such as `gIdentityMtx`, are
 the memory image's to answer.
+
+## Reading words back
+
+`z64::GbiNames` goes the other way, for the display list viewer: it names the values of a
+decoded command (`n64::decodeCommand`) with the checkout's own `gbi.h` constants, so a
+command reads as it is written. Each family of constants is read by its prefix and
+evaluated against the header (`G_IM_FMT_`, `G_IM_SIZ_`, `G_MW_`, `G_MV_`, each other mode
+field's, as `G_CYC_` and `G_TF_`); where two names share a value, the shorter one is used, so
+`G_IM_SIZ_4b` wins over `G_IM_SIZ_4b_BYTES`. Geometry mode bits, matrix flags and tile
+wrapping are named bit by bit. A render mode is the pair of a `G_RM_` mode and a `G_RM_..2`
+mode that together give its bits, a matching pair first, since the depth flags are in both
+halves. A combine mode is named by the `G_CC_` preset each cycle's eight inputs spell, or by
+the inputs themselves. A value no name has reads as its number.

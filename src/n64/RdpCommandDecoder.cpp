@@ -37,7 +37,6 @@ void addTileRange(DecodedCommand& command, const u32 word0, const u32 word1,
         "Sets up a tile descriptor: the format of the texels it reads, where they start in "
         "texture memory and how long a row is, which palette, and how coordinates past its "
         "edges wrap, mirror or clamp.");
-    addField(command, "tile", readBits(word1, 24, 3), FieldKind::Index, TileText);
     addField(command, "format", readBits(word0, 21, 3), FieldKind::ImageFormat,
              "What a texel holds: colour and alpha (RGBA), intensity (I), intensity and alpha "
              "(IA), or a palette index (CI).");
@@ -47,6 +46,7 @@ void addTileRange(DecodedCommand& command, const u32 word0, const u32 word1,
              "How long a row of the texture is in texture memory, in 64-bit words.");
     addField(command, "address", readBits(word0, 0, 9), FieldKind::Hex,
              "Where the texture starts in texture memory, in 64-bit words.");
+    addField(command, "tile", readBits(word1, 24, 3), FieldKind::Index, TileText);
     addField(command, "palette", readBits(word1, 20, 4), FieldKind::Index,
              "For a 4-bit palette texture, which of the 16 palettes it uses.");
     addField(command, "t wrap", readBits(word1, 18, 2), FieldKind::TileWrap,
