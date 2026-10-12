@@ -49,6 +49,10 @@ public:
     /// then the shared ones. Asking reads the actor's.
     [[nodiscard]] std::vector<std::string> listCollectionNames(std::string_view actor);
 
+    /// The collection every actor can use called `name`, once the shared ones
+    /// are read.
+    [[nodiscard]] const ValueCollection* findSharedCollection(std::string_view name) const;
+
     /// Whether the shared collections and `actor`'s own have been read, so that
     /// a collection not found is one the checkout does not have. Asking reads
     /// the actor's.

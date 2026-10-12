@@ -63,7 +63,7 @@ void drawViewMenu(PanelManager& panels) {
 
     for (const std::unique_ptr<Panel>& panel : panels.getPanels()) {
         bool open = panel->isOpen();
-        if (ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
+        if (!panel->isTool() && ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
             panel->setOpen(open);
         }
     }
@@ -72,6 +72,19 @@ void drawViewMenu(PanelManager& panels) {
     if (ImGui::MenuItem("Reset layout")) {
         panels.openDefaults();
         panels.requestDefaultLayout();
+    }
+    ImGui::EndMenu();
+}
+
+void drawToolsMenu(PanelManager& panels) {
+    if (!ImGui::BeginMenu("Tools")) {
+        return;
+    }
+    for (const std::unique_ptr<Panel>& panel : panels.getPanels()) {
+        bool open = panel->isOpen();
+        if (panel->isTool() && ImGui::MenuItem(panel->getMenuLabel().c_str(), nullptr, &open)) {
+            panel->setOpen(open);
+        }
     }
     ImGui::EndMenu();
 }
@@ -90,6 +103,7 @@ MenuActions drawMenuBar(PanelManager& panels, const Settings& settings, const bo
 
     drawFileMenu(settings, actions);
     drawBuildMenu(buildRunning, actions);
+    drawToolsMenu(panels);
     drawViewMenu(panels);
 
     ImGui::EndMainMenuBar();

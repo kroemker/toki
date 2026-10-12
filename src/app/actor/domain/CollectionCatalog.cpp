@@ -78,6 +78,10 @@ const ValueCollection* CollectionCatalog::findCollection(const std::string_view 
     return findIn(shared, name);
 }
 
+const ValueCollection* CollectionCatalog::findSharedCollection(const std::string_view name) const {
+    return findIn(shared, name);
+}
+
 std::vector<std::string> CollectionCatalog::listCollectionNames(const std::string_view actor) {
     ask(std::string(actor));
     std::vector<std::string> names;

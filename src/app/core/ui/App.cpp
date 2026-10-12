@@ -27,6 +27,7 @@
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
+#include "app/tools/configure/ui/ConfigurePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/ui/WorkspacePanel.h"
 #include "base/Diagnostic.h"
@@ -177,6 +178,7 @@ void App::registerPanels() {
             objectLoader.open(workspaceService.getSharedWorkspace(), asset);
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
+    panels.add(std::make_unique<tools::ConfigurePanel>(workspaceService, collectionCatalog));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
 }

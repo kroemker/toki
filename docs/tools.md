@@ -43,3 +43,19 @@ build reads, not the first one in the file. Each setting carries what it is writ
 there, the comment above it, and its effective value once `config_safeguards.h` has had its
 say, which overrides settings without being one; `BOOT_TO_SCENE` is forced off without
 `DEBUG_FEATURES`.
+
+## Configure
+
+The Configure panel, in the Tools menu, has a tab for each configuration header, named
+after it (`config_debug_controls.h` is "Debug Controls"), and a row for each of its
+settings (`toki::tools::makeConfigGroups`): its name as words, its comment and where it is
+written in a tooltip, and a control chosen by what it is written as. `true` and `false` are
+toggled; a number, whole or with a point, is typed and checked; a name is picked, from a
+list for the game's buttons, controller ports, ages and times of day, or from the checkout's
+own collections for entrances (`ENTR_`), scenes (`SCENE_`) and music (`NA_BGM_`). Anything
+else is typed as text.
+
+A setting the safeguards override shows what the build ends with beside it. Changes are
+held until "Review", which plans them (`makeConfigPlan`): one item per changed line, and a
+warning for each overridden setting, since the build will not see what is written. The
+panel reads the configuration again once the plan is written.

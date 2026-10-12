@@ -53,6 +53,12 @@ public:
         return true;
     }
 
+    /// Whether it is one of the tools that change the checkout, listed in the
+    /// Tools menu rather than the View menu.
+    [[nodiscard]] virtual bool isTool() const {
+        return false;
+    }
+
     [[nodiscard]] virtual ImGuiWindowFlags getWindowFlags() const {
         return ImGuiWindowFlags_None;
     }
