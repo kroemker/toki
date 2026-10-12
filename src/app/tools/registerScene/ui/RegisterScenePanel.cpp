@@ -5,7 +5,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
-#include "app/tools/Types.h"
+#include "app/tools/registerScene/Types.h"
 #include "app/tools/configure/domain/ConfigSettings.h"
 #include "app/tools/registerScene/domain/SceneRegistry.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -25,7 +25,7 @@
 #include <string_view>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::registerScene {
 
 namespace {
 
@@ -141,8 +141,8 @@ void RegisterScenePanel::drawOptions(const hackeroot::Workspace& workspace) {
         if (ImGui::InputInt("At spawn", &spawn)) {
             registration.bootSpawn = static_cast<usize>(std::clamp(spawn, 0, MaxSpawns - 1));
         }
-        drawOptionalNames("Age", registration.bootAge, findListedOptions("LINK_AGE_"));
-        drawOptionalNames("Time", registration.bootTime, findListedOptions("NEXT_TIME_"));
+        drawOptionalNames("Age", registration.bootAge, configure::findListedOptions("LINK_AGE_"));
+        drawOptionalNames("Time", registration.bootTime, configure::findListedOptions("NEXT_TIME_"));
     }
 
     ImGui::EndDisabled();
@@ -201,4 +201,4 @@ void RegisterScenePanel::drawOptionalNames(const char* label, std::optional<std:
     ImGui::EndCombo();
 }
 
-} // namespace toki::tools
+} // namespace toki::registerScene

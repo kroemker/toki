@@ -28,7 +28,7 @@
 #include <string>
 #include <string_view>
 
-namespace toki::tools {
+namespace toki::createActor {
 
 namespace {
 
@@ -242,4 +242,4 @@ void CreateActorPanel::drawPreview(const hackeroot::Workspace& workspace) {
     ImGui::EndTabBar();
 }
 
-} // namespace toki::tools
+} // namespace toki::createActor

@@ -229,3 +229,17 @@ void EnTest_Open(EnTest* this, PlayState* play) {
     REQUIRE(params[2].name == "Lit");
     REQUIRE(params[2].kind == toki::actor::ParamKind::Flag);
 }
+
+TEST_CASE("a local changed after its read is not followed to a table", "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+static s16 sGetItemIds[] = { GI_SMALL_KEY, GI_HEART_PIECE };
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    s32 type = PARAMS_GET_U(thisx->params, 0, 8);
+    type |= 1;
+    Actor_OfferGetItem(thisx, play, sGetItemIds[type], 30.0f, 50.0f);
+}
+)");
+
+    REQUIRE(params.size() == 1);
+    REQUIRE_FALSE(params[0].collection);
+}

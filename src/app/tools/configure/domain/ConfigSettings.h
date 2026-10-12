@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/tools/Types.h"
+#include "app/tools/configure/Types.h"
 #include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/ConfigDefines.h"
 
@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::configure {
 
 /// How a setting is edited.
 enum class SettingControl : u8 {
@@ -67,4 +67,4 @@ makeConfigGroups(std::span<const hackeroot::ConfigDefine> defines);
 makeConfigPlan(const std::filesystem::path& repository, std::span<const ConfigGroup> groups,
                const std::map<std::string, std::string, std::less<>>& values);
 
-} // namespace toki::tools
+} // namespace toki::configure

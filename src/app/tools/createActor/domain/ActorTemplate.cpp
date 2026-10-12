@@ -1,6 +1,7 @@
 #include "ActorTemplate.h"
 
-#include "app/tools/Types.h"
+#include "app/core/domain/TextCase.h"
+#include "app/tools/createActor/Types.h"
 #include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/ConfigDefines.h"
 #include "hackeroot/Tables.h"
@@ -18,7 +19,7 @@
 #include <system_error>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::createActor {
 
 namespace {
 
@@ -37,29 +38,6 @@ constexpr std::array<std::string_view, 17> CommonIncludes{
     "z_lib.h",        "effect.h",      "play_state.h", "player.h",
     "save.h"};
 
-[[nodiscard]] std::string makeUpper(const std::string_view text) {
-    std::string upper(text);
-    std::ranges::transform(upper, upper.begin(), [](const char letter) {
-        return static_cast<char>(std::toupper(static_cast<unsigned char>(letter)));
-    });
-    return upper;
-}
-
-[[nodiscard]] std::string makeLower(const std::string_view text) {
-    std::string lower(text);
-    std::ranges::transform(lower, lower.begin(), [](const char letter) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
-    });
-    return lower;
-}
-
-[[nodiscard]] bool isIdentifier(const std::string_view name) {
-    return !name.empty() && std::isdigit(static_cast<unsigned char>(name.front())) == 0 &&
-           std::ranges::all_of(name, [](const char letter) {
-               return std::isalnum(static_cast<unsigned char>(letter)) != 0 || letter == '_';
-           });
-}
-
 [[nodiscard]] std::string makeTypeName(const std::string_view name) {
     std::string type;
     std::ranges::copy_if(name, std::back_inserter(type),
@@ -68,11 +46,11 @@ constexpr std::array<std::string_view, 17> CommonIncludes{
 }
 
 [[nodiscard]] std::string makeActorEnum(const std::string_view name) {
-    return "ACTOR_" + makeUpper(name);
+    return "ACTOR_" + core::makeUpperCase(name);
 }
 
 [[nodiscard]] std::string makeFileStem(const std::string_view name) {
-    return "z_" + makeLower(name);
+    return "z_" + core::makeLowerCase(name);
 }
 
 [[nodiscard]] std::filesystem::path makeOverlayFolder(const std::string_view name) {
@@ -85,7 +63,7 @@ constexpr std::array<std::string_view, 17> CommonIncludes{
 
 [[nodiscard]] std::string findObjectEnum(const ActorDraft& draft, const hackeroot::Tables& tables) {
     if (draft.newObject) {
-        return makeUpper(*draft.newObject);
+        return core::makeUpperCase(*draft.newObject);
     }
     const auto found =
         std::ranges::find(tables.objects, draft.object, &hackeroot::ObjectEntry::name);
@@ -186,6 +164,91 @@ putTableEntry(std::string& table, const std::string& entry, const std::string& c
     return hackeroot::EditItem{.status = hackeroot::EditStatus::Add, .label = label};
 }
 
+[[nodiscard]] std::expected<void, std::string>
+planActorTable(const std::filesystem::path& repository, const ActorDraft& draft,
+               hackeroot::EditPlan& plan) {
+    std::expected<hackeroot::FileEdit, std::string> actors = openFile(repository, ActorTableFile);
+    if (!actors) {
+        return std::unexpected(actors.error());
+    }
+    const std::string actorEnum = makeActorEnum(draft.name);
+    actors->items.push_back(
+        putTableEntry(actors->after,
+                      std::format("DEFINE_ACTOR({}, {}, {}, \"{}\")", draft.name, actorEnum,
+                                  draft.allocation, draft.name),
+                      std::format("DEFINE_ACTOR({},", draft.name), "DEFINE_ACTOR_UNSET(", {},
+                      draft.takesUnsetSlot, "custom actors", actorEnum));
+    plan.files.push_back(std::move(*actors));
+    return {};
+}
+
+[[nodiscard]] std::expected<void, std::string>
+planObjectTable(const std::filesystem::path& repository, const ActorDraft& draft,
+                hackeroot::EditPlan& plan) {
+    if (!draft.newObject) {
+        return {};
+    }
+    std::expected<hackeroot::FileEdit, std::string> objects = openFile(repository, ObjectTableFile);
+    if (!objects) {
+        return std::unexpected(objects.error());
+    }
+    const std::string objectEnum = core::makeUpperCase(*draft.newObject);
+    objects->items.push_back(putTableEntry(
+        objects->after, std::format("DEFINE_OBJECT({}, {})", *draft.newObject, objectEnum),
+        std::format("DEFINE_OBJECT({},", *draft.newObject), "DEFINE_OBJECT_UNSET(",
+        {"OBJECT_INVALID"}, draft.takesUnsetSlot, "custom objects", objectEnum));
+    plan.files.push_back(std::move(*objects));
+    plan.warnings.push_back(std::format(
+        "{0} has no files yet: export it from fast64 to assets/objects/{0}/ before building",
+        *draft.newObject));
+    return {};
+}
+
+[[nodiscard]] std::expected<void, std::string> planSpec(const std::filesystem::path& repository,
+                                                        const ActorDraft& draft,
+                                                        hackeroot::EditPlan& plan) {
+    std::expected<hackeroot::FileEdit, std::string> spec = openFile(repository, SpecFile);
+    if (!spec) {
+        return std::unexpected(spec.error());
+    }
+    spec->items.push_back(
+        hackeroot::EditItem{.status = hackeroot::putSpecSegment(spec->after, "ovl_" + draft.name,
+                                                                makeOverlaySegment(draft.name),
+                                                                "custom actors", OverlayAnchor),
+                            .label = std::format("overlay segment \"ovl_{}\"", draft.name)});
+    if (draft.newObject) {
+        spec->items.push_back(hackeroot::EditItem{
+            .status = hackeroot::putSpecSegment(spec->after, *draft.newObject,
+                                                makeObjectSegment(*draft.newObject),
+                                                "custom objects", ObjectAnchor),
+            .label = std::format("object segment \"{}\"", *draft.newObject)});
+    }
+    plan.files.push_back(std::move(*spec));
+    return {};
+}
+
+void planOverlayFiles(const ActorDraft& draft, const hackeroot::Tables& tables,
+                      hackeroot::EditPlan& plan) {
+    const std::filesystem::path folder = makeOverlayFolder(draft.name);
+    const std::string stem = makeFileStem(draft.name);
+    plan.files.push_back(hackeroot::FileEdit{
+        .file = folder / (stem + ".h"),
+        .after = makeActorHeader(draft),
+        .items = {{.status = hackeroot::EditStatus::Add, .label = "the actor's struct"}}});
+    plan.files.push_back(
+        hackeroot::FileEdit{.file = folder / (stem + ".c"),
+                            .after = makeActorSource(draft, tables),
+                            .items = {{.status = hackeroot::EditStatus::Add,
+                                       .label = "its profile, Init, Destroy, Update" +
+                                                std::string(draft.draws ? " and Draw" : "")}}});
+    if (draft.isDynaPoly) {
+        plan.warnings.push_back(std::format(
+            "{}.c names {} where the collision header of its object goes; put it there before "
+            "building",
+            stem, CollisionPlaceholder));
+    }
+}
+
 } // namespace
 
 std::expected<ActorChoices, std::string> readActorChoices(const std::filesystem::path& repository) {
@@ -206,7 +269,7 @@ std::expected<ActorChoices, std::string> readActorChoices(const std::filesystem:
 
 std::optional<std::string> findDraftProblem(const ActorDraft& draft,
                                             const hackeroot::Tables& tables) {
-    if (!isIdentifier(draft.name) ||
+    if (!core::isCIdentifier(draft.name) ||
         std::isupper(static_cast<unsigned char>(draft.name.front())) == 0) {
         return std::format("'{}' is not a name an actor can have: it is a C identifier that "
                            "starts with a capital, as En_Foo",
@@ -220,7 +283,7 @@ std::optional<std::string> findDraftProblem(const ActorDraft& draft,
         return std::format("the actor table has {} already", draft.name);
     }
     if (draft.newObject) {
-        if (!isIdentifier(*draft.newObject) || !draft.newObject->starts_with("object_")) {
+        if (!core::isCIdentifier(*draft.newObject) || !draft.newObject->starts_with("object_")) {
             return std::format("'{}' is not a name an object can have, as object_foo",
                                *draft.newObject);
         }
@@ -244,7 +307,7 @@ std::optional<std::string> findDraftProblem(const ActorDraft& draft,
 
 std::string makeActorHeader(const ActorDraft& draft) {
     const std::string type = makeTypeName(draft.name);
-    const std::string guard = makeUpper(makeFileStem(draft.name)) + "_H";
+    const std::string guard = core::makeUpperCase(makeFileStem(draft.name)) + "_H";
     return std::format("#ifndef {0}\n#define {0}\n\n"
                        "#include \"ultra64.h\"\n#include \"actor.h\"\n\n"
                        "struct {1};\n\n"
@@ -296,79 +359,19 @@ makeActorPlan(const std::filesystem::path& repository, const ActorDraft& draft,
     if (std::optional<std::string> problem = findDraftProblem(draft, tables)) {
         return std::unexpected(std::move(*problem));
     }
-    hackeroot::EditPlan plan;
-    std::expected<hackeroot::FileEdit, std::string> actors = openFile(repository, ActorTableFile);
-    if (!actors) {
-        return std::unexpected(actors.error());
-    }
-    const std::string actorEnum = makeActorEnum(draft.name);
-    actors->items.push_back(
-        putTableEntry(actors->after,
-                      std::format("DEFINE_ACTOR({}, {}, {}, \"{}\")", draft.name, actorEnum,
-                                  draft.allocation, draft.name),
-                      std::format("DEFINE_ACTOR({},", draft.name), "DEFINE_ACTOR_UNSET(", {},
-                      draft.takesUnsetSlot, "custom actors", actorEnum));
-    plan.files.push_back(std::move(*actors));
-
-    if (draft.newObject) {
-        std::expected<hackeroot::FileEdit, std::string> objects =
-            openFile(repository, ObjectTableFile);
-        if (!objects) {
-            return std::unexpected(objects.error());
-        }
-        objects->items.push_back(putTableEntry(
-            objects->after,
-            std::format("DEFINE_OBJECT({}, {})", *draft.newObject, makeUpper(*draft.newObject)),
-            std::format("DEFINE_OBJECT({},", *draft.newObject), "DEFINE_OBJECT_UNSET(",
-            {"OBJECT_INVALID"}, draft.takesUnsetSlot, "custom objects",
-            makeUpper(*draft.newObject)));
-        plan.files.push_back(std::move(*objects));
-        plan.warnings.push_back(std::format(
-            "{0} has no files yet: export it from fast64 to assets/objects/{0}/ before building",
-            *draft.newObject));
-    }
-
-    std::expected<hackeroot::FileEdit, std::string> spec = openFile(repository, SpecFile);
-    if (!spec) {
-        return std::unexpected(spec.error());
-    }
-    spec->items.push_back(
-        hackeroot::EditItem{.status = hackeroot::putSpecSegment(spec->after, "ovl_" + draft.name,
-                                                                makeOverlaySegment(draft.name),
-                                                                "custom actors", OverlayAnchor),
-                            .label = std::format("overlay segment \"ovl_{}\"", draft.name)});
-    if (draft.newObject) {
-        spec->items.push_back(hackeroot::EditItem{
-            .status = hackeroot::putSpecSegment(spec->after, *draft.newObject,
-                                                makeObjectSegment(*draft.newObject),
-                                                "custom objects", ObjectAnchor),
-            .label = std::format("object segment \"{}\"", *draft.newObject)});
-    }
-    plan.files.push_back(std::move(*spec));
-
     const std::filesystem::path folder = makeOverlayFolder(draft.name);
     std::error_code status;
     if (std::filesystem::exists(repository / folder, status)) {
         return std::unexpected(std::format("{} exists already", folder.generic_string()));
     }
-    const std::string stem = makeFileStem(draft.name);
-    plan.files.push_back(hackeroot::FileEdit{
-        .file = folder / (stem + ".h"),
-        .after = makeActorHeader(draft),
-        .items = {{.status = hackeroot::EditStatus::Add, .label = "the actor's struct"}}});
-    plan.files.push_back(
-        hackeroot::FileEdit{.file = folder / (stem + ".c"),
-                            .after = makeActorSource(draft, tables),
-                            .items = {{.status = hackeroot::EditStatus::Add,
-                                       .label = "its profile, Init, Destroy, Update" +
-                                                std::string(draft.draws ? " and Draw" : "")}}});
-    if (draft.isDynaPoly) {
-        plan.warnings.push_back(std::format(
-            "{}.c names {} where the collision header of its object goes; put it there before "
-            "building",
-            stem, CollisionPlaceholder));
+    hackeroot::EditPlan plan;
+    for (const auto step : {&planActorTable, &planObjectTable, &planSpec}) {
+        if (std::expected<void, std::string> planned = step(repository, draft, plan); !planned) {
+            return std::unexpected(planned.error());
+        }
     }
+    planOverlayFiles(draft, tables, plan);
     return plan;
 }
 
-} // namespace toki::tools
+} // namespace toki::createActor

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::configure {
 
 /// The checkout's configuration headers as settings, a tab for each header:
 /// each setting by its documented name, edited by what it is written as, with
@@ -52,7 +52,7 @@ private:
     std::vector<ConfigGroup> groups;
     std::map<std::string, std::string, std::less<>> values;
     std::string choiceFilter;
-    EditFlow editFlow;
+    tools::EditFlow editFlow;
 };
 
-} // namespace toki::tools
+} // namespace toki::configure

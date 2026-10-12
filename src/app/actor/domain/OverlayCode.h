@@ -98,7 +98,6 @@ private:
     /// headers it includes by their location, whichever separators it was
     /// written with.
     std::vector<const cparser::FunctionDefinition*> mainFunctions;
-    /// Asked for every call's callee, so each name is looked at once.
     mutable std::map<std::string, std::optional<ParamsMacro>, std::less<>> paramsMacros;
 };
 

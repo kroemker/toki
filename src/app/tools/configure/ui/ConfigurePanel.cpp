@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::configure {
 
 namespace {
 
@@ -249,4 +249,4 @@ bool ConfigurePanel::drawChoice(const ConfigSetting& setting, std::string& value
     return isChanged;
 }
 
-} // namespace toki::tools
+} // namespace toki::configure

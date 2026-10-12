@@ -56,8 +56,8 @@ void writeText(const std::filesystem::path& file, const std::string& text) {
     return root;
 }
 
-[[nodiscard]] toki::tools::SceneExport makeExport(const base::usize rooms) {
-    toki::tools::SceneExport scene{
+[[nodiscard]] toki::registerScene::SceneExport makeExport(const base::usize rooms) {
+    toki::registerScene::SceneExport scene{
         .name = "ocean_test",
         .directory = "assets/scenes/ocean_test",
         .sceneFiles = {"assets/scenes/ocean_test/ocean_test_scene_main.c",
@@ -69,8 +69,8 @@ void writeText(const std::filesystem::path& file, const std::string& text) {
     return scene;
 }
 
-[[nodiscard]] toki::tools::SceneSurvey makeSurvey() {
-    return toki::tools::SceneSurvey{.spawns = 2,
+[[nodiscard]] toki::registerScene::SceneSurvey makeSurvey() {
+    return toki::registerScene::SceneSurvey{.spawns = 2,
                                     .listedRooms = 1,
                                     .config = {{.name = "BOOT_TO_SCENE",
                                                 .file = "include/config/config_debug.h",
@@ -91,12 +91,12 @@ void writeText(const std::filesystem::path& file, const std::string& text) {
 TEST_CASE("registering a scene writes every place the build learns of it, then nothing",
           "[tools][register]") {
     const std::filesystem::path root = makeCheckout();
-    const toki::tools::SceneRegistration registration{
-        .mapSelectLabel = toki::tools::makeMapSelectLabel("ocean_test"), .bootsToScene = true};
+    const toki::registerScene::SceneRegistration registration{
+        .mapSelectLabel = toki::registerScene::makeMapSelectLabel("ocean_test"), .bootsToScene = true};
     REQUIRE(registration.mapSelectLabel == "Ocean Test");
 
     const std::expected<hackeroot::EditPlan, std::string> plan =
-        toki::tools::makeScenePlan(root, makeExport(1), registration, makeSurvey());
+        toki::registerScene::makeScenePlan(root, makeExport(1), registration, makeSurvey());
     REQUIRE(plan.has_value());
     REQUIRE(plan->warnings.empty());
     REQUIRE(plan->files.size() == 5);
@@ -121,16 +121,16 @@ TEST_CASE("registering a scene writes every place the build learns of it, then n
     REQUIRE(config == "#define BOOT_TO_SCENE true\n#define BOOT_ENTRANCE ENTR_OCEAN_TEST_0\n"
                       "#define ENABLE_HACKER_DEBUG true\n");
 
-    toki::tools::SceneSurvey booted = makeSurvey();
+    toki::registerScene::SceneSurvey booted = makeSurvey();
     booted.config[0].written = "true";
     booted.config[1].written = "ENTR_OCEAN_TEST_0";
     const std::expected<hackeroot::EditPlan, std::string> again =
-        toki::tools::makeScenePlan(root, makeExport(1), registration, booted);
+        toki::registerScene::makeScenePlan(root, makeExport(1), registration, booted);
     REQUIRE(again.has_value());
     REQUIRE_FALSE(again->hasWork());
 
     const std::expected<hackeroot::EditPlan, std::string> grown =
-        toki::tools::makeScenePlan(root, makeExport(2), registration, booted);
+        toki::registerScene::makeScenePlan(root, makeExport(2), registration, booted);
     REQUIRE(grown.has_value());
     REQUIRE(grown->hasWork());
     REQUIRE(grown->files.front().items.back().status == hackeroot::EditStatus::Add);
@@ -143,26 +143,26 @@ TEST_CASE("registering a scene writes every place the build learns of it, then n
 
 TEST_CASE("what would break a registration is refused or warned of", "[tools][register]") {
     const std::filesystem::path root = makeCheckout();
-    toki::tools::SceneSurvey survey = makeSurvey();
+    toki::registerScene::SceneSurvey survey = makeSurvey();
     survey.hasDebugFeatures = false;
     survey.scenes = {{.name = "other_scene", .enumName = "SCENE_OCEAN_TEST"}};
 
-    const std::expected<hackeroot::EditPlan, std::string> plan = toki::tools::makeScenePlan(
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::registerScene::makeScenePlan(
         root, makeExport(1), {.mapSelectLabel = "Ocean", .bootsToScene = true, .bootSpawn = 1},
         survey);
     REQUIRE(plan.has_value());
     REQUIRE(plan->warnings.size() == 2);
-    REQUIRE_FALSE(toki::tools::makeScenePlan(
+    REQUIRE_FALSE(toki::registerScene::makeScenePlan(
                       root, makeExport(1),
                       {.mapSelectLabel = "Ocean", .bootsToScene = true, .bootSpawn = 2}, survey)
                       .has_value());
-    const std::expected<hackeroot::EditPlan, std::string> quoted = toki::tools::makeScenePlan(
+    const std::expected<hackeroot::EditPlan, std::string> quoted = toki::registerScene::makeScenePlan(
         root, makeExport(1), {.mapSelectLabel = "The \"Ocean\""}, survey);
     REQUIRE(quoted.has_value());
     REQUIRE(quoted->files[3].after.contains(
         "{ \"The \\\"Ocean\\\"\", MapSelect_LoadGame, ENTR_OCEAN_TEST_0 },"));
     REQUIRE_FALSE(
-        toki::tools::makeScenePlan(root, makeExport(0), {.mapSelectLabel = "Ocean"}, survey)
+        toki::registerScene::makeScenePlan(root, makeExport(0), {.mapSelectLabel = "Ocean"}, survey)
             .has_value());
     std::error_code ignored;
     std::filesystem::remove_all(root, ignored);
@@ -184,13 +184,13 @@ TEST_CASE("a scene the prototype registered is found registered", "[tools][regis
         SKIP("the checkout has no assets/scenes/oceantest");
     }
 
-    const std::expected<toki::tools::SurveyedScene, std::string> surveyed =
-        toki::tools::surveyScene(workspace, *ocean);
+    const std::expected<toki::registerScene::SurveyedScene, std::string> surveyed =
+        toki::registerScene::surveyScene(workspace, *ocean);
     REQUIRE(surveyed.has_value());
     REQUIRE(surveyed->survey.spawns.has_value());
-    const std::expected<hackeroot::EditPlan, std::string> plan = toki::tools::makeScenePlan(
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::registerScene::makeScenePlan(
         repository, surveyed->scene,
-        {.mapSelectLabel = toki::tools::makeMapSelectLabel("oceantest")}, surveyed->survey);
+        {.mapSelectLabel = toki::registerScene::makeMapSelectLabel("oceantest")}, surveyed->survey);
     REQUIRE(plan.has_value());
     std::string described;
     for (const hackeroot::FileEdit& file : plan->files) {

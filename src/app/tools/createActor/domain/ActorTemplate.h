@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/tools/Types.h"
+#include "app/tools/createActor/Types.h"
 #include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/ConfigDefines.h"
 #include "hackeroot/Tables.h"
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::createActor {
 
 /// The documented names a new actor is made of, as the checkout writes them:
 /// its flags, `ACTOR_FLAG_` in `actor.h`, and how its overlay is loaded,
@@ -68,4 +68,4 @@ struct ActorDraft {
 makeActorPlan(const std::filesystem::path& repository, const ActorDraft& draft,
               const hackeroot::Tables& tables);
 
-} // namespace toki::tools
+} // namespace toki::createActor

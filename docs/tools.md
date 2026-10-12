@@ -50,7 +50,7 @@ say, which overrides settings without being one; `BOOT_TO_SCENE` is forced off w
 
 The Configure panel, in the Tools menu, has a tab for each configuration header, named
 after it (`config_debug_controls.h` is "Debug Controls"), and a row for each of its
-settings (`toki::tools::makeConfigGroups`): its name as words, its comment and where it is
+settings (`toki::configure::makeConfigGroups`): its name as words, its comment and where it is
 written in a tooltip, and a control chosen by what it is written as. `true` and `false` are
 toggled; a number, whole or with a point, is typed and checked; a name is picked, from a
 list for the game's buttons, controller ports, ages and times of day, or from the checkout's

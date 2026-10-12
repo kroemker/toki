@@ -180,10 +180,10 @@ void App::registerPanels() {
             objectLoader.open(workspaceService.getSharedWorkspace(), asset);
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
-    panels.add(std::make_unique<tools::ConfigurePanel>(workspaceService, collectionCatalog));
-    panels.add(std::make_unique<tools::RegisterScenePanel>(workspaceService, collectionCatalog));
+    panels.add(std::make_unique<configure::ConfigurePanel>(workspaceService, collectionCatalog));
+    panels.add(std::make_unique<registerScene::RegisterScenePanel>(workspaceService, collectionCatalog));
     panels.add(
-        std::make_unique<tools::CreateActorPanel>(workspaceService, collectionCatalog, fonts));
+        std::make_unique<createActor::CreateActorPanel>(workspaceService, collectionCatalog, fonts));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
 }

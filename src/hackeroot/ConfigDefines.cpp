@@ -5,6 +5,7 @@
 #include "cparser/SourceFile.h"
 #include "cparser/Token.h"
 #include "hackeroot/Configuration.h"
+#include "hackeroot/TextLines.h"
 #include "hackeroot/Types.h"
 
 #include <algorithm>
@@ -27,27 +28,6 @@ struct Definition {
     const cparser::SourceFile* file = nullptr;
     usize line = 0;
 };
-
-[[nodiscard]] std::string_view trimSpaces(std::string_view text) {
-    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
-        text.remove_prefix(1);
-    }
-    while (!text.empty() && (text.back() == ' ' || text.back() == '\t' || text.back() == '\r')) {
-        text.remove_suffix(1);
-    }
-    return text;
-}
-
-[[nodiscard]] std::vector<std::string_view> splitLines(const std::string_view text) {
-    std::vector<std::string_view> lines;
-    usize begin = 0;
-    while (begin <= text.size()) {
-        const usize end = std::min(text.find('\n', begin), text.size());
-        lines.push_back(text.substr(begin, end - begin));
-        begin = end + 1;
-    }
-    return lines;
-}
 
 [[nodiscard]] std::string readWrittenValue(const std::string_view line,
                                            const std::string_view name) {
@@ -102,7 +82,7 @@ struct Definition {
     return comment;
 }
 
-[[nodiscard]] std::string spell(const cparser::Macro& macro) {
+[[nodiscard]] std::string makeSpelling(const cparser::Macro& macro) {
     std::string spelled;
     for (const cparser::Token& token : macro.body) {
         spelled += spelled.empty() ? "" : " ";
@@ -190,7 +170,7 @@ std::vector<ConfigDefine> readConfigDefines(const std::filesystem::path& reposit
             .line = definition.line,
             .written = readWrittenValue(lines[definition.line - 1], definition.name),
             .comment = readComment(lines, definition.line),
-            .effective = effective != nullptr ? std::optional(spell(*effective)) : std::nullopt,
+            .effective = effective != nullptr ? std::optional(makeSpelling(*effective)) : std::nullopt,
         });
     }
     return defines;

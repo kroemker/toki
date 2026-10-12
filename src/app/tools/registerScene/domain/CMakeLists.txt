@@ -1,2 +1,3 @@
 target_sources(toki_core PRIVATE
-        SceneRegistry.cpp)
+        SceneRegistry.cpp
+        SceneSurvey.cpp)

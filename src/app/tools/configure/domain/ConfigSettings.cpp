@@ -1,7 +1,8 @@
 #include "ConfigSettings.h"
 
 #include "app/actor/domain/ReadableName.h"
-#include "app/tools/Types.h"
+#include "app/core/domain/TextCase.h"
+#include "app/tools/configure/Types.h"
 #include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/ConfigDefines.h"
 
@@ -20,7 +21,7 @@
 #include <system_error>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::configure {
 
 namespace {
 
@@ -56,14 +57,6 @@ constexpr std::array<CollectionChoice, 3> CollectionChoices{{
     {.prefix = "SCENE_", .collection = "SceneID"},
     {.prefix = "NA_BGM_", .collection = "NA_BGM"},
 }};
-
-[[nodiscard]] std::string makeLower(const std::string_view text) {
-    std::string lowered(text);
-    std::ranges::transform(lowered, lowered.begin(), [](const char letter) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
-    });
-    return lowered;
-}
 
 [[nodiscard]] std::string removeSpaces(const std::string_view text) {
     std::string kept;
@@ -105,7 +98,7 @@ constexpr std::array<CollectionChoice, 3> CollectionChoices{{
 
 [[nodiscard]] ConfigSetting makeSetting(const hackeroot::ConfigDefine& define) {
     ConfigSetting setting{.define = define,
-                          .label = actor::makeReadableName(makeLower(define.name))};
+                          .label = actor::makeReadableName(core::makeLowerCase(define.name))};
     const std::string_view written = define.written;
     if (written == "true" || written == "false") {
         setting.control = SettingControl::Toggle;
@@ -228,4 +221,4 @@ makeConfigPlan(const std::filesystem::path& repository, const std::span<const Co
     return plan;
 }
 
-} // namespace toki::tools
+} // namespace toki::configure

@@ -85,8 +85,9 @@ struct TextRange {
                                                         std::string_view title);
 
 /// Adds `entry` at the end of the block Toki adds `title`'s entries to, made
-/// before `anchor` the first time, or at the end of `text` without one, so a
-/// file whose last lines must stay last, as `#if TESTSUITE_MODE`, keeps them.
+/// before `anchor` the first time, where a line starts with it, or at the end
+/// of `text` without one, so a file whose last lines must stay last, as
+/// `#if TESTSUITE_MODE`, keeps them.
 void addToManagedBlock(std::string& text, std::string_view title, std::string_view entry,
                        std::string_view anchor);
 

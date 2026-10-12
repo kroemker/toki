@@ -310,7 +310,6 @@ void addParam(std::vector<ActorParam>& params, ActorParam param) {
     params.push_back(std::move(param));
 }
 
-/// What the params read into the members a file assigns once, by member name.
 using MemberReads = std::map<std::string_view, ParamsRead>;
 
 [[nodiscard]] MemberReads

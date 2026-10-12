@@ -13,7 +13,7 @@
 #include <optional>
 #include <string>
 
-namespace toki::tools {
+namespace toki::createActor {
 
 /// Writes a new actor into the checkout: a form for its name, category, flags,
 /// object and how it is made, the files it gets as a preview, and the plan of
@@ -50,7 +50,7 @@ private:
     std::optional<std::expected<ActorChoices, std::string>> choices;
     ActorDraft draft;
     std::string objectFilter;
-    EditFlow editFlow;
+    tools::EditFlow editFlow;
 };
 
-} // namespace toki::tools
+} // namespace toki::createActor

@@ -18,5 +18,6 @@ target_sources(toki_core PRIVATE
         SceneFiles.cpp
         Spec.cpp
         Tables.cpp
+        TextLines.cpp
         Workspace.cpp
         WslPath.cpp)

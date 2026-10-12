@@ -74,17 +74,17 @@ TEST_CASE("a header's documented defines are listed with their comments", "[tool
 }
 
 TEST_CASE("a new actor's files follow the decomp's template", "[tools][actor]") {
-    const toki::tools::ActorDraft draft{.name = "En_Foo",
+    const toki::createActor::ActorDraft draft{.name = "En_Foo",
                                         .description = "A foo",
                                         .flags = {"ACTOR_FLAG_A", "ACTOR_FLAG_B"},
                                         .isDynaPoly = true,
                                         .turnsCollision = true};
 
-    const std::string header = toki::tools::makeActorHeader(draft);
+    const std::string header = toki::createActor::makeActorHeader(draft);
     REQUIRE(header.starts_with("#ifndef Z_EN_FOO_H\n#define Z_EN_FOO_H\n"));
     REQUIRE(header.contains("typedef struct EnFoo {\n    DynaPolyActor dyna;\n"
                             "    EnFooActionFunc actionFunc;\n} EnFoo;"));
-    const std::string source = toki::tools::makeActorSource(draft, makeTables());
+    const std::string source = toki::createActor::makeActorSource(draft, makeTables());
     REQUIRE(source.contains("#include \"z_en_foo.h\"\n"));
     REQUIRE(source.contains("#include \"assets/objects/gameplay_keep/gameplay_keep.h\"\n"));
     REQUIRE(source.contains("#define FLAGS (ACTOR_FLAG_A | ACTOR_FLAG_B)\n"));
@@ -98,10 +98,10 @@ TEST_CASE("a new actor's files follow the decomp's template", "[tools][actor]") 
 
 TEST_CASE("creating an actor registers it and writes its overlay, once", "[tools][actor]") {
     const std::filesystem::path root = makeCheckout();
-    const toki::tools::ActorDraft draft{.name = "En_Foo", .newObject = "object_foo"};
+    const toki::createActor::ActorDraft draft{.name = "En_Foo", .newObject = "object_foo"};
 
     const std::expected<hackeroot::EditPlan, std::string> plan =
-        toki::tools::makeActorPlan(root, draft, makeTables());
+        toki::createActor::makeActorPlan(root, draft, makeTables());
     REQUIRE(plan.has_value());
     REQUIRE(plan->files.size() == 5);
     REQUIRE(plan->warnings.size() == 1);
@@ -122,15 +122,15 @@ TEST_CASE("creating an actor registers it and writes its overlay, once", "[tools
     REQUIRE(std::filesystem::exists(root / "src/overlays/actors/ovl_En_Foo/z_en_foo.c"));
     REQUIRE(std::filesystem::exists(root / "src/overlays/actors/ovl_En_Foo/z_en_foo.h"));
 
-    REQUIRE_FALSE(toki::tools::makeActorPlan(root, draft, makeTables()).has_value());
+    REQUIRE_FALSE(toki::createActor::makeActorPlan(root, draft, makeTables()).has_value());
     hackeroot::Tables registered = makeTables();
     registered.actors.push_back({.name = "En_Foo", .enumName = "ACTOR_EN_FOO"});
-    REQUIRE(toki::tools::findDraftProblem({.name = "En_Foo"}, registered).has_value());
-    REQUIRE(toki::tools::findDraftProblem({.name = "en foo"}, registered).has_value());
-    REQUIRE(toki::tools::findDraftProblem({.name = "En_Bar", .object = "object_none"}, registered)
+    REQUIRE(toki::createActor::findDraftProblem({.name = "En_Foo"}, registered).has_value());
+    REQUIRE(toki::createActor::findDraftProblem({.name = "en foo"}, registered).has_value());
+    REQUIRE(toki::createActor::findDraftProblem({.name = "En_Bar", .object = "object_none"}, registered)
                 .has_value());
-    REQUIRE_FALSE(toki::tools::findDraftProblem({.name = "En_Bar"}, registered).has_value());
-    REQUIRE(toki::tools::findDraftProblem({.name = "En_Bar", .description = "a */ b"}, registered)
+    REQUIRE_FALSE(toki::createActor::findDraftProblem({.name = "En_Bar"}, registered).has_value());
+    REQUIRE(toki::createActor::findDraftProblem({.name = "En_Bar", .description = "a */ b"}, registered)
                 .has_value());
     std::error_code ignored;
     std::filesystem::remove_all(root, ignored);
@@ -146,14 +146,14 @@ TEST_CASE("a real checkout has every place a new actor is registered in",
         hackeroot::Workspace::load(repository, {});
     REQUIRE(workspace.has_value());
 
-    const std::expected<toki::tools::ActorChoices, std::string> choices =
-        toki::tools::readActorChoices(repository);
+    const std::expected<toki::createActor::ActorChoices, std::string> choices =
+        toki::createActor::readActorChoices(repository);
     REQUIRE(choices.has_value());
     CHECK(choices->flags.size() > 20);
     CHECK(choices->allocations.size() == 3);
     CHECK_FALSE(choices->flags.front().comment.empty());
 
-    const std::expected<hackeroot::EditPlan, std::string> plan = toki::tools::makeActorPlan(
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::createActor::makeActorPlan(
         repository, {.name = "En_Toki_Test", .newObject = "object_toki_test"},
         workspace->getTables());
     REQUIRE(plan.has_value());

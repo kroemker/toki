@@ -19,7 +19,7 @@ namespace toki::tools {
 
 namespace {
 
-[[nodiscard]] ImVec4 findStatusColor(const hackeroot::EditStatus status) {
+[[nodiscard]] ImVec4 getStatusColor(const hackeroot::EditStatus status) {
     switch (status) {
     case hackeroot::EditStatus::Add:
         return core::palette::Success;
@@ -31,7 +31,7 @@ namespace {
     return core::palette::Text;
 }
 
-[[nodiscard]] const char* findStatusWord(const hackeroot::EditStatus status) {
+[[nodiscard]] const char* getStatusWord(const hackeroot::EditStatus status) {
     switch (status) {
     case hackeroot::EditStatus::Add:
         return "add";
@@ -116,7 +116,7 @@ void EditFlow::drawReview() {
         }
         ImGui::Indent();
         for (const hackeroot::EditItem& item : file.items) {
-            ImGui::TextColored(findStatusColor(item.status), "%-6s", findStatusWord(item.status));
+            ImGui::TextColored(getStatusColor(item.status), "%-6s", getStatusWord(item.status));
             ImGui::SameLine();
             ImGui::TextUnformatted(item.label.c_str());
         }

@@ -1,5 +1,6 @@
 #include "CheckoutEdits.h"
 
+#include "hackeroot/TextLines.h"
 #include "hackeroot/Types.h"
 
 #include <algorithm>
@@ -95,6 +96,20 @@ constexpr std::string_view DefineDirective = "#define ";
     return {};
 }
 
+[[nodiscard]] usize findLineStart(const std::string_view text, const std::string_view anchor) {
+    if (anchor.empty()) {
+        return std::string_view::npos;
+    }
+    usize at = 0;
+    while ((at = text.find(anchor, at)) != std::string_view::npos) {
+        if (at == 0 || text[at - 1] == '\n') {
+            return at;
+        }
+        ++at;
+    }
+    return std::string_view::npos;
+}
+
 [[nodiscard]] bool isChanged(const FileEdit& edit) {
     return !edit.before || *edit.before != edit.after;
 }
@@ -127,23 +142,12 @@ void undoWrites(const std::filesystem::path& repository, const EditPlan& plan,
         }
     }
     std::vector<std::filesystem::path> folders = madeFolders;
-    std::ranges::sort(folders, std::greater{}, [](const std::filesystem::path& folder) {
-        return folder.native().size();
-    });
+    std::ranges::sort(folders, std::greater{},
+                      [](const std::filesystem::path& folder) { return folder.native().size(); });
     for (const std::filesystem::path& folder : folders) {
         std::error_code ignored;
         std::filesystem::remove(folder, ignored);
     }
-}
-
-[[nodiscard]] std::string_view trimSpaces(std::string_view text) {
-    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
-        text.remove_prefix(1);
-    }
-    while (!text.empty() && (text.back() == ' ' || text.back() == '\t' || text.back() == '\r')) {
-        text.remove_suffix(1);
-    }
-    return text;
 }
 
 [[nodiscard]] std::optional<TextRange> findLine(const std::string& text, const usize line) {
@@ -294,7 +298,7 @@ void addToManagedBlock(std::string& text, const std::string_view title,
                        const std::string_view entry, const std::string_view anchor) {
     if (!findManagedBlock(text, title)) {
         const std::string block = std::format("{}\n{}\n\n", makeManagedBegin(title), ManagedEnd);
-        const usize at = anchor.empty() ? std::string::npos : text.find(anchor);
+        const usize at = findLineStart(text, anchor);
         if (at != std::string::npos) {
             text.insert(at, block);
         } else {

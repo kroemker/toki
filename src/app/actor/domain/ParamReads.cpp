@@ -6,6 +6,8 @@
 #include "cparser/Parser.h"
 #include "cparser/Token.h"
 
+#include <algorithm>
+#include <array>
 #include <format>
 #include <optional>
 #include <span>
@@ -18,6 +20,8 @@ namespace toki::actor {
 namespace {
 
 constexpr u8 BitCount = 16;
+constexpr std::array<std::string_view, 13> Assignments{
+    "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", "++", "--"};
 
 [[nodiscard]] bool isLiteralRead(const std::string_view callee) {
     return callee == "PARAMS_GET_U" || callee == "PARAMS_GET_S";
@@ -107,11 +111,18 @@ bool isLocalAssignedOnce(const std::span<const cparser::Token> body, const cpars
         return false;
     }
     usize assignments = 0;
-    for (usize at = 0; at + 1 < body.size(); ++at) {
-        if (isIdentifier(body[at], target->text) && isPunctuator(body[at + 1], "=") &&
-            !isMember(body, &body[at])) {
-            ++assignments;
+    for (usize at = 0; at < body.size(); ++at) {
+        if (!isIdentifier(body[at], target->text) || isMember(body, &body[at])) {
+            continue;
         }
+        const bool isWrittenAfter =
+            at + 1 < body.size() &&
+            std::ranges::any_of(Assignments, [&](const std::string_view op) {
+                return isPunctuator(body[at + 1], op);
+            });
+        const bool isStepped =
+            at > 0 && (isPunctuator(body[at - 1], "++") || isPunctuator(body[at - 1], "--"));
+        assignments += isWrittenAfter || isStepped ? 1 : 0;
     }
     return assignments == 1;
 }

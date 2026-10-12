@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace toki::tools {
+namespace toki::registerScene {
 
 /// Makes a scene fast64 exported to `assets/scenes/` part of the build: picks
 /// one of the checkout's scene folders, says how it is registered, and writes
@@ -45,7 +45,7 @@ private:
     actor::CollectionCatalog& collectionCatalog;
     std::optional<std::string> selected;
     SceneRegistration registration;
-    EditFlow editFlow;
+    tools::EditFlow editFlow;
 };
 
-} // namespace toki::tools
+} // namespace toki::registerScene

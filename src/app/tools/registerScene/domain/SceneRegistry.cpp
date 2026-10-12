@@ -1,15 +1,10 @@
 #include "SceneRegistry.h"
 
-#include "app/scene/domain/Scene.h"
-#include "app/tools/Types.h"
-#include "cparser/MacroTable.h"
-#include "hackeroot/AssetImage.h"
-#include "hackeroot/Assets.h"
+#include "app/core/domain/TextCase.h"
+#include "app/tools/registerScene/Types.h"
 #include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/ConfigDefines.h"
-#include "hackeroot/SceneFiles.h"
 #include "hackeroot/Tables.h"
-#include "hackeroot/Workspace.h"
 
 #include <algorithm>
 #include <array>
@@ -18,7 +13,6 @@
 #include <filesystem>
 #include <format>
 #include <iterator>
-#include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -26,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace toki::tools {
+namespace toki::registerScene {
 
 namespace {
 
@@ -41,21 +35,6 @@ constexpr std::string_view MapSelectAnchor =
 constexpr usize EntranceLayers = 4;
 constexpr usize SceneLimit = 255;
 
-[[nodiscard]] std::string makeUpper(const std::string_view text) {
-    std::string upper(text);
-    std::ranges::transform(upper, upper.begin(), [](const char letter) {
-        return static_cast<char>(std::toupper(static_cast<unsigned char>(letter)));
-    });
-    return upper;
-}
-
-[[nodiscard]] bool isIdentifier(const std::string_view name) {
-    return !name.empty() && std::isdigit(static_cast<unsigned char>(name.front())) == 0 &&
-           std::ranges::all_of(name, [](const char letter) {
-               return std::isalnum(static_cast<unsigned char>(letter)) != 0 || letter == '_';
-           });
-}
-
 [[nodiscard]] std::string makeStringLiteral(const std::string_view text) {
     std::string escaped;
     for (const char letter : text) {
@@ -69,7 +48,7 @@ constexpr usize SceneLimit = 255;
 
 [[nodiscard]] std::string makeSegment(const std::string_view name,
                                       const std::vector<std::filesystem::path>& files,
-                                      const int number) {
+                                      const u8 number) {
     std::string block =
         std::format("beginseg\n    name \"{}\"\n    compress\n    romalign 0x1000\n", name);
     for (const std::filesystem::path& file : files) {
@@ -91,43 +70,6 @@ constexpr usize SceneLimit = 255;
                              layer == 0 ? "" : "\n", entrance, makeSceneEnum(name), spawn);
     }
     return block;
-}
-
-[[nodiscard]] int rankSceneFile(const std::string_view suffix) {
-    if (suffix == ".c" || suffix == "_main.c") {
-        return 0;
-    }
-    if (suffix == "_col.c") {
-        return 1;
-    }
-    return suffix.starts_with("_cs") ? 2 : 3;
-}
-
-[[nodiscard]] int rankRoomFile(const std::string_view suffix) {
-    if (suffix == ".c" || suffix == "_main.c") {
-        return 0;
-    }
-    if (suffix == "_model_info.c") {
-        return 1;
-    }
-    return suffix == "_model.c" ? 2 : 3;
-}
-
-/// Orders the files of a segment as fast64 and the vanilla spec list them: the
-/// one with the header first, then the scene's collision and cutscenes, or the
-/// room's model info and model, then the rest by name.
-void orderSegmentFiles(std::vector<std::filesystem::path>& files, const std::string& prefix,
-                       const bool isRoom) {
-    const auto rank = [&](const std::filesystem::path& file) {
-        const std::string name = file.filename().string();
-        std::string_view suffix(name);
-        suffix.remove_prefix(std::min(prefix.size(), suffix.size()));
-        if (isRoom) {
-            suffix.remove_prefix(std::min(suffix.find_first_not_of("0123456789"), suffix.size()));
-        }
-        return std::pair(isRoom ? rankRoomFile(suffix) : rankSceneFile(suffix), name);
-    };
-    std::ranges::sort(files, {}, rank);
 }
 
 class PlanBuilder {
@@ -174,7 +116,7 @@ private:
     }
 
     void warn() {
-        if (!isIdentifier(scene.name)) {
+        if (!core::isCIdentifier(scene.name)) {
             plan.warnings.push_back(
                 std::format("'{}' is not a C identifier, so the enums made of it will not compile",
                             scene.name));
@@ -369,45 +311,6 @@ private:
 
 } // namespace
 
-std::expected<SurveyedScene, std::string>
-surveyScene(const std::shared_ptr<const hackeroot::Workspace>& workspace,
-            const hackeroot::AssetDirectory& asset) {
-    const hackeroot::SceneFiles files = hackeroot::findSceneFiles(asset);
-    if (files.scene.empty() || files.rooms.empty()) {
-        return std::unexpected(
-            std::format("{} has no scene file and rooms that fast64 names", asset.name));
-    }
-    const std::filesystem::path& root = workspace->getRoot();
-    const auto makeRelative = [&root](const std::filesystem::path& file) {
-        return file.lexically_normal().lexically_relative(root.lexically_normal());
-    };
-    SurveyedScene surveyed;
-    surveyed.scene.name = asset.name;
-    surveyed.scene.directory = makeRelative(asset.directory);
-    std::ranges::transform(files.scene, std::back_inserter(surveyed.scene.sceneFiles),
-                           makeRelative);
-    orderSegmentFiles(surveyed.scene.sceneFiles, asset.name + "_scene", false);
-    for (const std::vector<std::filesystem::path>& room : files.rooms) {
-        std::vector<std::filesystem::path>& relative = surveyed.scene.rooms.emplace_back();
-        std::ranges::transform(room, std::back_inserter(relative), makeRelative);
-        orderSegmentFiles(relative, asset.name + "_room_", true);
-    }
-    hackeroot::AssetImageReader reader(workspace);
-    const scene::Scene read = scene::readScene(reader, asset);
-    if (!read.layers.empty()) {
-        surveyed.survey.spawns = read.layers.front().header.playerEntries.size();
-        surveyed.survey.listedRooms = read.layers.front().rooms.size();
-    }
-    surveyed.survey.scenes = workspace->getTables().scenes;
-    surveyed.survey.config =
-        hackeroot::readConfigDefines(root, workspace->getBuildDefines().arguments);
-    const cparser::Macro* debug = workspace->getMacros().find("DEBUG_FEATURES");
-    surveyed.survey.hasDebugFeatures = debug != nullptr && !debug->body.empty() &&
-                                       debug->body.front().text != "0" &&
-                                       debug->body.front().text != "false";
-    return surveyed;
-}
-
 std::string makeMapSelectLabel(const std::string_view name) {
     std::string label;
     bool startsWord = true;
@@ -427,11 +330,11 @@ std::string makeMapSelectLabel(const std::string_view name) {
 }
 
 std::string makeSceneEnum(const std::string_view name) {
-    return "SCENE_" + makeUpper(name);
+    return "SCENE_" + core::makeUpperCase(name);
 }
 
 std::string makeEntranceEnum(const std::string_view name, const usize spawn) {
-    return std::format("ENTR_{}_{}", makeUpper(name), spawn);
+    return std::format("ENTR_{}_{}", core::makeUpperCase(name), spawn);
 }
 
 std::expected<hackeroot::EditPlan, std::string>
@@ -440,4 +343,4 @@ makeScenePlan(const std::filesystem::path& repository, const SceneExport& scene,
     return PlanBuilder(repository, scene, registration, survey).build();
 }
 
-} // namespace toki::tools
+} // namespace toki::registerScene
