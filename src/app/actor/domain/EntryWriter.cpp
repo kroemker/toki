@@ -151,6 +151,25 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     return table;
 }
 
+[[nodiscard]] toml::table makeLimbs(std::vector<LimbOverride> limbs) {
+    std::ranges::sort(limbs, {}, &LimbOverride::limb);
+    toml::table table = makeInline();
+    for (const LimbOverride& limb : limbs) {
+        const std::string key = std::to_string(limb.limb);
+        if (!limb.displayList) {
+            table.insert(key, false);
+        } else if (limb.object) {
+            toml::table other = makeInline();
+            other.insert("display_list", *limb.displayList);
+            other.insert("object", *limb.object);
+            table.insert(key, std::move(other));
+        } else {
+            table.insert(key, *limb.displayList);
+        }
+    }
+    return table;
+}
+
 [[nodiscard]] toml::table makeTileSize(const TileSize& size) {
     toml::table table = makeInline();
     table.insert("tile", s64{size.tile});
@@ -189,6 +208,12 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     insertOptional(table, "object", part.object);
     insertOptional(table, "pose", part.pose);
     insertOptional(table, "pose_object", part.poseObject);
+    if (!part.limbs.empty()) {
+        table.insert("limbs", makeLimbs(part.limbs));
+    }
+    if (part.limb) {
+        table.insert("limb", s64{*part.limb});
+    }
     insertPlacement(table, part.placement);
     if (part.isBillboard) {
         table.insert("billboard", true);

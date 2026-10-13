@@ -71,11 +71,22 @@ struct ActorDisplayList {
     DrawState state;
 };
 
+/// A limb a skeleton draws from another object than its own, as a Kokiri's
+/// head: its place among the pose's drawn limbs, and the object.
+struct LimbObject {
+    usize drawn = 0;
+    usize object = 0;
+};
+
 /// A skeleton posed on the first frame of its animation, or at rest, with
 /// every limb's matrix from model space, and the state it is drawn under.
 struct SkeletonDrawing {
     usize object = 0;
+    /// Posed, with its part's limbs swapped in; a limb drawn as nothing keeps
+    /// its place, display list zero, for the matrices a flexible skeleton's
+    /// display lists find in segment 13.
     object::Pose pose;
+    std::vector<LimbObject> limbObjects;
     actor::Pass pass = actor::Pass::Opaque;
     DrawState state;
 };

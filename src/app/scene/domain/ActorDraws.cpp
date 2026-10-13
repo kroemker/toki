@@ -152,8 +152,11 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
     const u32 start = startList(findSetup(setup, skeleton.state.setup));
     setColors(writer, skeleton.state.colors);
     for (usize i = 0; i < pose.drawn.size(); ++i) {
-        writer.loadMatrix(matrices[i], n64::MatrixLoad::ModelView);
-        writer.callDisplayList(pose.drawn[i].displayList);
+        const bool isElsewhere = std::ranges::contains(skeleton.limbObjects, i, &LimbObject::drawn);
+        if (pose.drawn[i].displayList != 0 && !isElsewhere) {
+            writer.loadMatrix(matrices[i], n64::MatrixLoad::ModelView);
+            writer.callDisplayList(pose.drawn[i].displayList);
+        }
     }
     writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
     writer.endDisplayList();
@@ -162,9 +165,25 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
             .image = imageIndex,
             .displayList = start,
             .alsoImages = {firstImage + skeleton.object},
-            .pointedSegments = std::move(pointers),
+            .pointedSegments = pointers,
             .lookAtTarget = findLookAtTarget(skeleton.state),
         });
+    for (const LimbObject& limb : skeleton.limbObjects) {
+        const u32 limbStart = startList(findSetup(setup, skeleton.state.setup));
+        setColors(writer, skeleton.state.colors);
+        writer.loadMatrix(matrices[limb.drawn], n64::MatrixLoad::ModelView);
+        writer.callDisplayList(pose.drawn[limb.drawn].displayList);
+        writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+        writer.endDisplayList();
+        findPass(skeleton.pass)
+            .push_back(viewport::ViewportDraw{
+                .image = imageIndex,
+                .displayList = limbStart,
+                .alsoImages = {firstImage + limb.object},
+                .pointedSegments = pointers,
+                .lookAtTarget = findLookAtTarget(skeleton.state),
+            });
+    }
 }
 
 void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent) {

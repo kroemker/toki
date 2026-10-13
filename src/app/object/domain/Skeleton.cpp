@@ -59,7 +59,8 @@ Skeleton readSkeleton(const z64::MemoryImage& image, const u32 address) {
                                     n64::readS16(*bytes, 4)},
                   .child = (*bytes)[6],
                   .sibling = (*bytes)[7],
-                  .displayList = n64::readU32(*bytes, 8)};
+                  .displayList = n64::readU32(*bytes, 8),
+                  .address = limbAddress};
         const std::optional<z64::ImageSymbol> limbSymbol = image.findSymbolAt(limbAddress);
         if (limbSymbol && limbSymbol->type == "SkinLimb") {
             limb.displayList = 0;

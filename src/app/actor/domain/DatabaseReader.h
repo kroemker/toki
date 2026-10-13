@@ -46,7 +46,10 @@ inline constexpr std::array PartKeys = {
     std::string_view("billboard"),    std::string_view("prim"),
     std::string_view("env"),          std::string_view("segments"),
     std::string_view("setup"),        std::string_view("pass"),
-    std::string_view("hilite")};
+    std::string_view("hilite"),       std::string_view("limbs"),
+    std::string_view("limb")};
+inline constexpr std::array LimbKeys = {std::string_view("display_list"),
+                                        std::string_view("object")};
 inline constexpr std::array BuiltListKeys = {std::string_view("prim"), std::string_view("env"),
                                              std::string_view("tiles")};
 inline constexpr std::array TileSizeKeys = {std::string_view("tile"), std::string_view("x"),
@@ -110,6 +113,10 @@ private:
                                                     std::string_view path);
     [[nodiscard]] std::vector<PartSegment> readSegments(const toml::table& table,
                                                         std::string_view path);
+    [[nodiscard]] std::vector<LimbOverride> readLimbs(const toml::table& table,
+                                                      std::string_view path);
+    [[nodiscard]] std::optional<u8> readLimbNumber(const toml::node& node, std::string_view key,
+                                                   std::string_view path);
     [[nodiscard]] BuiltList readBuiltList(const toml::table& table, std::string_view path);
     [[nodiscard]] std::optional<TileSize> readTileSize(const toml::node& node,
                                                        std::string_view path);

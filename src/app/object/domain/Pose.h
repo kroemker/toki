@@ -19,12 +19,13 @@ struct PosedLimb {
     u32 displayList = 0;
 };
 
-/// A posed skeleton: the limbs that draw, in drawing order, and for every
-/// limb, drawing or not, in limb order, its matrix from model space and where
-/// its joint ends up, for what an actor draws with a limb and for framing the
-/// camera.
+/// A posed skeleton: the limbs that draw, in drawing order, every limb in
+/// drawing order, and for every limb, drawing or not, in limb order, its
+/// matrix from model space and where its joint ends up, for what an actor
+/// draws with a limb and for framing the camera.
 struct Pose {
     std::vector<PosedLimb> drawn;
+    std::vector<usize> order;
     std::vector<glm::vec3> joints;
     std::vector<glm::mat4> matrices;
 };

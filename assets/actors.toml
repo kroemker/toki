@@ -1342,7 +1342,7 @@ parts = [
 
 [actors.ACTOR_EN_WALLMAS]
 name = "Wallmaster"
-notes = "A hand that drops from the ceiling onto Link and carries him back to the room's entrance. Unseen until it drops, only its growing shadow showing; drawn here as it stands, in gWallmasterWaitAnim. The finger PostLimbDraw adds is not drawn."
+notes = "A hand that drops from the ceiling onto Link and carries him back to the room's entrance. Unseen until it drops, only its growing shadow showing; drawn here as it stands, in gWallmasterWaitAnim. PostLimbDraw adds a finger at limb 2, turned 60 degrees about Y and then 15 about Z, which the part writes as Z, Y and X."
 object = "object_wallmaster"
 scale = 0.01
 
@@ -1351,11 +1351,14 @@ Type = { mask = 0x00FF, kind = "choice", values = "WallmasType", description = "
 "Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "For the flag type: gone while set" }
 
 [[actors.ACTOR_EN_WALLMAS.variants]]
-parts = [{ skeleton = "gWallmasterSkel", pose = "gWallmasterWaitAnim" }]
+parts = [
+    { skeleton = "gWallmasterSkel", pose = "gWallmasterWaitAnim" },
+    { display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700], rotation = [24.146, 56.774, 28.187], scale = 2 },
+]
 
 [actors.ACTOR_EN_SW]
 name = "Skullwalltula"
-notes = "A Skullwalltula on a wall, or a Gold Skulltula. A Skullwalltula turns itself flat against the wall it is placed by. A Gold Skulltula is tipped back 80 degrees, and swaps ten limbs for gold ones in OverrideLimbDraw, which a part cannot say: it is drawn in the Skullwalltula's colours. Bit 15 adds one to the type, and every gold type takes one off its Flag Group, as a tree's or a bean's Gold Skulltula does."
+notes = "A Skullwalltula on a wall, or a Gold Skulltula. A Skullwalltula turns itself flat against the wall it is placed by. A Gold Skulltula is tipped back 80 degrees, and swaps ten limbs for gold ones in OverrideLimbDraw. Bit 15 adds one to the type, and every gold type takes one off its Flag Group, as a tree's or a bean's Gold Skulltula does."
 object = "object_st"
 scale = 0.02
 
@@ -1369,11 +1372,11 @@ match = { Type = 0 }
 parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304" }]
 
 [[actors.ACTOR_EN_SW.variants]]
-parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304", translation = [0, 196.96, 34.73], rotation = [-80, 0, 0], hilite = true }]
+parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304", limbs = { 4 = "object_st_DL_0043D8", 5 = "object_st_DL_003FB0", 8 = "object_st_DL_0046F0", 11 = "object_st_DL_0045C0", 14 = "object_st_DL_004658", 17 = "object_st_DL_004950", 20 = "object_st_DL_0048B8", 23 = "object_st_DL_004788", 26 = "object_st_DL_004820", 29 = "object_st_DL_0049E8" }, translation = [0, 196.96, 34.73], rotation = [-80, 0, 0], hilite = true }]
 
 [actors.ACTOR_EN_KO]
 name = "Kokiri"
-notes = "A Kokiri child of Kokiri Forest or the Lost Woods, or Fado. Each type is a boy or girl body from object_km1 or object_kw1, posed from object_os_anime by sOsAnimeLookup at the forest's quest state, drawn here at its first (before the Deku Tree). Not drawn: the head, which OverrideLimbDraw puts on limb 15 from a third object, and StandUp held at frames 1 and 2 for types 5, 6 and 9. Which types appear depends on the quest state too."
+notes = "A Kokiri child of Kokiri Forest or the Lost Woods, or Fado. Each type is a boy or girl body from object_km1 or object_kw1, posed from object_os_anime by sOsAnimeLookup at the forest's quest state, drawn here at its first (before the Deku Tree). Its head is put on limb 15 by OverrideLimbDraw, from the head object sHead names; Fado's eyes are that object's too, which a segment cannot name, so hers are drawn with the girls'. Not drawn: StandUp held at frames 1 and 2 for types 5, 6 and 9. Which types appear depends on the quest state too."
 scale = 0.01
 
 [actors.ACTOR_EN_KO.params]
@@ -1383,47 +1386,47 @@ Path = { mask = 0xFF00, kind = "number", description = "The path it walks, for t
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 0 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriLiftingRockAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriLiftingRockAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = [1, 5, 6, 9, 10] }
 object = "object_kw1"
-parts = [{ skeleton = "gKw1Skel", pose = "gKokiriStandUpAnim", pose_object = "object_os_anime", segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = "gKw1EyeOpenTex" } }]
+parts = [{ skeleton = "gKw1Skel", pose = "gKokiriStandUpAnim", pose_object = "object_os_anime", limbs = { 15 = "object_kw1_DL_002C10" }, segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = "gKw1EyeOpenTex" } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 2 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriPunchingAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriPunchingAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 3 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriBlockingAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriBlockingAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 4 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriCuttingGrassAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriCuttingGrassAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 7 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriStandingAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriStandingAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 8 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingArmsUpAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingArmsUpAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 11 }
 object = "object_km1"
-parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingAnim", pose_object = "object_os_anime", segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingAnim", pose_object = "object_os_anime", limbs = { 15 = "gKm1DL" }, segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [110, 170, 20, 255] } } }]
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 12 }
 object = "object_kw1"
-parts = [{ skeleton = "gKw1Skel", pose = "gKokiriIdleAnim", pose_object = "object_os_anime", segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = "gKw1EyeOpenTex" } }]
+parts = [{ skeleton = "gKw1Skel", pose = "gKokiriIdleAnim", pose_object = "object_os_anime", limbs = { 15 = { display_list = "gFaDL", object = "object_fa" } }, segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = "gKw1EyeOpenTex" } }]
 
 [actors.ACTOR_EN_ZF]
 name = "Lizalfos or Dinolfos"

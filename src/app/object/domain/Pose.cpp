@@ -68,6 +68,7 @@ void Poser::poseLimb(const usize index, const glm::mat4& parent) {
     matrix = glm::rotate(matrix, makeRadians(rotation[0]), glm::vec3(1.0F, 0.0F, 0.0F));
 
     pose.joints[index] = glm::vec3(matrix * glm::vec4(0.0F, 0.0F, 0.0F, 1.0F));
+    pose.order.push_back(index);
     pose.matrices[index] = matrix;
     if (limb.displayList != 0) {
         pose.drawn.push_back(

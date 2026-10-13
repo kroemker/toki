@@ -35,8 +35,8 @@ from nothing.
   or checked, and an actor without an entry is drawn as a marker.
 - **It shows where an actor is and what it is, not everything it does.** Actors do far more
   when they draw than any format could say, so the line is drawn at what helps place one:
-  display lists and skeletons, placed, coloured and posed. Animation, shadows, what is drawn
-  with a skeleton's limbs, spawn conditions, lights and collision are left out.
+  display lists and skeletons, placed, coloured and posed, with what is swapped in or drawn
+  at their limbs. Animation, shadows, spawn conditions, lights and collision are left out.
 - **Actor code is still never run.**
 
 ## One file per checkout
@@ -206,6 +206,8 @@ nothing carries over from one part to the next.
 | `display_list` or `skeleton` | what it draws, by name |
 | `object` | where the name is, when not the variant's |
 | `pose`, `pose_object` | for a skeleton, the animation it stands in, at its first frame; at rest without one |
+| `limbs` | for a skeleton, what it draws at its limbs in place of their own ([Limbs](#limbs)) |
+| `limb` | for a display list, the limb of the variant's first skeleton it is placed at; `translation`, `rotation` and `scale` are then relative to the limb |
 | `translation`, `rotation`, `scale` | where it is relative to the actor: moved, turned in degrees about Z, then Y, then X, and scaled |
 | `billboard` | it faces the camera, as flames and sprites do |
 | `prim`, `env` | the primitive and environment colours it is drawn in |
@@ -216,6 +218,30 @@ nothing carries over from one part to the next.
 
 A part without `hilite` is drawn with the frame's `LookAt`, from the camera toward what it
 looks at, standing in for whatever the game drew last.
+
+### Limbs
+
+What an actor's `OverrideLimbDraw` swaps in for a limb, and what its `PostLimbDraw` draws at
+one, is how many actors look like themselves: the Gold Skulltula's gold limbs, a Kokiri's
+head, the Wallmaster's finger.
+
+```toml
+{ skeleton = "object_st_Skel_005298", limbs = { 23 = "object_st_DL_004788", 4 = false } }
+{ skeleton = "gKw1Skel", limbs = { 15 = { display_list = "gFaDL", object = "object_fa" } } }
+{ display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700], scale = 2 }
+```
+
+A limb is numbered as the limb callbacks number it, from 1 for the root, so a number is copied
+from the code as it is: `SkelAnime_DrawLimbOpa` counts one past the limb table's index. A
+limb is set to a display list of the skeleton's object, to a table of one and the object it
+is in, or to `false` for nothing. A limb drawn from another object is drawn with segment 6
+pointed there, as En_Ko points it for its head. A flexible skeleton keeps a matrix for every
+limb that drew before or draws now, as `SkelAnime_DrawFlexLimbOpa` does, so the matrices its
+display lists find in segment 13 stay where they were.
+
+A part placed at a limb is placed by the limb's matrix after the skeleton's, as the game's
+`PostLimbDraw` starts from it; its rotation turns about Z, then Y, then X, so turns the game
+makes in another order are written as the angles that come to the same.
 
 ### Segments
 
@@ -354,7 +380,7 @@ every checkout is seeded from.
 - **Params by mask**, named in free text; choices matched by number, labelled in free text.
 - **Parts**, each self-contained, in place of display list keys and steps; a skeleton is
   posed at the first frame of an animation, never played.
-- **Left out**: animation playback, limb drawing, shadows, spawn conditions, lights,
+- **Left out**: animation playback, shadows, spawn conditions, lights,
   collision, text IDs, roles of params other than scene flags, descriptions of entries.
 - **Scene flags** are the one role a param has, since what links actors to each other in a
   scene is mostly the flags they share: a switch and the door it opens.
@@ -412,7 +438,7 @@ the same way, so a format 2 file reads as it is and is written back as format 3.
   Skulltula's ten gold limbs, a Kokiri's head from another object) or hides it, and its
   `PostLimbDraw` draws something more at a limb (the Wallmaster's finger, what a hand holds).
   A skeleton part may replace or hide its limbs, `limbs = { 23 = "object_st_DL_004788",
-  4 = "none" }`, and a display list part may be placed at a limb of the variant's skeleton,
+  4 = false }`, and a display list part may be placed at a limb of the variant's skeleton,
   `limb = 2`, its placement then relative to the limb. This takes back the decision to leave
   out what is drawn with a skeleton's limbs: it is what makes these actors look like
   themselves.
@@ -446,10 +472,11 @@ outright, and what decides whether an actor spawns. Notes say them.
   and its inputs: a symbol picked from the object, or the primitive and environment colours
   and the tile sizes the list sets. The part's row badges each built segment, "seg 8 built",
   in the colour it sets.
-- **Limbs** are a list in a skeleton part's properties, one row per limb by index and the
-  name the object's header gives it, each *Drawn*, *Hidden* or *Replaced by* a symbol; only
-  the changed ones are shown until all are asked for. A part placed at a limb picks the limb
-  in its properties, and its row sits indented under its skeleton's, badged with the limb.
+- **Limbs** are rows in a skeleton part's properties, one per limb drawn otherwise, by its
+  number and its symbol, each drawing *Nothing* or *A display list*, picked from the
+  skeleton's object or another; a limb is added from a list of the skeleton's. A display list
+  part picks the limb it is at, of the variant's first skeleton, and its row is indented and
+  badged "at limb 2"; a skeleton's is badged with how many limbs it changes.
 - **Adjustments** are cards below the variants, each a WHEN band as a variant has and a
   CHANGES band in place of DRAWS. The Scene panel names the variant and the adjustments a
   placed actor is drawn with, and can add an adjustment for its params as it adds a variant.
@@ -464,7 +491,7 @@ rewritten to use what it adds, and their renders looked at.
 | Step | What |
 |---|---|
 | 1 | Built segments: the format (3, reading 2), drawing them into the actor's own image, the panel's segment rows; the Kokiri's colours (done; the crystal switch's tiles too) |
-| 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger |
+| 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger (done) |
 | 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block |
 | 4 | Item parts; Item_Etcetera, the Gold Skulltula token |
 | 5 | Overlay data as objects; En_Holl, Elf_Msg |

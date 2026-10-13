@@ -128,6 +128,17 @@ struct PartPlacement {
     std::array<f32, 3> scale{1.0F, 1.0F, 1.0F};
 };
 
+/// What a skeleton draws at one of its limbs in place of the limb's own display
+/// list, as an actor's `OverrideLimbDraw` swaps it: another display list, from
+/// the skeleton's object or `object`, or nothing when `displayList` is empty.
+/// A limb is numbered as the game's limb callbacks number it, from 1 for the
+/// root, which is also how an object's limb enumeration counts.
+struct LimbOverride {
+    u8 limb = 0;
+    std::optional<std::string> displayList;
+    std::optional<std::string> object;
+};
+
 enum class PartKind : u8 {
     DisplayList,
     Skeleton,
@@ -144,6 +155,12 @@ struct ActorPart {
     /// object that is in when not the part's.
     std::optional<std::string> pose;
     std::optional<std::string> poseObject;
+    /// For a skeleton, what it draws at its limbs in place of their own.
+    std::vector<LimbOverride> limbs;
+    /// For a display list, the limb of the variant's first skeleton it is
+    /// placed at, as `PostLimbDraw` draws at one, numbered as `limbs` are; its
+    /// placement is then relative to the limb.
+    std::optional<u8> limb;
     PartPlacement placement;
     bool isBillboard = false;
     DrawColors colors;

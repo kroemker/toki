@@ -32,6 +32,15 @@ constexpr s64 LastSetup = 70;
     return static_cast<u8>(value);
 }
 
+constexpr std::string_view LimbNumbering =
+    "must be a limb as the game's limb callbacks number it, from 1 for the root";
+
+[[nodiscard]] std::optional<u8> makeLimbNumber(const s64 number) {
+    constexpr s64 LastLimb = 0xFE;
+    return number >= 1 && number <= LastLimb ? std::optional(static_cast<u8>(number))
+                                             : std::nullopt;
+}
+
 } // namespace
 
 std::vector<ActorPart> DatabaseReader::readParts(const toml::array& parts,
@@ -80,6 +89,23 @@ std::optional<ActorPart> DatabaseReader::readPart(const toml::table& table,
     if (const toml::table* segments = table.get_as<toml::table>("segments")) {
         part.segments = readSegments(*segments, makePath(path, "segments"));
     }
+    if (const toml::node* limbs = table.get("limbs")) {
+        if (const toml::table* overrides = limbs->as_table(); overrides != nullptr && !isList) {
+            part.limbs = readLimbs(*overrides, makePath(path, "limbs"));
+        } else {
+            report(*limbs, makePath(path, "limbs"),
+                   "must be a table of a skeleton's limbs, each set to a display list, a table "
+                   "of one and its object, or false");
+        }
+    }
+    if (const toml::node* limb = table.get("limb")) {
+        if (isList) {
+            part.limb = readLimbNumber(*limb, "limb", path);
+        } else {
+            report(*limb, makePath(path, "limb"),
+                   "places a display list at a limb; a skeleton's limbs are its own");
+        }
+    }
     if (const std::optional<s64> setup = readInteger(table, "setup", path)) {
         if (*setup < 0 || *setup > LastSetup) {
             report(*table.get("setup"), makePath(path, "setup"),
@@ -123,6 +149,53 @@ std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
         }
     }
     return segments;
+}
+
+std::optional<u8> DatabaseReader::readLimbNumber(const toml::node& node, const std::string_view key,
+                                                 const std::string_view path) {
+    const std::optional<u8> limb =
+        node.is_integer() ? makeLimbNumber(node.value<s64>().value_or(0)) : std::nullopt;
+    if (!limb) {
+        report(node, makePath(path, key), LimbNumbering);
+    }
+    return limb;
+}
+
+std::vector<LimbOverride> DatabaseReader::readLimbs(const toml::table& table,
+                                                    const std::string_view path) {
+    std::vector<LimbOverride> limbs;
+    for (const auto& [key, node] : table) {
+        const std::string at = makePath(path, key.str());
+        const std::string_view text = key.str();
+        s64 number = 0;
+        const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), number);
+        const std::optional<u8> limb = error == std::errc() && end == text.data() + text.size()
+                                           ? makeLimbNumber(number)
+                                           : std::nullopt;
+        if (!limb) {
+            report(node, at, LimbNumbering);
+            continue;
+        }
+        LimbOverride limbOverride{.limb = *limb};
+        if (node.is_string()) {
+            limbOverride.displayList = node.value<std::string>();
+        } else if (const toml::table* other = node.as_table()) {
+            checkKeys(*other, at, LimbKeys);
+            limbOverride.displayList = readString(*other, "display_list", at);
+            limbOverride.object = readString(*other, "object", at);
+            if (!limbOverride.displayList) {
+                report(node, at, "names no display_list to draw at the limb");
+                continue;
+            }
+        } else if (!node.is_boolean() || node.value<bool>().value_or(true)) {
+            report(node, at,
+                   "must be a display list's name, a table of one and its object, or false "
+                   "for a limb drawn as nothing");
+            continue;
+        }
+        limbs.push_back(std::move(limbOverride));
+    }
+    return limbs;
 }
 
 BuiltList DatabaseReader::readBuiltList(const toml::table& table, const std::string_view path) {

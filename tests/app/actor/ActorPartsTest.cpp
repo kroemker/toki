@@ -30,6 +30,8 @@ match = { "Type" = [5, 6], scene = ["SCENE_DEKU_TREE", "SCENE_BOTTOM_OF_THE_WELL
 parts = [
     { skeleton = "gTreasureChestSkel", pose = "gTreasureChestAnim_00024C", pose_object = "object_box_anime", rotation = [0, 180, 0], scale = 0.005, env = [0, 0, 0, 255], segments = { 8 = "gTreasureChestEyeTex", 9 = { env = [90, 140, 50], tiles = [{ tile = 1, x = 4, width = 32, height = 16 }] } } },
     { display_list = "gEffFire1DL", object = "gameplay_keep", translation = [0, 52, 0], billboard = true, setup = 66, pass = "translucent", hilite = true },
+    { skeleton = "gKm1Skel", limbs = { 15 = { display_list = "gKm1HeadDL", object = "object_km1" }, 4 = false, 23 = "object_st_DL_004788" } },
+    { display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700] },
 ]
 
 [[actors.ACTOR_EN_BOX.variants]]
@@ -55,7 +57,7 @@ TEST_CASE("a variant's parts are read with everything each is drawn with", "[act
     REQUIRE(database.diagnostics.empty());
     const std::vector<toki::actor::ActorPart>& parts =
         database.entries.at("ACTOR_EN_BOX").variants[0].parts;
-    REQUIRE(parts.size() == 2);
+    REQUIRE(parts.size() == 4);
     REQUIRE(parts[0].kind == toki::actor::PartKind::Skeleton);
     REQUIRE(parts[0].poseObject == "object_box_anime");
     REQUIRE(parts[0].placement.scale[1] == Catch::Approx(0.005F));
@@ -75,6 +77,16 @@ TEST_CASE("a variant's parts are read with everything each is drawn with", "[act
     REQUIRE(parts[1].setup == base::u8{66});
     REQUIRE(parts[1].pass == toki::actor::Pass::Translucent);
     REQUIRE(parts[1].isHilit);
+    REQUIRE(parts[2].limbs.size() == 3);
+    const auto findLimb = [&](const base::u8 number) {
+        return *std::ranges::find(parts[2].limbs, number, &toki::actor::LimbOverride::limb);
+    };
+    REQUIRE(findLimb(15).displayList == "gKm1HeadDL");
+    REQUIRE(findLimb(15).object == "object_km1");
+    REQUIRE_FALSE(findLimb(4).displayList.has_value());
+    REQUIRE(findLimb(23).displayList == "object_st_DL_004788");
+    REQUIRE_FALSE(findLimb(23).object.has_value());
+    REQUIRE(parts[3].limb == base::u8{2});
 }
 
 TEST_CASE("parts written out read back the same", "[actor][database]") {
@@ -87,7 +99,7 @@ TEST_CASE("parts written out read back the same", "[actor][database]") {
     INFO(written);
     REQUIRE(again.diagnostics.empty());
     REQUIRE(toki::actor::formatActorDatabase(again) == written);
-    REQUIRE(again.entries.at("ACTOR_EN_BOX").variants[0].parts.size() == 2);
+    REQUIRE(again.entries.at("ACTOR_EN_BOX").variants[0].parts.size() == 4);
 }
 
 TEST_CASE("a param matches any of a list, and every entry matches on its scene",
@@ -128,6 +140,8 @@ parts = [
     { display_list = "" },
     "gTestDL",
     { display_list = "gTestDL", segments = { 8 = { tiles = [{ tile = 9, height = 8 }], fog = 1 } } },
+    { skeleton = "gTestSkel", limbs = { 0 = "gTestDL", 3 = true, 5 = { object = "object_test" } }, limb = 2 },
+    { display_list = "gTestDL", limb = 0, limbs = { 1 = false } },
 ]
 )",
                                                                                 "actors.toml");
@@ -139,6 +153,12 @@ parts = [
     REQUIRE(isReported(database, "segments.8.tiles[0].tile: must be a whole number from 0 to 7"));
     REQUIRE(isReported(database, "segments.8.tiles[0].width: must be a whole number from 1"));
     REQUIRE(isReported(database, "segments.8.fog: is not a key"));
+    REQUIRE(isReported(database, "parts[6].limbs.0: must be a limb"));
+    REQUIRE(isReported(database, "parts[6].limbs.3: must be a display list's name"));
+    REQUIRE(isReported(database, "parts[6].limbs.5: names no display_list"));
+    REQUIRE(isReported(database, "parts[6].limb: places a display list at a limb"));
+    REQUIRE(isReported(database, "parts[7].limb: must be a limb"));
+    REQUIRE(isReported(database, "parts[7].limbs: must be a table of a skeleton's limbs"));
     REQUIRE(isReported(database, "parts[4]: must be a table"));
     REQUIRE(isReported(database, "a scene is matched by its enum name"));
     REQUIRE(isReported(database, "an age is \"child\" or \"adult\""));

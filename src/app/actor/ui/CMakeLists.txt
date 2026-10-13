@@ -4,6 +4,7 @@ target_sources(toki PRIVATE
         EditWidgets.cpp
         EntryEditor.cpp
         ItemRow.cpp
+        LimbsEditor.cpp
         NewActorsPrompt.cpp
         ParamsEditor.cpp
         PartsEditor.cpp

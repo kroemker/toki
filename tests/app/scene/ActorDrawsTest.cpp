@@ -209,6 +209,52 @@ TEST_CASE("a built segment points at a list of its colours and tile sizes in the
     REQUIRE(at + 32 <= (draw.displayList & 0x00FF'FFFFU));
 }
 
+TEST_CASE("a limb drawn as nothing is skipped, and one from another object is drawn on its own",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    actors.objects.push_back(toki::scene::ActorObject{
+        .name = "object_head", .segment = 6, .image = std::make_shared<const z64::MemoryImage>()});
+    const toki::scene::SkeletonDrawing skeleton{
+        .object = 0,
+        .pose = {.drawn = {toki::object::PosedLimb{.limb = 0, .displayList = 0x0600'0200},
+                           toki::object::PosedLimb{.limb = 1, .displayList = 0},
+                           toki::object::PosedLimb{.limb = 2, .displayList = 0x0600'0400}},
+                 .matrices = {glm::mat4(1.0F), glm::mat4(1.0F), glm::mat4(1.0F)}},
+        .limbObjects = {toki::scene::LimbObject{.drawn = 2, .object = 1}}};
+    toki::scene::SceneActorModel kokiri{.enumName = "ACTOR_EN_KO"};
+    kokiri.entry =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_KO", .variants = {toki::actor::ActorVariant{}}};
+    kokiri.variants = {toki::scene::ActorDrawing{.skeletons = {skeleton}, .scale = 1.0F}};
+    actors.models.emplace(s16{5}, kokiri);
+    const std::array placed{toki::scene::PlacedActor{.id = 5}};
+
+    const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
+        actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = std::vector<u32>(26)});
+
+    REQUIRE(draws.opaque.size() == 2);
+    REQUIRE(draws.opaque[0].alsoImages == std::vector<usize>{0});
+    REQUIRE(draws.opaque[1].alsoImages == std::vector<usize>{1});
+    const std::vector<u8>& bytes = draws.images.back()->segments.front().bytes;
+    const auto listCalls = [&bytes](const u32 start) {
+        std::vector<u32> calls;
+        for (usize at = start & 0x00FF'FFFFU; at + 8 <= bytes.size(); at += 8) {
+            const u32 word0 = (u32{bytes[at]} << 24) | (u32{bytes[at + 1]} << 16) |
+                              (u32{bytes[at + 2]} << 8) | u32{bytes[at + 3]};
+            const u32 word1 = (u32{bytes[at + 4]} << 24) | (u32{bytes[at + 5]} << 16) |
+                              (u32{bytes[at + 6]} << 8) | u32{bytes[at + 7]};
+            if (word0 >> 24 == 0xDF) {
+                break;
+            }
+            if (word0 >> 24 == 0xDE) {
+                calls.push_back(word1);
+            }
+        }
+        return calls;
+    };
+    REQUIRE(listCalls(draws.opaque[0].displayList) == std::vector<u32>{0x0000'0000, 0x0600'0200});
+    REQUIRE(listCalls(draws.opaque[1].displayList) == std::vector<u32>{0x0000'0000, 0x0600'0400});
+}
+
 TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {
     toki::scene::SceneActors actors = makePots();
     toki::scene::ActorDrawing rupee = makeListDrawing(toki::actor::Pass::Opaque);

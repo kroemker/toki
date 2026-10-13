@@ -20,6 +20,8 @@ struct Limb {
     u8 sibling = NoLimb;
     /// Zero for a limb that draws nothing.
     u32 displayList = 0;
+    /// Where the limb is, for its name.
+    u32 address = 0;
 };
 
 /// A skeleton read from an object's bytes: a `SkeletonHeader`, or a

@@ -5,6 +5,7 @@
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/actor/ui/LimbsEditor.h"
 #include "app/actor/ui/SegmentsEditor.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
@@ -34,6 +35,7 @@ constexpr u8 DefaultSetup = 25;
 constexpr ImVec4 PassColor{0.561F, 0.827F, 1.0F, 1.0F};
 constexpr ImVec4 ShineColor{1.0F, 0.831F, 0.475F, 1.0F};
 constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
+constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
 
 [[nodiscard]] bool isZero(const std::array<f32, 3>& value) {
     return std::ranges::all_of(value, [](const f32 component) { return component == 0.0F; });
@@ -81,13 +83,22 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
 }
 
 [[nodiscard]] bool editPart(ActorPart& part, const std::optional<std::string>& object,
-                            const EditContext& context) {
+                            const ActorPart* skeleton, const EditContext& context) {
     if (!core::beginProperties("part")) {
         return false;
     }
     bool isChanged = editSymbolOf(part, object, context);
     if (part.kind == PartKind::Skeleton) {
         isChanged = editPose(part, object, context) || isChanged;
+        isChanged =
+            editLimbs(part.limbs, part.symbol, part.object ? part.object : object, context) ||
+            isChanged;
+    } else if (skeleton != nullptr || part.limb) {
+        const std::optional<std::string>& skeletonObject =
+            skeleton != nullptr && skeleton->object ? skeleton->object : object;
+        isChanged = editLimbPlacement(part.limb, skeleton != nullptr ? skeleton->symbol : "",
+                                      skeletonObject, context) ||
+                    isChanged;
     }
     isChanged = editVector("At", part.placement.translation) || isChanged;
     isChanged = editVector("Turned", part.placement.rotation) || isChanged;
@@ -111,6 +122,14 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
     std::vector<RowBadge> badges;
     if (part.pose) {
         badges.push_back(RowBadge{.text = "posed", .color = core::palette::TextMuted});
+    }
+    if (!part.limbs.empty()) {
+        badges.push_back(
+            RowBadge{.text = std::format("limbs {}", part.limbs.size()), .color = LimbColor});
+    }
+    if (part.limb) {
+        badges.push_back(
+            RowBadge{.text = std::format("at limb {}", *part.limb), .color = LimbColor});
     }
     if (!isZero(part.placement.translation)) {
         badges.push_back(RowBadge{.text = "moved", .color = core::palette::TextMuted});
@@ -163,8 +182,14 @@ bool drawPartsEditor(std::vector<ActorPart>& parts, const std::optional<std::str
     std::optional<usize> removed;
     std::optional<usize> copied;
     std::optional<usize> raised;
+    const auto skeleton = std::ranges::find(parts, PartKind::Skeleton, &ActorPart::kind);
+    const ActorPart* firstSkeleton = skeleton != parts.end() ? &*skeleton : nullptr;
     for (usize i = 0; i < parts.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
+        const bool isAttached = parts[i].limb.has_value();
+        if (isAttached) {
+            ImGui::Indent();
+        }
         const RowResult row = drawItemRow("##part", makeRow(parts[i], i == 0));
         if (row.action == RowAction::Raise) {
             raised = i;
@@ -175,8 +200,11 @@ bool drawPartsEditor(std::vector<ActorPart>& parts, const std::optional<std::str
         }
         if (row.isOpen) {
             beginRowDetails();
-            isChanged = editPart(parts[i], object, context) || isChanged;
+            isChanged = editPart(parts[i], object, firstSkeleton, context) || isChanged;
             endRowDetails();
+        }
+        if (isAttached) {
+            ImGui::Unindent();
         }
         ImGui::PopID();
     }
