@@ -4,6 +4,8 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
 #include "app/actor/domain/ActorModelReader.h"
+#include "app/actor/domain/ItemModels.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDrawingReader.h"
 #include "app/scene/domain/ActorObjects.h"
@@ -72,13 +74,34 @@ private:
 
     void readActor(s16 id, std::deque<s16>& pending);
 
+    [[nodiscard]] const actor::ItemModels& findItemModels();
+
     const hackeroot::Workspace& workspace;
     const std::vector<SceneLayer>& layers;
     const actor::ActorDatabase& database;
     std::optional<std::string> scene;
     SceneActors actors;
     ActorObjects objects;
+    std::optional<actor::ItemModels> itemModels;
 };
+
+const actor::ItemModels& ActorReader::findItemModels() {
+    if (!itemModels) {
+        itemModels = actor::readItemModels(workspace);
+        std::ranges::copy(itemModels->diagnostics, std::back_inserter(actors.diagnostics));
+        std::ranges::copy(itemModels->files, std::back_inserter(actors.watched));
+    }
+    return *itemModels;
+}
+
+[[nodiscard]] bool hasItemParts(const actor::ActorEntry& entry, const bool needsTable) {
+    return std::ranges::any_of(entry.variants, [needsTable](const actor::ActorVariant& variant) {
+        return std::ranges::any_of(variant.parts, [needsTable](const actor::ActorPart& part) {
+            return part.kind == actor::PartKind::Item &&
+                   (!needsTable || (part.itemChoice && part.itemChoice->table));
+        });
+    });
+}
 
 std::string ActorReader::findSceneKeep() const {
     const s16 id = layers.empty() ? s16{0} : layers.front().header.keepObjectId;
@@ -113,13 +136,20 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
             makeAdjustmentDrawing(*model.entry, adjustment, objects, model.diagnostics));
     }
     const FindActorId findId = [this](const std::string_view name) { return findActorId(name); };
+    const std::vector<actor::ValueCollection> tables =
+        hasItemParts(*model.entry, true)
+            ? actor::readActorCollections(workspace, *actor).collections
+            : std::vector<actor::ValueCollection>();
+    const ItemSource items{.models =
+                               hasItemParts(*model.entry, false) ? &findItemModels() : nullptr,
+                           .tables = tables};
     for (const actor::ActorVariant& variant : model.entry->variants) {
         if (!actor::isMatchingScene(variant, scene)) {
             model.variants.emplace_back();
             continue;
         }
         ActorDrawing drawing =
-            makeActorDrawing(*model.entry, variant, objects, findId, model.diagnostics);
+            makeActorDrawing(*model.entry, variant, objects, findId, items, model.diagnostics);
         for (const ChildPlacement& child : drawing.children) {
             pending.push_back(child.id);
         }
@@ -171,6 +201,14 @@ SceneActorModel::makeDrawing(const actor::PlacementValues& placement) const {
         return std::nullopt;
     }
     ActorDrawing adjusted = *drawing;
+    for (const ItemLists& item : drawing->items) {
+        const auto picked = item.byValue.find(actor::readParamValue(item.param, placement));
+        if (picked != item.byValue.end()) {
+            adjusted.displayLists.insert(adjusted.displayLists.end(), picked->second.begin(),
+                                         picked->second.end());
+        }
+    }
+    adjusted.items.clear();
     for (const usize index : actor::findAdjustments(*entry, placement)) {
         if (index < adjustments.size()) {
             applyAdjustment(adjusted, adjustments[index]);

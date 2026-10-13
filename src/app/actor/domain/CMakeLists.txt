@@ -14,6 +14,7 @@ target_sources(toki_core PRIVATE
         EntryWriter.cpp
         ParamReading.cpp
         GuessedEntry.cpp
+        ItemModels.cpp
         ModelRules.cpp
         OverlayCode.cpp
         ParamReads.cpp

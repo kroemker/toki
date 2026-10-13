@@ -302,6 +302,30 @@ TEST_CASE("a placement's drawing has every adjustment that matches it made, in o
     REQUIRE(small->heightOffset == Catch::Approx(7.0F));
 }
 
+TEST_CASE("an item picked by a param is drawn as the item of the placement's value",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    toki::scene::SceneActorModel& pot = actors.models.at(7);
+    const toki::actor::ActorParam item{.name = "Item", .mask = 0x00F0};
+    pot.variants[0].items.push_back(toki::scene::ItemLists{
+        .param = item,
+        .byValue = {{2, {toki::scene::ActorDisplayList{.address = 0x0600'0A00}}},
+                    {3,
+                     {toki::scene::ActorDisplayList{.address = 0x0600'0B00},
+                      toki::scene::ActorDisplayList{.address = 0x0600'0C00}}}}});
+
+    const std::optional<toki::scene::ActorDrawing> second = pot.makeDrawing({.params = 0x0020});
+    const std::optional<toki::scene::ActorDrawing> third = pot.makeDrawing({.params = 0x0030});
+    const std::optional<toki::scene::ActorDrawing> none = pot.makeDrawing({.params = 0x0050});
+
+    REQUIRE(second->displayLists.size() == 2);
+    REQUIRE(second->displayLists[1].address == 0x0600'0A00);
+    REQUIRE(third->displayLists.size() == 3);
+    REQUIRE(third->displayLists[2].address == 0x0600'0C00);
+    REQUIRE(none->displayLists.size() == 1);
+    REQUIRE(second->items.empty());
+}
+
 TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {
     toki::scene::SceneActors actors = makePots();
     toki::scene::ActorDrawing rupee = makeListDrawing(toki::actor::Pass::Opaque);

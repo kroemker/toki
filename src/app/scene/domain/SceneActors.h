@@ -102,7 +102,16 @@ struct ChildPlacement {
     std::array<f32, 3> offset{};
 };
 
-/// What one variant of an actor draws, made ready when the scene is read.
+/// What an item part picked by a param draws, for each value of the param it
+/// can draw: the param, and the display lists of each value's item.
+struct ItemLists {
+    actor::ActorParam param;
+    std::map<s64, std::vector<ActorDisplayList>> byValue;
+};
+
+/// What one variant of an actor draws, made ready when the scene is read. Its
+/// items picked by params are drawn by `SceneActorModel::makeDrawing`, which
+/// knows the params.
 struct ActorDrawing {
     actor::DrawKind kind = actor::DrawKind::Model;
     std::vector<SkeletonDrawing> skeletons;
@@ -111,11 +120,12 @@ struct ActorDrawing {
     f32 heightOffset = 0.0F;
     actor::RotationAxes rotates;
     std::vector<ChildPlacement> children;
+    std::vector<ItemLists> items;
 
     /// Whether anything is drawn for it: a model, or children in its place.
     [[nodiscard]] bool isDrawn() const {
         return kind != actor::DrawKind::Marker &&
-               (!skeletons.empty() || !displayLists.empty() || !children.empty());
+               (!skeletons.empty() || !displayLists.empty() || !children.empty() || !items.empty());
     }
 };
 
@@ -154,8 +164,9 @@ struct SceneActorModel {
     /// any adjustment.
     [[nodiscard]] const ActorDrawing* findDrawing(const actor::PlacementValues& placement) const;
 
-    /// The drawing for `placement`: its variant's, with every adjustment that
-    /// matches it made in order. Empty when no variant matches.
+    /// The drawing for `placement`: its variant's, with the items its params
+    /// pick, and every adjustment that matches it made in order. Empty when no
+    /// variant matches.
     [[nodiscard]] std::optional<ActorDrawing>
     makeDrawing(const actor::PlacementValues& placement) const;
 };

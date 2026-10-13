@@ -187,7 +187,7 @@ parts = [{ display_list = "gTestDL", pose = "gTestAnim" }, { skeleton = "gTestSk
     REQUIRE(isReported(database, "match.Lamp: a flag matches true or false"));
     REQUIRE(isReported(database, "match.Twice: lists something that is not"));
     REQUIRE(isReported(database, "only a skeleton stands in a pose"));
-    REQUIRE(isReported(database, "must draw either a display_list or a skeleton"));
+    REQUIRE(isReported(database, "must draw one of a display_list, a skeleton or a get_item"));
     REQUIRE_FALSE(std::ranges::any_of(database.diagnostics, [](const base::Diagnostic& diagnostic) {
         return diagnostic.message.contains("shares bits");
     }));

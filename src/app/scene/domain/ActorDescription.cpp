@@ -43,6 +43,15 @@ namespace {
 
 void describePart(const actor::ActorPart& part, const std::optional<std::string>& object,
                   std::vector<std::string>& lines) {
+    if (part.kind == actor::PartKind::Item) {
+        lines.push_back(part.itemChoice
+                            ? std::format("The get item {} picks{}", part.itemChoice->param,
+                                          part.itemChoice->table
+                                              ? std::format(" from {}", *part.itemChoice->table)
+                                              : std::string())
+                            : std::format("The get item {}", part.symbol));
+        return;
+    }
     if (part.kind == actor::PartKind::Skeleton) {
         lines.push_back(
             std::format("Skeleton {}{}", part.symbol, describeObject(part.object, object)));

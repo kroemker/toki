@@ -178,8 +178,15 @@ void EntryChecker::checkMatch(const base::SourceLocation& location, const ParamM
 }
 
 void EntryChecker::checkPart(const ActorPart& part, const std::string_view path) {
-    if (part.symbol.empty()) {
-        report(part.location, path, "draws nothing: it names no display list or skeleton");
+    if (part.symbol.empty() && !part.itemChoice) {
+        report(part.location, path,
+               "draws nothing: it names no display list, skeleton or get-item draw ID");
+    }
+    if (part.itemChoice &&
+        !std::ranges::contains(entry.params, part.itemChoice->param, &ActorParam::name)) {
+        report(part.location, path,
+               std::format("picks its item by '{}', which is not a param of the actor",
+                           part.itemChoice->param));
     }
     if (part.kind != PartKind::Skeleton && (part.pose || part.poseObject)) {
         report(part.location, path, "only a skeleton stands in a pose");

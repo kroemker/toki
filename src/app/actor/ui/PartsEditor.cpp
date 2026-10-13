@@ -3,6 +3,7 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/EntryNames.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
 #include "app/actor/ui/LimbsEditor.h"
@@ -20,6 +21,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -36,6 +38,8 @@ constexpr ImVec4 PassColor{0.561F, 0.827F, 1.0F, 1.0F};
 constexpr ImVec4 ShineColor{1.0F, 0.831F, 0.475F, 1.0F};
 constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
 constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
+constexpr ImVec4 ItemColor{1.0F, 0.569F, 0.478F, 1.0F};
+constexpr std::string_view DrawIdCollection = "GetItemDrawID";
 
 [[nodiscard]] bool isZero(const std::array<f32, 3>& value) {
     return std::ranges::all_of(value, [](const f32 component) { return component == 0.0F; });
@@ -54,6 +58,55 @@ constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
     index = std::clamp(index, 0, LastSetup);
     setup = index == DefaultSetup ? std::nullopt : std::optional(static_cast<u8>(index));
     return true;
+}
+
+[[nodiscard]] std::vector<std::string> listDrawIds(const EditContext& context) {
+    std::vector<std::string> names;
+    if (const ValueCollection* drawIds = context.findCollection(DrawIdCollection)) {
+        for (const ChoiceValue& value : drawIds->values) {
+            names.push_back(value.label);
+        }
+    }
+    return names;
+}
+
+[[nodiscard]] bool editItem(ActorPart& part, const std::span<const ActorParam> params,
+                            const EditContext& context) {
+    core::drawPropertyLabel("Item");
+    bool isChanged = false;
+    const bool isPicked = part.itemChoice.has_value();
+    if (ImGui::BeginCombo("##item", isPicked ? "Picked by a param" : "One get-item model")) {
+        if (ImGui::Selectable("One get-item model", !isPicked) && isPicked) {
+            part.itemChoice.reset();
+            isChanged = true;
+        }
+        if (ImGui::Selectable("Picked by a param", isPicked) && !isPicked) {
+            part.itemChoice =
+                ItemChoice{.param = params.empty() ? std::string() : params.front().name};
+            isChanged = true;
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SetItemTooltip("Drawn as GetItem_Draw draws a GetItemDrawID, from the object the "
+                          "get item loads");
+    if (!part.itemChoice) {
+        isChanged = editPicked("Draw ID", part.symbol, listDrawIds(context), nullptr) || isChanged;
+    } else {
+        std::vector<std::string> names;
+        for (const ActorParam& param : params) {
+            names.push_back(param.name);
+        }
+        isChanged = editPicked("Param", part.itemChoice->param, names, nullptr) || isChanged;
+        std::string table = part.itemChoice->table.value_or("");
+        if (editPicked("Table", table, {}, "The param's value is the draw ID")) {
+            part.itemChoice->table = table.empty() ? std::nullopt : std::optional(table);
+            isChanged = true;
+        }
+        ImGui::SetItemTooltip("The overlay's table the param indexes, as sDrawItemIndices, "
+                              "whose entries are draw IDs");
+    }
+    isChanged = editObject("From object", part.object, context, "the get item's") || isChanged;
+    return isChanged;
 }
 
 [[nodiscard]] bool editSymbolOf(ActorPart& part, const std::optional<std::string>& object,
@@ -83,17 +136,19 @@ constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
 }
 
 [[nodiscard]] bool editPart(ActorPart& part, const std::optional<std::string>& object,
-                            const ActorPart* skeleton, const EditContext& context) {
+                            const ActorPart* skeleton, const std::span<const ActorParam> params,
+                            const EditContext& context) {
     if (!core::beginProperties("part")) {
         return false;
     }
-    bool isChanged = editSymbolOf(part, object, context);
+    bool isChanged = part.kind == PartKind::Item ? editItem(part, params, context)
+                                                 : editSymbolOf(part, object, context);
     if (part.kind == PartKind::Skeleton) {
         isChanged = editPose(part, object, context) || isChanged;
         isChanged =
             editLimbs(part.limbs, part.symbol, part.object ? part.object : object, context) ||
             isChanged;
-    } else if (skeleton != nullptr || part.limb) {
+    } else if (part.kind == PartKind::DisplayList && (skeleton != nullptr || part.limb)) {
         const std::optional<std::string>& skeletonObject =
             skeleton != nullptr && skeleton->object ? skeleton->object : object;
         isChanged = editLimbPlacement(part.limb, skeleton != nullptr ? skeleton->symbol : "",
@@ -160,12 +215,26 @@ constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
     return badges;
 }
 
+[[nodiscard]] std::string makeRowName(const ActorPart& part) {
+    if (part.itemChoice) {
+        return part.itemChoice->table
+                   ? std::format("{}[{}]", *part.itemChoice->table, part.itemChoice->param)
+                   : std::format("by {}", part.itemChoice->param);
+    }
+    return part.symbol.empty() ? std::string("(pick a symbol)") : part.symbol;
+}
+
 [[nodiscard]] ItemRow makeRow(const ActorPart& part, const bool isFirst) {
     const bool isList = part.kind == PartKind::DisplayList;
+    const bool isItem = part.kind == PartKind::Item;
     return ItemRow{
-        .tag = isList ? "DL" : "SK",
-        .tagColor = isList ? core::palette::Success : core::palette::Accent,
-        .name = part.symbol.empty() ? std::string("(pick a symbol)") : part.symbol,
+        .tag = isItem   ? "GI"
+               : isList ? "DL"
+                        : "SK",
+        .tagColor = isItem   ? ItemColor
+                    : isList ? core::palette::Success
+                             : core::palette::Accent,
+        .name = makeRowName(part),
         .detail = part.object.value_or(""),
         .badges = makeBadges(part),
         .canRaise = !isFirst,
@@ -177,7 +246,7 @@ constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
 } // namespace
 
 bool drawPartsEditor(std::vector<ActorPart>& parts, const std::optional<std::string>& object,
-                     const EditContext& context) {
+                     const std::span<const ActorParam> params, const EditContext& context) {
     bool isChanged = false;
     std::optional<usize> removed;
     std::optional<usize> copied;
@@ -200,7 +269,7 @@ bool drawPartsEditor(std::vector<ActorPart>& parts, const std::optional<std::str
         }
         if (row.isOpen) {
             beginRowDetails();
-            isChanged = editPart(parts[i], object, firstSkeleton, context) || isChanged;
+            isChanged = editPart(parts[i], object, firstSkeleton, params, context) || isChanged;
             endRowDetails();
         }
         if (isAttached) {
@@ -228,6 +297,12 @@ bool drawPartsEditor(std::vector<ActorPart>& parts, const std::optional<std::str
         parts.push_back(ActorPart{.kind = PartKind::Skeleton});
         isChanged = true;
     }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+ Item")) {
+        parts.push_back(ActorPart{.kind = PartKind::Item});
+        isChanged = true;
+    }
+    ImGui::SetItemTooltip("A get-item model, drawn as GetItem_Draw draws it");
     return isChanged;
 }
 

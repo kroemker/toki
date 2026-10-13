@@ -142,10 +142,22 @@ struct LimbOverride {
 enum class PartKind : u8 {
     DisplayList,
     Skeleton,
+    Item,
 };
 
-/// One display list or skeleton a variant draws, with everything it is drawn
-/// with: nothing carries over from one part to the next.
+/// For an item part drawn by a param: the param, and the table of the actor's
+/// whose entry at the param's value names the get-item draw ID, as
+/// `sDrawItemIndices[type]` does; without one, the param's value is the draw
+/// ID itself, and only the values the param lists are drawn.
+struct ItemChoice {
+    std::string param;
+    std::optional<std::string> table;
+};
+
+/// One display list, skeleton or get-item model a variant draws, with
+/// everything it is drawn with: nothing carries over from one part to the
+/// next. An item is drawn as `GetItem_Draw` draws its `GetItemDrawID`, named
+/// by `symbol`, or picked by a param as `itemChoice` says.
 struct ActorPart {
     PartKind kind = PartKind::DisplayList;
     std::string symbol;
@@ -157,6 +169,7 @@ struct ActorPart {
     std::optional<std::string> poseObject;
     /// For a skeleton, what it draws at its limbs in place of their own.
     std::vector<LimbOverride> limbs;
+    std::optional<ItemChoice> itemChoice;
     /// For a display list, the limb of the variant's first skeleton it is
     /// placed at, as `PostLimbDraw` draws at one, numbered as `limbs` are; its
     /// placement is then relative to the limb.

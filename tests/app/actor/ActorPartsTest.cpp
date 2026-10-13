@@ -36,7 +36,11 @@ parts = [
 
 [[actors.ACTOR_EN_BOX.variants]]
 match = { "Type" = 0 }
-parts = [{ display_list = "gTreasureChestDL" }]
+parts = [
+    { display_list = "gTreasureChestDL" },
+    { get_item = "GID_HEART_PIECE", hilite = true },
+    { get_item = { param = "Type", table = "sDrawItemIndices" } },
+]
 )";
 
 [[nodiscard]] bool isReported(const toki::actor::ActorDatabase& database,
@@ -87,6 +91,15 @@ TEST_CASE("a variant's parts are read with everything each is drawn with", "[act
     REQUIRE(findLimb(23).displayList == "object_st_DL_004788");
     REQUIRE_FALSE(findLimb(23).object.has_value());
     REQUIRE(parts[3].limb == base::u8{2});
+    const std::vector<toki::actor::ActorPart>& items =
+        database.entries.at("ACTOR_EN_BOX").variants[1].parts;
+    REQUIRE(items[1].kind == toki::actor::PartKind::Item);
+    REQUIRE(items[1].symbol == "GID_HEART_PIECE");
+    REQUIRE_FALSE(items[1].itemChoice.has_value());
+    REQUIRE(items[2].kind == toki::actor::PartKind::Item);
+    REQUIRE(items[2].itemChoice.has_value());
+    REQUIRE(items[2].itemChoice->param == "Type");
+    REQUIRE(items[2].itemChoice->table == "sDrawItemIndices");
 }
 
 TEST_CASE("parts written out read back the same", "[actor][database]") {
@@ -142,6 +155,9 @@ parts = [
     { display_list = "gTestDL", segments = { 8 = { tiles = [{ tile = 9, height = 8 }], fog = 1 } } },
     { skeleton = "gTestSkel", limbs = { 0 = "gTestDL", 3 = true, 5 = { object = "object_test" } }, limb = 2 },
     { display_list = "gTestDL", limb = 0, limbs = { 1 = false } },
+    { get_item = 5 },
+    { display_list = "gTestDL", get_item = "GID_HEART_PIECE" },
+    { get_item = { param = "Kind", table = "sTable", count = 2 } },
 ]
 )",
                                                                                 "actors.toml");
@@ -159,6 +175,10 @@ parts = [
     REQUIRE(isReported(database, "parts[6].limb: places a display list at a limb"));
     REQUIRE(isReported(database, "parts[7].limb: must be a limb"));
     REQUIRE(isReported(database, "parts[7].limbs: must be a table of a skeleton's limbs"));
+    REQUIRE(isReported(database, "parts[8].get_item: must be a GetItemDrawID constant"));
+    REQUIRE(isReported(database, "parts[9]: must draw one of"));
+    REQUIRE(isReported(database, "parts[10].get_item.count: is not a key"));
+    REQUIRE(isReported(database, "picks its item by 'Kind', which is not a param"));
     REQUIRE(isReported(database, "parts[4]: must be a table"));
     REQUIRE(isReported(database, "a scene is matched by its enum name"));
     REQUIRE(isReported(database, "an age is \"child\" or \"adult\""));

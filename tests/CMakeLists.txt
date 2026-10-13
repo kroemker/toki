@@ -13,6 +13,7 @@ add_executable(toki_tests
         app/actor/ValueCollectionTest.cpp
         app/actor/ActorModelCheckoutTest.cpp
         app/actor/GuessedEntryTest.cpp
+        app/actor/ItemModelsCheckoutTest.cpp
         app/actor/ModelRulesTest.cpp
         app/assets/AssetReportTest.cpp
         app/build/BuildRunnerTest.cpp

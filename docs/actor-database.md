@@ -231,12 +231,12 @@ each adjustment on the variant its match picks, as `<ACTOR>_a<n>.png`.
 
 ### Parts
 
-Each part draws one display list or one skeleton, and says everything it is drawn with;
-nothing carries over from one part to the next.
+Each part draws one display list, one skeleton or one get-item model, and says everything
+it is drawn with; nothing carries over from one part to the next.
 
 | Key | Means |
 |---|---|
-| `display_list` or `skeleton` | what it draws, by name |
+| `display_list`, `skeleton` or `get_item` | what it draws, by name; an item by its `GetItemDrawID` constant, or by a param ([Items](#items)) |
 | `object` | where the name is, when not the variant's |
 | `pose`, `pose_object` | for a skeleton, the animation it stands in, at its first frame; at rest without one |
 | `limbs` | for a skeleton, what it draws at its limbs in place of their own ([Limbs](#limbs)) |
@@ -251,6 +251,29 @@ nothing carries over from one part to the next.
 
 A part without `hilite` is drawn with the frame's `LookAt`, from the camera toward what it
 looks at, standing in for whatever the game drew last.
+
+### Items
+
+Many actors draw an item's model by `GetItem_Draw(play, GID_X)`: chests' contents, shop
+stock, the tokens and pickups placed in a scene. How it draws one is `sDrawItemTable` in
+`src/code/z_draw.c`, an entry per `GetItemDrawID` of a draw function and the display lists it
+draws, which Toki reads from the checkout (`actor::readItemModels`), so a mod's own items are
+drawn as its build draws them. The draw functions are read for their literal calls: the setup
+display lists and passes, the matrices they load (translations, scales, the billboard's
+rotation), `Gfx_TwoTexScroll` on segment 8, at its first frame, and which of the entry's
+lists in which order. The object is the one `sGetItemTable` in Player's overlay loads for the
+first get item drawn with that ID, unless the part names its own.
+
+```toml
+{ get_item = "GID_SKULL_TOKEN_2", hilite = true }
+{ get_item = { param = "Type", table = "sDrawItemIndices" }, hilite = true }
+```
+
+An item picked by a param is drawn, for a placement, as the item its value picks: through a
+table of the overlay's whose entries are draw IDs, as Item_Etcetera's `sDrawItemIndices[type]`,
+or, without `table`, with the value as the draw ID itself, for the values the param lists.
+Every item it can pick is read with the scene, each from its own object. The render test
+draws each, as `<ACTOR>_<variant>_i<value>.png`.
 
 ### Limbs
 
@@ -516,8 +539,8 @@ outright, and what decides whether an actor spawns. Notes say them.
   height offset, the axes it turns by, colours, segments, and the parts it changes, all or
   some ticked by number. The Scene panel names the variant and the adjustments a placed
   actor is drawn with, and adds an adjustment for its params as it adds a variant.
-- **Items** are rows tagged GI beside DL and SK, picked from the `GetItemDrawID` collection or
-  bound to a param.
+- **Items** are rows tagged GI beside DL and SK, a draw ID picked from the `GetItemDrawID`
+  collection, or a param and the table it indexes, shown as `sDrawItemIndices[Type]`.
 
 ### Plan
 
@@ -529,7 +552,7 @@ rewritten to use what it adds, and their renders looked at.
 | 1 | Built segments: the format (3, reading 2), drawing them into the actor's own image, the panel's segment rows; the Kokiri's colours (done; the crystal switch's tiles too) |
 | 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger (done) |
 | 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block (done: 68 variants became 1 and 19 adjustments; `rotates` set per variant is an adjustment's) |
-| 4 | Item parts; Item_Etcetera, the Gold Skulltula token |
+| 4 | Item parts; Item_Etcetera, the Gold Skulltula token (done: Item_Etcetera is one variant and three adjustments) |
 | 5 | Overlay data as objects; En_Holl, Elf_Msg |
 | 6 | The smaller keys |
 | 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database |

@@ -237,7 +237,18 @@ void insertColors(toml::table& table, const DrawColors& colors) {
 
 [[nodiscard]] toml::table makePart(const ActorPart& part) {
     toml::table table = makeInline();
-    table.insert(part.kind == PartKind::DisplayList ? "display_list" : "skeleton", part.symbol);
+    if (part.kind == PartKind::Item) {
+        if (part.itemChoice) {
+            toml::table choice = makeInline();
+            choice.insert("param", part.itemChoice->param);
+            insertOptional(choice, "table", part.itemChoice->table);
+            table.insert("get_item", std::move(choice));
+        } else {
+            table.insert("get_item", part.symbol);
+        }
+    } else {
+        table.insert(part.kind == PartKind::DisplayList ? "display_list" : "skeleton", part.symbol);
+    }
     insertOptional(table, "object", part.object);
     insertOptional(table, "pose", part.pose);
     insertOptional(table, "pose_object", part.poseObject);

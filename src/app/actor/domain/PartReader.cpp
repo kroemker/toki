@@ -64,13 +64,21 @@ std::optional<ActorPart> DatabaseReader::readPart(const toml::table& table,
                                                   const std::string_view path) {
     checkKeys(table, path, PartKeys);
     const bool isList = table.contains("display_list");
-    if (isList == table.contains("skeleton")) {
-        report(table, path, "must draw either a display_list or a skeleton");
+    const bool isItem = table.contains("get_item");
+    if (static_cast<int>(isList) + static_cast<int>(table.contains("skeleton")) +
+            static_cast<int>(isItem) !=
+        1) {
+        report(table, path, "must draw one of a display_list, a skeleton or a get_item");
         return std::nullopt;
     }
+    const PartKind kind = isList   ? PartKind::DisplayList
+                          : isItem ? PartKind::Item
+                                   : PartKind::Skeleton;
     ActorPart part{
-        .kind = isList ? PartKind::DisplayList : PartKind::Skeleton,
-        .symbol = readString(table, isList ? "display_list" : "skeleton", path).value_or(""),
+        .kind = kind,
+        .symbol = kind == PartKind::Item
+                      ? std::string()
+                      : readString(table, isList ? "display_list" : "skeleton", path).value_or(""),
         .object = readString(table, "object", path),
         .pose = readString(table, "pose", path),
         .poseObject = readString(table, "pose_object", path),
@@ -89,8 +97,12 @@ std::optional<ActorPart> DatabaseReader::readPart(const toml::table& table,
     if (const toml::table* segments = table.get_as<toml::table>("segments")) {
         part.segments = readSegments(*segments, makePath(path, "segments"));
     }
+    if (isItem) {
+        readItem(*table.get("get_item"), makePath(path, "get_item"), part);
+    }
     if (const toml::node* limbs = table.get("limbs")) {
-        if (const toml::table* overrides = limbs->as_table(); overrides != nullptr && !isList) {
+        if (const toml::table* overrides = limbs->as_table();
+            overrides != nullptr && kind == PartKind::Skeleton) {
             part.limbs = readLimbs(*overrides, makePath(path, "limbs"));
         } else {
             report(*limbs, makePath(path, "limbs"),
@@ -149,6 +161,25 @@ std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
         }
     }
     return segments;
+}
+
+void DatabaseReader::readItem(const toml::node& node, const std::string_view path,
+                              ActorPart& part) {
+    if (node.is_string()) {
+        part.symbol = node.value<std::string>().value_or("");
+        return;
+    }
+    const toml::table* choice = node.as_table();
+    const std::optional<std::string> param =
+        choice != nullptr ? readString(*choice, "param", path) : std::nullopt;
+    if (!param) {
+        report(node, path,
+               "must be a GetItemDrawID constant, or a table of the param that picks one and "
+               "the table it indexes");
+        return;
+    }
+    checkKeys(*choice, path, ItemChoiceKeys);
+    part.itemChoice = ItemChoice{.param = *param, .table = readString(*choice, "table", path)};
 }
 
 std::optional<u8> DatabaseReader::readLimbNumber(const toml::node& node, const std::string_view key,

@@ -144,9 +144,9 @@ constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
     bool isChanged = drawLooks(entry, variant, context);
     ImGui::PopID();
     ImGui::PushID("parts");
-    isChanged =
-        drawPartsEditor(variant.parts, variant.object ? variant.object : entry.object, context) ||
-        isChanged;
+    isChanged = drawPartsEditor(variant.parts, variant.object ? variant.object : entry.object,
+                                entry.params, context) ||
+                isChanged;
     ImGui::PopID();
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Child")) {

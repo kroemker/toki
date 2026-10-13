@@ -264,6 +264,15 @@ bool editCollection(const char* label, std::optional<std::string>& collection,
     return true;
 }
 
+bool editPicked(const char* label, std::string& value,
+                const std::span<const std::string> candidates, const char* empty) {
+    core::drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = drawPicker("##value", value, candidates, empty);
+    ImGui::PopID();
+    return isChanged;
+}
+
 bool editSignedHex(const char* label, s64& value) {
     core::drawPropertyLabel(label);
     ImGui::PushID(label);

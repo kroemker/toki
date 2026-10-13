@@ -52,7 +52,8 @@ inline constexpr std::array PartKeys = {
     std::string_view("env"),          std::string_view("segments"),
     std::string_view("setup"),        std::string_view("pass"),
     std::string_view("hilite"),       std::string_view("limbs"),
-    std::string_view("limb")};
+    std::string_view("limb"),         std::string_view("get_item")};
+inline constexpr std::array ItemChoiceKeys = {std::string_view("param"), std::string_view("table")};
 inline constexpr std::array LimbKeys = {std::string_view("display_list"),
                                         std::string_view("object")};
 inline constexpr std::array BuiltListKeys = {std::string_view("prim"), std::string_view("env"),
@@ -121,6 +122,7 @@ private:
                                                     std::string_view path);
     [[nodiscard]] std::vector<PartSegment> readSegments(const toml::table& table,
                                                         std::string_view path);
+    void readItem(const toml::node& node, std::string_view path, ActorPart& part);
     [[nodiscard]] std::vector<LimbOverride> readLimbs(const toml::table& table,
                                                       std::string_view path);
     [[nodiscard]] std::optional<u8> readLimbNumber(const toml::node& node, std::string_view key,

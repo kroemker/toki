@@ -203,12 +203,14 @@ struct Harness {
     }
 
     void render(const toki::actor::ActorDatabase& shipped, const toki::actor::ActorEntry& entry,
-                usize index, const toki::actor::PlacementValues& values, const std::string& name);
+                usize index, const toki::actor::PlacementValues& values, const std::string& name,
+                bool isEachItem = true);
 };
 
 void Harness::render(const toki::actor::ActorDatabase& shipped,
                      const toki::actor::ActorEntry& entry, const usize index,
-                     const toki::actor::PlacementValues& values, const std::string& name) {
+                     const toki::actor::PlacementValues& values, const std::string& name,
+                     const bool isEachItem) {
     const toki::actor::ActorVariant& variant = entry.variants[index];
     const std::optional<s16> id = findActorId(entry.actor);
     REQUIRE(id.has_value());
@@ -237,6 +239,16 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     tested.entry->variants.insert(tested.entry->variants.begin(), variant);
     toki::scene::ActorDrawing testedDrawing = tested.variants[index];
     tested.variants.insert(tested.variants.begin(), std::move(testedDrawing));
+    if (isEachItem && !tested.variants.front().items.empty()) {
+        for (const toki::scene::ItemLists& item : tested.variants.front().items) {
+            for (const auto& [value, lists] : item.byValue) {
+                toki::actor::PlacementValues picked = values;
+                setParam(picked.params, item.param, value);
+                render(shipped, entry, index, picked, std::format("{}_i{}", name, value), false);
+            }
+        }
+        return;
+    }
     const std::optional<toki::scene::ActorDrawing> drawing = tested.makeDrawing(values);
     if (!drawing || !drawing->isDrawn()) {
         return;
@@ -333,7 +345,7 @@ TEST_CASE("every variant of the shipped actor database is drawn to an image", "[
             CHECK(variant != nullptr);
             if (variant != nullptr) {
                 harness.render(shipped, entry, static_cast<usize>(variant - entry.variants.data()),
-                               values, std::format("{}_a{}", entry.actor, index));
+                               values, std::format("{}_a{}", entry.actor, index), false);
             }
         }
     }

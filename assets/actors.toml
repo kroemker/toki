@@ -532,7 +532,7 @@ parts = [{ display_list = "object_bombiwa_DL_0009E0" }]
 
 [actors.ACTOR_EN_SI]
 name = "Gold Skulltula token"
-notes = "The token a Gold Skulltula leaves, collected by touch or the hookshot. Drawn by GetItem_Draw(GID_SKULL_TOKEN_2); its flame scrolls, which is not drawn."
+notes = "The token a Gold Skulltula leaves, collected by touch or the hookshot. Drawn by GetItem_Draw(GID_SKULL_TOKEN_2), its flame where its scroll starts."
 object = "object_st"
 scale = 0.025
 height_offset = 42
@@ -542,14 +542,11 @@ Flag = { mask = 0x00FF, kind = "number", hex = true, description = "The bit of t
 Group = { mask = 0x1F00, kind = "number", description = "Which of the Gold Skulltula flag bytes, by area" }
 
 [[actors.ACTOR_EN_SI.variants]]
-parts = [
-    { display_list = "gSkulltulaTokenDL", hilite = true },
-    { display_list = "gSkulltulaTokenFlameDL", pass = "translucent", hilite = true },
-]
+parts = [{ get_item = "GID_SKULL_TOKEN_2", hilite = true }]
 
 [actors.ACTOR_ITEM_ETCETERA]
 name = "Item"
-notes = "A get-item model lying in the world, collected by touch: Ruto's letter, the Lake Hylia fire arrow, the Zora diving game's scale, and the Treasure Box Shop's prizes. The fire arrow appears only once Link shoots the sun; the shop's prizes are drawn only through the Lens of Truth. Drawn by GetItem_Draw, as sDrawItemIndices picks."
+notes = "A get-item model lying in the world, collected by touch: Ruto's letter, the Lake Hylia fire arrow, the Zora diving game's scale, and the Treasure Box Shop's prizes. The fire arrow appears only once Link shoots the sun; the shop's prizes are drawn only through the Lens of Truth. Drawn by GetItem_Draw, as sDrawItemIndices picks. The shop's prizes are raised 15 units, drawn here as a height offset at their scale."
 scale = 0.25
 
 [actors.ACTOR_ITEM_ETCETERA.params]
@@ -557,125 +554,19 @@ Type = { mask = 0x00FF, kind = "choice", values = "ItemEtceteraType" }
 "Treasure Flag" = { mask = 0x1F00, kind = "number", scene_flag = "treasure", flag_use = "both", description = "Set when the item is collected, for the fire arrow and the shop's prizes" }
 
 [[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 0 }
-object = "object_gi_bottle"
-parts = [
-    { display_list = "gGiBottleStopperDL", hilite = true },
-    { display_list = "gGiBottleDL", pass = "translucent", hilite = true },
-]
+parts = [{ get_item = { param = "Type", table = "sDrawItemIndices" }, hilite = true }]
 
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 1 }
-object = "object_gi_bottle_letter"
+[[actors.ACTOR_ITEM_ETCETERA.adjustments]]
+match = { Type = [1, 7, 8, 9, 10, 11, 12, 13] }
 scale = 0.5
-parts = [
-    { display_list = "gGiLetterBottleContentsDL", hilite = true },
-    { display_list = "gGiLetterBottleDL", pass = "translucent", hilite = true },
-]
 
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 2 }
-object = "object_gi_shield_2"
-parts = [{ display_list = "gGiHylianShieldDL", hilite = true }]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 3 }
-object = "object_gi_arrowcase"
-parts = [
-    { display_list = "gGiQuiver40InnerColorDL", hilite = true },
-    { display_list = "gGiQuiverInnerDL", hilite = true },
-    { display_list = "gGiQuiver40OuterColorDL", hilite = true },
-    { display_list = "gGiQuiverOuterDL", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 4 }
-object = "object_gi_scale"
-parts = [
-    { display_list = "gGiSilverScaleColorDL", pass = "translucent", hilite = true },
-    { display_list = "gGiScaleDL", pass = "translucent", hilite = true },
-    { display_list = "gGiSilverScaleWaterColorDL", pass = "translucent", hilite = true },
-    { display_list = "gGiScaleWaterDL", pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 5 }
-object = "object_gi_scale"
-parts = [
-    { display_list = "gGiGoldenScaleColorDL", pass = "translucent", hilite = true },
-    { display_list = "gGiScaleDL", pass = "translucent", hilite = true },
-    { display_list = "gGiGoldenScaleWaterColorDL", pass = "translucent", hilite = true },
-    { display_list = "gGiScaleWaterDL", pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = [6, 13] }
-object = "object_gi_key"
-parts = [{ display_list = "gGiSmallKeyDL", hilite = true }]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
+[[actors.ACTOR_ITEM_ETCETERA.adjustments]]
 match = { Type = 7 }
-object = "object_gi_m_arrow"
-scale = 0.5
 height_offset = 50
-parts = [
-    { display_list = "gGiMagicArrowDL", hilite = true },
-    { display_list = "gGiFireArrowColorDL", pass = "translucent", hilite = true },
-    { display_list = "gGiArrowMagicDL", pass = "translucent", hilite = true },
-]
 
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 8 }
-object = "object_gi_rupy"
-scale = 0.5
-parts = [
-    { display_list = "gGiGreenRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiGreenRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 9 }
-object = "object_gi_rupy"
-scale = 0.5
-parts = [
-    { display_list = "gGiBlueRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiBlueRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 10 }
-object = "object_gi_rupy"
-scale = 0.5
-parts = [
-    { display_list = "gGiRedRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
-    { display_list = "gGiRedRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 11 }
-object = "object_gi_rupy"
-scale = 0.5
-parts = [
-    { display_list = "gGiPurpleRupeeInnerColorDL", translation = [0, 30, 0], hilite = true },
-    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], hilite = true },
-    { display_list = "gGiPurpleRupeeOuterColorDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
-    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
-]
-
-[[actors.ACTOR_ITEM_ETCETERA.variants]]
-match = { Type = 12 }
-object = "object_gi_hearts"
-scale = 0.5
-parts = [
-    { display_list = "gGiHeartBorderDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
-    { display_list = "gGiHeartPieceDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
-]
+[[actors.ACTOR_ITEM_ETCETERA.adjustments]]
+match = { Type = [8, 9, 10, 11, 12, 13] }
+height_offset = 30
 
 [actors.ACTOR_ELF_MSG]
 name = "Navi message spot"

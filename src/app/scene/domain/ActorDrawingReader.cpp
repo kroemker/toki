@@ -2,6 +2,8 @@
 
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/ActorModel.h"
+#include "app/actor/domain/ItemModels.h"
+#include "app/actor/domain/ValueCollection.h"
 #include "app/object/domain/Animation.h"
 #include "app/object/domain/Pose.h"
 #include "app/object/domain/Skeleton.h"
@@ -68,8 +70,9 @@ findSegments(const std::span<const actor::PartSegment> segments, const std::opti
 class PartReader {
 public:
     PartReader(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
-               ActorObjects& objects, std::vector<base::Diagnostic>& diagnostics)
-        : entry(entry), variant(variant), objects(objects), diagnostics(diagnostics),
+               ActorObjects& objects, const ItemSource& items,
+               std::vector<base::Diagnostic>& diagnostics)
+        : entry(entry), variant(variant), objects(objects), items(items), diagnostics(diagnostics),
           objectName(variant.object ? variant.object : entry.object) {}
 
     void read(ActorDrawing& drawing);
@@ -88,6 +91,13 @@ private:
 
     [[nodiscard]] DrawState makeState(const actor::ActorPart& part);
 
+    void readItem(const actor::ActorPart& part, usize index, ActorDrawing& drawing);
+
+    [[nodiscard]] std::vector<ActorDisplayList>
+    makeItemLists(const actor::ActorPart& part, usize index, const std::string& drawId);
+
+    [[nodiscard]] std::vector<actor::ChoiceValue> listItemValues(const actor::ActorPart& part);
+
     [[nodiscard]] std::optional<SkeletonDrawing> readSkeleton(const actor::ActorPart& part,
                                                               usize object, u32 address);
 
@@ -103,15 +113,21 @@ private:
     const actor::ActorEntry& entry;
     const actor::ActorVariant& variant;
     ActorObjects& objects;
+    const ItemSource& items;
     std::vector<base::Diagnostic>& diagnostics;
     std::optional<std::string> objectName;
 };
 
 void PartReader::read(ActorDrawing& drawing) {
-    for (const actor::PartKind kind : {actor::PartKind::Skeleton, actor::PartKind::DisplayList}) {
+    for (const actor::PartKind kind :
+         {actor::PartKind::Skeleton, actor::PartKind::DisplayList, actor::PartKind::Item}) {
         for (usize index = 0; index < variant.parts.size(); ++index) {
             const actor::ActorPart& part = variant.parts[index];
             if (part.kind != kind) {
+                continue;
+            }
+            if (kind == actor::PartKind::Item) {
+                readItem(part, index, drawing);
                 continue;
             }
             const std::optional<usize> object = findObject(part.object, part);
@@ -143,6 +159,99 @@ void PartReader::read(ActorDrawing& drawing) {
             drawing.displayLists.push_back(std::move(list));
         }
     }
+}
+
+void PartReader::readItem(const actor::ActorPart& part, const usize index, ActorDrawing& drawing) {
+    if (items.models == nullptr) {
+        return;
+    }
+    if (!part.itemChoice) {
+        std::ranges::move(makeItemLists(part, index, part.symbol),
+                          std::back_inserter(drawing.displayLists));
+        return;
+    }
+    const auto param =
+        std::ranges::find(entry.params, part.itemChoice->param, &actor::ActorParam::name);
+    if (param == entry.params.end()) {
+        return;
+    }
+    ItemLists lists{.param = *param};
+    for (const actor::ChoiceValue& value : listItemValues(part)) {
+        lists.byValue.emplace(value.value, makeItemLists(part, index, value.label));
+    }
+    drawing.items.push_back(std::move(lists));
+}
+
+std::vector<actor::ChoiceValue> PartReader::listItemValues(const actor::ActorPart& part) {
+    const actor::ItemChoice& choice = *part.itemChoice;
+    if (choice.table) {
+        const auto table =
+            std::ranges::find(items.tables, *choice.table, &actor::ValueCollection::name);
+        if (table == items.tables.end()) {
+            diagnostics.push_back(base::makeWarning(
+                part.location, std::format("{}: picks its item from '{}', which is not a table "
+                                           "of its overlay",
+                                           entry.actor, *choice.table)));
+            return {};
+        }
+        return table->values;
+    }
+    const auto param = std::ranges::find(entry.params, choice.param, &actor::ActorParam::name);
+    std::vector<actor::ChoiceValue> values;
+    for (const actor::ChoiceValue& value : param->values) {
+        if (const std::optional<std::string> name =
+                actor::findDrawIdName(*items.models, value.value + param->offset)) {
+            values.push_back(actor::ChoiceValue{.value = value.value, .label = *name});
+        }
+    }
+    return values;
+}
+
+std::vector<ActorDisplayList> PartReader::makeItemLists(const actor::ActorPart& part,
+                                                        const usize index,
+                                                        const std::string& drawId) {
+    const actor::ItemModel* model = actor::findItemModel(*items.models, drawId);
+    if (model == nullptr) {
+        diagnostics.push_back(base::makeWarning(
+            part.location,
+            std::format("{}: the checkout has no get-item model '{}'", entry.actor, drawId)));
+        return {};
+    }
+    const std::optional<usize> object = findObject(part.object ? part.object : model->object, part);
+    if (!object) {
+        return {};
+    }
+    const DrawState partState = makeState(part);
+    std::vector<ActorDisplayList> lists;
+    for (const actor::ItemDraw& draw : model->draws) {
+        if (draw.list >= model->lists.size()) {
+            diagnostics.push_back(base::makeWarning(
+                part.location,
+                std::format("{}: {} draws list {} of {}, which names only {}", entry.actor,
+                            model->drawFunction, draw.list, drawId, model->lists.size())));
+            continue;
+        }
+        const std::optional<u32> address =
+            objects.findAddress(*object, model->lists[draw.list], diagnostics);
+        if (!address) {
+            continue;
+        }
+        DrawState state = partState;
+        state.setup = part.setup.value_or(draw.setup);
+        state.placement = partState.placement * makePlacement(draw.placement);
+        state.isBillboard = partState.isBillboard || draw.isBillboard;
+        if (!draw.tiles.empty() &&
+            !std::ranges::contains(state.segments, u8{0x08}, &ActorSegment::segment)) {
+            state.segments.push_back(
+                ActorSegment{.segment = 0x08, .target = actor::BuiltList{.tiles = draw.tiles}});
+        }
+        lists.push_back(ActorDisplayList{.part = index,
+                                         .object = *object,
+                                         .address = *address,
+                                         .pass = draw.pass,
+                                         .state = std::move(state)});
+    }
+    return lists;
 }
 
 std::optional<glm::mat4> PartReader::findLimbPlacement(const actor::ActorPart& part,
@@ -300,7 +409,7 @@ AdjustmentDrawing makeAdjustmentDrawing(const actor::ActorEntry& entry,
 
 ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
                               ActorObjects& objects, const FindActorId& findActorId,
-                              std::vector<base::Diagnostic>& diagnostics) {
+                              const ItemSource& items, std::vector<base::Diagnostic>& diagnostics) {
     ActorDrawing drawing{
         .kind = variant.draw.value_or(entry.draw.value_or(actor::DrawKind::Model)),
         .scale = variant.scale.value_or(entry.scale.value_or(actor::ActorModel::DefaultScale)),
@@ -311,7 +420,7 @@ ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::Actor
         return drawing;
     }
     if (drawing.kind == actor::DrawKind::Model) {
-        PartReader(entry, variant, objects, diagnostics).read(drawing);
+        PartReader(entry, variant, objects, items, diagnostics).read(drawing);
     }
     for (const actor::ChildActor& child : variant.children) {
         if (const std::optional<s16> id = findActorId(child.actor)) {

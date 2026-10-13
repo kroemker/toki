@@ -108,6 +108,11 @@ template <typename Enum, usize Count>
 [[nodiscard]] bool editCollection(const char* label, std::optional<std::string>& collection,
                                   std::span<const std::string> names);
 
+/// A name picked from `candidates`, or typed; `empty` is shown while it is
+/// empty, or nothing may be left empty when it is null.
+[[nodiscard]] bool editPicked(const char* label, std::string& value,
+                              std::span<const std::string> candidates, const char* empty);
+
 /// A number that may be negative, typed in hexadecimal.
 [[nodiscard]] bool editSignedHex(const char* label, s64& value);
 
