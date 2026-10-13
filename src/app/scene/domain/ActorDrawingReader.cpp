@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -104,12 +105,19 @@ DrawState PartReader::makeState(const actor::ActorPart& part) {
                     .isHilit = part.isHilit,
                     .placement = makePlacement(part.placement),
                     .isBillboard = part.isBillboard};
-    for (const actor::SegmentSymbol& segment : part.segments) {
+    for (const actor::PartSegment& segment : part.segments) {
+        if (const auto* built = std::get_if<actor::BuiltList>(&segment.target)) {
+            state.segments.push_back(ActorSegment{.segment = segment.segment, .target = *built});
+            continue;
+        }
         const std::optional<usize> object = findObject(part.object, part);
         if (const std::optional<u32> address =
-                object ? objects.findAddress(*object, segment.name, diagnostics) : std::nullopt) {
+                object ? objects.findAddress(*object, std::get<std::string>(segment.target),
+                                             diagnostics)
+                       : std::nullopt) {
             state.segments.push_back(
-                ActorSegment{.segment = segment.segment, .object = *object, .address = *address});
+                ActorSegment{.segment = segment.segment,
+                             .target = ObjectAddress{.object = *object, .address = *address}});
         }
     }
     return state;

@@ -8,9 +8,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -26,7 +28,7 @@ object = "object_box"
 [[actors.ACTOR_EN_BOX.variants]]
 match = { "Type" = [5, 6], scene = ["SCENE_DEKU_TREE", "SCENE_BOTTOM_OF_THE_WELL"] }
 parts = [
-    { skeleton = "gTreasureChestSkel", pose = "gTreasureChestAnim_00024C", pose_object = "object_box_anime", rotation = [0, 180, 0], scale = 0.005, env = [0, 0, 0, 255], segments = { 8 = "gTreasureChestEyeTex" } },
+    { skeleton = "gTreasureChestSkel", pose = "gTreasureChestAnim_00024C", pose_object = "object_box_anime", rotation = [0, 180, 0], scale = 0.005, env = [0, 0, 0, 255], segments = { 8 = "gTreasureChestEyeTex", 9 = { env = [90, 140, 50], tiles = [{ tile = 1, x = 4, width = 32, height = 16 }] } } },
     { display_list = "gEffFire1DL", object = "gameplay_keep", translation = [0, 52, 0], billboard = true, setup = 66, pass = "translucent", hilite = true },
 ]
 
@@ -58,7 +60,16 @@ TEST_CASE("a variant's parts are read with everything each is drawn with", "[act
     REQUIRE(parts[0].poseObject == "object_box_anime");
     REQUIRE(parts[0].placement.scale[1] == Catch::Approx(0.005F));
     REQUIRE(parts[0].colors.environment.has_value());
-    REQUIRE(parts[0].segments.front().name == "gTreasureChestEyeTex");
+    REQUIRE(parts[0].segments.size() == 2);
+    REQUIRE(std::get<std::string>(parts[0].segments[0].target) == "gTreasureChestEyeTex");
+    const auto& built = std::get<toki::actor::BuiltList>(parts[0].segments[1].target);
+    REQUIRE(built.colors.environment == std::array<base::u8, 4>{90, 140, 50, 255});
+    REQUIRE(built.tiles.size() == 1);
+    REQUIRE(built.tiles[0].tile == 1);
+    REQUIRE(built.tiles[0].x == 4);
+    REQUIRE(built.tiles[0].y == 0);
+    REQUIRE(built.tiles[0].width == 32);
+    REQUIRE(built.tiles[0].height == 16);
     REQUIRE(parts[1].object == "gameplay_keep");
     REQUIRE(parts[1].isBillboard);
     REQUIRE(parts[1].setup == base::u8{66});
@@ -116,6 +127,7 @@ parts = [
     { display_list = "gTestDL", colour = 1 },
     { display_list = "" },
     "gTestDL",
+    { display_list = "gTestDL", segments = { 8 = { tiles = [{ tile = 9, height = 8 }], fog = 1 } } },
 ]
 )",
                                                                                 "actors.toml");
@@ -124,6 +136,9 @@ parts = [
     REQUIRE(isReported(database, "must be a segment from 8 to 12"));
     REQUIRE(isReported(database, "parts[2].colour: is not a key"));
     REQUIRE(isReported(database, "parts[3]: draws nothing"));
+    REQUIRE(isReported(database, "segments.8.tiles[0].tile: must be a whole number from 0 to 7"));
+    REQUIRE(isReported(database, "segments.8.tiles[0].width: must be a whole number from 1"));
+    REQUIRE(isReported(database, "segments.8.fog: is not a key"));
     REQUIRE(isReported(database, "parts[4]: must be a table"));
     REQUIRE(isReported(database, "a scene is matched by its enum name"));
     REQUIRE(isReported(database, "an age is \"child\" or \"adult\""));

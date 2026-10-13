@@ -104,20 +104,91 @@ PartPlacement DatabaseReader::readPlacement(const toml::table& table, const std:
     return placement;
 }
 
-std::vector<SegmentSymbol> DatabaseReader::readSegments(const toml::table& table,
-                                                        const std::string_view path) {
-    std::vector<SegmentSymbol> segments;
+std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
+                                                      const std::string_view path) {
+    std::vector<PartSegment> segments;
     for (const auto& [key, node] : table) {
+        const std::string at = makePath(path, key.str());
         const std::optional<u8> segment = parseSegment(key.str());
-        const std::optional<std::string> name = node.value<std::string>();
-        if (!segment || !node.is_string() || !name) {
-            report(node, makePath(path, key.str()),
-                   "must be a segment from 8 to 12 set to a symbol's name");
-            continue;
+        if (segment && node.is_string()) {
+            segments.push_back(
+                PartSegment{.segment = *segment, .target = node.value<std::string>().value_or("")});
+        } else if (const toml::table* built = node.as_table(); segment && built != nullptr) {
+            segments.push_back(
+                PartSegment{.segment = *segment, .target = readBuiltList(*built, at)});
+        } else {
+            report(node, at,
+                   "must be a segment from 8 to 12 set to a symbol's name, or to a table of "
+                   "what a list built at run time sets");
         }
-        segments.push_back(SegmentSymbol{.segment = *segment, .name = *name});
     }
     return segments;
+}
+
+BuiltList DatabaseReader::readBuiltList(const toml::table& table, const std::string_view path) {
+    checkKeys(table, path, BuiltListKeys);
+    BuiltList built;
+    if (const toml::node* primitive = table.get("prim")) {
+        built.colors.primitive = readColor<4>(*primitive, makePath(path, "prim"));
+    }
+    if (const toml::node* environment = table.get("env")) {
+        built.colors.environment = readColor<4>(*environment, makePath(path, "env"));
+    }
+    const toml::node* tiles = table.get("tiles");
+    if (tiles == nullptr) {
+        return built;
+    }
+    const toml::array* array = tiles->as_array();
+    if (array == nullptr) {
+        report(*tiles, makePath(path, "tiles"), "must be a list of tile sizes");
+        return built;
+    }
+    for (usize i = 0; i < array->size(); ++i) {
+        if (std::optional<TileSize> tile =
+                readTileSize((*array)[i], std::format("{}.tiles[{}]", path, i))) {
+            built.tiles.push_back(*tile);
+        }
+    }
+    return built;
+}
+
+std::optional<TileSize> DatabaseReader::readTileSize(const toml::node& node,
+                                                     const std::string_view path) {
+    constexpr s64 LastTile = 7;
+    constexpr s64 LastCoordinate = 0xFFF;
+    constexpr s64 LargestSide = 1024;
+    const toml::table* table = node.as_table();
+    if (table == nullptr) {
+        report(node, path, "must be a table of tile, x, y, width and height");
+        return std::nullopt;
+    }
+    checkKeys(*table, path, TileSizeKeys);
+    const auto readBounded = [&](const std::string_view key, const s64 first, const s64 last,
+                                 const std::optional<s64> fallback) -> std::optional<s64> {
+        const std::optional<s64> value = readInteger(*table, key, path);
+        if (!value && !table->contains(key) && fallback) {
+            return fallback;
+        }
+        if (!value || *value < first || *value > last) {
+            report(table->contains(key) ? *table->get(key) : node, makePath(path, key),
+                   std::format("must be a whole number from {} to {}", first, last));
+            return std::nullopt;
+        }
+        return value;
+    };
+    const std::optional<s64> tile = readBounded("tile", 0, LastTile, 0);
+    const std::optional<s64> x = readBounded("x", 0, LastCoordinate, 0);
+    const std::optional<s64> y = readBounded("y", 0, LastCoordinate, 0);
+    const std::optional<s64> width = readBounded("width", 1, LargestSide, std::nullopt);
+    const std::optional<s64> height = readBounded("height", 1, LargestSide, std::nullopt);
+    if (!tile || !x || !y || !width || !height) {
+        return std::nullopt;
+    }
+    return TileSize{.tile = static_cast<u8>(*tile),
+                    .x = static_cast<u16>(*x),
+                    .y = static_cast<u16>(*y),
+                    .width = static_cast<u16>(*width),
+                    .height = static_cast<u16>(*height)};
 }
 
 } // namespace toki::actor

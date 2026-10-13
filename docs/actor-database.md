@@ -2,8 +2,9 @@
 
 How each actor is shown in the viewport: a database per checkout, edited in the application,
 seeded from Toki's own and filled in for the rest by reading each actor's C (see
-[actor-rendering.md](actor-rendering.md)). This document describes format 2 and the editor
-built on it, all of which is built ([the plan](#plan)).
+[actor-rendering.md](actor-rendering.md)). This document describes format 3 and the editor
+built on it. Format 2 is built ([the plan](#plan)); what format 3 adds is being built
+([Format 3](#format-3)).
 
 ## Why
 
@@ -69,7 +70,7 @@ An entry is keyed by the actor's enum name, `ACTOR_EN_BOX`, not its ID: an ID mo
 `#if` in the actor table changes, the name does not.
 
 ```toml
-format = 2
+format = 3
 
 [actors.ACTOR_EN_BOX]
 name = "Treasure chest"
@@ -208,13 +209,35 @@ nothing carries over from one part to the next.
 | `translation`, `rotation`, `scale` | where it is relative to the actor: moved, turned in degrees about Z, then Y, then X, and scaled |
 | `billboard` | it faces the camera, as flames and sprites do |
 | `prim`, `env` | the primitive and environment colours it is drawn in |
-| `segments` | segments 8 to 12 pointed at symbols, eyes and mouths; the others point at `gEmptyDL` |
+| `segments` | segments 8 to 12, each pointed at a symbol, as eyes and mouths are, or at a list built as the game builds one ([Segments](#segments)); the others point at `gEmptyDL` |
 | `setup` | the `sSetupDL` it is drawn after, `SETUPDL_25` when left out |
 | `pass` | `opaque` (left out) or `translucent` |
 | `hilite` | `func_8002EBCC`'s `LookAt`, from the camera toward the actor, for what shines by `G_TEXTURE_GEN` |
 
 A part without `hilite` is drawn with the frame's `LookAt`, from the camera toward what it
 looks at, standing in for whatever the game drew last.
+
+### Segments
+
+An actor's models often call into a segment the actor points at a display list it builds as
+it draws: `gSPSegment(0x08, Gfx_EnvColor(...))` for a colour, `Gfx_TwoTexScroll(...)` for the
+tiles a texture scrolls on. A segment set to a table is such a list, written into the actor's
+own image and pointed at as the game points at its own:
+
+```toml
+segments = {
+    8 = { env = [0, 130, 70, 255] },
+    9 = { prim = [255, 255, 255, 255], tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, x = 4, width = 32, height = 32 }] },
+    10 = "gKw1EyeOpenTex",
+}
+```
+
+| Key | Means |
+|---|---|
+| `prim`, `env` | the colours it sets, primitive first |
+| `tiles` | the tiles it sizes after them, each as `gDPSetTileSize` after a `gDPTileSync`: `tile`, 0 to 7; `width` and `height` in texels; and `x` and `y`, where the texture starts on it in quarter texels, 0 when left out, which is where a scroll starts |
+
+A file of format 2 has no such tables, and reads as it is; it is written back as format 3.
 
 ### Player
 
@@ -368,3 +391,82 @@ Each step is committed on its own and ends with its tests passing.
 | 4 | The editor laid out as label and input, typed numbers, capitalized options, renamed "Actor Database" with its line at the top (done: the general keys; params and variants are shown as text until steps 5 and 6) |
 | 5 | Params edited on bit strips (done) |
 | 6 | Variants edited as cards of WHEN, DRAWS and SPAWNS bands, with rows that open in place (done) |
+
+## Format 3
+
+A trial of fifteen more actors of every kind (props, items, markers, enemies, an NPC, a boss)
+drew every variant, and found what format 2 cannot say. Each gap is something an actor's
+code does per actor that an entry has no key for, so the actor is drawn wrong, or its entry
+grows by multiplication. Format 3 adds keys for them; everything format 2 says it still says
+the same way, so a format 2 file reads as it is and is written back as format 3.
+
+### What it adds
+
+- **Segments built at run time.** Many actors point a segment at a display list they build
+  each frame, and their models call into it: `gSPSegment(0x08, Gfx_EnvColor(...))` colours
+  the Kokiri's tunic, `Gfx_TwoTexScroll` sizes the tiles water and flames scroll by. Some 94 of
+  427 actors build one. A segment may be set to what such a list holds, colours and tile
+  sizes, as well as to a symbol: `segments = { 8 = { env = [90, 140, 50, 255] } }`. Without
+  it, the segment points at `gEmptyDL`, and the Kokiri are grey.
+- **Limbs.** An actor's `OverrideLimbDraw` swaps a limb's display list for another (the Gold
+  Skulltula's ten gold limbs, a Kokiri's head from another object) or hides it, and its
+  `PostLimbDraw` draws something more at a limb (the Wallmaster's finger, what a hand holds).
+  A skeleton part may replace or hide its limbs, `limbs = { 23 = "object_st_DL_004788",
+  4 = "none" }`, and a display list part may be placed at a limb of the variant's skeleton,
+  `limb = 2`, its placement then relative to the limb. This takes back the decision to leave
+  out what is drawn with a skeleton's limbs: it is what makes these actors look like
+  themselves.
+- **Adjustments.** Params that pick independent things multiply into variants: the push block
+  takes its size from one param and its colour from the scene and another, 4 × 17 = 68
+  variants of one part. Adjustments are a second list beside the variants. The first variant
+  that matches still says what is drawn; then every adjustment that matches is applied in
+  order, changing the scale, the height offset, which axes it turns by, and the colours and
+  segments of its parts, all of them or those it lists. It never adds a part. The push block
+  becomes one variant and 21 adjustments, and deriving can write one adjustment per entry of
+  a table of scales or colours.
+- **Items.** `GetItem_Draw(play, GID_X)` draws an item as `sDrawItemTable` in `z_draw.c` says:
+  one of about thirty draw functions and up to eight display lists. Writing that out by hand
+  took Item_Etcetera thirteen variants, and is only right while state carries from one part
+  to the next, which parts promise it does not. A part may draw an item, `get_item =
+  "GID_HEART_PIECE"`, or the item a param picks, read as the table and the draw function do.
+- **Overlay data.** A display list an overlay defines itself, En_Holl's `sPlaneDL`, is
+  compiled into the overlay rather than an object. An object may be named as the overlay's
+  asset folder, `object = "ovl_En_Holl"`.
+- **Smaller keys.** A pose at another frame than the first, `pose_frame = 2`; `rotates` set per
+  variant; a child's params taking a param of its parent by name, `take = { "Switch Flag" =
+  "Switch Flag" }`; and enumerations an overlay's `.c` defines offered as its collections, as
+  its tables already are.
+
+Left out still: params read as ranges of values rather than bits, positions `Init` sets
+outright, and what decides whether an actor spawns. Notes say them.
+
+### In the panel
+
+- **Segments** are rows in a part's properties, 8 to 12, each a mode, *Symbol* or *Built*,
+  and its inputs: a symbol picked from the object, or the primitive and environment colours
+  and the tile sizes the list sets. The part's row badges each built segment, "seg 8 built",
+  in the colour it sets.
+- **Limbs** are a list in a skeleton part's properties, one row per limb by index and the
+  name the object's header gives it, each *Drawn*, *Hidden* or *Replaced by* a symbol; only
+  the changed ones are shown until all are asked for. A part placed at a limb picks the limb
+  in its properties, and its row sits indented under its skeleton's, badged with the limb.
+- **Adjustments** are cards below the variants, each a WHEN band as a variant has and a
+  CHANGES band in place of DRAWS. The Scene panel names the variant and the adjustments a
+  placed actor is drawn with, and can add an adjustment for its params as it adds a variant.
+- **Items** are rows tagged GI beside DL and SK, picked from the `GetItemDrawID` collection or
+  bound to a param.
+
+### Plan
+
+Each step is committed on its own and ends with its tests passing, the trial's entries
+rewritten to use what it adds, and their renders looked at.
+
+| Step | What |
+|---|---|
+| 1 | Built segments: the format (3, reading 2), drawing them into the actor's own image, the panel's segment rows; the Kokiri's colours (done; the crystal switch's tiles too) |
+| 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger |
+| 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block |
+| 4 | Item parts; Item_Etcetera, the Gold Skulltula token |
+| 5 | Overlay data as objects; En_Holl, Elf_Msg |
+| 6 | The smaller keys |
+| 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database |

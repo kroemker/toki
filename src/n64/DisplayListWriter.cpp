@@ -188,6 +188,20 @@ u32 DisplayListWriter::syncPipe() {
     return addCommand(makeOpcode(Opcode::PipeSync), 0);
 }
 
+u32 DisplayListWriter::syncTile() {
+    return addCommand(makeOpcode(Opcode::TileSync), 0);
+}
+
+u32 DisplayListWriter::setTileSize(const u8 tile, const u32 upperLeftS, const u32 upperLeftT,
+                                   const u32 lowerRightS, const u32 lowerRightT) {
+    constexpr u32 Coordinate = 0xFFF;
+    constexpr u32 TileBits = 0x7;
+    return addCommand(makeOpcode(Opcode::SetTileSize) | ((upperLeftS & Coordinate) << 12) |
+                          (upperLeftT & Coordinate),
+                      ((tile & TileBits) << 24) | ((lowerRightS & Coordinate) << 12) |
+                          (lowerRightT & Coordinate));
+}
+
 u32 DisplayListWriter::callDisplayList(const u32 address) {
     return addCommand(makeOpcode(Opcode::DisplayList), address);
 }

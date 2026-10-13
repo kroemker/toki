@@ -63,12 +63,12 @@ constexpr s64 LargestMask = 0xFFFF;
 ActorDatabase DatabaseReader::read(const toml::table& root) && {
     checkKeys(root, {}, DatabaseKeys);
     if (const std::optional<s64> format = readInteger(root, "format", {});
-        format && *format != DatabaseFormat) {
+        format && (*format < OldestReadFormat || *format > DatabaseFormat)) {
         report(*root.get("format"), "format",
-               std::format("is {}, and this build reads format {}; a database of format 1 was "
-                           "written by an earlier Toki, and is made again by deriving its "
+               std::format("is {}, and this build reads formats {} to {}; a database of format "
+                           "1 was written by an earlier Toki, and is made again by deriving its "
                            "actors",
-                           *format, DatabaseFormat));
+                           *format, OldestReadFormat, DatabaseFormat));
         return std::move(database);
     }
     database.checkedAgainst = readString(root, "checked_against", {});

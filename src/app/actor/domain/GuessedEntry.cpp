@@ -38,13 +38,13 @@ namespace {
     return symbol.object == object ? std::nullopt : std::optional(symbol.object);
 }
 
-[[nodiscard]] std::vector<SegmentSymbol> listSegments(const std::vector<SegmentSetting>& settings,
-                                                      const Pass pass) {
-    std::vector<SegmentSymbol> segments;
+[[nodiscard]] std::vector<PartSegment> listSegments(const std::vector<SegmentSetting>& settings,
+                                                    const Pass pass) {
+    std::vector<PartSegment> segments;
     for (const SegmentSetting& setting : settings) {
         if (setting.pass == pass) {
             segments.push_back(
-                SegmentSymbol{.segment = setting.segment, .name = setting.symbol.name});
+                PartSegment{.segment = setting.segment, .target = setting.symbol.name});
         }
     }
     return segments;

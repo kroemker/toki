@@ -7,4 +7,5 @@ target_sources(toki PRIVATE
         NewActorsPrompt.cpp
         ParamsEditor.cpp
         PartsEditor.cpp
+        SegmentsEditor.cpp
         VariantsEditor.cpp)

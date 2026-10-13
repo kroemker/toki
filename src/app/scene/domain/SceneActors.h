@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -35,17 +36,22 @@ struct ActorObject {
     std::shared_ptr<const z64::MemoryImage> image;
 };
 
-/// A segment an actor points at an address in one of the actor objects before
-/// it draws, as at its eye texture.
-struct ActorSegment {
-    u8 segment = 0;
+/// An address in one of the actor objects, as of an eye texture.
+struct ObjectAddress {
     usize object = 0;
     u32 address = 0;
 };
 
+/// A segment an actor points before it draws: at an address in one of the
+/// actor objects, or at a list it builds, as its colours.
+struct ActorSegment {
+    u8 segment = 0;
+    std::variant<ObjectAddress, actor::BuiltList> target;
+};
+
 /// What a display list or skeleton is drawn under, as its part says: after
 /// `sSetupDL[setup]`, in its colours, with a `LookAt` toward the actor when it
-/// is hilit, with segments 8 to 12 pointed at its symbols, placed relative to
+/// is hilit, with segments 8 to 12 pointed as it says, placed relative to
 /// the actor, and facing the camera when it is a billboard.
 struct DrawState {
     u8 setup = 25;

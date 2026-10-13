@@ -14,6 +14,7 @@
 #include <glm/ext/vector_float4.hpp>
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -31,8 +32,9 @@ namespace {
             .object = 0,
             .address = 0x0600'0100,
             .pass = pass,
-            .state = {.segments = {
-                          toki::scene::ActorSegment{.segment = 0x08, .address = 0x0600'0800}}}}}};
+            .state = {.segments = {toki::scene::ActorSegment{
+                          .segment = 0x08,
+                          .target = toki::scene::ObjectAddress{.address = 0x0600'0800}}}}}}};
 }
 
 /// A pot of two kinds by its params' bit 8: opaque, or translucent.
@@ -170,6 +172,41 @@ TEST_CASE("a skeleton is drawn by its limbs' matrices after its setup display li
                u32{bytes[at + 3]};
     };
     REQUIRE(readWord(draws.opaque.front().displayList + 4) == setups[44]);
+}
+
+TEST_CASE("a built segment points at a list of its colours and tile sizes in the actor's image",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    toki::scene::ActorDrawing drawing = makeListDrawing(toki::actor::Pass::Opaque);
+    drawing.displayLists.front().state.segments.push_back(toki::scene::ActorSegment{
+        .segment = 0x09,
+        .target = toki::actor::BuiltList{
+            .colors = {.environment = std::array<u8, 4>{10, 20, 30, 255}},
+            .tiles = {toki::actor::TileSize{.tile = 1, .x = 8, .width = 32, .height = 16}}}});
+    toki::scene::SceneActorModel kokiri{.enumName = "ACTOR_EN_KO"};
+    kokiri.entry =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_KO", .variants = {toki::actor::ActorVariant{}}};
+    kokiri.variants = {drawing};
+    actors.models.emplace(s16{5}, kokiri);
+    const std::array placed{toki::scene::PlacedActor{.id = 5}};
+
+    const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
+        actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = std::vector<u32>(26)});
+
+    REQUIRE(draws.opaque.size() == 1);
+    const toki::viewport::ViewportDraw& draw = draws.opaque.front();
+    REQUIRE(draw.pointedSegments.size() == 2);
+    const toki::viewport::SegmentPointer& built = draw.pointedSegments[1];
+    REQUIRE(built.segment == 0x09);
+    REQUIRE(built.image == draw.image);
+    const std::vector<u8>& bytes = draws.images.back()->segments.front().bytes;
+    const usize at = built.address & 0x00FF'FFFFU;
+    REQUIRE(std::vector<u8>(bytes.begin() + static_cast<std::ptrdiff_t>(at),
+                            bytes.begin() + static_cast<std::ptrdiff_t>(at + 32)) ==
+            std::vector<u8>{0xFB, 0x00, 0x00, 0x00, 0x0A, 0x14, 0x1E, 0xFF, 0xE8, 0x00, 0x00,
+                            0x00, 0x00, 0x00, 0x00, 0x00, 0xF2, 0x00, 0x80, 0x00, 0x01, 0x08,
+                            0x40, 0x3C, 0xDF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+    REQUIRE(at + 32 <= (draw.displayList & 0x00FF'FFFFU));
 }
 
 TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {

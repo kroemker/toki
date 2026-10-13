@@ -5,6 +5,7 @@
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/actor/ui/SegmentsEditor.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/object/domain/ObjectAssets.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
@@ -27,10 +29,6 @@ namespace {
 constexpr std::array SkeletonKinds{object::AssetKind::Skeleton};
 constexpr std::array PoseKinds{object::AssetKind::Animation};
 constexpr std::array DisplayListKinds{object::AssetKind::DisplayList};
-constexpr std::array SegmentKinds{object::AssetKind::Texture, object::AssetKind::DisplayList,
-                                  object::AssetKind::Palette};
-constexpr int FirstSegment = 8;
-constexpr int LastSegment = 12;
 constexpr int LastSetup = 70;
 constexpr u8 DefaultSetup = 25;
 constexpr ImVec4 PassColor{0.561F, 0.827F, 1.0F, 1.0F};
@@ -43,44 +41,6 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
 
 [[nodiscard]] bool isOne(const std::array<f32, 3>& value) {
     return std::ranges::all_of(value, [](const f32 component) { return component == 1.0F; });
-}
-
-[[nodiscard]] bool editSegments(std::vector<SegmentSymbol>& segments,
-                                const std::optional<std::string>& object,
-                                const EditContext& context) {
-    bool isChanged = false;
-    std::optional<usize> removed;
-    for (usize i = 0; i < segments.size(); ++i) {
-        ImGui::PushID(static_cast<int>(i));
-        const std::string label = std::format("Segment {}", segments[i].segment);
-        isChanged =
-            editSymbol(label.c_str(), segments[i].name, object, SegmentKinds, context) || isChanged;
-        core::drawPropertyLabel("");
-        if (ImGui::SmallButton(
-                std::format("Point segment {} at nothing", segments[i].segment).c_str())) {
-            removed = i;
-        }
-        ImGui::PopID();
-    }
-    if (removed) {
-        segments.erase(segments.begin() + static_cast<std::ptrdiff_t>(*removed));
-        isChanged = true;
-    }
-    core::drawPropertyLabel("Segments");
-    for (int segment = FirstSegment; segment <= LastSegment; ++segment) {
-        if (std::ranges::contains(segments, static_cast<u8>(segment), &SegmentSymbol::segment)) {
-            continue;
-        }
-        const std::string button = std::format("+ {}", segment);
-        if (ImGui::SmallButton(button.c_str())) {
-            segments.push_back(SegmentSymbol{.segment = static_cast<u8>(segment)});
-            isChanged = true;
-        }
-        ImGui::SetItemTooltip("Point segment %d at a symbol", segment);
-        ImGui::SameLine();
-    }
-    ImGui::NewLine();
-    return isChanged;
 }
 
 [[nodiscard]] bool editSetup(std::optional<u8>& setup) {
@@ -177,10 +137,7 @@ constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
     if (part.colors.primitive || part.colors.environment) {
         badges.push_back(RowBadge{.text = "colours", .color = core::palette::TextMuted});
     }
-    if (!part.segments.empty()) {
-        badges.push_back(RowBadge{.text = std::format("segments {}", part.segments.size()),
-                                  .color = core::palette::TextMuted});
-    }
+    std::ranges::move(makeSegmentBadges(part.segments), std::back_inserter(badges));
     return badges;
 }
 

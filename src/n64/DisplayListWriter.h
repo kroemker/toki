@@ -114,6 +114,13 @@ public:
 
     u32 syncPipe();
 
+    /// `gDPTileSync`: waits for the tiles in use before one is changed.
+    u32 syncTile();
+
+    /// `gDPSetTileSize`: the texels `tile` spans, its corners in 10.2 fixed
+    /// point, each kept to the command's 12 bits.
+    u32 setTileSize(u8 tile, u32 upperLeftS, u32 upperLeftT, u32 lowerRightS, u32 lowerRightT);
+
     u32 callDisplayList(u32 address);
 
     u32 endDisplayList();

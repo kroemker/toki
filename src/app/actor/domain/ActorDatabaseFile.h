@@ -10,7 +10,10 @@
 namespace toki::actor {
 
 /// The version of `actors.toml` this build reads and writes.
-inline constexpr int DatabaseFormat = 2;
+inline constexpr int DatabaseFormat = 3;
+
+/// The oldest format this build reads: format 3 only adds keys to it.
+inline constexpr int OldestReadFormat = 2;
 
 /// Where Toki's own actor database, which every checkout's is seeded from, is
 /// installed: `actors.toml` in the assets folder beside the executable.

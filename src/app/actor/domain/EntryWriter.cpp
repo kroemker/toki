@@ -151,6 +151,38 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     return table;
 }
 
+[[nodiscard]] toml::table makeTileSize(const TileSize& size) {
+    toml::table table = makeInline();
+    table.insert("tile", s64{size.tile});
+    if (size.x != 0) {
+        table.insert("x", s64{size.x});
+    }
+    if (size.y != 0) {
+        table.insert("y", s64{size.y});
+    }
+    table.insert("width", s64{size.width});
+    table.insert("height", s64{size.height});
+    return table;
+}
+
+[[nodiscard]] toml::table makeBuiltList(const BuiltList& built) {
+    toml::table table = makeInline();
+    if (built.colors.primitive) {
+        table.insert("prim", makeChannels(*built.colors.primitive));
+    }
+    if (built.colors.environment) {
+        table.insert("env", makeChannels(*built.colors.environment));
+    }
+    if (!built.tiles.empty()) {
+        toml::array tiles;
+        for (const TileSize& size : built.tiles) {
+            tiles.push_back(makeTileSize(size));
+        }
+        table.insert("tiles", std::move(tiles));
+    }
+    return table;
+}
+
 [[nodiscard]] toml::table makePart(const ActorPart& part) {
     toml::table table = makeInline();
     table.insert(part.kind == PartKind::DisplayList ? "display_list" : "skeleton", part.symbol);
@@ -169,8 +201,13 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     }
     if (!part.segments.empty()) {
         toml::table segments = makeInline();
-        for (const SegmentSymbol& segment : part.segments) {
-            segments.insert(std::to_string(segment.segment), segment.name);
+        for (const PartSegment& segment : part.segments) {
+            const std::string key = std::to_string(segment.segment);
+            if (const auto* symbol = std::get_if<std::string>(&segment.target)) {
+                segments.insert(key, *symbol);
+            } else {
+                segments.insert(key, makeBuiltList(std::get<BuiltList>(segment.target)));
+            }
         }
         table.insert("segments", std::move(segments));
     }

@@ -94,10 +94,30 @@ struct DrawColors {
     std::optional<std::array<u8, 4>> environment;
 };
 
-/// A segment from 8 to 12 pointed at a symbol.
-struct SegmentSymbol {
+/// A tile's size as a texture scroll sets it, as `Gfx_TwoTexScroll` is called:
+/// the tile, where the texture starts on it in quarter texels, and how many
+/// texels it is wide and high.
+struct TileSize {
+    u8 tile = 0;
+    u16 x = 0;
+    u16 y = 0;
+    u16 width = 0;
+    u16 height = 0;
+};
+
+/// A display list the game builds as it draws, for a segment to point at:
+/// colours set, as `Gfx_EnvColor` sets one, and then tiles sized, as
+/// `Gfx_TwoTexScroll` sizes them.
+struct BuiltList {
+    DrawColors colors;
+    std::vector<TileSize> tiles;
+};
+
+/// A segment from 8 to 12, pointed at a symbol or at a list built as the game
+/// builds one.
+struct PartSegment {
     u8 segment = 0;
-    std::string name;
+    std::variant<std::string, BuiltList> target;
 };
 
 /// Where something is drawn relative to its actor: moved, turned in degrees
@@ -127,7 +147,7 @@ struct ActorPart {
     PartPlacement placement;
     bool isBillboard = false;
     DrawColors colors;
-    std::vector<SegmentSymbol> segments;
+    std::vector<PartSegment> segments;
     /// The `sSetupDL` it is drawn after, when not `SETUPDL_25`.
     std::optional<u8> setup;
     Pass pass = Pass::Opaque;

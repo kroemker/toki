@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 
 TEST_CASE("a guessed skeleton becomes an entry, naming the objects that are not the entry's",
           "[actor][guess]") {
@@ -37,7 +38,7 @@ TEST_CASE("a guessed skeleton becomes an entry, naming the objects that are not 
     REQUIRE(part.pose == "gObjOsAnim_Idle");
     REQUIRE(part.poseObject == "object_os_anime");
     REQUIRE(part.segments.size() == 1);
-    REQUIRE(part.segments.front().name == "gEyeTex");
+    REQUIRE(std::get<std::string>(part.segments.front().target) == "gEyeTex");
 }
 
 TEST_CASE("guessed display lists keep their passes and segments, and no model is no variant",
@@ -56,7 +57,7 @@ TEST_CASE("guessed display lists keep their passes and segments, and no model is
     const toki::actor::ActorPart& part = entry.variants.front().parts.front();
     REQUIRE(part.object == "gameplay_keep");
     REQUIRE(part.pass == toki::actor::Pass::Translucent);
-    REQUIRE(part.segments.front().name == "gTex");
+    REQUIRE(std::get<std::string>(part.segments.front().target) == "gTex");
     REQUIRE_FALSE(entry.scale.has_value());
     REQUIRE(empty.variants.empty());
 }

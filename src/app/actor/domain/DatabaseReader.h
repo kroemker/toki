@@ -47,6 +47,11 @@ inline constexpr std::array PartKeys = {
     std::string_view("env"),          std::string_view("segments"),
     std::string_view("setup"),        std::string_view("pass"),
     std::string_view("hilite")};
+inline constexpr std::array BuiltListKeys = {std::string_view("prim"), std::string_view("env"),
+                                             std::string_view("tiles")};
+inline constexpr std::array TileSizeKeys = {std::string_view("tile"), std::string_view("x"),
+                                            std::string_view("y"), std::string_view("width"),
+                                            std::string_view("height")};
 
 /// `path.key`, or `key` at the top.
 [[nodiscard]] std::string makePath(std::string_view path, std::string_view key);
@@ -103,8 +108,11 @@ private:
     [[nodiscard]] std::vector<ActorPart> readParts(const toml::array& parts, std::string_view path);
     [[nodiscard]] std::optional<ActorPart> readPart(const toml::table& table,
                                                     std::string_view path);
-    [[nodiscard]] std::vector<SegmentSymbol> readSegments(const toml::table& table,
-                                                          std::string_view path);
+    [[nodiscard]] std::vector<PartSegment> readSegments(const toml::table& table,
+                                                        std::string_view path);
+    [[nodiscard]] BuiltList readBuiltList(const toml::table& table, std::string_view path);
+    [[nodiscard]] std::optional<TileSize> readTileSize(const toml::node& node,
+                                                       std::string_view path);
     [[nodiscard]] std::vector<ChildActor> readChildren(const toml::array& children,
                                                        std::string_view path);
     [[nodiscard]] PartPlacement readPlacement(const toml::table& table, std::string_view path);

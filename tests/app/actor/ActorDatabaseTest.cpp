@@ -200,7 +200,7 @@ parts = [{ display_list = "gTestDL", pose = "gTestAnim" }, { skeleton = "gTestSk
 
 TEST_CASE("a database of another format, or not TOML at all, is not read", "[actor][database]") {
     REQUIRE(isReported(toki::actor::parseActorDatabase("format = 1\n", "a.toml"),
-                       "this build reads format 2"));
+                       "this build reads formats 2 to 3"));
     REQUIRE(isReported(toki::actor::parseActorDatabase("[actors\n", "b.toml"),
                        "cannot be read as TOML"));
 }

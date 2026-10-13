@@ -100,6 +100,16 @@ TEST_CASE("the writer's words are the words the test builder spells out", "[n64]
     REQUIRE(writer.getBytes() == builder.getBytes());
 }
 
+TEST_CASE("a tile is sized as gDPSetTileSize sizes it", "[n64][writer]") {
+    n64::DisplayListWriter writer(Segment);
+
+    writer.syncTile();
+    writer.setTileSize(1, 8, 4, 8 + (31 << 2), 4 + (15 << 2));
+
+    REQUIRE(writer.getBytes() == std::vector<u8>{0xE8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                 0xF2, 0x00, 0x80, 0x04, 0x01, 0x08, 0x40, 0x40});
+}
+
 TEST_CASE("what the writer writes, the RSP runs", "[n64][writer]") {
     n64::DisplayListWriter writer(Segment);
     const u32 viewport = writer.addViewport(n64::makeDefaultViewport());
