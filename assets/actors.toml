@@ -516,3 +516,939 @@ scale = 0.01
 
 [[actors.ACTOR_EN_MD.variants]]
 parts = [{ skeleton = "gMidoSkel", pose = "gMidoIdleAnim", segments = { 8 = "gMidoEyeOpenTex" } }]
+
+[actors.ACTOR_OBJ_BOMBIWA]
+name = "Bombable boulder"
+notes = "A round brown boulder broken by a bomb, a Blue Fire... or the hammer. Placed with rotation Y 0, it is given a random one. Raised 20 units and drawn 200 model units lower, which cancel."
+object = "object_bombiwa"
+scale = 0.1
+
+[actors.ACTOR_OBJ_BOMBIWA.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it breaks; it is gone while set" }
+Chime = { mask = 0x8000, kind = "flag", description = "Plays the secret chime when broken" }
+
+[[actors.ACTOR_OBJ_BOMBIWA.variants]]
+parts = [{ display_list = "object_bombiwa_DL_0009E0" }]
+
+[actors.ACTOR_EN_SI]
+name = "Gold Skulltula token"
+notes = "The token a Gold Skulltula leaves, collected by touch or the hookshot. Drawn by GetItem_Draw(GID_SKULL_TOKEN_2); its flame scrolls, which is not drawn."
+object = "object_st"
+scale = 0.025
+height_offset = 42
+
+[actors.ACTOR_EN_SI.params]
+Flag = { mask = 0x00FF, kind = "number", hex = true, description = "The bit of the Gold Skulltula flags it sets" }
+Group = { mask = 0x1F00, kind = "number", description = "Which of the Gold Skulltula flag bytes, by area" }
+
+[[actors.ACTOR_EN_SI.variants]]
+parts = [
+    { display_list = "gSkulltulaTokenDL", hilite = true },
+    { display_list = "gSkulltulaTokenFlameDL", pass = "translucent", hilite = true },
+]
+
+[actors.ACTOR_ITEM_ETCETERA]
+name = "Item"
+notes = "A get-item model lying in the world, collected by touch: Ruto's letter, the Lake Hylia fire arrow, the Zora diving game's scale, and the Treasure Box Shop's prizes. The fire arrow appears only once Link shoots the sun; the shop's prizes are drawn only through the Lens of Truth. Drawn by GetItem_Draw, as sDrawItemIndices picks."
+scale = 0.25
+
+[actors.ACTOR_ITEM_ETCETERA.params]
+Type = { mask = 0x00FF, kind = "choice", values = "ItemEtceteraType" }
+"Treasure Flag" = { mask = 0x1F00, kind = "number", scene_flag = "treasure", flag_use = "both", description = "Set when the item is collected, for the fire arrow and the shop's prizes" }
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 0 }
+object = "object_gi_bottle"
+parts = [
+    { display_list = "gGiBottleStopperDL", hilite = true },
+    { display_list = "gGiBottleDL", pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 1 }
+object = "object_gi_bottle_letter"
+scale = 0.5
+parts = [
+    { display_list = "gGiLetterBottleContentsDL", hilite = true },
+    { display_list = "gGiLetterBottleDL", pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 2 }
+object = "object_gi_shield_2"
+parts = [{ display_list = "gGiHylianShieldDL", hilite = true }]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 3 }
+object = "object_gi_arrowcase"
+parts = [
+    { display_list = "gGiQuiver40InnerColorDL", hilite = true },
+    { display_list = "gGiQuiverInnerDL", hilite = true },
+    { display_list = "gGiQuiver40OuterColorDL", hilite = true },
+    { display_list = "gGiQuiverOuterDL", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 4 }
+object = "object_gi_scale"
+parts = [
+    { display_list = "gGiSilverScaleColorDL", pass = "translucent", hilite = true },
+    { display_list = "gGiScaleDL", pass = "translucent", hilite = true },
+    { display_list = "gGiSilverScaleWaterColorDL", pass = "translucent", hilite = true },
+    { display_list = "gGiScaleWaterDL", pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 5 }
+object = "object_gi_scale"
+parts = [
+    { display_list = "gGiGoldenScaleColorDL", pass = "translucent", hilite = true },
+    { display_list = "gGiScaleDL", pass = "translucent", hilite = true },
+    { display_list = "gGiGoldenScaleWaterColorDL", pass = "translucent", hilite = true },
+    { display_list = "gGiScaleWaterDL", pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = [6, 13] }
+object = "object_gi_key"
+parts = [{ display_list = "gGiSmallKeyDL", hilite = true }]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 7 }
+object = "object_gi_m_arrow"
+scale = 0.5
+height_offset = 50
+parts = [
+    { display_list = "gGiMagicArrowDL", hilite = true },
+    { display_list = "gGiFireArrowColorDL", pass = "translucent", hilite = true },
+    { display_list = "gGiArrowMagicDL", pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 8 }
+object = "object_gi_rupy"
+scale = 0.5
+parts = [
+    { display_list = "gGiGreenRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiGreenRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 9 }
+object = "object_gi_rupy"
+scale = 0.5
+parts = [
+    { display_list = "gGiBlueRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiBlueRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 10 }
+object = "object_gi_rupy"
+scale = 0.5
+parts = [
+    { display_list = "gGiRedRupeeInnerColorDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], scale = 0.7, hilite = true },
+    { display_list = "gGiRedRupeeOuterColorDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], scale = 0.7, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 11 }
+object = "object_gi_rupy"
+scale = 0.5
+parts = [
+    { display_list = "gGiPurpleRupeeInnerColorDL", translation = [0, 30, 0], hilite = true },
+    { display_list = "gGiRupeeInnerDL", translation = [0, 30, 0], hilite = true },
+    { display_list = "gGiPurpleRupeeOuterColorDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
+    { display_list = "gGiRupeeOuterDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_ITEM_ETCETERA.variants]]
+match = { Type = 12 }
+object = "object_gi_hearts"
+scale = 0.5
+parts = [
+    { display_list = "gGiHeartBorderDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
+    { display_list = "gGiHeartPieceDL", translation = [0, 30, 0], pass = "translucent", hilite = true },
+]
+
+[actors.ACTOR_ELF_MSG]
+name = "Navi message spot"
+notes = "Where Navi flies to and speaks when Link enters: a cylinder, or a box with Shape set, sized by its rotation X (width) and Z (height), each times 4 units, 40 when zero. Drawn only in debug builds while a debug register is set; a marker here."
+draw = "marker"
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_ELF_MSG.params]
+Message = { mask = 0x00FF, kind = "number", hex = true, description = "Navi's message, plus 0x100" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when Navi speaks; gone while set. 0x3F is none" }
+Shape = { mask = 0x4000, kind = "choice", values = { 0 = "Cylinder", 1 = "Box" } }
+Optional = { mask = 0x8000, kind = "flag", description = "Navi only calls for C-up; clear, Link is made to talk to her" }
+Width = { mask = 0xFFFF, source = "rotation_x", kind = "number", description = "Radius or half width, times 4 units; 0 is 40" }
+Condition = { mask = 0xFFFF, source = "rotation_y", kind = "number", signed = true, description = "1 to 0x40: gone once switch flag (this - 1) is set; -1: gone once the room is clear; 0x42 to 0x80: active only while switch flag (this - 0x41) is set" }
+Height = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "Times 4 units; 0 is 40" }
+[actors.ACTOR_BG_BREAKWALL]
+name = "Bombable wall"
+notes = "A cracked wall or floor that a bomb breaks: Dodongo's Cavern's entrance, which plays its opening cutscene, its walls, and King Dodongo's floor. Type 3 is the cover over King Dodongo's lava, spawned after the fight and drawn by nothing."
+scale = 0.1
+
+[actors.ACTOR_BG_BREAKWALL.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it breaks; gone while set" }
+Type = { mask = 0x6000, kind = "choice", values = "BombableWallType" }
+Chime = { mask = 0x8000, kind = "flag", description = "Plays the chest-appears sound when broken" }
+
+[[actors.ACTOR_BG_BREAKWALL.variants]]
+match = { Type = [0, 1] }
+object = "object_bwall"
+parts = [{ display_list = "object_bwall_DL_000040" }]
+
+[[actors.ACTOR_BG_BREAKWALL.variants]]
+match = { Type = 2 }
+object = "object_kingdodongo"
+parts = [{ display_list = "object_kingdodongo_DL_025BD0" }]
+
+[[actors.ACTOR_BG_BREAKWALL.variants]]
+draw = "marker"
+
+[actors.ACTOR_EN_HOLL]
+name = "Room transition plane"
+notes = "Loads the room on the other side as Link passes, placed as a transition actor between two rooms. The visible types draw a black plane that fades as Link nears, from sPlaneDL in the overlay, which a part cannot name; a marker here."
+draw = "marker"
+
+[actors.ACTOR_EN_HOLL.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Enables the switch-flag type" }
+Type = { mask = 0x01C0, kind = "choice", values = "EnHollType" }
+
+[actors.ACTOR_BG_YDAN_SP]
+name = "Deku Tree web"
+notes = "A spider web in the Deku Tree, across the floor to be fallen through or on a wall to be burnt."
+object = "object_ydan_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_YDAN_SP.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it is broken or burnt; gone while set" }
+"Burn Flag" = { mask = 0x0FC0, kind = "number", scene_flag = "switch", description = "Burns it when set" }
+Type = { mask = 0xF000, kind = "choice", values = { 0 = "Floor", 1 = "Wall" } }
+
+[[actors.ACTOR_BG_YDAN_SP.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gDTWebWallDL", pass = "translucent" }]
+
+[[actors.ACTOR_BG_YDAN_SP.variants]]
+parts = [{ display_list = "gDTWebFloorDL", pass = "translucent" }]
+
+[actors.ACTOR_EN_WOOD02]
+name = "Tree or bush"
+notes = "A tree, bush or falling leaf of Hyrule Field and the villages. Spawner types draw one of their kind 141 units off and spawn five more around themselves, as the spawned type, once each spot comes into view; in the game the spawned ones face fixed angles and stand on the floor below. A tree with rotation Z hides a Gold Skulltula, whose params are rotation Z's low 5 bits shifted up 8, with the drop byte, ORed into 0xE000."
+object = "object_wood02"
+scale = 1
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_WOOD02.params]
+Type = { mask = 0x00FF, kind = "choice", values = "WoodType" }
+Drop = { mask = 0xFF00, kind = "number", hex = true, description = "Its drop table, shifted up 4 when cut; 0x80 and up drop nothing" }
+Skulltula = { mask = 0xFFFF, source = "rotation_z", kind = "number", hex = true, description = "Not zero, a Gold Skulltula falls out when the tree is hit" }
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 3 }
+parts = [
+    { display_list = "object_wood02_DL_0078D0", translation = [-99.7, 0, -99.7] },
+    { display_list = "object_wood02_DL_007968", translation = [-99.7, 0, -99.7], pass = "translucent", env = [255, 255, 255, 0] },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0004, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0004, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0004, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0004, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0004, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 6 }
+parts = [
+    { display_list = "object_wood02_DL_007CA0", translation = [-99.7, 0, -99.7] },
+    { display_list = "object_wood02_DL_007D38", translation = [-99.7, 0, -99.7], pass = "translucent", env = [180, 155, 0, 0] },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0007, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0007, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0007, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0007, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0007, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 8 }
+parts = [
+    { display_list = "object_wood02_DL_007CA0", translation = [-99.7, 0, -99.7] },
+    { display_list = "object_wood02_DL_007D38", translation = [-99.7, 0, -99.7], pass = "translucent", env = [50, 170, 70, 0] },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0009, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0009, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0009, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0009, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0009, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 13 }
+parts = [
+    { display_list = "object_wood02_DL_000090", translation = [-99.7, 0, -99.7], pass = "translucent" },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x000E, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x000E, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x000E, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x000E, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x000E, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 15 }
+scale = 1.5
+parts = [
+    { display_list = "object_wood02_DL_000090", translation = [-66.47, 0, 66.47], pass = "translucent" },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0010, offset = [499.97, 0, -499.88] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0010, offset = [-159.99, 0, -500.03] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0010, offset = [-500.1, 0, -100.02] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0010, offset = [-299.96, 0, 400.03] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0010, offset = [300.01, 0, 479.95] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 19 }
+parts = [
+    { display_list = "object_wood02_DL_000340", translation = [-99.7, 0, -99.7], pass = "translucent" },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0014, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0014, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0014, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0014, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0014, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 21 }
+scale = 1.5
+parts = [
+    { display_list = "object_wood02_DL_000340", translation = [-66.47, 0, -66.47], pass = "translucent" },
+]
+children = [
+    { actor = "ACTOR_EN_WOOD02", params = 0x0016, offset = [499.88, 0, 499.97] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0016, offset = [500.03, 0, -159.99] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0016, offset = [100.02, 0, -500.1] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0016, offset = [-400.03, 0, -299.96] },
+    { actor = "ACTOR_EN_WOOD02", params = 0x0016, offset = [-479.95, 0, 300.01] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 0 }
+scale = 1.5
+parts = [
+    { display_list = "object_wood02_DL_0078D0" },
+    { display_list = "object_wood02_DL_007968", pass = "translucent", env = [255, 255, 255, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [1, 4] }
+parts = [
+    { display_list = "object_wood02_DL_0078D0" },
+    { display_list = "object_wood02_DL_007968", pass = "translucent", env = [255, 255, 255, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 2 }
+scale = 0.6
+parts = [
+    { display_list = "object_wood02_DL_0078D0" },
+    { display_list = "object_wood02_DL_007968", pass = "translucent", env = [255, 255, 255, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [5, 9] }
+parts = [
+    { display_list = "object_wood02_DL_007CA0" },
+    { display_list = "object_wood02_DL_007D38", pass = "translucent", env = [50, 170, 70, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 7 }
+parts = [
+    { display_list = "object_wood02_DL_007CA0" },
+    { display_list = "object_wood02_DL_007D38", pass = "translucent", env = [180, 155, 0, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 10 }
+parts = [
+    { display_list = "object_wood02_DL_0080D0" },
+    { display_list = "object_wood02_DL_0081A8", pass = "translucent", env = [255, 255, 255, 0] },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [11, 14] }
+parts = [
+    { display_list = "object_wood02_DL_000090", pass = "translucent" },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [12, 16] }
+scale = 1.5
+parts = [
+    { display_list = "object_wood02_DL_000090", pass = "translucent" },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [17, 20] }
+parts = [
+    { display_list = "object_wood02_DL_000340", pass = "translucent" },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = [18, 22] }
+scale = 1.5
+parts = [
+    { display_list = "object_wood02_DL_000340", pass = "translucent" },
+]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 23 }
+scale = 0.02
+parts = [{ display_list = "object_wood02_DL_000700", setup = 25, prim = [50, 170, 70, 127] }]
+
+[[actors.ACTOR_EN_WOOD02.variants]]
+match = { Type = 24 }
+scale = 0.02
+parts = [{ display_list = "object_wood02_DL_000700", setup = 25, prim = [180, 155, 0, 127] }]
+
+
+[actors.ACTOR_OBJ_OSHIHIKI]
+name = "Push block"
+notes = "A block Link pushes and pulls, in four sizes, coloured by its scene and Color as sColors says; white in scenes that table does not list. Huge blocks need the Golden Gauntlets, large ones the Silver."
+object = "gameplay_dangeon_keep"
+
+[actors.ACTOR_OBJ_OSHIHIKI.params]
+Size = { mask = 0x000F, kind = "choice", values = "PushBlockType", description = "Start on: gone once the switch flag is set. Start off: there only once it is" }
+Color = { mask = 0x00C0, kind = "number", description = "Which of its scene's four colours" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "0x3F or less; more is no flag" }
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_DEKU_TREE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [110, 86, 40, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [106, 120, 110, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [104, 80, 20, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [142, 99, 86, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [72, 118, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 150, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 170, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 0, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [102, 144, 182, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 1, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [176, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], Color = 2, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [100, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_WATER_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [117, 97, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [232, 210, 176, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4], scene = "SCENE_SHADOW_TEMPLE" }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [135, 125, 95, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [0, 4] }
+scale = 0.1
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_DEKU_TREE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [110, 86, 40, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [106, 120, 110, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [104, 80, 20, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [142, 99, 86, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [72, 118, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 150, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 170, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 0, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [102, 144, 182, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 1, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [176, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], Color = 2, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [100, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_WATER_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [117, 97, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [232, 210, 176, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5], scene = "SCENE_SHADOW_TEMPLE" }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [135, 125, 95, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [1, 5] }
+scale = 0.166667
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_DEKU_TREE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [110, 86, 40, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [106, 120, 110, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [104, 80, 20, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [142, 99, 86, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [72, 118, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [210, 150, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [210, 170, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 0, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [102, 144, 182, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 1, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [176, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], Color = 2, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [100, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_WATER_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [117, 97, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [232, 210, 176, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6], scene = "SCENE_SHADOW_TEMPLE" }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [135, 125, 95, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [2, 6] }
+scale = 0.2
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_DEKU_TREE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [110, 86, 40, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [106, 120, 110, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [104, 80, 20, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_DODONGOS_CAVERN" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [142, 99, 86, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [72, 118, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_FOREST_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [210, 150, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [210, 170, 80, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_FIRE_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 0, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [102, 144, 182, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 1, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [176, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], Color = 2, scene = "SCENE_WATER_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [100, 167, 100, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_WATER_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [117, 97, 96, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [232, 210, 176, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7], scene = "SCENE_SHADOW_TEMPLE" }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [135, 125, 95, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+match = { Size = [3, 7] }
+scale = 0.333333
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [255, 255, 255, 255] }]
+
+[actors.ACTOR_OBJ_SWITCH]
+name = "Switch"
+notes = "A floor switch, a rusty one for the hammer, an eye switch for arrows and slingshot seeds, or a crystal switch that is struck. Drawn off: a floor switch up, an eye open, a crystal red. A crystal's texture scrolls, which is not drawn. A frozen switch spawns Obj_Ice_Poly over itself with its switch flag in bits 8 to 13, which the child's fixed params cannot follow."
+object = "gameplay_dangeon_keep"
+scale = 0.1
+
+[actors.ACTOR_OBJ_SWITCH.params]
+Type = { mask = 0x0007, kind = "choice", values = "ObjSwitchType" }
+Subtype = { mask = 0x0070, kind = "choice", values = "ObjSwitchSubType" }
+Frozen = { mask = 0x0080, kind = "flag", description = "Encased in ice that must be melted first" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both" }
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 0, Subtype = 0 }
+parts = [{ display_list = "gFloorSwitch1DL", translation = [0, 10, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 0, Subtype = 1 }
+parts = [{ display_list = "gFloorSwitch3DL", translation = [0, 10, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gFloorSwitch2DL", translation = [0, 10, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gRustyFloorSwitchDL", translation = [0, 10, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 2, Subtype = 0, Frozen = true }
+parts = [{ display_list = "gEyeSwitch1DL", segments = { 8 = "gEyeSwitchGoldOpenTex" } }]
+children = [{ actor = "ACTOR_OBJ_ICE_POLY", params = 0x0000, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 2, Frozen = true }
+parts = [{ display_list = "gEyeSwitch2DL", segments = { 8 = "gEyeSwitchSilverOpenTex" } }]
+children = [{ actor = "ACTOR_OBJ_ICE_POLY", params = 0x0000, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 2, Subtype = 0 }
+parts = [{ display_list = "gEyeSwitch1DL", segments = { 8 = "gEyeSwitchGoldOpenTex" } }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gEyeSwitch2DL", segments = { 8 = "gEyeSwitchSilverOpenTex" } }]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = [3, 4], Subtype = 1 }
+parts = [
+    { display_list = "gCrystalSwitchDiamondXluDL", pass = "translucent" },
+    { display_list = "gCrystalSwitchDiamondOpaDL", segments = { 9 = "gCrstalSwitchRedTex" }, env = [0, 0, 0, 128] },
+]
+
+[[actors.ACTOR_OBJ_SWITCH.variants]]
+match = { Type = [3, 4] }
+parts = [
+    { display_list = "gCrystalSwitchCoreXluDL", pass = "translucent" },
+    { display_list = "gCrystalSwitchCoreOpaDL", env = [0, 0, 0, 128] },
+]
+
+[actors.ACTOR_EN_WALLMAS]
+name = "Wallmaster"
+notes = "A hand that drops from the ceiling onto Link and carries him back to the room's entrance. Unseen until it drops, only its growing shadow showing; drawn here as it stands, in gWallmasterWaitAnim. The finger PostLimbDraw adds is not drawn."
+object = "object_wallmaster"
+scale = 0.01
+
+[actors.ACTOR_EN_WALLMAS.params]
+Type = { mask = 0x00FF, kind = "choice", values = "WallmasType", description = "Drops after a while in the room, when Link comes near, or while its switch flag is clear" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "For the flag type: gone while set" }
+
+[[actors.ACTOR_EN_WALLMAS.variants]]
+parts = [{ skeleton = "gWallmasterSkel", pose = "gWallmasterWaitAnim" }]
+
+[actors.ACTOR_EN_SW]
+name = "Skullwalltula"
+notes = "A Skullwalltula on a wall, or a Gold Skulltula. A Skullwalltula turns itself flat against the wall it is placed by. A Gold Skulltula is tipped back 80 degrees, and swaps ten limbs for gold ones in OverrideLimbDraw, which a part cannot say: it is drawn in the Skullwalltula's colours. Bit 15 adds one to the type, and every gold type takes one off its Flag Group, as a tree's or a bean's Gold Skulltula does."
+object = "object_st"
+scale = 0.02
+
+[actors.ACTOR_EN_SW.params]
+Flag = { mask = 0x00FF, kind = "number", hex = true, description = "The bit of the Gold Skulltula flags it is; gone while set" }
+"Flag Group" = { mask = 0x1F00, kind = "number", description = "Which byte of the Gold Skulltula flags, plus one for gold types" }
+Type = { mask = 0xE000, kind = "choice", values = { 0 = "Skullwalltula", 1 = "Gold", 2 = "Gold, night only", 3 = "Gold, falls out", 4 = "Gold, falls out (from a tree)", 5 = "Gold, falls out (5)", 6 = "Gold, falls out (6)", 7 = "Gold, falls out (7)" } }
+
+[[actors.ACTOR_EN_SW.variants]]
+match = { Type = 0 }
+parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304" }]
+
+[[actors.ACTOR_EN_SW.variants]]
+parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304", translation = [0, 196.96, 34.73], rotation = [-80, 0, 0], hilite = true }]
+
+[actors.ACTOR_EN_KO]
+name = "Kokiri"
+notes = "A Kokiri child of Kokiri Forest or the Lost Woods, or Fado. Each type is a boy or girl body from object_km1 or object_kw1, posed from object_os_anime by sOsAnimeLookup at the forest's quest state, drawn here at its first (before the Deku Tree). Not drawn: the head, which OverrideLimbDraw puts on limb 15 from a third object; the tunic and boots colours, which segments 8 and 9 point at as display lists built at runtime; and StandUp held at frames 1 and 2 for types 5, 6 and 9. Which types appear depends on the quest state too."
+scale = 0.01
+
+[actors.ACTOR_EN_KO.params]
+Type = { mask = 0x00FF, kind = "choice", values = "KokiriChildren" }
+Path = { mask = 0xFF00, kind = "number", description = "The path it walks, for those that walk; 0xFF is none" }
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 0 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriLiftingRockAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = [1, 5, 6, 9, 10] }
+object = "object_kw1"
+parts = [{ skeleton = "gKw1Skel", pose = "gKokiriStandUpAnim", pose_object = "object_os_anime", segments = { 10 = "gKw1EyeOpenTex" } }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 2 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriPunchingAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 3 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriBlockingAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 4 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriCuttingGrassAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 7 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriStandingAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 8 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingArmsUpAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 11 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingAnim", pose_object = "object_os_anime" }]
+
+[[actors.ACTOR_EN_KO.variants]]
+match = { Type = 12 }
+object = "object_kw1"
+parts = [{ skeleton = "gKw1Skel", pose = "gKokiriIdleAnim", pose_object = "object_os_anime", segments = { 10 = "gKw1EyeOpenTex" } }]
+
+[actors.ACTOR_EN_ZF]
+name = "Lizalfos or Dinolfos"
+notes = "A sword-and-shield lizard. The two minibosses of Dodongo's Cavern hop between its platforms as a pair; a lone Lizalfos and a Dinolfos drop in from 300 units above when Link comes near, and are unseen until then. Drawn in gZfCryingAnim, the animation Init gives them."
+object = "object_zf"
+scale = 0.015
+
+[actors.ACTOR_EN_ZF.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Lizalfos miniboss A", 1 = "Lizalfos miniboss B", 254 = "Dinolfos", 255 = "Lizalfos, alone" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "For the minibosses: they do not appear while set" }
+
+[[actors.ACTOR_EN_ZF.variants]]
+match = { Type = 254 }
+parts = [{ skeleton = "gZfDinolfosSkel", pose = "gZfCryingAnim", hilite = true }]
+
+[[actors.ACTOR_EN_ZF.variants]]
+parts = [{ skeleton = "gZfLizalfosSkel", pose = "gZfCryingAnim", hilite = true }]
+
+[actors.ACTOR_BOSS_GOMA]
+name = "Queen Gohma"
+notes = "The Deku Tree's boss, waiting upside down on the ceiling until Link looks up. Init moves her to Y -300 whatever her placement, which is not drawn: she is drawn at her placement. Once the room is clear she is gone and spawns the blue warp at (0, -640, 0)."
+object = "object_goma"
+scale = 0.01
+height_offset = 4000
+rotates = { x = false, y = true, z = false }
+
+[[actors.ACTOR_BOSS_GOMA.variants]]
+parts = [{ skeleton = "gGohmaSkel", pose = "gGohmaWalkAnim", translation = [0, 4000, 0], rotation = [180, 0, 0] }]

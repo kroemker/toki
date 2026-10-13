@@ -35,6 +35,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <variant>
@@ -127,7 +128,7 @@ struct Box {
 
 [[nodiscard]] Box measure(const toki::scene::SceneActors& actors,
                           const toki::scene::ActorDrawing& drawing,
-                          const toki::scene::PlacedActor& placed) {
+                          const toki::scene::PlacedActor& placed, const bool isChild = false) {
     Box box;
     const glm::mat4 matrix =
         toki::scene::makeActorMatrix(placed, drawing.scale, drawing.heightOffset, drawing.rotates);
@@ -149,7 +150,9 @@ struct Box {
     for (const toki::scene::ActorDisplayList& list : drawing.displayLists) {
         addList(list, matrix);
     }
-    for (const toki::scene::ChildPlacement& child : drawing.children) {
+    const std::span<const toki::scene::ChildPlacement> children =
+        isChild ? std::span<const toki::scene::ChildPlacement>() : std::span(drawing.children);
+    for (const toki::scene::ChildPlacement& child : children) {
         const auto model = actors.models.find(child.id);
         const toki::scene::ActorDrawing* childDrawing =
             model != actors.models.end() ? model->second.findDrawing({.params = child.params})
@@ -162,7 +165,7 @@ struct Box {
                                                                 static_cast<s16>(child.offset[1]),
                                                                 static_cast<s16>(child.offset[2])},
                                                    .params = child.params};
-        const Box childBox = measure(actors, *childDrawing, childPlaced);
+        const Box childBox = measure(actors, *childDrawing, childPlaced, true);
         box.lowest = glm::min(box.lowest, childBox.lowest);
         box.highest = glm::max(box.highest, childBox.highest);
     }
@@ -230,11 +233,11 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     const toki::scene::PlacedActor placed{
         .id = *id, .rotation = values.rotation, .params = values.params, .age = values.age};
     REQUIRE(index < model.variants.size());
-    toki::scene::SceneActorModel& only = actors.models.at(*id);
-    only.entry->variants = {variant};
-    only.entry->variants.front().match.clear();
-    only.variants = {model.variants[index]};
-    const toki::scene::ActorDrawing* drawing = &only.variants.front();
+    toki::scene::SceneActorModel& tested = actors.models.at(*id);
+    tested.entry->variants.insert(tested.entry->variants.begin(), variant);
+    toki::scene::ActorDrawing testedDrawing = tested.variants[index];
+    tested.variants.insert(tested.variants.begin(), std::move(testedDrawing));
+    const toki::scene::ActorDrawing* drawing = &tested.variants.front();
     if (!drawing->isDrawn()) {
         return;
     }
