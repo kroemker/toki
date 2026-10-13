@@ -5,6 +5,7 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/Workspace.h"
 #include "n64/TileDescriptor.h"
 #include "z64/MemoryImage.h"
@@ -15,6 +16,7 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -65,6 +67,10 @@ TEST_CASE("every texture of real objects and a scene decodes with its palette",
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
     const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
     hackeroot::AssetImageReader reader(workspace);
 

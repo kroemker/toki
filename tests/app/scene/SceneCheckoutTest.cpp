@@ -11,6 +11,7 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/Workspace.h"
 #include "n64/RspResult.h"
 
@@ -42,6 +43,10 @@ std::optional<hackeroot::Workspace> loadCheckout() {
     std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(workspace.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*workspace)) {
+        SKIP(unsupported->message);
+    }
     return std::move(*workspace);
 }
 

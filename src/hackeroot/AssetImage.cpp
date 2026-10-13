@@ -13,6 +13,7 @@
 #include "cparser/Types.h"
 #include "cparser/Value.h"
 #include "hackeroot/AssetSource.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/ImageCache.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Types.h"
@@ -338,6 +339,13 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
 std::vector<z64::MemoryImage>
 ImageReader::read(const std::span<const std::vector<SegmentFiles>> images,
                   const std::span<const z64::MemoryImage* const> earlier) {
+    if (const std::optional<base::Diagnostic> unsupported = findUnsupportedMicrocode(workspace)) {
+        std::vector<z64::MemoryImage> refused(images.size());
+        for (z64::MemoryImage& image : refused) {
+            image.diagnostics.push_back(*unsupported);
+        }
+        return refused;
+    }
     imageDiagnostics.resize(images.size());
     for (usize image = 0; image < images.size(); ++image) {
         diagnostics = &imageDiagnostics[image];

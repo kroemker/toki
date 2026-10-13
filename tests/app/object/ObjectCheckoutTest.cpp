@@ -6,6 +6,7 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/ObjectFiles.h"
 #include "hackeroot/Workspace.h"
 #include "n64/RspResult.h"
@@ -53,6 +54,10 @@ TEST_CASE("objects of a real checkout read and draw what they first show", "[obj
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
     const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
     hackeroot::AssetImageReader reader(workspace);
 
@@ -101,6 +106,10 @@ TEST_CASE("objects read one after another share the game code and gameplay_keep"
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
     const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
     hackeroot::AssetImageReader reader(workspace);
 

@@ -12,8 +12,10 @@
 #include <array>
 #include <expected>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace hackeroot {
@@ -38,13 +40,24 @@ bool isEnabled(const cparser::MacroTable& macros, const std::string_view name) {
 
 } // namespace
 
-std::expected<Prelude, base::Diagnostic> readGbi(const Workspace& workspace) {
-    const std::filesystem::path& root = workspace.getRoot();
-    if (isEnabled(workspace.getMacros(), "ENABLE_F3DEX3")) {
-        return std::unexpected(base::makeError(
-            {.file = root / "include" / "config", .line = 0, .column = 0},
-            "the checkout enables F3DEX3, which Toki64 does not draw; only F3DEX2 is supported"));
+std::optional<base::Diagnostic> findUnsupportedMicrocode(const Workspace& workspace) {
+    if (!isEnabled(workspace.getMacros(), "ENABLE_F3DEX3")) {
+        return std::nullopt;
     }
+    return base::makeError(
+        {.file = workspace.getRoot() / "include" / "config" / "config_graphics.h",
+         .line = 0,
+         .column = 0},
+        "the checkout enables F3DEX3, which Toki64 does not draw; only F3DEX2 is supported. Set "
+        "ENABLE_F3DEX3 to false in include/config/config_graphics.h, or build with "
+        "CPP_DEFINES=-DENABLE_F3DEX3=0");
+}
+
+std::expected<Prelude, base::Diagnostic> readGbi(const Workspace& workspace) {
+    if (std::optional<base::Diagnostic> unsupported = findUnsupportedMicrocode(workspace)) {
+        return std::unexpected(std::move(*unsupported));
+    }
+    const std::filesystem::path& root = workspace.getRoot();
 
     const std::array<std::string, 1> includes{std::string(GbiHeader)};
     Prelude gbi = readPrelude(workspace, includes, AlsoHidden);

@@ -48,7 +48,8 @@ struct ImageSet {
 /// The game code's data that assets point at, such as `gIdentityMtx`, is in
 /// segment 0 (`z64::getCodeSymbols`).
 /// A file that cannot be read, a type no header defines, and a symbol nothing
-/// defines are diagnostics in the image.
+/// defines are diagnostics in the image. A checkout that enables F3DEX3 is not
+/// read at all: every image is empty, with a diagnostic saying why.
 [[nodiscard]] z64::MemoryImage readAssetImage(const Workspace& workspace,
                                               std::span<const SegmentFiles> segments);
 

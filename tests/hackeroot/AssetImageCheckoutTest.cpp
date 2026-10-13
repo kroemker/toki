@@ -2,6 +2,7 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/Workspace.h"
 #include "n64/Memory.h"
 #include "n64/Rsp.h"
@@ -208,6 +209,10 @@ TEST_CASE("a vanilla scene and room lay out and encode as the build compiles the
     std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(workspace.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*workspace)) {
+        SKIP(unsupported->message);
+    }
     const auto spot00 = std::ranges::find(workspace->getAssets().scenes, std::string("spot00"),
                                           &hackeroot::AssetDirectory::name);
     REQUIRE(spot00 != workspace->getAssets().scenes.end());
@@ -364,6 +369,10 @@ std::optional<hackeroot::Workspace> loadCheckout() {
     std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(workspace.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*workspace)) {
+        SKIP(unsupported->message);
+    }
     return std::move(*workspace);
 }
 

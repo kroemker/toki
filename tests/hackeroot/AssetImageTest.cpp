@@ -89,6 +89,21 @@ TEST_CASE("a memory image maps where the segment table says", "[hackeroot][image
     REQUIRE((*command)[0] == 0xDF);
 }
 
+TEST_CASE("a checkout that enables F3DEX3 is not read into images", "[hackeroot][image]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(getCheckout(), {{"CPP_DEFINES", "-DENABLE_F3DEX3=true"}});
+    REQUIRE(workspace.has_value());
+    const std::array segments = {hackeroot::SegmentFiles{
+        .segment = 3, .files = {getCheckout() / "assets/scenes/custom/custom_room_0.c"}}};
+
+    const z64::MemoryImage image = hackeroot::readAssetImage(*workspace, segments);
+
+    REQUIRE(image.segments.empty());
+    REQUIRE(image.diagnostics.size() == 1);
+    REQUIRE(image.diagnostics.front().severity == base::Severity::Error);
+    REQUIRE(image.diagnostics.front().message.contains("F3DEX3"));
+}
+
 TEST_CASE("a shared image is read once until a file it watches changes", "[hackeroot][image]") {
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
         hackeroot::Workspace::load(getCheckout(), {});

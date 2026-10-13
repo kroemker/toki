@@ -4,10 +4,16 @@
 #include "hackeroot/Prelude.h"
 
 #include <expected>
+#include <optional>
 
 namespace hackeroot {
 
 class Workspace;
+
+/// Why the checkout cannot be drawn at all: it enables F3DEX3, whose display
+/// lists the renderer, which runs F3DEX2, would draw wrong. Empty for a
+/// checkout that builds for F3DEX2.
+[[nodiscard]] std::optional<base::Diagnostic> findUnsupportedMicrocode(const Workspace& workspace);
 
 /// The checkout's own `include/ultra64/gbi.h` as the build compiles it: a
 /// prelude of that one header, which is what `z64::DisplayListEncoder` expands

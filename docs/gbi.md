@@ -35,7 +35,10 @@ GCC defines it on its own. The configuration layer therefore starts with the com
 predefines (`hackeroot::readConfiguration`).
 
 A checkout that enables F3DEX3 is refused with a diagnostic saying so, rather than drawn
-wrong.
+wrong (`hackeroot::findUnsupportedMicrocode`). The refusal is made where assets are read, not
+only where `gbi.h` is: every memory image of such a checkout comes back empty with that one
+diagnostic, so no scene, object or actor is drawn from it. HackerOoT enables F3DEX3 by default;
+its `config_graphics.h` takes `ENABLE_F3DEX3` from the command line when it is defined there.
 
 ## Turning a list into words
 

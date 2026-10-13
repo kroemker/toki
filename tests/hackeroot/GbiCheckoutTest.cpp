@@ -51,6 +51,10 @@ struct Checkout {
             hackeroot::Workspace::load(repository, {});
         REQUIRE(loaded.has_value());
         workspace.emplace(std::move(*loaded));
+        if (const std::optional<base::Diagnostic> unsupported =
+                hackeroot::findUnsupportedMicrocode(*workspace)) {
+            SKIP(unsupported->message);
+        }
         std::expected<hackeroot::Prelude, base::Diagnostic> read = hackeroot::readGbi(*workspace);
         INFO((read ? std::string() : read.error().message));
         REQUIRE(read.has_value());

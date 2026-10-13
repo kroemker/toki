@@ -14,6 +14,7 @@
 #include "gfx/Renderer.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/GameCode.h"
+#include "hackeroot/Gbi.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
 #include "z64/MemoryImage.h"
@@ -293,6 +294,10 @@ TEST_CASE("every variant of the shipped actor database is drawn to an image", "[
     std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
         hackeroot::Workspace::load(repository, {});
     REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
     const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
     hackeroot::AssetImageReader reader(workspace);
     const std::array code{hackeroot::makeSharedGameCode(workspace->getRoot())};
