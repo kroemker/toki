@@ -202,6 +202,39 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     return table;
 }
 
+void insertSegments(toml::table& table, const std::vector<PartSegment>& segments) {
+    if (segments.empty()) {
+        return;
+    }
+    toml::table written = makeInline();
+    for (const PartSegment& segment : segments) {
+        const std::string key = std::to_string(segment.segment);
+        if (const auto* symbol = std::get_if<std::string>(&segment.target)) {
+            written.insert(key, *symbol);
+        } else {
+            written.insert(key, makeBuiltList(std::get<BuiltList>(segment.target)));
+        }
+    }
+    table.insert("segments", std::move(written));
+}
+
+void insertColors(toml::table& table, const DrawColors& colors) {
+    if (colors.primitive) {
+        table.insert("prim", makeChannels(*colors.primitive));
+    }
+    if (colors.environment) {
+        table.insert("env", makeChannels(*colors.environment));
+    }
+}
+
+[[nodiscard]] toml::table makeRotates(const RotationAxes& rotates) {
+    toml::table table = makeInline();
+    table.insert("x", rotates.x);
+    table.insert("y", rotates.y);
+    table.insert("z", rotates.z);
+    return table;
+}
+
 [[nodiscard]] toml::table makePart(const ActorPart& part) {
     toml::table table = makeInline();
     table.insert(part.kind == PartKind::DisplayList ? "display_list" : "skeleton", part.symbol);
@@ -218,24 +251,8 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     if (part.isBillboard) {
         table.insert("billboard", true);
     }
-    if (part.colors.primitive) {
-        table.insert("prim", makeChannels(*part.colors.primitive));
-    }
-    if (part.colors.environment) {
-        table.insert("env", makeChannels(*part.colors.environment));
-    }
-    if (!part.segments.empty()) {
-        toml::table segments = makeInline();
-        for (const PartSegment& segment : part.segments) {
-            const std::string key = std::to_string(segment.segment);
-            if (const auto* symbol = std::get_if<std::string>(&segment.target)) {
-                segments.insert(key, *symbol);
-            } else {
-                segments.insert(key, makeBuiltList(std::get<BuiltList>(segment.target)));
-            }
-        }
-        table.insert("segments", std::move(segments));
-    }
+    insertColors(table, part.colors);
+    insertSegments(table, part.segments);
     if (part.setup) {
         table.insert("setup", s64{*part.setup});
     }
@@ -283,6 +300,28 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     return table;
 }
 
+[[nodiscard]] toml::table makeAdjustment(const ActorAdjustment& adjustment) {
+    toml::table table;
+    if (!adjustment.match.empty()) {
+        table.insert("match", makeMatch(adjustment.match));
+    }
+    insertOptional(table, "scale", adjustment.scale);
+    insertOptional(table, "height_offset", adjustment.heightOffset);
+    if (adjustment.rotates) {
+        table.insert("rotates", makeRotates(*adjustment.rotates));
+    }
+    insertColors(table, adjustment.colors);
+    insertSegments(table, adjustment.segments);
+    if (!adjustment.parts.empty()) {
+        toml::array parts;
+        for (const usize part : adjustment.parts) {
+            parts.push_back(static_cast<s64>(part));
+        }
+        table.insert("parts", std::move(parts));
+    }
+    return table;
+}
+
 [[nodiscard]] toml::table makeEntry(const ActorEntry& entry) {
     toml::table table;
     insertText(table, "name", entry.name);
@@ -291,11 +330,7 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     insertOptional(table, "scale", entry.scale);
     insertOptional(table, "height_offset", entry.heightOffset);
     if (!entry.rotates.x || !entry.rotates.y || !entry.rotates.z) {
-        toml::table rotates = makeInline();
-        rotates.insert("x", entry.rotates.x);
-        rotates.insert("y", entry.rotates.y);
-        rotates.insert("z", entry.rotates.z);
-        table.insert("rotates", std::move(rotates));
+        table.insert("rotates", makeRotates(entry.rotates));
     }
     if (entry.draw) {
         table.insert("draw", std::string(getEntryName(DrawKindNames, *entry.draw)));
@@ -313,6 +348,13 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
             variants.push_back(makeVariant(variant));
         }
         table.insert("variants", std::move(variants));
+    }
+    if (!entry.adjustments.empty()) {
+        toml::array adjustments;
+        for (const ActorAdjustment& adjustment : entry.adjustments) {
+            adjustments.push_back(makeAdjustment(adjustment));
+        }
+        table.insert("adjustments", std::move(adjustments));
     }
     return table;
 }

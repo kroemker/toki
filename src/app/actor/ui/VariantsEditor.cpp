@@ -26,27 +26,13 @@ namespace toki::actor {
 namespace {
 
 constexpr f32 DefaultScale = 0.01F;
-constexpr float BandWidth = 5.0F;
 constexpr float HeaderButtons = 3.0F;
 constexpr float HeaderArrow = 3.0F;
-constexpr ImVec4 WhenColor = core::palette::Warning;
-constexpr ImVec4 WhenBackground{0.910F, 0.718F, 0.314F, 0.07F};
 constexpr ImVec4 DrawsColor = core::palette::Success;
 constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
 
 [[nodiscard]] bool isZero(const std::array<f32, 3>& value) {
     return std::ranges::all_of(value, [](const f32 component) { return component == 0.0F; });
-}
-
-void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4>& background) {
-    ImGui::TableNextRow();
-    if (background) {
-        ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(*background));
-    }
-    ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextColored(color, "%s", label);
-    ImGui::TableNextColumn();
 }
 
 [[nodiscard]] bool editLooks(ActorEntry& entry, ActorVariant& variant, const EditContext& context) {
@@ -172,13 +158,9 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
 }
 
 [[nodiscard]] bool drawBands(ActorEntry& entry, ActorVariant& variant, const EditContext& context) {
-    if (!ImGui::BeginTable("bands", 2,
-                           ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH)) {
+    if (!beginBands()) {
         return false;
     }
-    ImGui::TableSetupColumn("band", ImGuiTableColumnFlags_WidthFixed,
-                            ImGui::GetFontSize() * BandWidth);
-    ImGui::TableSetupColumn("body", ImGuiTableColumnFlags_WidthStretch);
     drawBand("WHEN", WhenColor, WhenBackground);
     ImGui::PushID("condition");
     bool isChanged = drawConditionEditor(variant.match, entry.params, context.findCollection);
@@ -191,7 +173,7 @@ void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4
         isChanged = drawChildren(variant.children, context) || isChanged;
         ImGui::PopID();
     }
-    ImGui::EndTable();
+    endBands();
     return isChanged;
 }
 

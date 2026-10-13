@@ -932,8 +932,9 @@ parts = [{ display_list = "object_wood02_DL_000700", setup = 25, prim = [180, 15
 
 [actors.ACTOR_OBJ_OSHIHIKI]
 name = "Push block"
-notes = "A block Link pushes and pulls, in four sizes, coloured by its scene and Color as sColors says; white in scenes that table does not list. Huge blocks need the Golden Gauntlets, large ones the Silver."
+notes = "A block Link pushes and pulls, in four sizes, coloured by its scene and Color as sColors says; white in scenes that table does not list, and in Ganon's Tower, which debug builds colour by a debug register instead. Huge blocks need the Golden Gauntlets, large ones the Silver."
 object = "gameplay_dangeon_keep"
+scale = 0.1
 
 [actors.ACTOR_OBJ_OSHIHIKI.params]
 Size = { mask = 0x000F, kind = "choice", values = "PushBlockType", description = "Start on: gone once the switch flag is set. Start off: there only once it is" }
@@ -941,344 +942,85 @@ Color = { mask = 0x00C0, kind = "number", description = "Which of its scene's fo
 "Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "0x3F or less; more is no flag" }
 
 [[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_DEKU_TREE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [110, 86, 40, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [106, 120, 110, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [104, 80, 20, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [142, 99, 86, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [72, 118, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 150, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 170, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 0, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [102, 144, 182, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 1, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [176, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], Color = 2, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [100, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_WATER_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [117, 97, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [232, 210, 176, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4], scene = "SCENE_SHADOW_TEMPLE" }
-scale = 0.1
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [135, 125, 95, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [0, 4] }
-scale = 0.1
 parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [255, 255, 255, 255] }]
 
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_DEKU_TREE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [110, 86, 40, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [106, 120, 110, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [104, 80, 20, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [142, 99, 86, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [72, 118, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 150, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [210, 170, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 0, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [102, 144, 182, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 1, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [176, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], Color = 2, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [100, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_WATER_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [117, 97, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [232, 210, 176, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [1, 5], scene = "SCENE_SHADOW_TEMPLE" }
-scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [135, 125, 95, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
 match = { Size = [1, 5] }
 scale = 0.166667
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [255, 255, 255, 255] }]
 
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_DEKU_TREE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [110, 86, 40, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [106, 120, 110, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [104, 80, 20, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [142, 99, 86, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [72, 118, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [210, 150, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [210, 170, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 0, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [102, 144, 182, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 1, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [176, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], Color = 2, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [100, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_WATER_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [117, 97, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [232, 210, 176, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [2, 6], scene = "SCENE_SHADOW_TEMPLE" }
-scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [135, 125, 95, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
 match = { Size = [2, 6] }
 scale = 0.2
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockBaseTex" }, env = [255, 255, 255, 255] }]
+segments = { 8 = "gPushBlockBaseTex" }
 
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_DEKU_TREE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [110, 86, 40, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [106, 120, 110, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [104, 80, 20, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_DODONGOS_CAVERN" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 0, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [142, 99, 86, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 1, scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [72, 118, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_FOREST_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 0, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [210, 150, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 1, scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [210, 170, 80, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_FIRE_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [0, 0, 0, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 0, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [102, 144, 182, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 1, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [176, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], Color = 2, scene = "SCENE_WATER_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [100, 167, 100, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_WATER_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [117, 97, 96, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [232, 210, 176, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
-match = { Size = [3, 7], scene = "SCENE_SHADOW_TEMPLE" }
-scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [135, 125, 95, 255] }]
-
-[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
 match = { Size = [3, 7] }
 scale = 0.333333
-parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockGrayTex" }, env = [255, 255, 255, 255] }]
+segments = { 8 = "gPushBlockGrayTex" }
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { scene = "SCENE_DEKU_TREE" }
+env = [110, 86, 40, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 0, scene = "SCENE_DODONGOS_CAVERN" }
+env = [106, 120, 110, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 1, scene = "SCENE_DODONGOS_CAVERN" }
+env = [104, 80, 20, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = [2, 3], scene = "SCENE_DODONGOS_CAVERN" }
+env = [0, 0, 0, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 0, scene = "SCENE_FOREST_TEMPLE" }
+env = [142, 99, 86, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 1, scene = "SCENE_FOREST_TEMPLE" }
+env = [72, 118, 96, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = [2, 3], scene = "SCENE_FOREST_TEMPLE" }
+env = [0, 0, 0, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 0, scene = "SCENE_FIRE_TEMPLE" }
+env = [210, 150, 80, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 1, scene = "SCENE_FIRE_TEMPLE" }
+env = [210, 170, 80, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = [2, 3], scene = "SCENE_FIRE_TEMPLE" }
+env = [0, 0, 0, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 0, scene = "SCENE_WATER_TEMPLE" }
+env = [102, 144, 182, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 1, scene = "SCENE_WATER_TEMPLE" }
+env = [176, 167, 100, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 2, scene = "SCENE_WATER_TEMPLE" }
+env = [100, 167, 100, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 3, scene = "SCENE_WATER_TEMPLE" }
+env = [117, 97, 96, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { scene = ["SCENE_SPIRIT_TEMPLE", "SCENE_GERUDO_TRAINING_GROUND"] }
+env = [232, 210, 176, 255]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { scene = "SCENE_SHADOW_TEMPLE" }
+env = [135, 125, 95, 255]
 
 [actors.ACTOR_OBJ_SWITCH]
 name = "Switch"

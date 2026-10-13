@@ -361,6 +361,12 @@ void ScenePanel::drawActorMenu(const SceneActorModel& model,
             return actor::addVariantForParams(checkout, entry, placement);
         });
     }
+    if (ImGui::MenuItem("Add an adjustment for these params", nullptr, false,
+                        model.entry && description.canAddVariant)) {
+        databaseStore.edit([entry = *model.entry, placement](actor::ActorDatabase& checkout) {
+            return actor::addAdjustmentForParams(checkout, entry, placement);
+        });
+    }
     if (ImGui::MenuItem("Edit in the Actor Database", nullptr, false, openActorEditor != nullptr)) {
         openActorEditor(model.enumName);
     }

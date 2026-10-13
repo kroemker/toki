@@ -20,6 +20,7 @@
 #include <format>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <variant>
@@ -41,6 +42,27 @@ constexpr u8 DefaultSetup = 25;
     matrix = glm::rotate(matrix, glm::radians(x), glm::vec3(1.0F, 0.0F, 0.0F));
     return glm::scale(matrix,
                       glm::vec3(placement.scale[0], placement.scale[1], placement.scale[2]));
+}
+
+[[nodiscard]] std::vector<ActorSegment>
+findSegments(const std::span<const actor::PartSegment> segments, const std::optional<usize> object,
+             ActorObjects& objects, std::vector<base::Diagnostic>& diagnostics) {
+    std::vector<ActorSegment> found;
+    for (const actor::PartSegment& segment : segments) {
+        if (const auto* built = std::get_if<actor::BuiltList>(&segment.target)) {
+            found.push_back(ActorSegment{.segment = segment.segment, .target = *built});
+            continue;
+        }
+        if (const std::optional<u32> address =
+                object ? objects.findAddress(*object, std::get<std::string>(segment.target),
+                                             diagnostics)
+                       : std::nullopt) {
+            found.push_back(
+                ActorSegment{.segment = segment.segment,
+                             .target = ObjectAddress{.object = *object, .address = *address}});
+        }
+    }
+    return found;
 }
 
 class PartReader {
@@ -87,7 +109,8 @@ private:
 
 void PartReader::read(ActorDrawing& drawing) {
     for (const actor::PartKind kind : {actor::PartKind::Skeleton, actor::PartKind::DisplayList}) {
-        for (const actor::ActorPart& part : variant.parts) {
+        for (usize index = 0; index < variant.parts.size(); ++index) {
+            const actor::ActorPart& part = variant.parts[index];
             if (part.kind != kind) {
                 continue;
             }
@@ -100,11 +123,13 @@ void PartReader::read(ActorDrawing& drawing) {
             if (kind == actor::PartKind::Skeleton) {
                 if (std::optional<SkeletonDrawing> skeleton =
                         readSkeleton(part, *object, *address)) {
+                    skeleton->part = index;
                     drawing.skeletons.push_back(std::move(*skeleton));
                 }
                 continue;
             }
-            ActorDisplayList list{.object = *object,
+            ActorDisplayList list{.part = index,
+                                  .object = *object,
                                   .address = *address,
                                   .pass = part.pass,
                                   .state = makeState(part)};
@@ -147,21 +172,12 @@ DrawState PartReader::makeState(const actor::ActorPart& part) {
                     .isHilit = part.isHilit,
                     .placement = makePlacement(part.placement),
                     .isBillboard = part.isBillboard};
-    for (const actor::PartSegment& segment : part.segments) {
-        if (const auto* built = std::get_if<actor::BuiltList>(&segment.target)) {
-            state.segments.push_back(ActorSegment{.segment = segment.segment, .target = *built});
-            continue;
-        }
-        const std::optional<usize> object = findObject(part.object, part);
-        if (const std::optional<u32> address =
-                object ? objects.findAddress(*object, std::get<std::string>(segment.target),
-                                             diagnostics)
-                       : std::nullopt) {
-            state.segments.push_back(
-                ActorSegment{.segment = segment.segment,
-                             .target = ObjectAddress{.object = *object, .address = *address}});
-        }
-    }
+    const bool hasSymbols = std::ranges::any_of(part.segments, [](const auto& segment) {
+        return std::holds_alternative<std::string>(segment.target);
+    });
+    state.segments =
+        findSegments(part.segments, hasSymbols ? findObject(part.object, part) : std::nullopt,
+                     objects, diagnostics);
     return state;
 }
 
@@ -254,6 +270,33 @@ object::JointTable PartReader::findPose(const actor::ActorPart& part,
 }
 
 } // namespace
+
+AdjustmentDrawing makeAdjustmentDrawing(const actor::ActorEntry& entry,
+                                        const actor::ActorAdjustment& adjustment,
+                                        ActorObjects& objects,
+                                        std::vector<base::Diagnostic>& diagnostics) {
+    const bool hasSymbols = std::ranges::any_of(adjustment.segments, [](const auto& segment) {
+        return std::holds_alternative<std::string>(segment.target);
+    });
+    std::optional<usize> object;
+    if (hasSymbols && entry.object) {
+        object = objects.findObject(*entry.object, diagnostics);
+    } else if (hasSymbols) {
+        diagnostics.push_back(base::makeWarning(
+            adjustment.location,
+            std::format("{}: an adjustment points a segment at a symbol, and the entry names "
+                        "no object to find it in",
+                        entry.actor)));
+    }
+    return AdjustmentDrawing{
+        .scale = adjustment.scale,
+        .heightOffset = adjustment.heightOffset,
+        .rotates = adjustment.rotates,
+        .colors = adjustment.colors,
+        .segments = findSegments(adjustment.segments, object, objects, diagnostics),
+        .parts = adjustment.parts,
+    };
+}
 
 ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
                               ActorObjects& objects, const FindActorId& findActorId,

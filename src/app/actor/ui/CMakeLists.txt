@@ -1,5 +1,6 @@
 target_sources(toki PRIVATE
         ActorsPanel.cpp
+        AdjustmentsEditor.cpp
         ConditionEditor.cpp
         EditWidgets.cpp
         EntryEditor.cpp

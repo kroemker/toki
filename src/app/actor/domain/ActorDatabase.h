@@ -8,6 +8,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -56,6 +57,11 @@ struct PlacementValues {
 [[nodiscard]] bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                               const PlacementValues& placement);
 
+/// Whether every param of `match` is one of its values for `placement`, as
+/// for a variant.
+[[nodiscard]] bool isMatching(const ActorEntry& entry, std::span<const ParamMatch> match,
+                              const PlacementValues& placement);
+
 /// What is wrong with `entry` that reading it cannot tell: params without bits,
 /// masks whose bits are not adjacent, params of one source that share a bit, choices whose values
 /// do not fit, params named as the built-in ones, matches on params the entry does not have,
@@ -66,5 +72,10 @@ struct PlacementValues {
 /// The first variant of `entry` whose match holds for `placement`.
 [[nodiscard]] const ActorVariant* findVariant(const ActorEntry& entry,
                                               const PlacementValues& placement);
+
+/// The indices of the adjustments of `entry` whose match holds for
+/// `placement`, in the order they are applied.
+[[nodiscard]] std::vector<usize> findAdjustments(const ActorEntry& entry,
+                                                 const PlacementValues& placement);
 
 } // namespace toki::actor

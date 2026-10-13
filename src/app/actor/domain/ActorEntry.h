@@ -189,6 +189,30 @@ enum class DrawKind : u8 {
     Children,
 };
 
+/// Which axes of its placed rotation an actor is drawn turned by.
+struct RotationAxes {
+    bool x = true;
+    bool y = true;
+    bool z = true;
+};
+
+/// A change to how an actor is drawn, for the placements its `match` holds
+/// for, made after its variant is picked, so params that pick independent
+/// things need not multiply into variants: its scale, height offset and the
+/// axes it turns by, and the colours and segments of its parts, of those at
+/// `parts`, counted from 0 in the variant's parts, or of all when empty.
+/// Every adjustment that matches is applied, in order.
+struct ActorAdjustment {
+    std::vector<ParamMatch> match;
+    std::optional<f32> scale;
+    std::optional<f32> heightOffset;
+    std::optional<RotationAxes> rotates;
+    DrawColors colors;
+    std::vector<PartSegment> segments;
+    std::vector<usize> parts;
+    base::SourceLocation location;
+};
+
 /// One way an actor is drawn, for the placements its `match` holds for.
 /// What it leaves out, it takes from its entry.
 struct ActorVariant {
@@ -203,16 +227,9 @@ struct ActorVariant {
     base::SourceLocation location;
 };
 
-/// Which axes of its placed rotation an actor is drawn turned by.
-struct RotationAxes {
-    bool x = true;
-    bool y = true;
-    bool z = true;
-};
-
 /// How one actor is shown, by its enum name in the actor table: its params,
-/// its variants in the order they are tried, and what is true of every
-/// variant.
+/// its variants in the order they are tried, the adjustments made to the one
+/// picked, and what is true of every variant.
 struct ActorEntry {
     std::string actor;
     std::string name;
@@ -224,6 +241,7 @@ struct ActorEntry {
     std::optional<DrawKind> draw;
     std::vector<ActorParam> params;
     std::vector<ActorVariant> variants;
+    std::vector<ActorAdjustment> adjustments;
     base::SourceLocation location;
 };
 

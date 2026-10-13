@@ -18,6 +18,14 @@ namespace toki::actor {
 addVariantForParams(ActorDatabase& database, const ActorEntry& current,
                     const PlacementValues& placement);
 
+/// "Add an adjustment for these params": an adjustment matching exactly the
+/// values `placement` gives every param, changing nothing yet, after the
+/// others in `database`'s entry for the actor, which is `current` when the
+/// database has none yet, so it is made last.
+[[nodiscard]] std::expected<void, std::string>
+addAdjustmentForParams(ActorDatabase& database, const ActorEntry& current,
+                       const PlacementValues& placement);
+
 /// The entry for `entry.actor` becomes `entry`, whole.
 [[nodiscard]] std::expected<void, std::string> setEntry(ActorDatabase& database, ActorEntry entry);
 

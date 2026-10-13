@@ -72,6 +72,40 @@ void describeVariant(const actor::ActorEntry& entry, const actor::ActorVariant& 
         "Scale {}", variant.scale.value_or(entry.scale.value_or(actor::ActorModel::DefaultScale))));
 }
 
+[[nodiscard]] std::string describeAdjustment(const actor::ActorAdjustment& adjustment) {
+    std::vector<std::string> changes;
+    if (adjustment.scale) {
+        changes.push_back(std::format("scale {:g}", *adjustment.scale));
+    }
+    if (adjustment.heightOffset) {
+        changes.push_back(std::format("raised {:g}", *adjustment.heightOffset));
+    }
+    if (adjustment.rotates) {
+        changes.emplace_back("the axes it turns by");
+    }
+    if (adjustment.colors.primitive) {
+        changes.emplace_back("its primitive colour");
+    }
+    if (adjustment.colors.environment) {
+        changes.emplace_back("its environment colour");
+    }
+    for (const actor::PartSegment& segment : adjustment.segments) {
+        changes.push_back(std::format("segment {}", segment.segment));
+    }
+    std::string text;
+    for (const std::string& change : changes) {
+        text += text.empty() ? change : ", " + change;
+    }
+    if (!adjustment.parts.empty()) {
+        std::string parts;
+        for (const usize part : adjustment.parts) {
+            parts += parts.empty() ? std::to_string(part) : ", " + std::to_string(part);
+        }
+        text += std::format(" of parts {}", parts);
+    }
+    return text.empty() ? std::string("nothing") : text;
+}
+
 } // namespace
 
 ActorDescription describeActor(const SceneActorModel& actor,
@@ -94,7 +128,14 @@ ActorDescription describeActor(const SceneActorModel& actor,
             "Database panel");
     }
     if (variant != nullptr) {
+        description.lines.push_back(
+            std::format("Variant {}", (variant - actor.entry->variants.data()) + 1));
         describeVariant(*actor.entry, *variant, description.lines);
+        for (const usize index : actor::findAdjustments(*actor.entry, placement)) {
+            description.lines.push_back(
+                std::format("Adjustment {}: {}", index + 1,
+                            describeAdjustment(actor.entry->adjustments[index])));
+        }
     } else if (actor.entry && !actor.entry->variants.empty()) {
         description.problems.push_back(
             std::format("no variant of its entry matches its params 0x{:04X}", placement.params));

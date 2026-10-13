@@ -26,4 +26,11 @@ using FindActorId = std::function<std::optional<s16>(std::string_view)>;
                                             ActorObjects& objects, const FindActorId& findActorId,
                                             std::vector<base::Diagnostic>& diagnostics);
 
+/// What `adjustment` of `entry` changes, its segments' symbols found in the
+/// entry's object among `objects`; what is not there is a diagnostic.
+[[nodiscard]] AdjustmentDrawing makeAdjustmentDrawing(const actor::ActorEntry& entry,
+                                                      const actor::ActorAdjustment& adjustment,
+                                                      ActorObjects& objects,
+                                                      std::vector<base::Diagnostic>& diagnostics);
+
 } // namespace toki::scene

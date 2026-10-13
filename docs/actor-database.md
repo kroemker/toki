@@ -118,6 +118,7 @@ parts = [{ skeleton = "gMidoSkel", pose = "gMidoIdleAnim", segments = { 8 = "gMi
   that draws nothing itself but places others.
 - **`params`** name the bits of its params ([Params](#params)).
 - **`variants`** are tried in order ([Variants](#variants)).
+- **`adjustments`** change the variant picked ([Adjustments](#adjustments)).
 
 ### Params
 
@@ -195,6 +196,38 @@ parts = [
   the parent, turned with it, and drawn by its own entry. Children of children are not
   followed.
 - **`default_params`** are what its params are when the actor is placed new.
+
+### Adjustments
+
+Params that pick independent things multiply into variants when each variant must say
+everything: the push block's size picks its scale and texture, its scene and Color its
+colour, 4 × 17 combinations of one part. An adjustment changes the variant picked instead.
+The first variant that matches still says what is drawn; then every adjustment whose
+`match` holds is made, in order, so a later one wins where two change the same thing.
+
+```toml
+[[actors.ACTOR_OBJ_OSHIHIKI.variants]]
+parts = [{ display_list = "gPushBlockDL", segments = { 8 = "gPushBlockSilverTex" }, env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Size = [3, 7] }
+scale = 0.333333
+segments = { 8 = "gPushBlockGrayTex" }
+
+[[actors.ACTOR_OBJ_OSHIHIKI.adjustments]]
+match = { Color = 1, scene = "SCENE_WATER_TEMPLE" }
+env = [176, 167, 100, 255]
+```
+
+- **`match`** is a variant's, `age` and `scene` included.
+- **`scale`, `height_offset`, `rotates`** replace the variant's and the entry's.
+- **`prim`, `env`, `segments`** replace those of the parts it changes, a segment by its
+  number; a segment's symbol is found in the entry's object.
+- **`parts`** are the parts it changes, counted from 0 in the variant's; all of them when
+  left out.
+
+An adjustment never adds a part: what is drawn is the variant's to say. The render test draws
+each adjustment on the variant its match picks, as `<ACTOR>_a<n>.png`.
 
 ### Parts
 
@@ -285,7 +318,9 @@ and one variant per entry of the table ([Later](#later)).
 
 - **The Scene panel** shows each placed actor's params as its entry reads them. "Edit actor"
   opens its entry, and "Add a variant for these params" adds a variant matching exactly them,
-  first, drawn as the variant they match now.
+  first, drawn as the variant they match now. "Add an adjustment for these params" adds an
+  adjustment matching exactly them, last, changing nothing yet. Its lines name the variant a
+  placed actor is drawn by and each adjustment made to it.
 - **The Actor Database panel** lists every actor of the actor table, whether it has an entry,
   filtered by name, and edits one entry. Every row is a label on the left and its input on
   the right; numbers are typed, and dragged only where it helps.
@@ -448,7 +483,7 @@ the same way, so a format 2 file reads as it is and is written back as format 3.
   that matches still says what is drawn; then every adjustment that matches is applied in
   order, changing the scale, the height offset, which axes it turns by, and the colours and
   segments of its parts, all of them or those it lists. It never adds a part. The push block
-  becomes one variant and 21 adjustments, and deriving can write one adjustment per entry of
+  becomes one variant and 19 adjustments, and deriving can write one adjustment per entry of
   a table of scales or colours.
 - **Items.** `GetItem_Draw(play, GID_X)` draws an item as `sDrawItemTable` in `z_draw.c` says:
   one of about thirty draw functions and up to eight display lists. Writing that out by hand
@@ -458,8 +493,7 @@ the same way, so a format 2 file reads as it is and is written back as format 3.
 - **Overlay data.** A display list an overlay defines itself, En_Holl's `sPlaneDL`, is
   compiled into the overlay rather than an object. An object may be named as the overlay's
   asset folder, `object = "ovl_En_Holl"`.
-- **Smaller keys.** A pose at another frame than the first, `pose_frame = 2`; `rotates` set per
-  variant; a child's params taking a param of its parent by name, `take = { "Switch Flag" =
+- **Smaller keys.** A pose at another frame than the first, `pose_frame = 2`; a child's params taking a param of its parent by name, `take = { "Switch Flag" =
   "Switch Flag" }`; and enumerations an overlay's `.c` defines offered as its collections, as
   its tables already are.
 
@@ -477,9 +511,11 @@ outright, and what decides whether an actor spawns. Notes say them.
   skeleton's object or another; a limb is added from a list of the skeleton's. A display list
   part picks the limb it is at, of the variant's first skeleton, and its row is indented and
   badged "at limb 2"; a skeleton's is badged with how many limbs it changes.
-- **Adjustments** are cards below the variants, each a WHEN band as a variant has and a
-  CHANGES band in place of DRAWS. The Scene panel names the variant and the adjustments a
-  placed actor is drawn with, and can add an adjustment for its params as it adds a variant.
+- **Adjustments** are cards below the variants, headed by their condition and what they
+  change, each a WHEN band as a variant has and a CHANGES band in place of DRAWS: scale,
+  height offset, the axes it turns by, colours, segments, and the parts it changes, all or
+  some ticked by number. The Scene panel names the variant and the adjustments a placed
+  actor is drawn with, and adds an adjustment for its params as it adds a variant.
 - **Items** are rows tagged GI beside DL and SK, picked from the `GetItemDrawID` collection or
   bound to a param.
 
@@ -492,7 +528,7 @@ rewritten to use what it adds, and their renders looked at.
 |---|---|
 | 1 | Built segments: the format (3, reading 2), drawing them into the actor's own image, the panel's segment rows; the Kokiri's colours (done; the crystal switch's tiles too) |
 | 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger (done) |
-| 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block |
+| 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block (done: 68 variants became 1 and 19 adjustments; `rotates` set per variant is an adjustment's) |
 | 4 | Item parts; Item_Etcetera, the Gold Skulltula token |
 | 5 | Overlay data as objects; En_Holl, Elf_Msg |
 | 6 | The smaller keys |

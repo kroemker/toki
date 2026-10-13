@@ -65,6 +65,8 @@ struct DrawState {
 /// A display list an actor draws, by address in one of the actor objects, in
 /// a pass and under a state.
 struct ActorDisplayList {
+    /// The variant's part it is, counted from 0, for the adjustments that name it.
+    usize part = 0;
     usize object = 0;
     u32 address = 0;
     actor::Pass pass = actor::Pass::Opaque;
@@ -81,6 +83,8 @@ struct LimbObject {
 /// A skeleton posed on the first frame of its animation, or at rest, with
 /// every limb's matrix from model space, and the state it is drawn under.
 struct SkeletonDrawing {
+    /// The variant's part it is, counted from 0, for the adjustments that name it.
+    usize part = 0;
     usize object = 0;
     /// Posed, with its part's limbs swapped in; a limb drawn as nothing keeps
     /// its place, display list zero, for the matrices a flexible skeleton's
@@ -115,21 +119,45 @@ struct ActorDrawing {
     }
 };
 
+/// One adjustment of an entry, made ready when the scene is read: what it
+/// changes, its segments' symbols found in the entry's object.
+struct AdjustmentDrawing {
+    std::optional<f32> scale;
+    std::optional<f32> heightOffset;
+    std::optional<actor::RotationAxes> rotates;
+    actor::DrawColors colors;
+    std::vector<ActorSegment> segments;
+    std::vector<usize> parts;
+};
+
+/// Makes `adjustment` to `drawing`: its scale, height offset and axes, and the
+/// colours and segments of the parts it names, or of every part.
+void applyAdjustment(ActorDrawing& drawing, const AdjustmentDrawing& adjustment);
+
 /// One actor of the scene: the entry it is drawn by, when the actor database
-/// has one, and what each of the entry's variants draws, as far as its objects
-/// have what the entry names. `diagnostics` says what they do not.
+/// has one, and what each of the entry's variants draws and each of its
+/// adjustments changes, as far as its objects have what the entry names.
+/// `diagnostics` says what they do not.
 struct SceneActorModel {
     std::string enumName;
     std::optional<actor::ActorEntry> entry;
     /// One drawing for each of the entry's variants, in order.
     std::vector<ActorDrawing> variants;
+    /// One for each of the entry's adjustments, in order.
+    std::vector<AdjustmentDrawing> adjustments;
     std::vector<base::Diagnostic> diagnostics;
 
     /// Whether any variant draws.
     [[nodiscard]] bool hasDrawing() const;
 
-    /// The drawing of the variant `placement` matches, if one matches.
+    /// The drawing of the variant `placement` matches, if one matches, before
+    /// any adjustment.
     [[nodiscard]] const ActorDrawing* findDrawing(const actor::PlacementValues& placement) const;
+
+    /// The drawing for `placement`: its variant's, with every adjustment that
+    /// matches it made in order. Empty when no variant matches.
+    [[nodiscard]] std::optional<ActorDrawing>
+    makeDrawing(const actor::PlacementValues& placement) const;
 };
 
 /// The models of every actor a scene places, in any layer, by actor ID, and the

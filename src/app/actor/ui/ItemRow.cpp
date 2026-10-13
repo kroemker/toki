@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <format>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -119,6 +120,33 @@ std::string makeFittedText(const std::string& text, const float width) {
         }
     }
     return text.substr(0, length) + Ellipsis;
+}
+
+bool beginBands() {
+    constexpr float BandWidth = 5.0F;
+    if (!ImGui::BeginTable("bands", 2,
+                           ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH)) {
+        return false;
+    }
+    ImGui::TableSetupColumn("band", ImGuiTableColumnFlags_WidthFixed,
+                            ImGui::GetFontSize() * BandWidth);
+    ImGui::TableSetupColumn("body", ImGuiTableColumnFlags_WidthStretch);
+    return true;
+}
+
+void endBands() {
+    ImGui::EndTable();
+}
+
+void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4>& background) {
+    ImGui::TableNextRow();
+    if (background) {
+        ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImGui::GetColorU32(*background));
+    }
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(color, "%s", label);
+    ImGui::TableNextColumn();
 }
 
 RowResult drawItemRow(const char* id, const ItemRow& row) {

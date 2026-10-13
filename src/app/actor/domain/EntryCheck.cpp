@@ -27,6 +27,9 @@ public:
         for (usize i = 0; i < entry.variants.size(); ++i) {
             checkVariant(entry.variants[i], i);
         }
+        for (usize i = 0; i < entry.adjustments.size(); ++i) {
+            checkAdjustment(entry.adjustments[i], i);
+        }
         return std::move(diagnostics);
     }
 
@@ -40,7 +43,9 @@ private:
     void checkParam(const ActorParam& param);
     void checkOverlaps();
     void checkVariant(const ActorVariant& variant, usize index);
-    void checkMatch(const ActorVariant& variant, const ParamMatch& match, std::string_view path);
+    void checkAdjustment(const ActorAdjustment& adjustment, usize index);
+    void checkMatch(const base::SourceLocation& location, const ParamMatch& match,
+                    std::string_view path);
     void checkPart(const ActorPart& part, std::string_view path);
 
     const ActorEntry& entry;
@@ -105,7 +110,7 @@ void EntryChecker::checkOverlaps() {
 void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) {
     const std::string path = std::format("variants[{}]", index);
     for (const ParamMatch& match : variant.match) {
-        checkMatch(variant, match, path);
+        checkMatch(variant.location, match, path);
     }
     for (usize i = 0; i < variant.parts.size(); ++i) {
         checkPart(variant.parts[i], std::format("{}.parts[{}]", path, i));
@@ -116,17 +121,35 @@ void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) 
     }
 }
 
-void EntryChecker::checkMatch(const ActorVariant& variant, const ParamMatch& match,
+void EntryChecker::checkAdjustment(const ActorAdjustment& adjustment, const usize index) {
+    const std::string path = std::format("adjustments[{}]", index);
+    for (const ParamMatch& match : adjustment.match) {
+        checkMatch(adjustment.location, match, path);
+    }
+    usize partCount = 0;
+    for (const ActorVariant& variant : entry.variants) {
+        partCount = std::max(partCount, variant.parts.size());
+    }
+    for (const usize part : adjustment.parts) {
+        if (part >= partCount) {
+            report(adjustment.location, path + ".parts",
+                   std::format("changes part {}, and no variant has more than {} parts", part,
+                               partCount));
+        }
+    }
+}
+
+void EntryChecker::checkMatch(const base::SourceLocation& location, const ParamMatch& match,
                               const std::string_view path) {
     const std::string at = std::format("{}.match.{}", path, match.param);
     if (match.values.empty()) {
-        report(variant.location, at, "has no values, so the variant matches no placement");
+        report(location, at, "has no values, so the variant matches no placement");
     }
     if (isBuiltInParam(match.param)) {
         for (const MatchValue& value : match.values) {
             const std::string* name = std::get_if<std::string>(&value);
             if (name == nullptr || (match.param == "age" && *name != "child" && *name != "adult")) {
-                report(variant.location, at,
+                report(location, at,
                        match.param == "age" ? "an age is \"child\" or \"adult\""
                                             : "a scene is matched by its enum name");
             }
@@ -135,22 +158,21 @@ void EntryChecker::checkMatch(const ActorVariant& variant, const ParamMatch& mat
     }
     const auto param = std::ranges::find(entry.params, match.param, &ActorParam::name);
     if (param == entry.params.end()) {
-        report(variant.location, at, "is not a param of the actor");
+        report(location, at, "is not a param of the actor");
         return;
     }
     for (const MatchValue& value : match.values) {
         if (std::holds_alternative<std::string>(value)) {
-            report(variant.location, at,
-                   "a param is matched by a number, or a flag by true or false");
+            report(location, at, "a param is matched by a number, or a flag by true or false");
         } else if (std::holds_alternative<bool>(value) != (param->kind == ParamKind::Flag)) {
-            report(variant.location, at,
+            report(location, at,
                    param->kind == ParamKind::Flag ? "a flag matches true or false"
                                                   : "only a flag matches true or false");
         } else if (const s64* number = std::get_if<s64>(&value);
                    number != nullptr && param->kind == ParamKind::Choice && !param->collection &&
                    !std::ranges::contains(param->values, *number + param->offset,
                                           &ChoiceValue::value)) {
-            report(variant.location, at, std::format("{} is not one of its values", *number));
+            report(location, at, std::format("{} is not one of its values", *number));
         }
     }
 }

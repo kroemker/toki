@@ -42,6 +42,19 @@ std::expected<void, std::string> addVariantForParams(ActorDatabase& database,
     return {};
 }
 
+std::expected<void, std::string> addAdjustmentForParams(ActorDatabase& database,
+                                                        const ActorEntry& current,
+                                                        const PlacementValues& placement) {
+    if (current.params.empty()) {
+        return std::unexpected(
+            std::format("{} names no params, so an adjustment cannot tell these params from others",
+                        current.actor));
+    }
+    ActorEntry& entry = database.entries.try_emplace(current.actor, current).first->second;
+    entry.adjustments.push_back(ActorAdjustment{.match = makeParamsMatch(entry, placement)});
+    return {};
+}
+
 std::expected<void, std::string> setEntry(ActorDatabase& database, ActorEntry entry) {
     if (entry.actor.empty()) {
         return std::unexpected(std::string("an entry needs the enum name of its actor"));

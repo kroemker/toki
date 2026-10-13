@@ -108,6 +108,10 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
         return;
     }
     model.entry = *entry;
+    for (const actor::ActorAdjustment& adjustment : model.entry->adjustments) {
+        model.adjustments.push_back(
+            makeAdjustmentDrawing(*model.entry, adjustment, objects, model.diagnostics));
+    }
     const FindActorId findId = [this](const std::string_view name) { return findActorId(name); };
     for (const actor::ActorVariant& variant : model.entry->variants) {
         if (!actor::isMatchingScene(variant, scene)) {
@@ -158,6 +162,50 @@ const ActorDrawing* SceneActorModel::findDrawing(const actor::PlacementValues& p
     }
     const auto index = static_cast<usize>(variant - entry->variants.data());
     return index < variants.size() ? &variants[index] : nullptr;
+}
+
+std::optional<ActorDrawing>
+SceneActorModel::makeDrawing(const actor::PlacementValues& placement) const {
+    const ActorDrawing* drawing = findDrawing(placement);
+    if (drawing == nullptr) {
+        return std::nullopt;
+    }
+    ActorDrawing adjusted = *drawing;
+    for (const usize index : actor::findAdjustments(*entry, placement)) {
+        if (index < adjustments.size()) {
+            applyAdjustment(adjusted, adjustments[index]);
+        }
+    }
+    return adjusted;
+}
+
+void applyAdjustment(ActorDrawing& drawing, const AdjustmentDrawing& adjustment) {
+    drawing.scale = adjustment.scale.value_or(drawing.scale);
+    drawing.heightOffset = adjustment.heightOffset.value_or(drawing.heightOffset);
+    drawing.rotates = adjustment.rotates.value_or(drawing.rotates);
+    const auto adjust = [&adjustment](const usize part, DrawState& state) {
+        if (!adjustment.parts.empty() && !std::ranges::contains(adjustment.parts, part)) {
+            return;
+        }
+        if (adjustment.colors.primitive) {
+            state.colors.primitive = adjustment.colors.primitive;
+        }
+        if (adjustment.colors.environment) {
+            state.colors.environment = adjustment.colors.environment;
+        }
+        for (const ActorSegment& segment : adjustment.segments) {
+            std::erase_if(state.segments, [&segment](const ActorSegment& set) {
+                return set.segment == segment.segment;
+            });
+            state.segments.push_back(segment);
+        }
+    };
+    for (SkeletonDrawing& skeleton : drawing.skeletons) {
+        adjust(skeleton.part, skeleton.state);
+    }
+    for (ActorDisplayList& list : drawing.displayLists) {
+        adjust(list.part, list.state);
+    }
 }
 
 std::optional<actor::Age> findLayerAge(const usize layerIndex) {

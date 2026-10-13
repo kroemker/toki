@@ -84,12 +84,18 @@ void renameParam(ActorEntry& entry, const std::string& from, const std::string& 
             param.name = to;
         }
     }
-    for (ActorVariant& variant : entry.variants) {
-        for (ParamMatch& match : variant.match) {
+    const auto renameIn = [&](std::vector<ParamMatch>& matches) {
+        for (ParamMatch& match : matches) {
             if (match.param == oldName) {
                 match.param = to;
             }
         }
+    };
+    for (ActorVariant& variant : entry.variants) {
+        renameIn(variant.match);
+    }
+    for (ActorAdjustment& adjustment : entry.adjustments) {
+        renameIn(adjustment.match);
     }
 }
 
@@ -120,7 +126,12 @@ s64 readParamValue(const ActorParam& param, const PlacementValues& placement) {
 
 bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                 const PlacementValues& placement) {
-    return std::ranges::all_of(variant.match, [&](const ParamMatch& match) {
+    return isMatching(entry, variant.match, placement);
+}
+
+bool isMatching(const ActorEntry& entry, const std::span<const ParamMatch> matches,
+                const PlacementValues& placement) {
+    return std::ranges::all_of(matches, [&](const ParamMatch& match) {
         if (isBuiltInParam(match.param)) {
             return isBuiltInMatching(match, placement);
         }
@@ -140,6 +151,16 @@ const ActorVariant* findVariant(const ActorEntry& entry, const PlacementValues& 
         return isMatching(entry, variant, placement);
     });
     return found == entry.variants.end() ? nullptr : &*found;
+}
+
+std::vector<usize> findAdjustments(const ActorEntry& entry, const PlacementValues& placement) {
+    std::vector<usize> found;
+    for (usize i = 0; i < entry.adjustments.size(); ++i) {
+        if (isMatching(entry, entry.adjustments[i].match, placement)) {
+            found.push_back(i);
+        }
+    }
+    return found;
 }
 
 } // namespace toki::actor

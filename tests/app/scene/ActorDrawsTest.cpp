@@ -16,6 +16,8 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
+#include <variant>
 #include <vector>
 
 using base::s16;
@@ -253,6 +255,51 @@ TEST_CASE("a limb drawn as nothing is skipped, and one from another object is dr
     };
     REQUIRE(listCalls(draws.opaque[0].displayList) == std::vector<u32>{0x0000'0000, 0x0600'0200});
     REQUIRE(listCalls(draws.opaque[1].displayList) == std::vector<u32>{0x0000'0000, 0x0600'0400});
+}
+
+TEST_CASE("a placement's drawing has every adjustment that matches it made, in order",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    toki::scene::SceneActorModel& pot = actors.models.at(7);
+    pot.variants[0].displayLists.push_back(
+        toki::scene::ActorDisplayList{.part = 1, .object = 0, .address = 0x0600'0300, .state = {}});
+    pot.entry->params.push_back(toki::actor::ActorParam{.name = "Big", .mask = 0x0001});
+    pot.entry->adjustments = {
+        toki::actor::ActorAdjustment{
+            .match = {toki::actor::ParamMatch{.param = "Big", .values = {s64{1}}}}},
+        toki::actor::ActorAdjustment{},
+    };
+    pot.adjustments = {
+        toki::scene::AdjustmentDrawing{.scale = 0.5F,
+                                       .colors = {.environment = std::array<u8, 4>{1, 2, 3, 4}}},
+        toki::scene::AdjustmentDrawing{
+            .heightOffset = 7.0F,
+            .colors = {.primitive = std::array<u8, 4>{9, 9, 9, 9}},
+            .segments = {toki::scene::ActorSegment{
+                .segment = 0x08,
+                .target = toki::actor::BuiltList{.colors = {.environment =
+                                                                std::array<u8, 4>{5, 6, 7, 8}}}}},
+            .parts = {1}},
+    };
+
+    const std::optional<toki::scene::ActorDrawing> big = pot.makeDrawing({.params = 0x0001});
+    const std::optional<toki::scene::ActorDrawing> small = pot.makeDrawing({.params = 0x0000});
+
+    REQUIRE(big.has_value());
+    REQUIRE(big->scale == Catch::Approx(0.5F));
+    REQUIRE(big->heightOffset == Catch::Approx(7.0F));
+    const toki::scene::DrawState& first = big->displayLists[0].state;
+    const toki::scene::DrawState& second = big->displayLists[1].state;
+    REQUIRE(first.colors.environment == std::array<u8, 4>{1, 2, 3, 4});
+    REQUIRE_FALSE(first.colors.primitive.has_value());
+    REQUIRE(first.segments.size() == 1);
+    REQUIRE(std::holds_alternative<toki::scene::ObjectAddress>(first.segments[0].target));
+    REQUIRE(second.colors.primitive == std::array<u8, 4>{9, 9, 9, 9});
+    REQUIRE(second.segments.size() == 1);
+    REQUIRE(std::holds_alternative<toki::actor::BuiltList>(second.segments[0].target));
+    REQUIRE(small.has_value());
+    REQUIRE(small->scale == Catch::Approx(actors.models.at(7).variants[0].scale));
+    REQUIRE(small->heightOffset == Catch::Approx(7.0F));
 }
 
 TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {

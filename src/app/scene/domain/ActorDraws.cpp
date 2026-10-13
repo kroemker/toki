@@ -218,14 +218,15 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
     };
 }
 
-[[nodiscard]] const ActorDrawing* findDrawn(const SceneActors& actors, const PlacedActor& actor) {
+[[nodiscard]] std::optional<ActorDrawing> makeDrawn(const SceneActors& actors,
+                                                    const PlacedActor& actor) {
     const auto found = actors.models.find(actor.id);
     if (found == actors.models.end()) {
-        return nullptr;
+        return std::nullopt;
     }
-    const ActorDrawing* drawing = found->second.findDrawing(
+    std::optional<ActorDrawing> drawing = found->second.makeDrawing(
         makePlacementValues(actors, actor.params, actor.rotation, actor.age));
-    return drawing != nullptr && drawing->isDrawn() ? drawing : nullptr;
+    return drawing && drawing->isDrawn() ? std::move(drawing) : std::nullopt;
 }
 
 void writeActor(ActorDraws& draws, const PlacedActor& actor, const ActorDrawing& drawing,
@@ -276,8 +277,8 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
     }
     for (usize index = 0; index < placed.size(); ++index) {
         const PlacedActor& actor = placed[index];
-        const ActorDrawing* drawing = findDrawn(actors, actor);
-        if (drawing == nullptr) {
+        const std::optional<ActorDrawing> drawing = makeDrawn(actors, actor);
+        if (!drawing) {
             draws.undrawn.push_back(index);
             continue;
         }
@@ -286,7 +287,7 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
         }
         for (const ChildPlacement& child : drawing->children) {
             const PlacedActor placedChild = placeChild(actor, child, *drawing);
-            if (const ActorDrawing* childDrawing = findDrawn(actors, placedChild)) {
+            if (const std::optional<ActorDrawing> childDrawing = makeDrawn(actors, placedChild)) {
                 writeActor(draws, placedChild, *childDrawing, firstImage, setup);
             }
         }

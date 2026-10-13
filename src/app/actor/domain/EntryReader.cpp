@@ -104,11 +104,7 @@ ActorEntry DatabaseReader::readEntry(const std::string_view name, const toml::ta
     entry.scale = readNumber(table, "scale", {});
     entry.heightOffset = readNumber(table, "height_offset", {});
     entry.draw = readName(table, "draw", {}, DrawKindNames);
-    if (const toml::table* rotates = table.get_as<toml::table>("rotates")) {
-        entry.rotates = RotationAxes{.x = readBool(*rotates, "x", "rotates").value_or(true),
-                                     .y = readBool(*rotates, "y", "rotates").value_or(true),
-                                     .z = readBool(*rotates, "z", "rotates").value_or(true)};
-    }
+    entry.rotates = readRotates(table, {}).value_or(RotationAxes{});
     if (const toml::table* params = table.get_as<toml::table>("params")) {
         entry.params = readParams(*params);
     }
@@ -122,7 +118,67 @@ ActorEntry DatabaseReader::readEntry(const std::string_view name, const toml::ta
             }
         }
     }
+    if (const toml::array* adjustments = table.get_as<toml::array>("adjustments")) {
+        for (usize i = 0; i < adjustments->size(); ++i) {
+            const std::string path = std::format("adjustments[{}]", i);
+            if (const toml::table* adjustment = (*adjustments)[i].as_table()) {
+                entry.adjustments.push_back(readAdjustment(*adjustment, path));
+            } else {
+                report((*adjustments)[i], path, "must be a table");
+            }
+        }
+    }
     return entry;
+}
+
+std::optional<RotationAxes> DatabaseReader::readRotates(const toml::table& table,
+                                                        const std::string_view path) {
+    const toml::table* rotates = table.get_as<toml::table>("rotates");
+    if (rotates == nullptr) {
+        return std::nullopt;
+    }
+    const std::string at = makePath(path, "rotates");
+    return RotationAxes{.x = readBool(*rotates, "x", at).value_or(true),
+                        .y = readBool(*rotates, "y", at).value_or(true),
+                        .z = readBool(*rotates, "z", at).value_or(true)};
+}
+
+ActorAdjustment DatabaseReader::readAdjustment(const toml::table& table,
+                                               const std::string_view path) {
+    checkKeys(table, path, AdjustmentKeys);
+    ActorAdjustment adjustment{
+        .location = {.file = file, .line = static_cast<u32>(table.source().begin.line)}};
+    if (const toml::table* match = table.get_as<toml::table>("match")) {
+        adjustment.match = readMatch(*match, makePath(path, "match"));
+    }
+    adjustment.scale = readNumber(table, "scale", path);
+    adjustment.heightOffset = readNumber(table, "height_offset", path);
+    adjustment.rotates = readRotates(table, path);
+    if (const toml::node* primitive = table.get("prim")) {
+        adjustment.colors.primitive = readColor<4>(*primitive, makePath(path, "prim"));
+    }
+    if (const toml::node* environment = table.get("env")) {
+        adjustment.colors.environment = readColor<4>(*environment, makePath(path, "env"));
+    }
+    if (const toml::table* segments = table.get_as<toml::table>("segments")) {
+        adjustment.segments = readSegments(*segments, makePath(path, "segments"));
+    }
+    if (const toml::node* parts = table.get("parts")) {
+        const toml::array* indices = parts->as_array();
+        const bool isIndices =
+            indices != nullptr && std::ranges::all_of(*indices, [](const toml::node& index) {
+                return index.is_integer() && index.value<s64>().value_or(-1) >= 0;
+            });
+        if (isIndices) {
+            for (const toml::node& index : *indices) {
+                adjustment.parts.push_back(static_cast<usize>(index.value<s64>().value_or(0)));
+            }
+        } else {
+            report(*parts, makePath(path, "parts"),
+                   "must be a list of the parts it changes, counted from 0 in the variant's");
+        }
+    }
+    return adjustment;
 }
 
 std::vector<ActorParam> DatabaseReader::readParams(const toml::table& table) {

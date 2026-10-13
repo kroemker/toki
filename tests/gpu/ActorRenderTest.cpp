@@ -78,11 +78,11 @@ void setParam(u16& bits, const toki::actor::ActorParam& param, const s64 value) 
 }
 
 /// Params, rotation and age that `variant`'s match holds for.
-[[nodiscard]] toki::actor::PlacementValues makeValues(const toki::actor::ActorEntry& entry,
-                                                      const toki::actor::ActorVariant& variant) {
-    toki::actor::PlacementValues values{.params = variant.defaultParams.value_or(0),
-                                        .age = toki::actor::Age::Child};
-    for (const toki::actor::ParamMatch& match : variant.match) {
+[[nodiscard]] toki::actor::PlacementValues
+makeValues(const toki::actor::ActorEntry& entry,
+           const std::span<const toki::actor::ParamMatch> matches, const u16 params) {
+    toki::actor::PlacementValues values{.params = params, .age = toki::actor::Age::Child};
+    for (const toki::actor::ParamMatch& match : matches) {
         const toki::actor::MatchValue& first = match.values.front();
         if (match.param == "age") {
             values.age = std::get<std::string>(first) == "adult" ? toki::actor::Age::Adult
@@ -203,15 +203,15 @@ struct Harness {
     }
 
     void render(const toki::actor::ActorDatabase& shipped, const toki::actor::ActorEntry& entry,
-                usize index);
+                usize index, const toki::actor::PlacementValues& values, const std::string& name);
 };
 
 void Harness::render(const toki::actor::ActorDatabase& shipped,
-                     const toki::actor::ActorEntry& entry, const usize index) {
+                     const toki::actor::ActorEntry& entry, const usize index,
+                     const toki::actor::PlacementValues& values, const std::string& name) {
     const toki::actor::ActorVariant& variant = entry.variants[index];
     const std::optional<s16> id = findActorId(entry.actor);
     REQUIRE(id.has_value());
-    const toki::actor::PlacementValues values = makeValues(entry, variant);
     toki::scene::SceneLayer layer{.index = values.age == toki::actor::Age::Adult ? 2U : 0U};
     layer.header.keepObjectId = findKeepId(entry, variant);
     layer.rooms.push_back(toki::scene::RoomHeader{
@@ -228,7 +228,7 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     toki::scene::SceneActors actors =
         toki::scene::readSceneActors(reader, folder, {layer}, shipped);
     const toki::scene::SceneActorModel& model = actors.models.at(*id);
-    INFO(entry.actor << " variant " << index << ":\n" << describe(model.diagnostics));
+    INFO(name << ":\n" << describe(model.diagnostics));
     CHECK(model.diagnostics.empty());
     const toki::scene::PlacedActor placed{
         .id = *id, .rotation = values.rotation, .params = values.params, .age = values.age};
@@ -237,8 +237,8 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     tested.entry->variants.insert(tested.entry->variants.begin(), variant);
     toki::scene::ActorDrawing testedDrawing = tested.variants[index];
     tested.variants.insert(tested.variants.begin(), std::move(testedDrawing));
-    const toki::scene::ActorDrawing* drawing = &tested.variants.front();
-    if (!drawing->isDrawn()) {
+    const std::optional<toki::scene::ActorDrawing> drawing = tested.makeDrawing(values);
+    if (!drawing || !drawing->isDrawn()) {
         return;
     }
 
@@ -273,7 +273,7 @@ void Harness::render(const toki::actor::ActorDatabase& shipped,
     }
     const auto png = z64::encodePng(*pixels, ImageSize, ImageSize);
     REQUIRE(png.has_value());
-    std::ofstream(output / std::format("{}_{}.png", entry.actor, index), std::ios::binary)
+    std::ofstream(output / std::format("{}.png", name), std::ios::binary)
         .write(reinterpret_cast<const char*>(png->data()),
                static_cast<std::streamsize>(png->size()));
 }
@@ -320,7 +320,21 @@ TEST_CASE("every variant of the shipped actor database is drawn to an image", "[
                     .output = output};
     for (const auto& [name, entry] : shipped.entries) {
         for (usize index = 0; index < entry.variants.size(); ++index) {
-            harness.render(shipped, entry, index);
+            const toki::actor::ActorVariant& variant = entry.variants[index];
+            harness.render(shipped, entry, index,
+                           makeValues(entry, variant.match, variant.defaultParams.value_or(0)),
+                           std::format("{}_{}", entry.actor, index));
+        }
+        for (usize index = 0; index < entry.adjustments.size(); ++index) {
+            const toki::actor::PlacementValues values =
+                makeValues(entry, entry.adjustments[index].match, 0);
+            const toki::actor::ActorVariant* variant = toki::actor::findVariant(entry, values);
+            INFO(entry.actor << " adjustment " << index);
+            CHECK(variant != nullptr);
+            if (variant != nullptr) {
+                harness.render(shipped, entry, static_cast<usize>(variant - entry.variants.data()),
+                               values, std::format("{}_a{}", entry.actor, index));
+            }
         }
     }
 }

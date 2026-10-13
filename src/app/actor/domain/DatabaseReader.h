@@ -26,9 +26,14 @@ using Keys = std::span<const std::string_view>;
 inline constexpr std::array DatabaseKeys = {
     std::string_view("format"), std::string_view("checked_against"), std::string_view("actors")};
 inline constexpr std::array EntryKeys = {
-    std::string_view("name"),  std::string_view("notes"),         std::string_view("object"),
-    std::string_view("scale"), std::string_view("height_offset"), std::string_view("rotates"),
-    std::string_view("draw"),  std::string_view("params"),        std::string_view("variants")};
+    std::string_view("name"),       std::string_view("notes"),         std::string_view("object"),
+    std::string_view("scale"),      std::string_view("height_offset"), std::string_view("rotates"),
+    std::string_view("draw"),       std::string_view("params"),        std::string_view("variants"),
+    std::string_view("adjustments")};
+inline constexpr std::array AdjustmentKeys = {
+    std::string_view("match"),    std::string_view("scale"), std::string_view("height_offset"),
+    std::string_view("rotates"),  std::string_view("prim"),  std::string_view("env"),
+    std::string_view("segments"), std::string_view("parts")};
 inline constexpr std::array VariantKeys = {
     std::string_view("match"),         std::string_view("object"),        std::string_view("scale"),
     std::string_view("height_offset"), std::string_view("draw"),          std::string_view("parts"),
@@ -106,6 +111,9 @@ private:
     [[nodiscard]] std::vector<ChoiceValue> readChoices(const toml::table& table,
                                                        std::string_view path);
     [[nodiscard]] ActorVariant readVariant(const toml::table& table, std::string_view path);
+    [[nodiscard]] ActorAdjustment readAdjustment(const toml::table& table, std::string_view path);
+    [[nodiscard]] std::optional<RotationAxes> readRotates(const toml::table& table,
+                                                          std::string_view path);
     [[nodiscard]] std::vector<ParamMatch> readMatch(const toml::table& table,
                                                     std::string_view path);
     [[nodiscard]] std::vector<ActorPart> readParts(const toml::array& parts, std::string_view path);

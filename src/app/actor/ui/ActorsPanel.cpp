@@ -10,6 +10,7 @@
 #include "app/actor/domain/ProblemText.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/actor/ui/AdjustmentsEditor.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/EntryEditor.h"
 #include "app/actor/ui/VariantsEditor.h"
@@ -423,6 +424,10 @@ void ActorsPanel::drawEntry() {
     ImGui::SeparatorText("Variants, tried in order");
     ImGui::PushID("variants");
     isChanged = drawVariantsEditor(*draft, context) || isChanged;
+    ImGui::PopID();
+    ImGui::SeparatorText("Adjustments, made in order to the variant drawn");
+    ImGui::PushID("adjustments");
+    isChanged = drawAdjustmentsEditor(*draft, context) || isChanged;
     ImGui::PopID();
     if (isChanged) {
         isDirty = true;

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "app/core/ui/Theme.h"
+
 #include <imgui.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,6 +53,19 @@ struct RowResult {
 /// its left, and ends it.
 void beginRowDetails();
 void endRowDetails();
+
+/// The colour of a card's WHEN band, and of its background.
+inline constexpr ImVec4 WhenColor = core::palette::Warning;
+inline constexpr ImVec4 WhenBackground{0.910F, 0.718F, 0.314F, 0.07F};
+
+/// Starts a card's bands, a table of a labelled gutter and the band's body,
+/// and ends them; `beginBands` says whether to draw them.
+[[nodiscard]] bool beginBands();
+void endBands();
+
+/// Starts one band of a card: its label in `color` in the gutter, the row
+/// tinted by `background` when given, and the cursor in its body.
+void drawBand(const char* label, const ImVec4& color, const std::optional<ImVec4>& background);
 
 /// `text` as it fits in `width`, cut with "…" when it does not.
 [[nodiscard]] std::string makeFittedText(const std::string& text, float width);
