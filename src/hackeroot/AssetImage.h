@@ -18,6 +18,12 @@ class Workspace;
 struct SegmentFiles {
     u8 segment = 0;
     std::vector<std::filesystem::path> files;
+    /// Whether the files are an overlay's own C, as `z_en_holl.c` is, rather
+    /// than asset C: only the data the RSP draws with is read from them,
+    /// display lists, vertices, matrices, lights and integer arrays, which
+    /// is what an overlay defines for itself to draw; the rest is its code's.
+    /// The overlay's folder is read inline, as its own headers are.
+    bool isOverlay = false;
 
     [[nodiscard]] bool operator==(const SegmentFiles&) const = default;
 };

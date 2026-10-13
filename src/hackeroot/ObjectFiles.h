@@ -41,6 +41,16 @@ struct ObjectFiles {
 /// saying so. A file the spec names that is in neither is an error.
 [[nodiscard]] ObjectFiles findObjectFiles(const Workspace& workspace, const AssetDirectory& asset);
 
+/// The prefix of an overlay's name, `ovl_En_Holl`, which names the data the
+/// overlay defines for itself where an object would be named.
+inline constexpr std::string_view OverlayPrefix = "ovl_";
+
+/// The folder of what is drawn from by `name`: an object, or for a name with
+/// `OverlayPrefix`, an overlay, whose own data is read as an object would be
+/// (`SegmentFiles::isOverlay`).
+[[nodiscard]] std::optional<AssetDirectory> findDrawnDirectory(const Workspace& workspace,
+                                                               std::string_view name);
+
 /// The folder of the object called `name`, if the checkout has one.
 [[nodiscard]] std::optional<AssetDirectory> findObjectDirectory(const Assets& assets,
                                                                 std::string_view name);

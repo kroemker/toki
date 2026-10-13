@@ -43,7 +43,7 @@ std::optional<usize> ActorObjects::readObject(const std::string& name,
                                               std::vector<base::Diagnostic>& diagnostics) {
     const hackeroot::Workspace& workspace = reader.getWorkspace();
     const std::optional<hackeroot::AssetDirectory> directory =
-        hackeroot::findObjectDirectory(workspace.getAssets(), name);
+        hackeroot::findDrawnDirectory(workspace, name);
     if (!directory) {
         diagnostics.push_back(base::makeWarning(
             {}, std::format("the checkout has no object '{}' to draw the actor from", name)));

@@ -237,7 +237,7 @@ it is drawn with; nothing carries over from one part to the next.
 | Key | Means |
 |---|---|
 | `display_list`, `skeleton` or `get_item` | what it draws, by name; an item by its `GetItemDrawID` constant, or by a param ([Items](#items)) |
-| `object` | where the name is, when not the variant's |
+| `object` | where the name is, when not the variant's: an object, or an overlay's own data by the overlay's name, `ovl_En_Holl` |
 | `pose`, `pose_object` | for a skeleton, the animation it stands in, at its first frame; at rest without one |
 | `limbs` | for a skeleton, what it draws at its limbs in place of their own ([Limbs](#limbs)) |
 | `limb` | for a display list, the limb of the variant's first skeleton it is placed at; `translation`, `rotation` and `scale` are then relative to the limb |
@@ -251,6 +251,16 @@ it is drawn with; nothing carries over from one part to the next.
 
 A part without `hilite` is drawn with the frame's `LookAt`, from the camera toward what it
 looks at, standing in for whatever the game drew last.
+
+### Overlay data
+
+Some display lists are defined by an overlay itself rather than an object: En_Holl's
+`sPlaneDL` is in `z_en_holl.c`, its vertices included from `assets/overlays/ovl_En_Holl/`.
+An object named `ovl_<Actor>` is that overlay's own data. Its main file is read as an object
+is, into segment 6 (`SegmentFiles::isOverlay`): only declarations the RSP draws with are kept,
+display lists, vertices, matrices, viewports, lights and integer arrays, since the rest is its
+code's and points at its functions, and its folder is read inline so its own header is. Its
+symbols are picked in the panel as an object's, typed as `ovl_En_Holl`.
 
 ### Items
 
@@ -553,6 +563,6 @@ rewritten to use what it adds, and their renders looked at.
 | 2 | Limbs replaced, hidden, and parts at a limb; the panel's limb list and indented rows; the Gold Skulltula, the Kokiri's heads, the Wallmaster's finger (done) |
 | 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block (done: 68 variants became 1 and 19 adjustments; `rotates` set per variant is an adjustment's) |
 | 4 | Item parts; Item_Etcetera, the Gold Skulltula token (done: Item_Etcetera is one variant and three adjustments) |
-| 5 | Overlay data as objects; En_Holl, Elf_Msg |
+| 5 | Overlay data as objects; En_Holl, Elf_Msg (done: En_Holl draws its plane; Elf_Msg stays a marker, since its cube is drawn only in debug builds, sized by its rotation) |
 | 6 | The smaller keys |
 | 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database |

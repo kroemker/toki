@@ -47,6 +47,9 @@ namespace {
 
 constexpr usize WordAlignment = 4;
 constexpr std::array<std::string_view, 1> AlsoHidden{"ultra64/gbi.f3dex3.h"};
+constexpr std::array<std::string_view, 17> OverlayDataTypes{
+    "Gfx",     "Vtx",     "Mtx",     "Vp",      "u64",     "u32",     "u16",     "u8",     "s16",
+    "Lights0", "Lights1", "Lights2", "Lights3", "Lights4", "Lights5", "Lights6", "Lights7"};
 
 struct FileRead {
     usize image = 0;
@@ -146,7 +149,7 @@ public:
                                        std::span<const z64::MemoryImage* const> earlier);
 
 private:
-    void readFile(usize image, u8 segment, const std::filesystem::path& file);
+    void readFile(usize image, u8 segment, const std::filesystem::path& file, bool isOverlay);
     cparser::ParseResult parseFile(FileRead& read);
     void keepLoud(std::vector<base::Diagnostic>& found);
     void placeObjects(FileRead& read, Prelude& prelude,
@@ -181,9 +184,14 @@ Prelude& ImageReader::findPrelude(const std::vector<std::string>& includes) {
     return *prelude;
 }
 
-void ImageReader::readFile(const usize image, const u8 segment, const std::filesystem::path& file) {
+void ImageReader::readFile(const usize image, const u8 segment, const std::filesystem::path& file,
+                           const bool isOverlay) {
+    cparser::PreprocessOptions fileOptions = options;
+    if (isOverlay) {
+        fileOptions.allowedRoots.push_back(file.parent_path());
+    }
     std::expected<cparser::TranslationUnit, base::Diagnostic> unit =
-        cparser::preprocess(workspace.getMacros(), file, options);
+        cparser::preprocess(workspace.getMacros(), file, fileOptions);
     if (!unit) {
         diagnostics->push_back(unit.error());
         return;
@@ -199,6 +207,12 @@ void ImageReader::readFile(const usize image, const u8 segment, const std::files
             .types;
 
     cparser::ParseResult parsed = parseFile(*read);
+    if (isOverlay) {
+        std::erase_if(parsed.declarations, [](const cparser::Declaration& declaration) {
+            return declaration.pointerDepth != 0 ||
+                   !std::ranges::contains(OverlayDataTypes, declaration.type);
+        });
+    }
     completeLengths(parsed.declarations);
     placeObjects(*read, prelude, parsed.declarations);
     files.push_back(std::move(read));
@@ -351,7 +365,7 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images,
         diagnostics = &imageDiagnostics[image];
         for (const SegmentFiles& segment : images[image]) {
             for (const std::filesystem::path& file : segment.files) {
-                readFile(image, segment.segment, file);
+                readFile(image, segment.segment, file, segment.isOverlay);
             }
         }
     }

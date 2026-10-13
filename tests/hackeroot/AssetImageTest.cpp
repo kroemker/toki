@@ -2,6 +2,8 @@
 
 #include "base/Diagnostic.h"
 #include "base/Types.h"
+#include "hackeroot/Assets.h"
+#include "hackeroot/ObjectFiles.h"
 #include "hackeroot/Workspace.h"
 #include "n64/Memory.h"
 #include "z64/MemoryImage.h"
@@ -87,6 +89,32 @@ TEST_CASE("a memory image maps where the segment table says", "[hackeroot][image
     const std::optional<std::span<const u8>> command = memory.findBytes((*table)[3] + 0x18, 4);
     REQUIRE(command.has_value());
     REQUIRE((*command)[0] == 0xDF);
+}
+
+TEST_CASE("an overlay's own display lists are read as an object's, and its code's data is not",
+          "[hackeroot][image]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(getCheckout(), {});
+    REQUIRE(workspace.has_value());
+    const std::optional<hackeroot::AssetDirectory> overlay =
+        hackeroot::findDrawnDirectory(*workspace, "ovl_En_Plane");
+    REQUIRE(overlay.has_value());
+    const std::vector<hackeroot::SharedImageFiles> shared =
+        hackeroot::makeObjectImageFiles(*workspace, *overlay, hackeroot::ObjectSegment);
+    REQUIRE(shared.back().files.size() == 1);
+    REQUIRE(shared.back().files.front().isOverlay);
+
+    const z64::MemoryImage image = hackeroot::readAssetImage(*workspace, shared.back().files);
+
+    std::string listed;
+    for (const base::Diagnostic& diagnostic : image.diagnostics) {
+        listed += diagnostic.message + "\n";
+    }
+    INFO(listed);
+    REQUIRE(image.diagnostics.empty());
+    REQUIRE(image.findAddress("sPlaneVtx") == std::optional<u32>(0x06000000));
+    REQUIRE(image.findAddress("sPlaneDL") == std::optional<u32>(0x06000010));
+    REQUIRE_FALSE(image.findAddress("En_Plane_Profile").has_value());
 }
 
 TEST_CASE("a checkout that enables F3DEX3 is not read into images", "[hackeroot][image]") {

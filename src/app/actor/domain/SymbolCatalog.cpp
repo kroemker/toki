@@ -40,7 +40,7 @@ SymbolCatalog::ObjectSymbols SymbolCatalog::readSymbols(hackeroot::AssetImageRea
                                                         const std::string& name) {
     const hackeroot::Workspace& workspace = reader.getWorkspace();
     const std::optional<hackeroot::AssetDirectory> directory =
-        hackeroot::findObjectDirectory(workspace.getAssets(), name);
+        hackeroot::findDrawnDirectory(workspace, name);
     if (!directory) {
         return {};
     }

@@ -570,7 +570,7 @@ height_offset = 30
 
 [actors.ACTOR_ELF_MSG]
 name = "Navi message spot"
-notes = "Where Navi flies to and speaks when Link enters: a cylinder, or a box with Shape set, sized by its rotation X (width) and Z (height), each times 4 units, 40 when zero. Drawn only in debug builds while a debug register is set; a marker here."
+notes = "Where Navi flies to and speaks when Link enters: a cylinder, or a box with Shape set, sized by its rotation X (width) and Z (height), each times 4 units, 40 when zero. Drawn only in debug builds while a debug register is set, as the overlay's own sCubeDL or a cylinder sized by its rotation; a marker here."
 draw = "marker"
 rotates = { x = false, y = false, z = false }
 
@@ -607,12 +607,20 @@ draw = "marker"
 
 [actors.ACTOR_EN_HOLL]
 name = "Room transition plane"
-notes = "Loads the room on the other side as Link passes, placed as a transition actor between two rooms. The visible types draw a black plane that fades as Link nears, from sPlaneDL in the overlay, which a part cannot name; a marker here."
-draw = "marker"
+notes = "Loads the room on the other side as Link passes, placed as a transition actor between two rooms. Only the visible narrow type draws, a black plane from the overlay's own sPlaneDL that fades as Link nears, drawn here unfaded; the rest are markers."
+object = "ovl_En_Holl"
+scale = 0.01
 
 [actors.ACTOR_EN_HOLL.params]
 "Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Enables the switch-flag type" }
 Type = { mask = 0x01C0, kind = "choice", values = "EnHollType" }
+
+[[actors.ACTOR_EN_HOLL.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "sPlaneDL", setup = 37, prim = [0, 0, 0, 255] }]
+
+[[actors.ACTOR_EN_HOLL.variants]]
+draw = "marker"
 
 [actors.ACTOR_BG_YDAN_SP]
 name = "Deku Tree web"

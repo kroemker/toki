@@ -4,10 +4,12 @@
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/GameCode.h"
+#include "hackeroot/OverlayFiles.h"
 #include "hackeroot/Spec.h"
 #include "hackeroot/Workspace.h"
 
 #include <algorithm>
+#include <expected>
 #include <filesystem>
 #include <format>
 #include <optional>
@@ -120,8 +122,32 @@ std::optional<AssetDirectory> findObjectDirectory(const Assets& assets,
     return *found;
 }
 
+std::optional<AssetDirectory> findDrawnDirectory(const Workspace& workspace,
+                                                 const std::string_view name) {
+    if (!name.starts_with(OverlayPrefix)) {
+        return findObjectDirectory(workspace.getAssets(), name);
+    }
+    const std::expected<OverlayFiles, base::Diagnostic> overlay =
+        findOverlayFiles(workspace.getRoot(), name.substr(OverlayPrefix.size()));
+    if (!overlay) {
+        return std::nullopt;
+    }
+    return AssetDirectory{.name = std::string(name), .directory = overlay->directory};
+}
+
 SharedImageFiles makeSharedObject(const Workspace& workspace, const AssetDirectory& asset,
                                   const u8 segment) {
+    if (asset.name.starts_with(OverlayPrefix)) {
+        const std::expected<OverlayFiles, base::Diagnostic> overlay = findOverlayFiles(
+            workspace.getRoot(), std::string_view(asset.name).substr(OverlayPrefix.size()));
+        if (!overlay) {
+            return SharedImageFiles{};
+        }
+        return SharedImageFiles{.files = {SegmentFiles{.segment = segment,
+                                                       .files = {overlay->main},
+                                                       .isOverlay = true}},
+                                .watched = overlay->getAllFiles()};
+    }
     ObjectFiles files = findObjectFiles(workspace, asset);
     std::vector<std::filesystem::path> watched = files.getAllFiles();
     watched.push_back(asset.directory);
