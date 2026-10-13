@@ -4,14 +4,17 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/OverlayCode.h"
 #include "base/Diagnostic.h"
+#include "cparser/Expression.h"
 #include "cparser/Preprocessor.h"
 #include "cparser/SourceFile.h"
 #include "cparser/Token.h"
+#include "cparser/TypeParser.h"
 #include "cparser/TypeTable.h"
 #include "hackeroot/OverlayFiles.h"
 #include "hackeroot/Prelude.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
+#include "z64/DecompDialect.h"
 
 #include <algorithm>
 #include <array>
@@ -196,6 +199,19 @@ void readTables(const hackeroot::Workspace& workspace, const hackeroot::OverlayF
     for (ValueCollection& table : listTableCollections(OverlayCode(*unit, overlay.main))) {
         if (!std::ranges::contains(read.collections, table.name, &ValueCollection::name)) {
             read.collections.push_back(std::move(table));
+        }
+    }
+    const cparser::TypeTable types =
+        cparser::parseTypes(*unit, cparser::EvalContext{.macros = &unit->macros,
+                                                        .dialect = &z64::getDecompDialect()})
+            .types;
+    std::vector<std::string_view> names = types.listEnumerationNames();
+    std::ranges::sort(names);
+    for (const std::string_view name : names) {
+        const cparser::Enumeration* enumeration = types.findEnumeration(name);
+        if (isSameFile(enumeration->location.file, overlay.main) &&
+            !std::ranges::contains(read.collections, name, &ValueCollection::name)) {
+            read.collections.push_back(makeCollection(name, *enumeration));
         }
     }
 }

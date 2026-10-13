@@ -127,6 +127,35 @@ parts = "all"
     REQUIRE(isReported(database, "adjustments[1].parts: must be a list"));
 }
 
+TEST_CASE("a child takes a param of its parent's by name", "[actor][database]") {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 3
+[actors.ACTOR_OBJ_MURE2.params]
+Drop = { mask = 0x0F00, kind = "number" }
+
+[[actors.ACTOR_OBJ_MURE2.variants]]
+children = [
+    { actor = "ACTOR_EN_KUSA", params = 0x0001, offset = [0, 0, 80], take = { Drop = "Drop" } },
+    { actor = "ACTOR_EN_KUSA", take = { Kind = "Missing", Other = 3 } },
+]
+)",
+                                                                                "actors.toml");
+
+    const std::vector<toki::actor::ChildActor>& children =
+        database.entries.at("ACTOR_OBJ_MURE2").variants[0].children;
+    REQUIRE(children[0].takes.size() == 1);
+    REQUIRE(children[0].takes[0].to == "Drop");
+    REQUIRE(children[0].takes[0].from == "Drop");
+    REQUIRE(isReported(database, "children[1].take.Kind: takes 'Missing'"));
+    REQUIRE(isReported(database, "children[1].take.Other: must be the name of the parent's param"));
+    const std::string written = toki::actor::formatActorDatabase(database);
+    INFO(written);
+    REQUIRE(toki::actor::parseActorDatabase(written, "again.toml")
+                .entries.at("ACTOR_OBJ_MURE2")
+                .variants[0]
+                .children[0]
+                .takes.size() == 1);
+}
+
 TEST_CASE("renaming a param renames it in adjustments too", "[actor][database]") {
     toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(Example, "actors.toml");
     toki::actor::ActorEntry& entry = database.entries.at("ACTOR_OBJ_OSHIHIKI");

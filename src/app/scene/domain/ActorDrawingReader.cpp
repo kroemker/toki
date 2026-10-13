@@ -373,7 +373,13 @@ object::JointTable PartReader::findPose(const actor::ActorPart& part,
                         *part.pose, animation->jointIndices.size(), part.symbol,
                         skeleton.limbs.size())));
     } else if (animation->frameCount > 0) {
-        return object::makeJointTable(*animation, 0);
+        if (part.poseFrame >= animation->frameCount) {
+            diagnostics.push_back(base::makeWarning(
+                part.location, std::format("'{}' has {} frames, so it has no frame {}", *part.pose,
+                                           animation->frameCount, part.poseFrame)));
+        }
+        return object::makeJointTable(*animation,
+                                      std::min<usize>(part.poseFrame, animation->frameCount - 1));
     }
     return object::makeRestJointTable(skeleton);
 }
@@ -407,9 +413,32 @@ AdjustmentDrawing makeAdjustmentDrawing(const actor::ActorEntry& entry,
     };
 }
 
+[[nodiscard]] std::vector<TakenParam> findTakes(const actor::ActorEntry& entry,
+                                                const actor::ChildActor& child,
+                                                const actor::ActorEntry* childEntry,
+                                                std::vector<base::Diagnostic>& diagnostics) {
+    std::vector<TakenParam> takes;
+    for (const actor::ParamTake& take : child.takes) {
+        const auto from = std::ranges::find(entry.params, take.from, &actor::ActorParam::name);
+        const auto to = childEntry != nullptr ? std::ranges::find(childEntry->params, take.to,
+                                                                  &actor::ActorParam::name)
+                                              : std::vector<actor::ActorParam>::const_iterator();
+        if (from == entry.params.end() || childEntry == nullptr || to == childEntry->params.end()) {
+            diagnostics.push_back(base::makeWarning(
+                entry.location, std::format("{}: its child {} takes '{}' into '{}', which its "
+                                            "child's entry does not have",
+                                            entry.actor, child.actor, take.from, take.to)));
+            continue;
+        }
+        takes.push_back(TakenParam{.from = *from, .to = *to});
+    }
+    return takes;
+}
+
 ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::ActorVariant& variant,
                               ActorObjects& objects, const FindActorId& findActorId,
-                              const ItemSource& items, std::vector<base::Diagnostic>& diagnostics) {
+                              const FindEntry& findEntry, const ItemSource& items,
+                              std::vector<base::Diagnostic>& diagnostics) {
     ActorDrawing drawing{
         .kind = variant.draw.value_or(entry.draw.value_or(actor::DrawKind::Model)),
         .scale = variant.scale.value_or(entry.scale.value_or(actor::ActorModel::DefaultScale)),
@@ -424,8 +453,11 @@ ActorDrawing makeActorDrawing(const actor::ActorEntry& entry, const actor::Actor
     }
     for (const actor::ChildActor& child : variant.children) {
         if (const std::optional<s16> id = findActorId(child.actor)) {
-            drawing.children.push_back(
-                ChildPlacement{.id = *id, .params = child.params, .offset = child.offset});
+            drawing.children.push_back(ChildPlacement{
+                .id = *id,
+                .params = child.params,
+                .offset = child.offset,
+                .takes = findTakes(entry, child, findEntry(child.actor), diagnostics)});
         } else {
             diagnostics.push_back(base::makeWarning(
                 variant.location,

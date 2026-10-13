@@ -136,6 +136,9 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
             makeAdjustmentDrawing(*model.entry, adjustment, objects, model.diagnostics));
     }
     const FindActorId findId = [this](const std::string_view name) { return findActorId(name); };
+    const FindEntry findChildEntry = [this](const std::string_view name) {
+        return actor::findEntry(database, name);
+    };
     const std::vector<actor::ValueCollection> tables =
         hasItemParts(*model.entry, true)
             ? actor::readActorCollections(workspace, *actor).collections
@@ -148,8 +151,8 @@ void ActorReader::readActor(const s16 id, std::deque<s16>& pending) {
             model.variants.emplace_back();
             continue;
         }
-        ActorDrawing drawing =
-            makeActorDrawing(*model.entry, variant, objects, findId, items, model.diagnostics);
+        ActorDrawing drawing = makeActorDrawing(*model.entry, variant, objects, findId,
+                                                findChildEntry, items, model.diagnostics);
         for (const ChildPlacement& child : drawing.children) {
             pending.push_back(child.id);
         }

@@ -128,7 +128,14 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
     bool isChanged =
         editOptionalSymbol("Posed as", part.pose,
                            part.poseObject ? part.poseObject : skeletonObject, PoseKinds, context);
-    ImGui::SetItemTooltip("It stands in the animation's first frame");
+    ImGui::SetItemTooltip("It stands in the animation at the frame below");
+    core::drawPropertyLabel("At frame");
+    int frame = part.poseFrame;
+    if (ImGui::InputInt("##frame", &frame)) {
+        part.poseFrame = static_cast<u16>(std::clamp(frame, 0, 0xFFFF));
+        isChanged = true;
+    }
+    ImGui::SetItemTooltip("The frame of the animation it stands in, from 0");
     isChanged =
         editObject("Pose object", part.poseObject, context, skeletonObject.value_or("none")) ||
         isChanged;
@@ -176,7 +183,10 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
 [[nodiscard]] std::vector<RowBadge> makeBadges(const ActorPart& part) {
     std::vector<RowBadge> badges;
     if (part.pose) {
-        badges.push_back(RowBadge{.text = "posed", .color = core::palette::TextMuted});
+        badges.push_back(RowBadge{.text = part.poseFrame != 0
+                                              ? std::format("posed, frame {}", part.poseFrame)
+                                              : std::string("posed"),
+                                  .color = core::palette::TextMuted});
     }
     if (!part.limbs.empty()) {
         badges.push_back(

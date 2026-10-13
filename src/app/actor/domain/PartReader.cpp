@@ -118,6 +118,15 @@ std::optional<ActorPart> DatabaseReader::readPart(const toml::table& table,
                    "places a display list at a limb; a skeleton's limbs are its own");
         }
     }
+    if (const std::optional<s64> frame = readInteger(table, "pose_frame", path)) {
+        constexpr s64 LastFrame = 0xFFFF;
+        if (*frame < 0 || *frame > LastFrame || kind != PartKind::Skeleton) {
+            report(*table.get("pose_frame"), makePath(path, "pose_frame"),
+                   "must be a frame of a skeleton's pose, from 0");
+        } else {
+            part.poseFrame = static_cast<u16>(*frame);
+        }
+    }
     if (const std::optional<s64> setup = readInteger(table, "setup", path)) {
         if (*setup < 0 || *setup > LastSetup) {
             report(*table.get("setup"), makePath(path, "setup"),

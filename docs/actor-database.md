@@ -155,9 +155,9 @@ for; the file still holds numbers, in matches and `default_params` alike.
   `ActorID`, `ObjectID`, `SceneID` and `EntranceIndex` from the tables the workspace reads.
   Constants ending in `_BASE`, `_END` or `_MAX` bound an enumeration rather than name a
   value, and are left out.
-- **An actor's own** are the enumerations its overlay headers define, `EnBoxType`, and the
-  tables its C defines of constants, `sGetItemIds`; a name is looked up among the actor's
-  own first.
+- **An actor's own** are the enumerations its overlay headers and its C define, `EnBoxType`,
+  `BgYdanSpType`, and the tables its C defines of constants, `sGetItemIds`; a name is looked
+  up among the actor's own first.
 - **A table** (`actor::listTableCollections`) is an array the overlay defines with a brace
   list, at file scope or as a `static` in a function, whose every element is a constant.
   Its values are the positions, each labelled by its constant: a param that picks an entry,
@@ -194,7 +194,9 @@ parts = [
 - **`parts`** are what it draws ([Parts](#parts)).
 - **`children`** are actors it spawns, each by its enum name, its params and its offset from
   the parent, turned with it, and drawn by its own entry. Children of children are not
-  followed.
+  followed. `take = { Drop = "Drop" }` sets the child's param named on the left, in its own
+  entry, from the parent's named on the right, as a parent passes its params on: Obj_Mure2's
+  bushes take its drop table.
 - **`default_params`** are what its params are when the actor is placed new.
 
 ### Adjustments
@@ -238,7 +240,7 @@ it is drawn with; nothing carries over from one part to the next.
 |---|---|
 | `display_list`, `skeleton` or `get_item` | what it draws, by name; an item by its `GetItemDrawID` constant, or by a param ([Items](#items)) |
 | `object` | where the name is, when not the variant's: an object, or an overlay's own data by the overlay's name, `ovl_En_Holl` |
-| `pose`, `pose_object` | for a skeleton, the animation it stands in, at its first frame; at rest without one |
+| `pose`, `pose_object`, `pose_frame` | for a skeleton, the animation it stands in, at `pose_frame`, the first when left out, as a setup function that holds one frame does; at rest without one |
 | `limbs` | for a skeleton, what it draws at its limbs in place of their own ([Limbs](#limbs)) |
 | `limb` | for a display list, the limb of the variant's first skeleton it is placed at; `translation`, `rotation` and `scale` are then relative to the limb |
 | `translation`, `rotation`, `scale` | where it is relative to the actor: moved, turned in degrees about Z, then Y, then X, and scaled |
@@ -564,5 +566,5 @@ rewritten to use what it adds, and their renders looked at.
 | 3 | Adjustments, drawn and edited as cards, and in the Scene panel; the push block (done: 68 variants became 1 and 19 adjustments; `rotates` set per variant is an adjustment's) |
 | 4 | Item parts; Item_Etcetera, the Gold Skulltula token (done: Item_Etcetera is one variant and three adjustments) |
 | 5 | Overlay data as objects; En_Holl, Elf_Msg (done: En_Holl draws its plane; Elf_Msg stays a marker, since its cube is drawn only in debug builds, sized by its rotation) |
-| 6 | The smaller keys |
+| 6 | The smaller keys (done: `pose_frame`, a child's `take`, and enumerations of an overlay's C as its collections; the Kokiri hold their frames, Obj_Mure2's bushes take its drop table, the Deku Tree web names `BgYdanSpType`) |
 | 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database |

@@ -52,7 +52,8 @@ inline constexpr std::array PartKeys = {
     std::string_view("env"),          std::string_view("segments"),
     std::string_view("setup"),        std::string_view("pass"),
     std::string_view("hilite"),       std::string_view("limbs"),
-    std::string_view("limb"),         std::string_view("get_item")};
+    std::string_view("limb"),         std::string_view("get_item"),
+    std::string_view("pose_frame")};
 inline constexpr std::array ItemChoiceKeys = {std::string_view("param"), std::string_view("table")};
 inline constexpr std::array LimbKeys = {std::string_view("display_list"),
                                         std::string_view("object")};

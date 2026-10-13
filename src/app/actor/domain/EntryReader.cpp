@@ -330,10 +330,23 @@ std::vector<ChildActor> DatabaseReader::readChildren(const toml::array& children
                    "must be params of 16 bits, 0x0000 to 0xFFFF");
             continue;
         }
-        read.push_back(ChildActor{
+        ChildActor childActor{
             .actor = *child,
             .params = static_cast<u16>(params),
-            .offset = readVector<3>(*table, "offset", at).value_or(std::array<f32, 3>{})});
+            .offset = readVector<3>(*table, "offset", at).value_or(std::array<f32, 3>{})};
+        if (const toml::table* takes = table->get_as<toml::table>("take")) {
+            for (const auto& [to, from] : *takes) {
+                if (const std::optional<std::string> name = from.value<std::string>();
+                    name && from.is_string()) {
+                    childActor.takes.push_back(
+                        ParamTake{.to = std::string(to.str()), .from = *name});
+                } else {
+                    report(from, makePath(makePath(at, "take"), to.str()),
+                           "must be the name of the parent's param the child's takes");
+                }
+            }
+        }
+        read.push_back(std::move(childActor));
     }
     return read;
 }

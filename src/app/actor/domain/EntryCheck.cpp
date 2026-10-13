@@ -115,6 +115,14 @@ void EntryChecker::checkVariant(const ActorVariant& variant, const usize index) 
     for (usize i = 0; i < variant.parts.size(); ++i) {
         checkPart(variant.parts[i], std::format("{}.parts[{}]", path, i));
     }
+    for (usize i = 0; i < variant.children.size(); ++i) {
+        for (const ParamTake& take : variant.children[i].takes) {
+            if (!std::ranges::contains(entry.params, take.from, &ActorParam::name)) {
+                report(variant.location, std::format("{}.children[{}].take.{}", path, i, take.to),
+                       std::format("takes '{}', which is not a param of the actor", take.from));
+            }
+        }
+    }
     if (variant.match.empty() && index + 1 < entry.variants.size()) {
         report(variant.location, path,
                "matches every placement, so the variants after it are never drawn");

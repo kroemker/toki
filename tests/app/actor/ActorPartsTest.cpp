@@ -30,7 +30,7 @@ match = { "Type" = [5, 6], scene = ["SCENE_DEKU_TREE", "SCENE_BOTTOM_OF_THE_WELL
 parts = [
     { skeleton = "gTreasureChestSkel", pose = "gTreasureChestAnim_00024C", pose_object = "object_box_anime", rotation = [0, 180, 0], scale = 0.005, env = [0, 0, 0, 255], segments = { 8 = "gTreasureChestEyeTex", 9 = { env = [90, 140, 50], tiles = [{ tile = 1, x = 4, width = 32, height = 16 }] } } },
     { display_list = "gEffFire1DL", object = "gameplay_keep", translation = [0, 52, 0], billboard = true, setup = 66, pass = "translucent", hilite = true },
-    { skeleton = "gKm1Skel", limbs = { 15 = { display_list = "gKm1HeadDL", object = "object_km1" }, 4 = false, 23 = "object_st_DL_004788" } },
+    { skeleton = "gKm1Skel", pose = "gKm1Anim", pose_frame = 3, limbs = { 15 = { display_list = "gKm1HeadDL", object = "object_km1" }, 4 = false, 23 = "object_st_DL_004788" } },
     { display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700] },
 ]
 
@@ -81,6 +81,7 @@ TEST_CASE("a variant's parts are read with everything each is drawn with", "[act
     REQUIRE(parts[1].setup == base::u8{66});
     REQUIRE(parts[1].pass == toki::actor::Pass::Translucent);
     REQUIRE(parts[1].isHilit);
+    REQUIRE(parts[2].poseFrame == 3);
     REQUIRE(parts[2].limbs.size() == 3);
     const auto findLimb = [&](const base::u8 number) {
         return *std::ranges::find(parts[2].limbs, number, &toki::actor::LimbOverride::limb);
@@ -156,6 +157,7 @@ parts = [
     { skeleton = "gTestSkel", limbs = { 0 = "gTestDL", 3 = true, 5 = { object = "object_test" } }, limb = 2 },
     { display_list = "gTestDL", limb = 0, limbs = { 1 = false } },
     { get_item = 5 },
+    { display_list = "gTestDL", pose_frame = 1 },
     { display_list = "gTestDL", get_item = "GID_HEART_PIECE" },
     { get_item = { param = "Kind", table = "sTable", count = 2 } },
 ]
@@ -176,8 +178,9 @@ parts = [
     REQUIRE(isReported(database, "parts[7].limb: must be a limb"));
     REQUIRE(isReported(database, "parts[7].limbs: must be a table of a skeleton's limbs"));
     REQUIRE(isReported(database, "parts[8].get_item: must be a GetItemDrawID constant"));
-    REQUIRE(isReported(database, "parts[9]: must draw one of"));
-    REQUIRE(isReported(database, "parts[10].get_item.count: is not a key"));
+    REQUIRE(isReported(database, "parts[9].pose_frame: must be a frame of a skeleton's pose"));
+    REQUIRE(isReported(database, "parts[10]: must draw one of"));
+    REQUIRE(isReported(database, "parts[11].get_item.count: is not a key"));
     REQUIRE(isReported(database, "picks its item by 'Kind', which is not a param"));
     REQUIRE(isReported(database, "parts[4]: must be a table"));
     REQUIRE(isReported(database, "a scene is matched by its enum name"));

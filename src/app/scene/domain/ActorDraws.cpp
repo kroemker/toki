@@ -203,8 +203,25 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
     });
 }
 
-[[nodiscard]] PlacedActor placeChild(const PlacedActor& parent, const ChildPlacement& child,
-                                     const ActorDrawing& drawing) {
+[[nodiscard]] u16 makeChildParams(const SceneActors& actors, const PlacedActor& parent,
+                                  const ChildPlacement& child) {
+    u16 params = child.params;
+    const actor::PlacementValues values =
+        makePlacementValues(actors, parent.params, parent.rotation, parent.age);
+    for (const TakenParam& take : child.takes) {
+        if (take.to.source != actor::ParamSource::Params) {
+            continue;
+        }
+        const s64 value = actor::readParamValue(take.from, values);
+        const u8 shift = actor::findMaskShift(take.to.mask);
+        params = static_cast<u16>((params & ~take.to.mask) |
+                                  ((static_cast<u32>(value) << shift) & take.to.mask));
+    }
+    return params;
+}
+
+[[nodiscard]] PlacedActor placeChild(const SceneActors& actors, const PlacedActor& parent,
+                                     const ChildPlacement& child, const ActorDrawing& drawing) {
     const glm::mat4 turned = makeActorMatrix(parent, 1.0F, 0.0F, drawing.rotates);
     const glm::vec4 at =
         turned * glm::vec4(child.offset[0], child.offset[1], child.offset[2], 1.0F);
@@ -213,7 +230,7 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
         .position = {static_cast<s16>(std::lround(at.x)), static_cast<s16>(std::lround(at.y)),
                      static_cast<s16>(std::lround(at.z))},
         .rotation = parent.rotation,
-        .params = child.params,
+        .params = makeChildParams(actors, parent, child),
         .age = parent.age,
     };
 }
@@ -286,7 +303,7 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
             writeActor(draws, actor, *drawing, firstImage, setup);
         }
         for (const ChildPlacement& child : drawing->children) {
-            const PlacedActor placedChild = placeChild(actor, child, *drawing);
+            const PlacedActor placedChild = placeChild(actors, actor, child, *drawing);
             if (const std::optional<ActorDrawing> childDrawing = makeDrawn(actors, placedChild)) {
                 writeActor(draws, placedChild, *childDrawing, firstImage, setup);
             }

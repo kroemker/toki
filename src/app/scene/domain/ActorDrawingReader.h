@@ -26,6 +26,9 @@ struct ItemSource {
 /// The ID the checkout's actor table gives the actor of an enum name.
 using FindActorId = std::function<std::optional<s16>(std::string_view)>;
 
+/// The entry of the actor of an enum name, for the params its children take.
+using FindEntry = std::function<const actor::ActorEntry*(std::string_view)>;
+
 /// What `variant` of `entry` draws, found in `objects`: each of its parts, a
 /// display list or a skeleton posed on the first frame of its pose, under what
 /// the part says it is drawn with; its scale, height offset and the axes it
@@ -37,7 +40,7 @@ using FindActorId = std::function<std::optional<s16>(std::string_view)>;
 [[nodiscard]] ActorDrawing makeActorDrawing(const actor::ActorEntry& entry,
                                             const actor::ActorVariant& variant,
                                             ActorObjects& objects, const FindActorId& findActorId,
-                                            const ItemSource& items,
+                                            const FindEntry& findEntry, const ItemSource& items,
                                             std::vector<base::Diagnostic>& diagnostics);
 
 /// What `adjustment` of `entry` changes, its segments' symbols found in the

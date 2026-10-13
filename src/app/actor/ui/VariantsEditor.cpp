@@ -15,8 +15,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -90,19 +92,58 @@ constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
     return isChanged;
 }
 
-[[nodiscard]] bool editChild(ChildActor& child, const EditContext& context) {
+[[nodiscard]] bool editTakes(std::vector<ParamTake>& takes,
+                             const std::span<const ActorParam> params) {
+    std::vector<std::string> names;
+    for (const ActorParam& param : params) {
+        names.push_back(param.name);
+    }
+    bool isChanged = false;
+    std::optional<usize> removed;
+    for (usize i = 0; i < takes.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        isChanged = editText("Child's param", takes[i].to) || isChanged;
+        ImGui::SetItemTooltip("The param of the child's entry, by name, that is set");
+        isChanged = editPicked("Takes the parent's", takes[i].from, names, nullptr) || isChanged;
+        core::drawPropertyLabel("");
+        if (ImGui::SmallButton("Take nothing")) {
+            removed = i;
+        }
+        ImGui::PopID();
+    }
+    if (removed) {
+        takes.erase(takes.begin() + static_cast<std::ptrdiff_t>(*removed));
+        isChanged = true;
+    }
+    core::drawPropertyLabel("");
+    if (ImGui::SmallButton("+ Take a param")) {
+        takes.push_back(ParamTake{.from = names.empty() ? std::string() : names.front()});
+        isChanged = true;
+    }
+    ImGui::SetItemTooltip("Set one of the child's params from one of this actor's, as a parent "
+                          "passes its own on");
+    return isChanged;
+}
+
+[[nodiscard]] bool editChild(ChildActor& child, const std::span<const ActorParam> params,
+                             const EditContext& context) {
     if (!core::beginProperties("child")) {
         return false;
     }
     bool isChanged = editActor("Actor", child.actor, context);
     isChanged = editHex("Params", child.params) || isChanged;
     isChanged = editVector("Offset", child.offset) || isChanged;
+    isChanged = editTakes(child.takes, params) || isChanged;
     core::endProperties();
     return isChanged;
 }
 
 [[nodiscard]] ItemRow makeChildRow(const ChildActor& child) {
     std::vector<RowBadge> badges;
+    if (!child.takes.empty()) {
+        badges.push_back(
+            RowBadge{.text = std::format("takes {}", child.takes.size()), .color = SpawnsColor});
+    }
     if (!isZero(child.offset)) {
         badges.push_back(RowBadge{.text = std::format("{:g}, {:g}, {:g}", child.offset[0],
                                                       child.offset[1], child.offset[2]),
@@ -116,7 +157,9 @@ constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
                    .canRemove = true};
 }
 
-[[nodiscard]] bool drawChildren(std::vector<ChildActor>& children, const EditContext& context) {
+[[nodiscard]] bool drawChildren(std::vector<ChildActor>& children,
+                                const std::span<const ActorParam> params,
+                                const EditContext& context) {
     bool isChanged = false;
     std::optional<usize> removed;
     for (usize i = 0; i < children.size(); ++i) {
@@ -127,7 +170,7 @@ constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
         }
         if (row.isOpen) {
             beginRowDetails();
-            isChanged = editChild(children[i], context) || isChanged;
+            isChanged = editChild(children[i], params, context) || isChanged;
             endRowDetails();
         }
         ImGui::PopID();
@@ -170,7 +213,7 @@ constexpr ImVec4 SpawnsColor{0.780F, 0.573F, 0.918F, 1.0F};
     if (!variant.children.empty()) {
         drawBand("SPAWNS", SpawnsColor, std::nullopt);
         ImGui::PushID("children");
-        isChanged = drawChildren(variant.children, context) || isChanged;
+        isChanged = drawChildren(variant.children, entry.params, context) || isChanged;
         ImGui::PopID();
     }
     endBands();

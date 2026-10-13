@@ -95,11 +95,20 @@ struct SkeletonDrawing {
     DrawState state;
 };
 
-/// An actor a variant spawns, by ID, drawn by its own entry.
+/// A param a child takes from its parent's: the parent's param, and the
+/// child's it is written into.
+struct TakenParam {
+    actor::ActorParam from;
+    actor::ActorParam to;
+};
+
+/// An actor a variant spawns, by ID, drawn by its own entry, with the params
+/// it takes from the parent's placement written over its own.
 struct ChildPlacement {
     s16 id = 0;
     u16 params = 0;
     std::array<f32, 3> offset{};
+    std::vector<TakenParam> takes;
 };
 
 /// What an item part picked by a param draws, for each value of the param it

@@ -89,7 +89,7 @@ TEST_CASE("an actor's collections are the enumerations its own headers define",
 
     const toki::actor::CollectionsRead read = toki::actor::readActorCollections(workspace, *box);
 
-    REQUIRE(read.collections.size() == 4);
+    REQUIRE(read.collections.size() == 5);
     const toki::actor::ValueCollection& types = read.collections.front();
     REQUIRE(types.name == "EnBoxType");
     REQUIRE(types.values.size() == 2);
@@ -122,6 +122,21 @@ TEST_CASE("an actor's tables of named constants are collections of their positio
         std::ranges::contains(read.collections, "sScales", &toki::actor::ValueCollection::name));
     REQUIRE_FALSE(
         std::ranges::contains(read.collections, "sActions", &toki::actor::ValueCollection::name));
+}
+
+TEST_CASE("an enumeration an actor's C defines is a collection, as its headers' are",
+          "[actor][collections]") {
+    const hackeroot::Workspace workspace = loadFixture();
+    const std::vector<hackeroot::ActorEntry>& actors = workspace.getTables().actors;
+    const auto box = std::ranges::find(actors, "ACTOR_EN_BOX", &hackeroot::ActorEntry::enumName);
+    REQUIRE(box != actors.end());
+
+    const toki::actor::CollectionsRead read = toki::actor::readActorCollections(workspace, *box);
+
+    const toki::actor::ValueCollection& parts = requireCollection(read, "EnBoxPart");
+    REQUIRE(parts.values.size() == 2);
+    REQUIRE(parts.values[1].label == "ENBOX_PART_BOTTOM");
+    REQUIRE(parts.values[1].value == 1);
 }
 
 TEST_CASE("the catalog finds an actor's own collection before a shared one",

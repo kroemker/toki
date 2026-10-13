@@ -1,5 +1,10 @@
 #include "z_en_box.h"
 
+typedef enum EnBoxPart {
+    /* 0 */ ENBOX_PART_LID,
+    /* 1 */ ENBOX_PART_BOTTOM
+} EnBoxPart;
+
 static s16 sGetItemIds[] = { GI_BOMBS_5, GI_HEART_PIECE };
 
 static f32 sScales[] = { 1.0f, 2.0f };

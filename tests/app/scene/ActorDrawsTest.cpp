@@ -326,6 +326,29 @@ TEST_CASE("an item picked by a param is drawn as the item of the placement's val
     REQUIRE(second->items.empty());
 }
 
+TEST_CASE("a child takes its parent's param into its own, and is drawn by it", "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    toki::scene::SceneActorModel ring{.enumName = "ACTOR_OBJ_MURE2"};
+    const toki::actor::ActorParam big{.name = "Big", .mask = 0x0001};
+    ring.entry = toki::actor::ActorEntry{
+        .actor = "ACTOR_OBJ_MURE2", .params = {big}, .variants = {toki::actor::ActorVariant{}}};
+    ring.variants = {toki::scene::ActorDrawing{
+        .kind = toki::actor::DrawKind::Children,
+        .children = {toki::scene::ChildPlacement{
+            .id = 7,
+            .takes = {toki::scene::TakenParam{.from = big,
+                                              .to = actors.models.at(7).entry->params.front()}}}}}};
+    actors.models.emplace(s16{3}, ring);
+    const std::array placed{toki::scene::PlacedActor{.id = 3, .params = 0x0001},
+                            toki::scene::PlacedActor{.id = 3, .params = 0x0000}};
+
+    const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
+        actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = std::vector<u32>(26)});
+
+    REQUIRE(draws.translucent.size() == 1);
+    REQUIRE(draws.opaque.size() == 1);
+}
+
 TEST_CASE("a hilit display list looks at its actor from the camera", "[scene][actors]") {
     toki::scene::SceneActors actors = makePots();
     toki::scene::ActorDrawing rupee = makeListDrawing(toki::actor::Pass::Opaque);

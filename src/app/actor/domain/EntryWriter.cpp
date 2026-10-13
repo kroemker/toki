@@ -252,6 +252,9 @@ void insertColors(toml::table& table, const DrawColors& colors) {
     insertOptional(table, "object", part.object);
     insertOptional(table, "pose", part.pose);
     insertOptional(table, "pose_object", part.poseObject);
+    if (part.poseFrame != 0) {
+        table.insert("pose_frame", s64{part.poseFrame});
+    }
     if (!part.limbs.empty()) {
         table.insert("limbs", makeLimbs(part.limbs));
     }
@@ -301,6 +304,13 @@ void insertColors(toml::table& table, const DrawColors& colors) {
             entry.insert("actor", child.actor);
             entry.insert("params", makeHex(child.params));
             entry.insert("offset", makeNumbers(child.offset));
+            if (!child.takes.empty()) {
+                toml::table takes = makeInline();
+                for (const ParamTake& take : child.takes) {
+                    takes.insert(take.to, take.from);
+                }
+                entry.insert("take", std::move(takes));
+            }
             children.push_back(std::move(entry));
         }
         table.insert("children", std::move(children));

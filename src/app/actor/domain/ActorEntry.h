@@ -163,10 +163,11 @@ struct ActorPart {
     std::string symbol;
     /// Where `symbol` is, when not in the variant's object.
     std::optional<std::string> object;
-    /// For a skeleton, the animation whose first frame it stands in, and the
-    /// object that is in when not the part's.
+    /// For a skeleton, the animation it stands in, at `poseFrame`, the first
+    /// unless set, and the object that is in when not the part's.
     std::optional<std::string> pose;
     std::optional<std::string> poseObject;
+    u16 poseFrame = 0;
     /// For a skeleton, what it draws at its limbs in place of their own.
     std::vector<LimbOverride> limbs;
     std::optional<ItemChoice> itemChoice;
@@ -187,12 +188,21 @@ struct ActorPart {
     base::SourceLocation location;
 };
 
+/// A param of a child set from one of its parent's, as a parent passes its own
+/// on: the child's param `to`, by its name in the child's entry, takes the
+/// value the placement gives the parent's `from`.
+struct ParamTake {
+    std::string to;
+    std::string from;
+};
+
 /// An actor that another spawns, drawn by its own entry, at an offset from its
-/// parent, turned with it.
+/// parent, turned with it, with `params` and what it takes from the parent's.
 struct ChildActor {
     std::string actor;
     u16 params = 0;
     std::array<f32, 3> offset{};
+    std::vector<ParamTake> takes;
 };
 
 /// How an actor is drawn when it is not a model.
