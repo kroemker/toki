@@ -426,13 +426,16 @@ Claude, reading the C can follow a `switch` on params where the rules cannot. It
 every checkout is seeded from.
 
 - **In batches by category**: enemies, NPCs, props, background actors, items, effects and
-  cutscene actors. The file itself is the progress.
+  cutscene actors. The file itself is the progress. How one actor is read, checked and looked
+  at, and how batches are split among agents and merged, is the project's `actor-entries`
+  skill (`.claude/skills/actor-entries/SKILL.md`).
 - **Checked by code**: a checkout test reads it and fails on any entry whose objects or
   symbols the vanilla checkout does not have, or whose params overlap.
 - **Checked by eye**: the hidden GPU test "every variant of the shipped actor database is
   drawn to an image" (`toki_gpu_tests "[.render]"`, against a checkout) draws each variant
   of every entry by itself, framed on its bounds and its children's, to
   `actor-renders/<ACTOR>_<variant>.png` beside the test binary, and fails on any diagnostic.
+  `TOKI_RENDER_ACTORS=EN_KO,EN_SW` draws only those actors, in about a second.
 - **A trial of ten first**: `Obj_Tsubo`, `En_Kusa`, `Obj_Mure2`, `En_Item00`, `En_Box`,
   `En_Karebaba`, `Obj_Syokudai`, `En_Kanban`, `Door_Shutter` and `En_Md`. They found what
   format 1 could not say, which format 2 settles, and what drawing lacked: segment 1's
@@ -567,4 +570,4 @@ rewritten to use what it adds, and their renders looked at.
 | 4 | Item parts; Item_Etcetera, the Gold Skulltula token (done: Item_Etcetera is one variant and three adjustments) |
 | 5 | Overlay data as objects; En_Holl, Elf_Msg (done: En_Holl draws its plane; Elf_Msg stays a marker, since its cube is drawn only in debug builds, sized by its rotation) |
 | 6 | The smaller keys (done: `pose_frame`, a child's `take`, and enumerations of an overlay's C as its collections; the Kokiri hold their frames, Obj_Mure2's bushes take its drop table, the Deku Tree web names `BgYdanSpType`) |
-| 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database |
+| 7 | The render test filtered by actor, and a skill for writing entries in batches; then the rest of Toki's own database (the filter and the skill done; the full pass is next) |

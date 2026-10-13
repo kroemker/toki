@@ -29,12 +29,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <system_error>
@@ -108,6 +110,36 @@ makeValues(const toki::actor::ActorEntry& entry,
         }
     }
     return values;
+}
+
+/// The actors `TOKI_RENDER_ACTORS` names, separated by commas, with or without
+/// their `ACTOR_` prefix, or none when it is unset, which draws every actor.
+[[nodiscard]] std::vector<std::string> listWantedActors() {
+    std::string text;
+#ifdef _MSC_VER
+    char* value = nullptr;
+    usize length = 0;
+    if (_dupenv_s(&value, &length, "TOKI_RENDER_ACTORS") != 0 || value == nullptr) {
+        return {};
+    }
+    text = value;
+    std::free(value);
+#else
+    const char* value = std::getenv("TOKI_RENDER_ACTORS");
+    if (value == nullptr) {
+        return {};
+    }
+    text = value;
+#endif
+    std::vector<std::string> actors;
+    for (const auto part : std::views::split(text, ',')) {
+        std::string actor(part.begin(), part.end());
+        std::erase(actor, ' ');
+        if (!actor.empty()) {
+            actors.push_back(actor.starts_with("ACTOR_") ? actor : "ACTOR_" + actor);
+        }
+    }
+    return actors;
 }
 
 struct Box {
@@ -330,7 +362,15 @@ TEST_CASE("every variant of the shipped actor database is drawn to an image", "[
                     .renderer = *renderer,
                     .target = *target,
                     .output = output};
+    const std::vector<std::string> wanted = listWantedActors();
+    for (const std::string& actor : wanted) {
+        INFO("TOKI_RENDER_ACTORS names " << actor);
+        CHECK(shipped.entries.contains(actor));
+    }
     for (const auto& [name, entry] : shipped.entries) {
+        if (!wanted.empty() && !std::ranges::contains(wanted, name)) {
+            continue;
+        }
         for (usize index = 0; index < entry.variants.size(); ++index) {
             const toki::actor::ActorVariant& variant = entry.variants[index];
             harness.render(shipped, entry, index,
