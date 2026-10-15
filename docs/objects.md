@@ -72,7 +72,10 @@ nothing yet.
 as the arrays laid out at their addresses. `makeJointTable` takes one frame as
 `SkelAnime_GetFrameData` does: a joint index at or past `staticIndexMax` takes the value for
 this frame, any other one value for the whole animation. Entry 0 is the root's translation,
-the rest each limb's rotation.
+the rest each limb's rotation. Like `SkelAnime_GetFrameData`, which reads as many joints as
+the skeleton has limbs, a skeleton is posed by the first joints of an animation that moves
+more, as the credits pose the Gerudo's 15 limbs with an animation of 19; one that moves fewer
+is drawn at rest.
 
 `poseSkeleton` walks the limb tree as `SkelAnime_DrawFlexLod` does, depth first, child
 before sibling, each limb `Matrix_TranslateRotateZYX`ed from its parent's matrix: the root

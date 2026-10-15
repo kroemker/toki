@@ -423,7 +423,7 @@ object::JointTable PartReader::findPose(const actor::ActorPart& part,
         object::readAnimation(*objects.getObject(*poseObject).image, *address);
     if (!animation) {
         diagnostics.push_back(animation.error());
-    } else if (animation->jointIndices.size() != skeleton.limbs.size() + 1) {
+    } else if (animation->jointIndices.size() < skeleton.limbs.size() + 1) {
         diagnostics.push_back(base::makeWarning(
             part.location,
             std::format("'{}' moves {} joints, '{}' has {} limbs, so it is drawn at rest",
