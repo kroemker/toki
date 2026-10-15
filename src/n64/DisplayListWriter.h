@@ -84,6 +84,10 @@ public:
     /// `G_SETOTHERMODE`: the high word's 24 bits and the whole low word.
     u32 setOtherMode(u32 high, u32 low);
 
+    /// `gDPSetRenderMode`: the low word's render mode bits, both cycles ORed
+    /// together, leaving its alpha compare and depth source as they are.
+    u32 setRenderMode(u32 mode);
+
     /// `G_SETCOMBINE` with both of its words already packed.
     u32 setCombine(u32 word0, u32 word1);
 

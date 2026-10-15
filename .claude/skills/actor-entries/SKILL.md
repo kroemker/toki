@@ -51,6 +51,14 @@ tests and by looking at what it draws.
    - `gSPSegment(..., 0x08..0x0C, SEGMENTED_TO_VIRTUAL(tex))` is a segment set to the symbol;
      one set to `Gfx_EnvColor`, `Gfx_TwoTexScroll` or the actor's own builder is a built list,
      `{ env = [...] }` or `{ tiles = [...] }`, scrolls at their first frame.
+   - A built list that also calls `gDPSetRenderMode` takes `render_mode = ["G_RM_PASS",
+     "G_RM_ZB_CLD_SURF2"]`, its two cycles as `gbi.h` names them.
+   - `gSPSegment` to matrices Draw or a limb callback computes (`MATRIX_TO_MTX` into a
+     `GRAPH_ALLOC`ed `Mtx` array) is `{ matrices = [...], limb = n }`: each matrix a placement
+     relative to the actor, or to limb n when the callback builds them from that limb's
+     matrix; write them as they are at rest, with run-time angles at 0.
+   - `gSPSegment` to a list of the game's code is `{ code = "D_80116280", index = 2 }`, the
+     index counting commands: `&D_80116280[2]` while opaque, the start while translucent.
    - Matrix calls before a draw become `translation`, `rotation` and `scale`. Rotation turns
      about Z, then Y, then X; a game order that differs is converted to the angles that come
      to the same.

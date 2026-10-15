@@ -2,6 +2,7 @@
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/object/domain/ObjectView.h"
+#include "app/scene/domain/ActorDrawingReader.h"
 #include "app/scene/domain/ActorDraws.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -166,8 +167,17 @@ struct Box {
         toki::scene::makeActorMatrix(placed, drawing.scale, drawing.heightOffset, drawing.rotates);
     const auto addList = [&](const toki::scene::ActorDisplayList& list, const glm::mat4& parent) {
         const z64::MemoryImage& image = *actors.objects[list.object].image;
-        if (const auto bounds = toki::object::findDisplayListBounds(image, list.address)) {
-            box.add(*bounds, parent * list.state.placement);
+        const auto bounds = toki::object::findDisplayListBounds(image, list.address);
+        if (!bounds) {
+            return;
+        }
+        box.add(*bounds, parent * list.state.placement);
+        for (const toki::scene::ActorSegment& segment : list.state.segments) {
+            if (const auto* matrices = std::get_if<toki::actor::SegmentMatrices>(&segment.target)) {
+                for (const toki::actor::PartPlacement& placement : matrices->matrices) {
+                    box.add(*bounds, parent * toki::scene::makePlacementMatrix(placement));
+                }
+            }
         }
     };
     for (const toki::scene::SkeletonDrawing& skeleton : drawing.skeletons) {

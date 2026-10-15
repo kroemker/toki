@@ -60,7 +60,13 @@ inline constexpr std::array LimbKeys = {std::string_view("display_list"),
 inline constexpr std::array SegmentObjectKeys = {std::string_view("object"),
                                                  std::string_view("symbol")};
 inline constexpr std::array BuiltListKeys = {std::string_view("prim"), std::string_view("env"),
+                                             std::string_view("render_mode"),
                                              std::string_view("tiles")};
+inline constexpr std::array SegmentMatricesKeys = {std::string_view("matrices"),
+                                                   std::string_view("limb")};
+inline constexpr std::array MatrixKeys = {std::string_view("translation"),
+                                          std::string_view("rotation"), std::string_view("scale")};
+inline constexpr std::array SegmentCodeKeys = {std::string_view("code"), std::string_view("index")};
 inline constexpr std::array TileSizeKeys = {std::string_view("tile"), std::string_view("x"),
                                             std::string_view("y"), std::string_view("width"),
                                             std::string_view("height")};
@@ -132,7 +138,12 @@ private:
                                                    std::string_view path);
     [[nodiscard]] BuiltList readBuiltList(const toml::table& table, std::string_view path);
 
+    [[nodiscard]] std::vector<std::string> readRenderMode(const toml::node& node,
+                                                          std::string_view path);
     [[nodiscard]] SegmentObject readSegmentObject(const toml::table& table, std::string_view path);
+    [[nodiscard]] SegmentMatrices readSegmentMatrices(const toml::table& table,
+                                                      std::string_view path);
+    [[nodiscard]] SegmentCode readSegmentCode(const toml::table& table, std::string_view path);
     [[nodiscard]] std::optional<TileSize> readTileSize(const toml::node& node,
                                                        std::string_view path);
     [[nodiscard]] std::vector<ChildActor> readChildren(const toml::array& children,

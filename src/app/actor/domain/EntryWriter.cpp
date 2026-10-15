@@ -192,12 +192,43 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
     if (built.colors.environment) {
         table.insert("env", makeChannels(*built.colors.environment));
     }
+    if (!built.renderMode.empty()) {
+        toml::array cycles;
+        for (const std::string& cycle : built.renderMode) {
+            cycles.push_back(cycle);
+        }
+        table.insert("render_mode", std::move(cycles));
+    }
     if (!built.tiles.empty()) {
         toml::array tiles;
         for (const TileSize& size : built.tiles) {
             tiles.push_back(makeTileSize(size));
         }
         table.insert("tiles", std::move(tiles));
+    }
+    return table;
+}
+
+[[nodiscard]] toml::table makeSegmentMatrices(const SegmentMatrices& target) {
+    toml::table table = makeInline();
+    toml::array matrices;
+    for (const PartPlacement& placement : target.matrices) {
+        toml::table matrix = makeInline();
+        insertPlacement(matrix, placement);
+        matrices.push_back(std::move(matrix));
+    }
+    table.insert("matrices", std::move(matrices));
+    if (target.limb) {
+        table.insert("limb", s64{*target.limb});
+    }
+    return table;
+}
+
+[[nodiscard]] toml::table makeSegmentCode(const SegmentCode& target) {
+    toml::table table = makeInline();
+    table.insert("code", target.symbol);
+    if (target.index != 0) {
+        table.insert("index", s64{target.index});
     }
     return table;
 }
@@ -218,6 +249,10 @@ void insertSegments(toml::table& table, const std::vector<PartSegment>& segments
                 target.insert("symbol", other->symbol);
             }
             written.insert(key, std::move(target));
+        } else if (const auto* matrices = std::get_if<SegmentMatrices>(&segment.target)) {
+            written.insert(key, makeSegmentMatrices(*matrices));
+        } else if (const auto* code = std::get_if<SegmentCode>(&segment.target)) {
+            written.insert(key, makeSegmentCode(*code));
         } else {
             written.insert(key, makeBuiltList(std::get<BuiltList>(segment.target)));
         }

@@ -10,10 +10,13 @@
 #include "hackeroot/Workspace.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <expected>
 #include <format>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -79,6 +82,33 @@ std::optional<u32> ActorObjects::findAddress(const usize object, const std::stri
                                               actors.objects[object].name)));
     }
     return address;
+}
+
+std::optional<u32> ActorObjects::findCodeAddress(const std::string_view symbol,
+                                                 std::vector<base::Diagnostic>& diagnostics) {
+    const std::array code{hackeroot::makeSharedGameCode(reader.getWorkspace().getRoot())};
+    const std::optional<u32> address = reader.read(code, {}).shared.front()->findAddress(symbol);
+    if (!address) {
+        diagnostics.push_back(base::makeWarning(
+            {}, std::format("'{}' is not in the image of the game's code", symbol)));
+    }
+    return address;
+}
+
+std::optional<u32> ActorObjects::findRenderMode(const std::span<const std::string> cycles,
+                                                std::vector<base::Diagnostic>& diagnostics) {
+    u32 mode = 0;
+    for (const std::string& cycle : cycles) {
+        const std::expected<u32, base::Diagnostic> value = reader.evaluateGbi(cycle);
+        if (!value) {
+            diagnostics.push_back(
+                base::makeWarning({}, std::format("the render mode '{}' does not evaluate: {}",
+                                                  cycle, value.error().message)));
+            return std::nullopt;
+        }
+        mode |= *value;
+    }
+    return mode;
 }
 
 } // namespace toki::scene

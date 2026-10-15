@@ -130,6 +130,15 @@ u32 DisplayListWriter::setOtherMode(const u32 high, const u32 low) {
     return addCommand(makeOpcode(Opcode::SetOtherMode) | (high & 0x00FF'FFFFU), low);
 }
 
+u32 DisplayListWriter::setRenderMode(const u32 mode) {
+    constexpr u32 RenderModeShift = 3;
+    constexpr u32 RenderModeBits = 29;
+    constexpr u32 ShiftField = 8;
+    const u32 field =
+        ((32U - RenderModeShift - RenderModeBits) << ShiftField) | (RenderModeBits - 1U);
+    return addCommand(makeOpcode(Opcode::SetOtherModeLow) | field, mode);
+}
+
 u32 DisplayListWriter::setCombine(const u32 word0, const u32 word1) {
     return addCommand(makeOpcode(Opcode::SetCombine) | (word0 & 0x00FF'FFFFU), word1);
 }

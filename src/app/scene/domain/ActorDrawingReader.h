@@ -8,6 +8,8 @@
 #include "app/scene/domain/SceneActors.h"
 #include "base/Diagnostic.h"
 
+#include <glm/ext/matrix_float4x4.hpp>
+
 #include <functional>
 #include <optional>
 #include <span>
@@ -28,6 +30,10 @@ using FindActorId = std::function<std::optional<s16>(std::string_view)>;
 
 /// The entry of the actor of an enum name, for the params its children take.
 using FindEntry = std::function<const actor::ActorEntry*(std::string_view)>;
+
+/// The matrix of `placement`: moved, turned about Z, then Y, then X, and
+/// scaled.
+[[nodiscard]] glm::mat4 makePlacementMatrix(const actor::PartPlacement& placement);
 
 /// What `variant` of `entry` draws, found in `objects`: each of its parts, a
 /// display list or a skeleton posed on the first frame of its pose, under what

@@ -4,6 +4,7 @@
 #include "app/scene/domain/SceneActors.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Types.h"
+#include "n64/FixedMatrix.h"
 #include "z64/MemoryImage.h"
 
 #include <catch2/catch_approx.hpp>
@@ -13,10 +14,12 @@
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <variant>
 #include <vector>
 
@@ -209,6 +212,77 @@ TEST_CASE("a built segment points at a list of its colours and tile sizes in the
                             0x00, 0x00, 0x00, 0x00, 0x00, 0xF2, 0x00, 0x80, 0x00, 0x01, 0x08,
                             0x40, 0x3C, 0xDF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     REQUIRE(at + 32 <= (draw.displayList & 0x00FF'FFFFU));
+}
+
+TEST_CASE("segments point at matrices placed on the actor or a limb, at a render mode, and into "
+          "the game's code",
+          "[scene][actors]") {
+    toki::scene::SceneActors actors = makePots();
+    const toki::scene::SkeletonDrawing skeleton{
+        .object = 0,
+        .pose = {.drawn = {toki::object::PosedLimb{.limb = 1, .displayList = 0x0600'0200}},
+                 .matrices = {glm::mat4(1.0F),
+                              glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, 10.0F, 0.0F))}},
+        .state = {
+            .segments = {
+                toki::scene::ActorSegment{
+                    .segment = 0x08, .target = toki::actor::BuiltList{}, .renderMode = 0x0C18'4DD8},
+                toki::scene::ActorSegment{
+                    .segment = 0x0B, .target = toki::scene::CodeAddress{.address = 0x0000'2010}},
+                toki::scene::ActorSegment{
+                    .segment = 0x0C,
+                    .target = toki::actor::SegmentMatrices{.matrices = {toki::actor::PartPlacement{
+                                                               .translation = {5.0F, 0.0F, 0.0F}}},
+                                                           .limb = 2}},
+                toki::scene::ActorSegment{
+                    .segment = 0x0A,
+                    .target = toki::actor::SegmentMatrices{
+                        .matrices = {
+                            toki::actor::PartPlacement{},
+                            toki::actor::PartPlacement{.translation = {0.0F, 0.0F, 7.0F}}}}}}}};
+    toki::scene::SceneActorModel zelda{.enumName = "ACTOR_EN_ZL2"};
+    zelda.entry =
+        toki::actor::ActorEntry{.actor = "ACTOR_EN_ZL2", .variants = {toki::actor::ActorVariant{}}};
+    zelda.variants = {toki::scene::ActorDrawing{.skeletons = {skeleton}, .scale = 1.0F}};
+    actors.models.emplace(s16{4}, zelda);
+    const std::array placed{toki::scene::PlacedActor{.id = 4, .position = {100, 0, 0}}};
+
+    const toki::scene::ActorDraws draws = toki::scene::makeActorDraws(
+        actors, placed, 0, toki::scene::ActorSetup{.setupDisplayLists = std::vector<u32>(26)});
+
+    REQUIRE(draws.opaque.size() == 1);
+    const toki::viewport::ViewportDraw& draw = draws.opaque.front();
+    const std::vector<u8>& bytes = draws.images.back()->segments.front().bytes;
+    const auto findPointer = [&draw](const u8 segment) {
+        return *std::ranges::find(draw.pointedSegments, segment,
+                                  &toki::viewport::SegmentPointer::segment);
+    };
+    const auto readMatrix = [&bytes](const u32 address) {
+        const usize at = address & 0x00FF'FFFFU;
+        return n64::readFixedMatrix(std::span(bytes).subspan(at, n64::FixedMatrixSize));
+    };
+
+    const toki::viewport::SegmentPointer built = findPointer(0x08);
+    const usize builtAt = built.address & 0x00FF'FFFFU;
+    REQUIRE(std::vector<u8>(bytes.begin() + static_cast<std::ptrdiff_t>(builtAt),
+                            bytes.begin() + static_cast<std::ptrdiff_t>(builtAt + 8)) ==
+            std::vector<u8>{0xE2, 0x00, 0x00, 0x1C, 0x0C, 0x18, 0x4D, 0xD8});
+
+    const toki::viewport::SegmentPointer code = findPointer(0x0B);
+    REQUIRE(code.image == 0);
+    REQUIRE(code.address == 0x0000'2010);
+
+    const toki::viewport::SegmentPointer hair = findPointer(0x0C);
+    REQUIRE(hair.image == draw.image);
+    const n64::FixedMatrix onLimb = readMatrix(hair.address);
+    REQUIRE(onLimb.getFloat(3, 0) == Catch::Approx(105.0F));
+    REQUIRE(onLimb.getFloat(3, 1) == Catch::Approx(10.0F));
+
+    const toki::viewport::SegmentPointer rings = findPointer(0x0A);
+    REQUIRE(readMatrix(rings.address).getFloat(3, 0) == Catch::Approx(100.0F));
+    const n64::FixedMatrix second = readMatrix(rings.address + n64::FixedMatrixSize);
+    REQUIRE(second.getFloat(3, 0) == Catch::Approx(100.0F));
+    REQUIRE(second.getFloat(3, 2) == Catch::Approx(7.0F));
 }
 
 TEST_CASE("a limb drawn as nothing is skipped, and one from another object is drawn on its own",

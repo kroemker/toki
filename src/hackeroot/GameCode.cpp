@@ -23,10 +23,18 @@ SegmentFiles findGameCodeFiles(const std::filesystem::path& repository) {
                                   repository / "src" / "code" / "z_scene_table.c"}};
 }
 
+SegmentFiles findActorCodeFiles(const std::filesystem::path& repository) {
+    return SegmentFiles{
+        .segment = 0, .files = {repository / "src" / "code" / "z_actor.c"}, .isOverlay = true};
+}
+
 SharedImageFiles makeSharedGameCode(const std::filesystem::path& repository) {
     SegmentFiles code = findGameCodeFiles(repository);
+    SegmentFiles actor = findActorCodeFiles(repository);
     std::vector<std::filesystem::path> watched = code.files;
-    return SharedImageFiles{.files = {std::move(code)}, .watched = std::move(watched)};
+    watched.insert(watched.end(), actor.files.begin(), actor.files.end());
+    return SharedImageFiles{.files = {std::move(code), std::move(actor)},
+                            .watched = std::move(watched)};
 }
 
 std::optional<u32> findSetupDisplayList(const z64::MemoryImage& code, const usize index) {

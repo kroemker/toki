@@ -4,6 +4,7 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/actor/ui/LimbsEditor.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
@@ -42,16 +43,22 @@ enum class Target : u8 {
     Symbol,
     Built,
     Object,
+    Matrices,
+    Code,
 };
 
-constexpr std::array<const char*, 4> TargetLabels{"Nothing", "A symbol", "A built list",
-                                                  "Another object"};
-constexpr std::array<const char*, 4> TargetHelp{
+constexpr std::array<const char*, 6> TargetLabels{"Nothing",        "A symbol", "A built list",
+                                                  "Another object", "Matrices", "The game's code"};
+constexpr std::array<const char*, 6> TargetHelp{
     "Left unset, as the game leaves a segment the actor does not set",
     "Pointed at a symbol of the object, as at an eye texture",
     "Pointed at a list built as the game builds one, as Gfx_EnvColor or Gfx_TwoTexScroll do",
     "Pointed into another object the actor loads, at its start or at a symbol in it, as the "
-    "Forest Temple's actors point segment 8 at object_mori_tex"};
+    "Forest Temple's actors point segment 8 at object_mori_tex",
+    "Pointed at matrices the game computes as it draws, each placed on the actor or a limb, as "
+    "a Like Like's rings or Zelda's hair",
+    "Pointed at a display list of the game's code, as an actor points one at &D_80116280[2]"};
+constexpr std::array<const char*, 2> DefaultRenderMode{"G_RM_PASS", "G_RM_AA_ZB_XLU_SURF2"};
 
 [[nodiscard]] const PartSegment* findSegment(const std::span<const PartSegment> segments,
                                              const u8 number) {
@@ -65,6 +72,12 @@ constexpr std::array<const char*, 4> TargetHelp{
     }
     if (std::holds_alternative<SegmentObject>(segment->target)) {
         return Target::Object;
+    }
+    if (std::holds_alternative<SegmentMatrices>(segment->target)) {
+        return Target::Matrices;
+    }
+    if (std::holds_alternative<SegmentCode>(segment->target)) {
+        return Target::Code;
     }
     return std::holds_alternative<BuiltList>(segment->target) ? Target::Built : Target::Symbol;
 }
@@ -80,6 +93,10 @@ void setTarget(std::vector<PartSegment>& segments, const u8 number, const Target
         segment.target = BuiltList{};
     } else if (target == Target::Object) {
         segment.target = SegmentObject{};
+    } else if (target == Target::Matrices) {
+        segment.target = SegmentMatrices{.matrices = {PartPlacement{}}};
+    } else if (target == Target::Code) {
+        segment.target = SegmentCode{};
     }
     const auto after = std::ranges::upper_bound(segments, number, {}, &PartSegment::segment);
     segments.insert(after, std::move(segment));
@@ -102,6 +119,17 @@ void setTarget(std::vector<PartSegment>& segments, const u8 number, const Target
         return other->symbol.empty() ? std::format("The start of {}", object)
                                      : std::format("{} of {}", other->symbol, object);
     }
+    if (const auto* matrices = std::get_if<SegmentMatrices>(&segment->target)) {
+        return matrices->limb ? std::format("{} matrices on limb {}", matrices->matrices.size(),
+                                            *matrices->limb)
+                              : std::format("{} matrices on the actor", matrices->matrices.size());
+    }
+    if (const auto* code = std::get_if<SegmentCode>(&segment->target)) {
+        const std::string symbol = code->symbol.empty() ? std::string("…") : code->symbol;
+        return code->index == 0
+                   ? std::format("{} of the game's code", symbol)
+                   : std::format("{} of the game's code, {} commands in", symbol, code->index);
+    }
     const BuiltList& built = std::get<BuiltList>(segment->target);
     std::string described = "A built list";
     if (built.colors.primitive) {
@@ -109,6 +137,9 @@ void setTarget(std::vector<PartSegment>& segments, const u8 number, const Target
     }
     if (built.colors.environment) {
         described += ", environment colour";
+    }
+    if (!built.renderMode.empty()) {
+        described += ", render mode";
     }
     if (!built.tiles.empty()) {
         described += std::format(", {} tile sizes", built.tiles.size());
@@ -137,6 +168,15 @@ void drawSlotSummary(ImDrawList& drawList, const PartSegment* segment, const ImV
     if (const auto* other = std::get_if<SegmentObject>(&segment->target)) {
         const std::string& shown = other->symbol.empty() ? other->object : other->symbol;
         drawCentered(shown.empty() ? std::string("object") : shown, core::palette::Warning);
+        return;
+    }
+    if (const auto* matrices = std::get_if<SegmentMatrices>(&segment->target)) {
+        drawCentered(std::format("{} mtx", matrices->matrices.size()), core::palette::Text);
+        return;
+    }
+    if (const auto* code = std::get_if<SegmentCode>(&segment->target)) {
+        drawCentered(code->symbol.empty() ? std::string("code") : code->symbol,
+                     core::palette::Warning);
         return;
     }
     const BuiltList& built = std::get<BuiltList>(segment->target);
@@ -323,29 +363,102 @@ void drawSlotSummary(ImDrawList& drawList, const PartSegment* segment, const ImV
     return isChanged;
 }
 
-[[nodiscard]] bool editSelected(std::vector<PartSegment>& segments, const u8 number,
+[[nodiscard]] bool editRenderMode(std::vector<std::string>& renderMode) {
+    core::drawPropertyLabel("Render mode");
+    ImGui::PushID("render mode");
+    bool isSet = !renderMode.empty();
+    const bool isToggled = ImGui::Checkbox("##set", &isSet);
+    ImGui::SetItemTooltip("Set a render mode, as gDPSetRenderMode does, its two cycles as gbi.h "
+                          "names them");
+    ImGui::PopID();
+    if (isToggled) {
+        renderMode =
+            isSet ? std::vector<std::string>(DefaultRenderMode.begin(), DefaultRenderMode.end())
+                  : std::vector<std::string>();
+    }
+    bool isChanged = isToggled;
+    if (renderMode.size() == 2) {
+        isChanged = editText("First cycle", renderMode[0]) || isChanged;
+        isChanged = editText("Second cycle", renderMode[1]) || isChanged;
+    }
+    return isChanged;
+}
+
+[[nodiscard]] bool editCode(SegmentCode& code) {
+    bool isChanged = editText("Symbol", code.symbol);
+    ImGui::SetItemTooltip("A display list the game's code defines, as D_80116280");
+    core::drawPropertyLabel("Commands in");
+    int index = static_cast<int>(code.index);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::InputInt("##index", &index)) {
+        code.index = static_cast<u32>(std::max(index, 0));
+        isChanged = true;
+    }
+    ImGui::SetItemTooltip("How many commands into the list it points, 2 for &D_80116280[2]");
+    return isChanged;
+}
+
+[[nodiscard]] bool editMatrices(SegmentMatrices& matrices, const std::string& skeleton,
                                 const std::optional<std::string>& object,
                                 const EditContext& context) {
+    bool isChanged = editLimbPlacement(matrices.limb, skeleton, object, context);
+    ImGui::SetItemTooltip("What each matrix is placed relative to: the actor, or a limb of the "
+                          "skeleton as it is drawn");
+    std::optional<usize> removed;
+    for (usize i = 0; i < matrices.matrices.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        PartPlacement& placement = matrices.matrices[i];
+        core::drawPropertyLabel(std::format("Matrix {}", i));
+        if (matrices.matrices.size() > 1 &&
+            drawIconButton(core::icons::Trash, "Remove this matrix")) {
+            removed = i;
+        }
+        isChanged = editVector("At", placement.translation) || isChanged;
+        isChanged = editVector("Turned", placement.rotation) || isChanged;
+        isChanged = editVector("Scaled", placement.scale) || isChanged;
+        ImGui::PopID();
+    }
+    if (removed) {
+        matrices.matrices.erase(matrices.matrices.begin() + static_cast<std::ptrdiff_t>(*removed));
+        isChanged = true;
+    }
+    return isChanged;
+}
+
+[[nodiscard]] bool editSelected(std::vector<PartSegment>& segments, const u8 number,
+                                const std::optional<std::string>& object,
+                                const std::string& skeleton, const EditContext& context) {
     if (!core::beginProperties("segment")) {
         return false;
     }
     bool isChanged = editTarget(segments, number);
     const auto found = std::ranges::find(segments, number, &PartSegment::segment);
     BuiltList* built = nullptr;
+    SegmentMatrices* matrices = nullptr;
     if (found != segments.end()) {
         if (auto* symbol = std::get_if<std::string>(&found->target)) {
             isChanged = editSymbol("Symbol", *symbol, object, SegmentKinds, context) || isChanged;
         } else if (auto* other = std::get_if<SegmentObject>(&found->target)) {
             isChanged = editSegmentObject(*other, context) || isChanged;
+        } else if (auto* code = std::get_if<SegmentCode>(&found->target)) {
+            isChanged = editCode(*code) || isChanged;
+        } else if (auto* placed = std::get_if<SegmentMatrices>(&found->target)) {
+            matrices = placed;
+            isChanged = editMatrices(*placed, skeleton, object, context) || isChanged;
         } else {
             built = &std::get<BuiltList>(found->target);
             isChanged = editOptionalColor("Primitive", built->colors.primitive) || isChanged;
             isChanged = editOptionalColor("Environment", built->colors.environment) || isChanged;
+            isChanged = editRenderMode(built->renderMode) || isChanged;
         }
     }
     core::endProperties();
     if (built != nullptr) {
         isChanged = editTiles(built->tiles) || isChanged;
+    }
+    if (matrices != nullptr && ImGui::SmallButton("+ Matrix")) {
+        matrices->matrices.emplace_back();
+        isChanged = true;
     }
     return isChanged;
 }
@@ -353,7 +466,7 @@ void drawSlotSummary(ImDrawList& drawList, const PartSegment* segment, const ImV
 } // namespace
 
 bool editSegments(std::vector<PartSegment>& segments, const std::optional<std::string>& object,
-                  const EditContext& context) {
+                  const std::string& skeleton, const EditContext& context) {
     ImGui::PushID("segments");
     ImGui::SeparatorText("Segments");
     ImGuiStorage* storage = ImGui::GetStateStorage();
@@ -364,7 +477,7 @@ bool editSegments(std::vector<PartSegment>& segments, const std::optional<std::s
                                    static_cast<int>(FirstSegment), static_cast<int>(LastSegment)));
     const u8 picked = drawSlots(segments, selected);
     storage->SetInt(selectedId, picked);
-    const bool isChanged = editSelected(segments, picked, object, context);
+    const bool isChanged = editSelected(segments, picked, object, skeleton, context);
     ImGui::PopID();
     return isChanged;
 }

@@ -6,6 +6,7 @@
 #include "app/object/domain/ObjectView.h"
 #include "app/object/domain/Pose.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/ActorDrawingReader.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "hackeroot/GameCode.h"
@@ -68,7 +69,8 @@ public:
     void writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent);
 
     [[nodiscard]] std::vector<viewport::SegmentPointer>
-    makeSegmentPointers(std::span<const ActorSegment> segments);
+    makeSegmentPointers(std::span<const ActorSegment> segments, const glm::mat4& actorMatrix,
+                        const SkeletonDrawing* skeleton);
 
     [[nodiscard]] z64::MemoryImage makeImage() const {
         z64::MemoryImage image;
@@ -78,7 +80,10 @@ public:
     }
 
 private:
-    [[nodiscard]] u32 writeBuiltList(const actor::BuiltList& built);
+    [[nodiscard]] u32 writeBuiltList(const actor::BuiltList& built, std::optional<u32> renderMode);
+
+    [[nodiscard]] u32 writeMatrices(const actor::SegmentMatrices& matrices,
+                                    const glm::mat4& actorMatrix, const SkeletonDrawing* skeleton);
 
     [[nodiscard]] std::vector<usize> makeAlsoImages(const usize object) const {
         std::vector<usize> images;
@@ -116,7 +121,8 @@ private:
 };
 
 std::vector<viewport::SegmentPointer>
-ActorWriter::makeSegmentPointers(const std::span<const ActorSegment> segments) {
+ActorWriter::makeSegmentPointers(const std::span<const ActorSegment> segments,
+                                 const glm::mat4& actorMatrix, const SkeletonDrawing* skeleton) {
     std::vector<viewport::SegmentPointer> pointers;
     for (u8 segment = FirstActorSegment; segment <= LastActorSegment; ++segment) {
         const auto set = std::ranges::find(segments, segment, &ActorSegment::segment);
@@ -126,8 +132,18 @@ ActorWriter::makeSegmentPointers(const std::span<const ActorSegment> segments) {
                     .segment = segment, .image = CodeImage, .address = *setup.emptyDisplayList});
             }
         } else if (const auto* built = std::get_if<actor::BuiltList>(&set->target)) {
+            pointers.push_back(
+                viewport::SegmentPointer{.segment = segment,
+                                         .image = imageIndex,
+                                         .address = writeBuiltList(*built, set->renderMode)});
+        } else if (const auto* matrices = std::get_if<actor::SegmentMatrices>(&set->target)) {
             pointers.push_back(viewport::SegmentPointer{
-                .segment = segment, .image = imageIndex, .address = writeBuiltList(*built)});
+                .segment = segment,
+                .image = imageIndex,
+                .address = writeMatrices(*matrices, actorMatrix, skeleton)});
+        } else if (const auto* code = std::get_if<CodeAddress>(&set->target)) {
+            pointers.push_back(viewport::SegmentPointer{
+                .segment = segment, .image = CodeImage, .address = code->address});
         } else {
             const auto& [object, address] = std::get<ObjectAddress>(set->target);
             pointers.push_back(viewport::SegmentPointer{
@@ -137,9 +153,13 @@ ActorWriter::makeSegmentPointers(const std::span<const ActorSegment> segments) {
     return pointers;
 }
 
-u32 ActorWriter::writeBuiltList(const actor::BuiltList& built) {
+u32 ActorWriter::writeBuiltList(const actor::BuiltList& built,
+                                const std::optional<u32> renderMode) {
     const u32 start = writer.getAddress();
     setColors(writer, built.colors);
+    if (renderMode) {
+        writer.setRenderMode(*renderMode);
+    }
     for (const actor::TileSize& size : built.tiles) {
         const u32 right = size.x + ((static_cast<u32>(size.width) - 1) << 2);
         const u32 bottom = size.y + ((static_cast<u32>(size.height) - 1) << 2);
@@ -147,6 +167,21 @@ u32 ActorWriter::writeBuiltList(const actor::BuiltList& built) {
         writer.setTileSize(size.tile, size.x, size.y, right, bottom);
     }
     writer.endDisplayList();
+    return start;
+}
+
+u32 ActorWriter::writeMatrices(const actor::SegmentMatrices& matrices, const glm::mat4& actorMatrix,
+                               const SkeletonDrawing* skeleton) {
+    glm::mat4 base = actorMatrix;
+    if (matrices.limb && skeleton != nullptr && *matrices.limb <= skeleton->pose.matrices.size()) {
+        base =
+            actorMatrix * skeleton->state.placement * skeleton->pose.matrices[*matrices.limb - 1U];
+    }
+    const u32 start = writer.getAddress();
+    for (const actor::PartPlacement& placement : matrices.matrices) {
+        static_cast<void>(
+            writer.addMatrix(viewport::makeFixedMatrix(base * makePlacementMatrix(placement))));
+    }
     return start;
 }
 
@@ -159,7 +194,8 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
         matrices.push_back(writer.addMatrix(viewport::makeFixedMatrix(placed * limb.matrix)));
     }
     const u32 identity = writer.addMatrix(n64::makeIdentityMatrix());
-    std::vector<viewport::SegmentPointer> pointers = makeSegmentPointers(skeleton.state.segments);
+    std::vector<viewport::SegmentPointer> pointers =
+        makeSegmentPointers(skeleton.state.segments, actorMatrix, &skeleton);
     const u32 start = startList(findSetup(setup, skeleton.state.setup));
     setColors(writer, skeleton.state.colors);
     for (usize i = 0; i < pose.drawn.size(); ++i) {
@@ -198,7 +234,8 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
 }
 
 void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4& parent) {
-    std::vector<viewport::SegmentPointer> pointers = makeSegmentPointers(list.state.segments);
+    std::vector<viewport::SegmentPointer> pointers =
+        makeSegmentPointers(list.state.segments, parent, nullptr);
     const u32 start = startList(findSetup(setup, list.state.setup));
     setColors(writer, list.state.colors);
     writer.callDisplayList(list.address);

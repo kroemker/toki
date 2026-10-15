@@ -329,6 +329,7 @@ segments = {
 | Key | Means |
 |---|---|
 | `prim`, `env` | the colours it sets, primitive first |
+| `render_mode` | the render mode it sets after them, as `gDPSetRenderMode` is called: its two cycles, each a constant expression of `gbi.h`'s names, `["G_RM_PASS", "G_RM_ZB_CLD_SURF2"]` as a fairy's glow sets it. They are evaluated against the checkout's own `gbi.h` as the build reads it (`AssetImageReader::evaluateGbi`); a name it does not define is a diagnostic, and the segment is left unset |
 | `tiles` | the tiles it sizes after them, each as `gDPSetTileSize` after a `gDPTileSync`: `tile`, 0 to 7; `width` and `height` in texels; and `x` and `y`, where the texture starts on it in quarter texels, 0 when left out, which is where a scroll starts |
 
 A segment set to `{ object = "object_mori_tex" }` points at the start of another object, as
@@ -336,6 +337,27 @@ the Forest Temple's actors point segment 8 at the textures they share; with `sym
 `{ object = "object_fa", symbol = "gFaEyeOpenTex" }`, it points at that symbol in it, as a
 Kokiri whose head is another object's takes its eyes from there. The object is read as the
 actor's own are.
+
+Some actors compute matrices as they draw and point a segment at them, for display lists that
+load them with `gSPMatrix`: a Like Like's body rings, the blue warp's portal, Zelda's hair. A
+segment set to `{ matrices = [...] }` points at such matrices, written into the actor's image
+one after another as the game allocates them. Each is a placement like a part's, `translation`,
+`rotation` and `scale`, relative to the actor as it is drawn, after its position, turn and
+scale but before the part's own placement, since the game pushes the matrix stack around that.
+With `limb`, they are relative to that limb of the part's skeleton as it is drawn instead, as
+Zelda's `OverrideLimbDraw` builds her hair from her head's matrix; a limb the skeleton does not
+have, or one on a part that draws no skeleton, is a diagnostic and places them on the actor.
+The game's matrices usually move every frame; an entry writes them as Init leaves them.
+
+```toml
+12 = { matrices = [{ translation = [0, 928.571, 0] }, { translation = [0, 1857.143, 0] }] }
+12 = { matrices = [{ translation = [174, -317, 0] }, { translation = [-236, -501, 0] }], limb = 14 }
+```
+
+A segment set to `{ code = "D_80116280", index = 2 }` points into a display list of the game's
+code, as most humanoid actors point one at `&D_80116280[2]` while opaque and at its start while
+they fade: `index` counts commands into it, 0 when left out. The game code is read with the
+data `z_actor.c` defines (`hackeroot::findActorCodeFiles`), so its lists are there to point at.
 
 A file of format 2 has no such tables, and reads as it is; it is written back as format 3.
 

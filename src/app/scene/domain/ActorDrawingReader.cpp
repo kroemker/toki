@@ -34,18 +34,7 @@ namespace toki::scene {
 namespace {
 
 constexpr u8 DefaultSetup = 25;
-
-[[nodiscard]] glm::mat4 makePlacement(const actor::PartPlacement& placement) {
-    const auto& [x, y, z] = placement.rotation;
-    glm::mat4 matrix = glm::translate(
-        glm::mat4(1.0F),
-        glm::vec3(placement.translation[0], placement.translation[1], placement.translation[2]));
-    matrix = glm::rotate(matrix, glm::radians(z), glm::vec3(0.0F, 0.0F, 1.0F));
-    matrix = glm::rotate(matrix, glm::radians(y), glm::vec3(0.0F, 1.0F, 0.0F));
-    matrix = glm::rotate(matrix, glm::radians(x), glm::vec3(1.0F, 0.0F, 0.0F));
-    return glm::scale(matrix,
-                      glm::vec3(placement.scale[0], placement.scale[1], placement.scale[2]));
-}
+constexpr u32 GfxSize = 8;
 
 [[nodiscard]] std::optional<ObjectAddress>
 findSegmentObject(const actor::SegmentObject& target, ActorObjects& objects,
@@ -69,7 +58,27 @@ findSegments(const std::span<const actor::PartSegment> segments, const std::opti
     std::vector<ActorSegment> found;
     for (const actor::PartSegment& segment : segments) {
         if (const auto* built = std::get_if<actor::BuiltList>(&segment.target)) {
-            found.push_back(ActorSegment{.segment = segment.segment, .target = *built});
+            ActorSegment set{.segment = segment.segment, .target = *built};
+            if (!built->renderMode.empty()) {
+                set.renderMode = objects.findRenderMode(built->renderMode, diagnostics);
+                if (!set.renderMode) {
+                    continue;
+                }
+            }
+            found.push_back(std::move(set));
+            continue;
+        }
+        if (const auto* matrices = std::get_if<actor::SegmentMatrices>(&segment.target)) {
+            found.push_back(ActorSegment{.segment = segment.segment, .target = *matrices});
+            continue;
+        }
+        if (const auto* code = std::get_if<actor::SegmentCode>(&segment.target)) {
+            if (const std::optional<u32> address =
+                    objects.findCodeAddress(code->symbol, diagnostics)) {
+                found.push_back(ActorSegment{
+                    .segment = segment.segment,
+                    .target = CodeAddress{.address = *address + (code->index * GfxSize)}});
+            }
             continue;
         }
         if (const auto* other = std::get_if<actor::SegmentObject>(&segment.target)) {
@@ -114,6 +123,8 @@ private:
     }
 
     [[nodiscard]] DrawState makeState(const actor::ActorPart& part);
+
+    void checkMatrixLimbs(const actor::ActorPart& part, usize limbCount);
 
     void readItem(const actor::ActorPart& part, usize index, ActorDrawing& drawing);
 
@@ -168,6 +179,7 @@ void PartReader::read(ActorDrawing& drawing) {
                 }
                 continue;
             }
+            checkMatrixLimbs(part, 0);
             ActorDisplayList list{.part = index,
                                   .object = *object,
                                   .address = *address,
@@ -262,7 +274,7 @@ std::vector<ActorDisplayList> PartReader::makeItemLists(const actor::ActorPart& 
         }
         DrawState state = partState;
         state.setup = part.setup.value_or(draw.setup);
-        state.placement = partState.placement * makePlacement(draw.placement);
+        state.placement = partState.placement * makePlacementMatrix(draw.placement);
         state.isBillboard = partState.isBillboard || draw.isBillboard;
         if (!draw.tiles.empty() &&
             !std::ranges::contains(state.segments, u8{0x08}, &ActorSegment::segment)) {
@@ -296,14 +308,15 @@ std::optional<glm::mat4> PartReader::findLimbPlacement(const actor::ActorPart& p
                         part.symbol, *part.limb, skeleton.pose.matrices.size())));
         return std::nullopt;
     }
-    return skeleton.state.placement * skeleton.pose.matrices[index] * makePlacement(part.placement);
+    return skeleton.state.placement * skeleton.pose.matrices[index] *
+           makePlacementMatrix(part.placement);
 }
 
 DrawState PartReader::makeState(const actor::ActorPart& part) {
     DrawState state{.setup = part.setup.value_or(DefaultSetup),
                     .colors = part.colors,
                     .isHilit = part.isHilit,
-                    .placement = makePlacement(part.placement),
+                    .placement = makePlacementMatrix(part.placement),
                     .isBillboard = part.isBillboard};
     const bool hasSymbols = std::ranges::any_of(part.segments, [](const auto& segment) {
         return std::holds_alternative<std::string>(segment.target);
@@ -314,6 +327,25 @@ DrawState PartReader::makeState(const actor::ActorPart& part) {
     return state;
 }
 
+void PartReader::checkMatrixLimbs(const actor::ActorPart& part, const usize limbCount) {
+    for (const actor::PartSegment& segment : part.segments) {
+        const auto* matrices = std::get_if<actor::SegmentMatrices>(&segment.target);
+        if (matrices == nullptr || !matrices->limb || *matrices->limb <= limbCount) {
+            continue;
+        }
+        diagnostics.push_back(base::makeWarning(
+            part.location,
+            limbCount == 0
+                ? std::format("{}: segment {}'s matrices hang from limb {}, and '{}' is no "
+                              "skeleton, so they are placed on the actor",
+                              entry.actor, segment.segment, *matrices->limb, part.symbol)
+                : std::format("{}: segment {}'s matrices hang from limb {}, and '{}' has {} "
+                              "limbs, so they are placed on the actor",
+                              entry.actor, segment.segment, *matrices->limb, part.symbol,
+                              limbCount)));
+    }
+}
+
 std::optional<SkeletonDrawing> PartReader::readSkeleton(const actor::ActorPart& part,
                                                         const usize object, const u32 address) {
     const object::Skeleton skeleton =
@@ -322,6 +354,7 @@ std::optional<SkeletonDrawing> PartReader::readSkeleton(const actor::ActorPart& 
     if (skeleton.limbs.empty()) {
         return std::nullopt;
     }
+    checkMatrixLimbs(part, skeleton.limbs.size());
     SkeletonDrawing drawing{.object = object,
                             .pose =
                                 object::poseSkeleton(skeleton, findPose(part, skeleton, object)),
@@ -409,6 +442,18 @@ object::JointTable PartReader::findPose(const actor::ActorPart& part,
 }
 
 } // namespace
+
+glm::mat4 makePlacementMatrix(const actor::PartPlacement& placement) {
+    const auto& [x, y, z] = placement.rotation;
+    glm::mat4 matrix = glm::translate(
+        glm::mat4(1.0F),
+        glm::vec3(placement.translation[0], placement.translation[1], placement.translation[2]));
+    matrix = glm::rotate(matrix, glm::radians(z), glm::vec3(0.0F, 0.0F, 1.0F));
+    matrix = glm::rotate(matrix, glm::radians(y), glm::vec3(0.0F, 1.0F, 0.0F));
+    matrix = glm::rotate(matrix, glm::radians(x), glm::vec3(1.0F, 0.0F, 0.0F));
+    return glm::scale(matrix,
+                      glm::vec3(placement.scale[0], placement.scale[1], placement.scale[2]));
+}
 
 AdjustmentDrawing makeAdjustmentDrawing(const actor::ActorEntry& entry,
                                         const actor::ActorAdjustment& adjustment,

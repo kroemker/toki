@@ -16,7 +16,12 @@ namespace hackeroot {
 /// 0, where the game's code is addressed.
 [[nodiscard]] SegmentFiles findGameCodeFiles(const std::filesystem::path& repository);
 
-/// The game code as a shared image, watching its files.
+/// The display lists the actor code defines for actors to point a segment at,
+/// as `D_80116280` in `z_actor.c`, read as an overlay is: only its data.
+[[nodiscard]] SegmentFiles findActorCodeFiles(const std::filesystem::path& repository);
+
+/// The game code as a shared image, `findGameCodeFiles` and then
+/// `findActorCodeFiles`, watching their files.
 [[nodiscard]] SharedImageFiles makeSharedGameCode(const std::filesystem::path& repository);
 
 /// What the game draws rooms and most actors after, found in an image of

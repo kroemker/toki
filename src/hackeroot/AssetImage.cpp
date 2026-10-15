@@ -7,6 +7,8 @@
 #include "cparser/MacroTable.h"
 #include "cparser/Parser.h"
 #include "cparser/Preprocessor.h"
+#include "cparser/Scanner.h"
+#include "cparser/SourceFile.h"
 #include "cparser/TypeName.h"
 #include "cparser/TypeParser.h"
 #include "cparser/TypeTable.h"
@@ -47,6 +49,7 @@ namespace {
 
 constexpr usize WordAlignment = 4;
 constexpr std::array<std::string_view, 1> AlsoHidden{"ultra64/gbi.f3dex3.h"};
+constexpr std::string_view GbiHeader = "ultra64/gbi.h";
 constexpr std::array<std::string_view, 17> OverlayDataTypes{
     "Gfx",     "Vtx",     "Mtx",     "Vp",      "u64",     "u32",     "u16",     "u8",     "s16",
     "Lights0", "Lights1", "Lights2", "Lights3", "Lights4", "Lights5", "Lights6", "Lights7"};
@@ -431,6 +434,33 @@ AssetImageReader::~AssetImageReader() = default;
 std::vector<z64::MemoryImage>
 AssetImageReader::read(const std::span<const std::vector<SegmentFiles>> images) {
     return ImageReader(*workspace, caches->preludes).read(images, {});
+}
+
+std::expected<u32, base::Diagnostic>
+AssetImageReader::evaluateGbi(const std::string_view expression) {
+    if (std::optional<base::Diagnostic> unsupported = findUnsupportedMicrocode(*workspace)) {
+        return std::unexpected(std::move(*unsupported));
+    }
+    const std::vector<std::string> includes{std::string(GbiHeader)};
+    std::unique_ptr<Prelude>& gbi = caches->preludes[includes];
+    if (!gbi) {
+        gbi = std::make_unique<Prelude>(readPrelude(*workspace, includes, AlsoHidden));
+    }
+    const cparser::SourceFile file{.path = "gbi.h", .contents = std::string(expression)};
+    const cparser::ScanResult scanned = cparser::scan(file);
+    std::vector<base::Diagnostic> found;
+    const std::expected<cparser::Value, base::Diagnostic> value = cparser::evaluate(
+        scanned.tokens,
+        cparser::EvalContext{
+            .macros = &gbi->macros, .dialect = &z64::getDecompDialect(), .unknownIsZero = false},
+        found);
+    if (!value) {
+        return std::unexpected(value.error());
+    }
+    if (!found.empty()) {
+        return std::unexpected(std::move(found.front()));
+    }
+    return static_cast<u32>(cparser::getInteger(*value));
 }
 
 ImageSet AssetImageReader::read(const std::span<const SharedImageFiles> shared,

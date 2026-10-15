@@ -7,6 +7,7 @@
 
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,6 +30,16 @@ public:
     /// diagnostic.
     [[nodiscard]] std::optional<u32> findAddress(usize object, std::string_view symbol,
                                                  std::vector<base::Diagnostic>& diagnostics) const;
+
+    /// Where `symbol` is in the game's code, as `hackeroot::findGameCodeFiles`
+    /// reads it. One it does not have is a diagnostic.
+    [[nodiscard]] std::optional<u32> findCodeAddress(std::string_view symbol,
+                                                     std::vector<base::Diagnostic>& diagnostics);
+
+    /// The render mode `cycles` set together, each a constant expression of
+    /// `gbi.h`'s names. One that does not evaluate is a diagnostic.
+    [[nodiscard]] std::optional<u32> findRenderMode(std::span<const std::string> cycles,
+                                                    std::vector<base::Diagnostic>& diagnostics);
 
     [[nodiscard]] const ActorObject& getObject(const usize object) const {
         return actors.objects[object];

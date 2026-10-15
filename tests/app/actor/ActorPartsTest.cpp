@@ -212,3 +212,49 @@ parts = [{ display_list = "gMoriHineriDL", segments = { 8 = { object = "object_m
     REQUIRE(written.contains("8 = { object = 'object_mori_tex' }"));
     REQUIRE(written.contains("9 = { object = 'object_fa', symbol = 'gFaEyeOpenTex' }"));
 }
+
+TEST_CASE("a segment points at a render mode, at matrices, or into the game's code",
+          "[actor][database]") {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 3
+[[actors.ACTOR_EN_ZL2.variants]]
+parts = [{ skeleton = "gZl2Skel", segments = { 8 = { prim = [255, 255, 255, 255], render_mode = ["G_RM_PASS", "G_RM_ZB_CLD_SURF2"] }, 11 = { code = "D_80116280", index = 2 }, 12 = { matrices = [{ translation = [174, -317, 0] }, { rotation = [0, 90, 0], scale = 2 }], limb = 14 } } }]
+)",
+                                                                                "actors.toml");
+
+    INFO(toki::actor::formatActorDatabase(database));
+    REQUIRE(database.problems.empty());
+    const std::vector<toki::actor::PartSegment>& segments =
+        database.entries.at("ACTOR_EN_ZL2").variants[0].parts[0].segments;
+    REQUIRE(segments.size() == 3);
+    REQUIRE(std::get<toki::actor::BuiltList>(segments[0].target).renderMode ==
+            std::vector<std::string>{"G_RM_PASS", "G_RM_ZB_CLD_SURF2"});
+    const auto& code = std::get<toki::actor::SegmentCode>(segments[1].target);
+    REQUIRE(code.symbol == "D_80116280");
+    REQUIRE(code.index == 2);
+    const auto& matrices = std::get<toki::actor::SegmentMatrices>(segments[2].target);
+    REQUIRE(matrices.limb == 14);
+    REQUIRE(matrices.matrices.size() == 2);
+    REQUIRE(matrices.matrices[0].translation == std::array{174.0F, -317.0F, 0.0F});
+    REQUIRE(matrices.matrices[1].scale == std::array{2.0F, 2.0F, 2.0F});
+
+    const std::string written = toki::actor::formatActorDatabase(database);
+    INFO(written);
+    REQUIRE(written.contains("render_mode = [ 'G_RM_PASS', 'G_RM_ZB_CLD_SURF2' ]"));
+    REQUIRE(written.contains("11 = { code = 'D_80116280', index = 2 }"));
+    REQUIRE(written.contains("limb = 14"));
+    const toki::actor::ActorDatabase reread =
+        toki::actor::parseActorDatabase(written, "actors.toml");
+    REQUIRE(reread.problems.empty());
+    REQUIRE(toki::actor::formatActorDatabase(reread) == written);
+}
+
+TEST_CASE("a render mode of one cycle, or matrices with none, are reported", "[actor][database]") {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 3
+[[actors.ACTOR_EN_RR.variants]]
+parts = [{ display_list = "gLikeLikeDL", segments = { 8 = { render_mode = ["G_RM_PASS"] }, 12 = { matrices = [] } } }]
+)",
+                                                                                "actors.toml");
+
+    REQUIRE(isReported(database, "render mode's two cycles"));
+    REQUIRE(isReported(database, "must be a list of matrices"));
+}

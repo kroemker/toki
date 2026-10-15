@@ -106,10 +106,13 @@ struct TileSize {
 };
 
 /// A display list the game builds as it draws, for a segment to point at:
-/// colours set, as `Gfx_EnvColor` sets one, and then tiles sized, as
-/// `Gfx_TwoTexScroll` sizes them.
+/// colours set, as `Gfx_EnvColor` sets one, a render mode, as En_Elf sets its
+/// glow's, and then tiles sized, as `Gfx_TwoTexScroll` sizes them.
 struct BuiltList {
     DrawColors colors;
+    /// The render mode's two cycles as `gDPSetRenderMode` is called, each a
+    /// constant expression of `gbi.h`'s names; empty when it sets none.
+    std::vector<std::string> renderMode;
     std::vector<TileSize> tiles;
 };
 
@@ -128,11 +131,28 @@ struct PartPlacement {
     std::array<f32, 3> scale{1.0F, 1.0F, 1.0F};
 };
 
+/// Matrices the game computes as it draws, for a segment to point at, as
+/// En_Rr points 12 at its body's rings: each placed relative to the actor, or
+/// to `limb` of the part's skeleton as it is drawn, as Zelda's hair hangs from
+/// her head.
+struct SegmentMatrices {
+    std::vector<PartPlacement> matrices;
+    std::optional<u8> limb;
+};
+
+/// A display list of the game's code a segment points at, as an actor points
+/// one at `&D_80116280[2]`: its symbol and how many commands into it.
+struct SegmentCode {
+    std::string symbol;
+    u32 index = 0;
+};
+
 /// A segment from 8 to 12, pointed at a symbol of the part's object, at a list
-/// built as the game builds one, or into another object.
+/// built as the game builds one, into another object, at matrices, or into the
+/// game's code.
 struct PartSegment {
     u8 segment = 0;
-    std::variant<std::string, BuiltList, SegmentObject> target;
+    std::variant<std::string, BuiltList, SegmentObject, SegmentMatrices, SegmentCode> target;
 };
 
 /// What a skeleton draws at one of its limbs in place of the limb's own display

@@ -176,8 +176,10 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
             editLimbs(part.limbs, part.symbol, part.object ? part.object : object, context) ||
             isChanged;
     }
+    const std::string ownSkeleton = part.kind == PartKind::Skeleton ? part.symbol : std::string();
     isChanged =
-        editSegments(part.segments, part.object ? part.object : object, context) || isChanged;
+        editSegments(part.segments, part.object ? part.object : object, ownSkeleton, context) ||
+        isChanged;
     return isChanged;
 }
 

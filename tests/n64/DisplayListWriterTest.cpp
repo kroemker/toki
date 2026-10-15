@@ -110,6 +110,14 @@ TEST_CASE("a tile is sized as gDPSetTileSize sizes it", "[n64][writer]") {
                                                  0xF2, 0x00, 0x80, 0x04, 0x01, 0x08, 0x40, 0x40});
 }
 
+TEST_CASE("a render mode is set as gDPSetRenderMode sets it", "[n64][writer]") {
+    n64::DisplayListWriter writer(Segment);
+
+    writer.setRenderMode(0x0C18'4DD8);
+
+    REQUIRE(writer.getBytes() == std::vector<u8>{0xE2, 0x00, 0x00, 0x1C, 0x0C, 0x18, 0x4D, 0xD8});
+}
+
 TEST_CASE("what the writer writes, the RSP runs", "[n64][writer]") {
     n64::DisplayListWriter writer(Segment);
     const u32 viewport = writer.addViewport(n64::makeDefaultViewport());

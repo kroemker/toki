@@ -1,11 +1,14 @@
 #pragma once
 
+#include "base/Diagnostic.h"
 #include "hackeroot/Types.h"
 #include "z64/MemoryImage.h"
 
+#include <expected>
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace hackeroot {
@@ -93,6 +96,12 @@ public:
     /// earlier read made is returned, with its diagnostics.
     [[nodiscard]] ImageSet read(std::span<const SharedImageFiles> shared,
                                 std::span<const std::vector<SegmentFiles>> images);
+
+    /// The value of `expression`, a constant expression of `gbi.h`'s names as
+    /// the build reads them (`readGbi`), as a render mode's cycle
+    /// `G_RM_ZB_CLD_SURF2` is written. A name the header does not define is a
+    /// diagnostic naming it, as is a checkout that enables F3DEX3.
+    [[nodiscard]] std::expected<u32, base::Diagnostic> evaluateGbi(std::string_view expression);
 
 private:
     struct Caches;

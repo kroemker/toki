@@ -64,7 +64,8 @@ Symbols nothing in the image defines:
   physical addresses through. Code whose data a viewer needs whole, such as the setup
   display lists in `z_rcp.c`, is read like an asset file into segment 0 instead: the
   parser steps over its functions, and an array of display lists (`Gfx sSetupDL[71][6]`)
-  encodes each inner list.
+  encodes each inner list. `z_actor.c` is read after it as an overlay is, only its display
+  lists and the like, for the render mode lists actors point a segment at (`D_80116280`).
 - **Anything else**, an object's reference into gameplay_keep when gameplay_keep is not in
   the image, is a warning naming the symbol. Objects do point into one another (Link's
   bottle into the bottle object) and into data that is not asset C at all (player

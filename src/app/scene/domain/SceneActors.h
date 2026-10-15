@@ -45,11 +45,20 @@ struct ObjectAddress {
     u32 address = 0;
 };
 
+/// An address in the game's code, as of `&D_80116280[2]`.
+struct CodeAddress {
+    u32 address = 0;
+};
+
 /// A segment an actor points before it draws: at an address in one of the
-/// actor objects, or at a list it builds, as its colours.
+/// actor objects, at a list it builds, as its colours, at matrices it
+/// computes, or into the game's code.
 struct ActorSegment {
     u8 segment = 0;
-    std::variant<ObjectAddress, actor::BuiltList> target;
+    std::variant<ObjectAddress, actor::BuiltList, actor::SegmentMatrices, CodeAddress> target;
+    /// The render mode a built list sets, its cycles evaluated as `gbi.h`
+    /// defines them.
+    std::optional<u32> renderMode;
 };
 
 /// What a display list or skeleton is drawn under, as its part says: after

@@ -2,6 +2,7 @@
 #include "base/Types.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/GameCode.h"
 #include "hackeroot/Gbi.h"
 #include "hackeroot/Workspace.h"
 #include "n64/Memory.h"
@@ -22,6 +23,7 @@
 #include <ios>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -408,4 +410,46 @@ TEST_CASE("every object encodes byte for byte as the build compiles it",
     INFO(sweep.describe());
     REQUIRE(sweep.compared > 300);
     REQUIRE(sweep.problems == 0);
+}
+
+TEST_CASE("gbi.h's names evaluate as the build reads them, and the game code holds the actor "
+          "code's display lists",
+          "[assets][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
+    hackeroot::AssetImageReader reader(
+        std::make_shared<const hackeroot::Workspace>(std::move(*loaded)));
+
+    const std::expected<u32, base::Diagnostic> pass = reader.evaluateGbi("G_RM_PASS");
+    INFO((pass ? std::string() : pass.error().message));
+    REQUIRE(pass == 0x0C08'0000U);
+    REQUIRE(reader.evaluateGbi("G_RM_PASS | G_RM_ZB_CLD_SURF2").has_value());
+    REQUIRE_FALSE(reader.evaluateGbi("G_RM_NOT_A_MODE").has_value());
+
+    const std::array code{hackeroot::makeSharedGameCode(repository)};
+    const hackeroot::ImageSet images = reader.read(code, {});
+    const z64::MemoryImage& image = *images.shared.front();
+    const auto isActorCode = [](const base::Diagnostic& diagnostic) {
+        return diagnostic.severity != base::Severity::Note &&
+               diagnostic.location.file.filename() == "z_actor.c";
+    };
+    for (const base::Diagnostic& diagnostic : image.diagnostics) {
+        if (isActorCode(diagnostic)) {
+            UNSCOPED_INFO(diagnostic.message);
+        }
+    }
+    REQUIRE(std::ranges::none_of(image.diagnostics, isActorCode));
+    const std::optional<z64::ImageSymbol> renderModes = image.findSymbol("D_80116280");
+    REQUIRE(renderModes.has_value());
+    REQUIRE(renderModes->size == 24);
+    REQUIRE(image.findAddress("sSetupDL").has_value());
 }

@@ -165,6 +165,12 @@ std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
             if (inner->contains("object")) {
                 segments.push_back(
                     PartSegment{.segment = *segment, .target = readSegmentObject(*inner, at)});
+            } else if (inner->contains("matrices")) {
+                segments.push_back(
+                    PartSegment{.segment = *segment, .target = readSegmentMatrices(*inner, at)});
+            } else if (inner->contains("code")) {
+                segments.push_back(
+                    PartSegment{.segment = *segment, .target = readSegmentCode(*inner, at)});
             } else {
                 segments.push_back(
                     PartSegment{.segment = *segment, .target = readBuiltList(*inner, at)});
@@ -172,7 +178,9 @@ std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
         } else {
             report(node, at,
                    "must be a segment from 8 to 12 set to a symbol's name, to a table of what a "
-                   "list built at run time sets, or to { object, symbol } of another object");
+                   "list built at run time sets, to { object, symbol } of another object, to "
+                   "{ matrices, limb }, or to { code, index } of a display list in the game's "
+                   "code");
         }
     }
     std::ranges::sort(segments, {}, &PartSegment::segment);
@@ -256,6 +264,69 @@ SegmentObject DatabaseReader::readSegmentObject(const toml::table& table,
     return target;
 }
 
+std::vector<std::string> DatabaseReader::readRenderMode(const toml::node& node,
+                                                        const std::string_view path) {
+    const toml::array* array = node.as_array();
+    std::vector<std::string> cycles;
+    if (array != nullptr && array->size() == 2) {
+        for (const toml::node& cycle : *array) {
+            if (const std::optional<std::string> text = cycle.value<std::string>()) {
+                cycles.push_back(*text);
+            }
+        }
+    }
+    if (cycles.size() != 2 || std::ranges::any_of(cycles, &std::string::empty)) {
+        report(node, path,
+               "must be the render mode's two cycles as gbi.h names them, as "
+               "[\"G_RM_PASS\", \"G_RM_ZB_CLD_SURF2\"]");
+        return {};
+    }
+    return cycles;
+}
+
+SegmentMatrices DatabaseReader::readSegmentMatrices(const toml::table& table,
+                                                    const std::string_view path) {
+    checkKeys(table, path, SegmentMatricesKeys);
+    SegmentMatrices target;
+    if (const toml::node* limb = table.get("limb")) {
+        target.limb = readLimbNumber(*limb, "limb", path);
+    }
+    const toml::array* matrices = table["matrices"].as_array();
+    if (matrices == nullptr || matrices->empty()) {
+        report(table, makePath(path, "matrices"),
+               "must be a list of matrices, each a table of translation, rotation and scale");
+        return target;
+    }
+    for (usize i = 0; i < matrices->size(); ++i) {
+        const std::string at = std::format("{}.matrices[{}]", path, i);
+        if (const toml::table* matrix = (*matrices)[i].as_table()) {
+            checkKeys(*matrix, at, MatrixKeys);
+            target.matrices.push_back(readPlacement(*matrix, at));
+        } else {
+            report((*matrices)[i], at, "must be a table of translation, rotation and scale");
+        }
+    }
+    return target;
+}
+
+SegmentCode DatabaseReader::readSegmentCode(const toml::table& table, const std::string_view path) {
+    checkKeys(table, path, SegmentCodeKeys);
+    SegmentCode target{.symbol = table["code"].value<std::string>().value_or("")};
+    if (target.symbol.empty()) {
+        report(table, makePath(path, "code"),
+               "must be the name of a display list in the game's code");
+    }
+    if (const std::optional<s64> index = readInteger(table, "index", path)) {
+        if (*index < 0) {
+            report(*table.get("index"), makePath(path, "index"),
+                   "must be how many commands into the list it points, from 0");
+        } else {
+            target.index = static_cast<u32>(*index);
+        }
+    }
+    return target;
+}
+
 BuiltList DatabaseReader::readBuiltList(const toml::table& table, const std::string_view path) {
     checkKeys(table, path, BuiltListKeys);
     BuiltList built;
@@ -264,6 +335,9 @@ BuiltList DatabaseReader::readBuiltList(const toml::table& table, const std::str
     }
     if (const toml::node* environment = table.get("env")) {
         built.colors.environment = readColor<4>(*environment, makePath(path, "env"));
+    }
+    if (const toml::node* renderMode = table.get("render_mode")) {
+        built.renderMode = readRenderMode(*renderMode, makePath(path, "render_mode"));
     }
     const toml::node* tiles = table.get("tiles");
     if (tiles == nullptr) {
