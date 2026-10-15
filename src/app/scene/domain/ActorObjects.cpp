@@ -57,8 +57,16 @@ std::optional<usize> ActorObjects::readObject(const std::string& name,
         hackeroot::makeObjectImageFiles(workspace, *directory, segment);
     std::ranges::copy(shared.back().watched, std::back_inserter(actors.watched));
     const hackeroot::ImageSet images = reader.read(shared, {});
-    actors.objects.push_back(
-        ActorObject{.name = name, .segment = segment, .image = images.shared.back()});
+    std::vector<std::shared_ptr<const z64::MemoryImage>> linked;
+    for (usize i = 1; i + 1 < shared.size(); ++i) {
+        if (!shared[i].files.empty() && shared[i].files.front().segment != hackeroot::KeepSegment) {
+            linked.push_back(images.shared[i]);
+        }
+    }
+    actors.objects.push_back(ActorObject{.name = name,
+                                         .segment = segment,
+                                         .image = images.shared.back(),
+                                         .linked = std::move(linked)});
     return actors.objects.size() - 1;
 }
 

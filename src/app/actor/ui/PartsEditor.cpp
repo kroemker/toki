@@ -37,7 +37,6 @@ constexpr u8 DefaultSetup = 25;
 constexpr ImVec4 PassColor{0.561F, 0.827F, 1.0F, 1.0F};
 constexpr ImVec4 ShineColor{1.0F, 0.831F, 0.475F, 1.0F};
 constexpr ImVec4 FacingColor{0.710F, 0.894F, 0.549F, 1.0F};
-constexpr ImVec4 LimbColor{0.851F, 0.659F, 1.0F, 1.0F};
 constexpr ImVec4 ItemColor{1.0F, 0.569F, 0.478F, 1.0F};
 constexpr std::string_view DrawIdCollection = "GetItemDrawID";
 
@@ -152,9 +151,6 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
                                                  : editSymbolOf(part, object, context);
     if (part.kind == PartKind::Skeleton) {
         isChanged = editPose(part, object, context) || isChanged;
-        isChanged =
-            editLimbs(part.limbs, part.symbol, part.object ? part.object : object, context) ||
-            isChanged;
     } else if (part.kind == PartKind::DisplayList && (skeleton != nullptr || part.limb)) {
         const std::optional<std::string>& skeletonObject =
             skeleton != nullptr && skeleton->object ? skeleton->object : object;
@@ -174,9 +170,14 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
     core::drawPropertyLabel("Hilite");
     isChanged = ImGui::Checkbox("##hilite", &part.isHilit) || isChanged;
     ImGui::SetItemTooltip("Drawn with a LookAt from the camera toward the actor, for what shines");
+    core::endProperties();
+    if (part.kind == PartKind::Skeleton) {
+        isChanged =
+            editLimbs(part.limbs, part.symbol, part.object ? part.object : object, context) ||
+            isChanged;
+    }
     isChanged =
         editSegments(part.segments, part.object ? part.object : object, context) || isChanged;
-    core::endProperties();
     return isChanged;
 }
 

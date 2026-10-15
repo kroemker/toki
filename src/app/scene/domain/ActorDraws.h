@@ -33,6 +33,9 @@ struct PlacedActor {
 /// `firstImage`.
 struct ActorDraws {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
+    /// For each of the actors' objects, the images of `images` of the objects
+    /// it points into, which are pointed at before it.
+    std::vector<std::vector<usize>> linkedImages;
     std::vector<viewport::ViewportDraw> opaque;
     std::vector<viewport::ViewportDraw> translucent;
     /// The placed actors without a drawing, by index, to be marked instead.

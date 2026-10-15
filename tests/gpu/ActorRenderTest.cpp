@@ -173,8 +173,15 @@ struct Box {
     for (const toki::scene::SkeletonDrawing& skeleton : drawing.skeletons) {
         const z64::MemoryImage& image = *actors.objects[skeleton.object].image;
         const glm::mat4 placedMatrix = matrix * skeleton.state.placement;
-        for (const toki::object::PosedLimb& limb : skeleton.pose.drawn) {
-            if (const auto bounds = toki::object::findDisplayListBounds(image, limb.displayList)) {
+        for (usize i = 0; i < skeleton.pose.drawn.size(); ++i) {
+            const toki::object::PosedLimb& limb = skeleton.pose.drawn[i];
+            const auto elsewhere =
+                std::ranges::find(skeleton.limbObjects, i, &toki::scene::LimbObject::drawn);
+            const z64::MemoryImage& limbImage = elsewhere == skeleton.limbObjects.end()
+                                                    ? image
+                                                    : *actors.objects[elsewhere->object].image;
+            if (const auto bounds =
+                    toki::object::findDisplayListBounds(limbImage, limb.displayList)) {
                 box.add(*bounds, placedMatrix * limb.matrix);
             }
         }

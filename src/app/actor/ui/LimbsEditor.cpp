@@ -4,6 +4,7 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/SymbolCatalog.h"
 #include "app/actor/ui/EditWidgets.h"
+#include "app/actor/ui/ItemRow.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/object/domain/ObjectAssets.h"
 
@@ -11,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cstddef>
 #include <format>
 #include <optional>
@@ -32,17 +34,48 @@ constexpr std::array<const char*, 2> DrawLabels{"Nothing", "A display list"};
                                        : nullptr;
 }
 
-[[nodiscard]] std::string makeLimbLabel(const u8 limb, const std::vector<CatalogLimb>* limbs) {
+[[nodiscard]] std::optional<std::string> findLimbName(const u8 limb,
+                                                      const std::vector<CatalogLimb>* limbs) {
     const usize index = limb - 1U;
     if (limbs == nullptr || index >= limbs->size() || (*limbs)[index].name.empty()) {
-        return std::format("Limb {}", limb);
+        return std::nullopt;
     }
-    return std::format("{}  {}", limb, (*limbs)[index].name);
+    return (*limbs)[index].name;
+}
+
+[[nodiscard]] std::string makeLimbLabel(const u8 limb, const std::vector<CatalogLimb>* limbs) {
+    const std::optional<std::string> name = findLimbName(limb, limbs);
+    return name ? std::format("{}  {}", limb, *name) : std::format("Limb {}", limb);
+}
+
+[[nodiscard]] std::string makeRowId(const u8 limb) {
+    return std::format("limb {}", limb);
+}
+
+[[nodiscard]] ItemRow makeLimbRow(const LimbOverride& limb, const std::vector<CatalogLimb>* limbs) {
+    std::string detail = "draws nothing";
+    if (limb.displayList) {
+        detail = "draws " + (limb.displayList->empty() ? std::string("…") : *limb.displayList);
+        if (limb.object) {
+            detail += std::format(" of {}", *limb.object);
+        }
+    }
+    return ItemRow{.tag = std::to_string(limb.limb),
+                   .tagColor = LimbColor,
+                   .name = findLimbName(limb.limb, limbs).value_or("Limb"),
+                   .detail = detail,
+                   .canRemove = true};
+}
+
+void openRow(const u8 limb) {
+    ImGui::PushID(makeRowId(limb).c_str());
+    ImGui::GetStateStorage()->SetBool(ImGui::GetID("##open"), true);
+    ImGui::PopID();
 }
 
 [[nodiscard]] bool editDrawn(LimbOverride& limb, const std::optional<std::string>& object,
-                             const std::vector<CatalogLimb>* limbs, const EditContext& context) {
-    core::drawPropertyLabel(makeLimbLabel(limb.limb, limbs).c_str());
+                             const EditContext& context) {
+    core::drawPropertyLabel("Draws");
     bool isChanged = false;
     const bool isList = limb.displayList.has_value();
     if (ImGui::BeginCombo("##drawn", DrawLabels[isList ? 1 : 0])) {
@@ -83,6 +116,7 @@ constexpr std::array<const char*, 2> DrawLabels{"Nothing", "A display list"};
         }
         return picked;
     }
+    ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::BeginCombo("##limb", label)) {
         for (usize i = 0; i < limbs->size(); ++i) {
             const auto number = static_cast<u8>(i + 1U);
@@ -105,29 +139,41 @@ constexpr std::array<const char*, 2> DrawLabels{"Nothing", "A display list"};
 bool editLimbs(std::vector<LimbOverride>& limbs, const std::string& skeleton,
                const std::optional<std::string>& object, const EditContext& context) {
     const std::vector<CatalogLimb>* catalog = findLimbs(skeleton, object, context);
+    ImGui::PushID("limbs");
+    ImGui::SeparatorText("Limbs");
     bool isChanged = false;
     std::optional<usize> removed;
     for (usize i = 0; i < limbs.size(); ++i) {
-        ImGui::PushID(static_cast<int>(i));
-        isChanged = editDrawn(limbs[i], object, catalog, context) || isChanged;
-        core::drawPropertyLabel("");
-        if (ImGui::SmallButton("Draw its own")) {
+        const RowResult row =
+            drawItemRow(makeRowId(limbs[i].limb).c_str(), makeLimbRow(limbs[i], catalog));
+        if (row.action == RowAction::Remove) {
             removed = i;
         }
+        if (!row.isOpen) {
+            continue;
+        }
+        ImGui::PushID(static_cast<int>(i));
+        beginRowDetails();
+        if (core::beginProperties("limb")) {
+            isChanged = editDrawn(limbs[i], object, context) || isChanged;
+            core::endProperties();
+        }
+        endRowDetails();
         ImGui::PopID();
     }
     if (removed) {
         limbs.erase(limbs.begin() + static_cast<std::ptrdiff_t>(*removed));
         isChanged = true;
     }
-    core::drawPropertyLabel("Limbs");
     ImGui::PushID("add limb");
     if (const std::optional<u8> picked = pickLimb("+ Limb", catalog, limbs)) {
         limbs.push_back(LimbOverride{.limb = *picked});
+        openRow(*picked);
         isChanged = true;
     }
     ImGui::PopID();
     ImGui::SetItemTooltip("Draw a limb as something other than its own display list");
+    ImGui::PopID();
     return isChanged;
 }
 

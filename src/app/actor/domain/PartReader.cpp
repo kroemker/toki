@@ -5,6 +5,7 @@
 
 #include <toml++/toml.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <format>
 #include <optional>
@@ -160,15 +161,21 @@ std::vector<PartSegment> DatabaseReader::readSegments(const toml::table& table,
         if (segment && node.is_string()) {
             segments.push_back(
                 PartSegment{.segment = *segment, .target = node.value<std::string>().value_or("")});
-        } else if (const toml::table* built = node.as_table(); segment && built != nullptr) {
-            segments.push_back(
-                PartSegment{.segment = *segment, .target = readBuiltList(*built, at)});
+        } else if (const toml::table* inner = node.as_table(); segment && inner != nullptr) {
+            if (inner->contains("object")) {
+                segments.push_back(
+                    PartSegment{.segment = *segment, .target = readSegmentObject(*inner, at)});
+            } else {
+                segments.push_back(
+                    PartSegment{.segment = *segment, .target = readBuiltList(*inner, at)});
+            }
         } else {
             report(node, at,
-                   "must be a segment from 8 to 12 set to a symbol's name, or to a table of "
-                   "what a list built at run time sets");
+                   "must be a segment from 8 to 12 set to a symbol's name, to a table of what a "
+                   "list built at run time sets, or to { object, symbol } of another object");
         }
     }
+    std::ranges::sort(segments, {}, &PartSegment::segment);
     return segments;
 }
 
@@ -236,6 +243,17 @@ std::vector<LimbOverride> DatabaseReader::readLimbs(const toml::table& table,
         limbs.push_back(std::move(limbOverride));
     }
     return limbs;
+}
+
+SegmentObject DatabaseReader::readSegmentObject(const toml::table& table,
+                                                const std::string_view path) {
+    checkKeys(table, path, SegmentObjectKeys);
+    SegmentObject target{.object = table["object"].value<std::string>().value_or(""),
+                         .symbol = table["symbol"].value<std::string>().value_or("")};
+    if (target.object.empty()) {
+        report(table, makePath(path, "object"), "must be the name of an object");
+    }
+    return target;
 }
 
 BuiltList DatabaseReader::readBuiltList(const toml::table& table, const std::string_view path) {

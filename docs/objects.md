@@ -35,9 +35,18 @@ then only its own files. Twenty objects in a row read in 1.2 s from a copy of th
 on the Windows filesystem, release build: 0.5 s for the first, with the code and the keep,
 and 35 ms each for the rest, where each used to cost the whole half second.
 
-Objects point into other objects too (Link's bottle into the bottle's object), and player
-animations point into data that is not asset C at all. Such a symbol is a warning, not an
-error: the image is still good, and what points there draws nothing
+An object whose C includes another object's header points into it, and the linker resolves
+those symbols where the spec links the other object: `object_mori_objects` draws with
+`object_mori_tex`'s textures, linked at segment 8 (`number 8`), and `object_syokudai` with
+`gameplay_dangeon_keep`'s, at 5. `hackeroot::makeLinkedObjects` finds them by the includes
+(`findLinkedObjects`) and reads each as a shared image in its spec segment, before the
+object, so its symbols resolve as the build's do and the viewport has the segment to read.
+An actor's object keeps them (`scene::ActorObject::linked`), and they are pointed at before
+it when it is drawn.
+
+Objects point into other objects with no include too (Link's bottle into the bottle's
+object), and player animations point into data that is not asset C at all. Such a symbol is
+a warning, not an error: the image is still good, and what points there draws nothing
 ([memory-image.md](memory-image.md#addresses-are-relocations)).
 
 `toki::object::ObjectLoader` reads on a worker and reads again when a file changes, as the

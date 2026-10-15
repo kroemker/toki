@@ -246,7 +246,7 @@ it is drawn with; nothing carries over from one part to the next.
 | `translation`, `rotation`, `scale` | where it is relative to the actor: moved, turned in degrees about Z, then Y, then X, and scaled |
 | `billboard` | it faces the camera, as flames and sprites do |
 | `prim`, `env` | the primitive and environment colours it is drawn in |
-| `segments` | segments 8 to 12, each pointed at a symbol, as eyes and mouths are, or at a list built as the game builds one ([Segments](#segments)); the others point at `gEmptyDL` |
+| `segments` | segments 8 to 12, each pointed at a symbol, as eyes and mouths are, at a list built as the game builds one, or into another object ([Segments](#segments)); the others point at `gEmptyDL` |
 | `setup` | the `sSetupDL` it is drawn after, `SETUPDL_25` when left out |
 | `pass` | `opaque` (left out) or `translucent` |
 | `hilite` | `func_8002EBCC`'s `LookAt`, from the camera toward the actor, for what shines by `G_TEXTURE_GEN` |
@@ -330,6 +330,12 @@ segments = {
 |---|---|
 | `prim`, `env` | the colours it sets, primitive first |
 | `tiles` | the tiles it sizes after them, each as `gDPSetTileSize` after a `gDPTileSync`: `tile`, 0 to 7; `width` and `height` in texels; and `x` and `y`, where the texture starts on it in quarter texels, 0 when left out, which is where a scroll starts |
+
+A segment set to `{ object = "object_mori_tex" }` points at the start of another object, as
+the Forest Temple's actors point segment 8 at the textures they share; with `symbol` as well,
+`{ object = "object_fa", symbol = "gFaEyeOpenTex" }`, it points at that symbol in it, as a
+Kokiri whose head is another object's takes its eyes from there. The object is read as the
+actor's own are.
 
 A file of format 2 has no such tables, and reads as it is; it is written back as format 3.
 

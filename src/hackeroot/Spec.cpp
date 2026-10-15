@@ -8,11 +8,13 @@
 #include "z64/DecompDialect.h"
 
 #include <algorithm>
+#include <charconv>
 #include <expected>
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -31,6 +33,16 @@ constexpr std::string_view BuildDirectory = "$(BUILD_DIR)/";
         text.erase(0, BuildDirectory.size());
     }
     return text;
+}
+
+[[nodiscard]] std::optional<u8> readNumber(const cparser::Token& token) {
+    u8 number = 0;
+    const std::string_view text = token.text;
+    if (token.kind != cparser::TokenKind::Integer ||
+        std::from_chars(text.data(), text.data() + text.size(), number).ec != std::errc{}) {
+        return std::nullopt;
+    }
+    return number;
 }
 
 } // namespace
@@ -66,6 +78,8 @@ Spec readSpec(const cparser::MacroTable& macros, const std::filesystem::path& re
             segment->name = *argument;
         } else if (segment && argument && cparser::isIdentifier(token, "include")) {
             segment->includes.push_back(*argument);
+        } else if (segment && at + 1 < tokens.size() && cparser::isIdentifier(token, "number")) {
+            segment->number = readNumber(tokens[at + 1]);
         }
     }
     return spec;

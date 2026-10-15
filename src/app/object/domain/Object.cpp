@@ -45,6 +45,11 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
         shared.push_back(
             hackeroot::makeSharedObject(reader.getWorkspace(), *keep, hackeroot::KeepSegment));
     }
+    for (hackeroot::SharedImageFiles& linked :
+         hackeroot::makeLinkedObjects(reader.getWorkspace(), files.files, asset.name)) {
+        std::ranges::copy(linked.watched, std::back_inserter(object.files));
+        shared.push_back(std::move(linked));
+    }
     const std::array<std::vector<hackeroot::SegmentFiles>, 1> imageFiles{
         {{{.segment = object.segment, .files = files.files}}}};
 
@@ -63,9 +68,13 @@ Object readObject(hackeroot::AssetImageReader& reader, const hackeroot::AssetDir
 
 std::vector<std::filesystem::path> listObjectWatched(const hackeroot::Workspace& workspace,
                                                      const hackeroot::AssetDirectory& asset) {
-    std::vector<std::filesystem::path> watched =
-        hackeroot::findObjectFiles(workspace, asset).getAllFiles();
+    const hackeroot::ObjectFiles files = hackeroot::findObjectFiles(workspace, asset);
+    std::vector<std::filesystem::path> watched = files.getAllFiles();
     watched.push_back(asset.directory);
+    for (const hackeroot::SharedImageFiles& linked :
+         hackeroot::makeLinkedObjects(workspace, files.files, asset.name)) {
+        std::ranges::copy(linked.watched, std::back_inserter(watched));
+    }
     if (asset.name == hackeroot::KeepObjectName) {
         return watched;
     }

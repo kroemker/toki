@@ -12,6 +12,8 @@
 #include <expected>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -156,6 +158,47 @@ SharedImageFiles makeSharedObject(const Workspace& workspace, const AssetDirecto
         .watched = std::move(watched)};
 }
 
+std::vector<std::string> findLinkedObjects(const std::vector<std::filesystem::path>& files,
+                                           const std::string_view own) {
+    constexpr std::string_view Include = "#include \"";
+    constexpr std::string_view Objects = "assets/objects/";
+    std::vector<std::string> linked;
+    for (const std::filesystem::path& file : files) {
+        std::ifstream stream(file);
+        std::string line;
+        while (std::getline(stream, line)) {
+            const usize start = line.find(Objects);
+            if (!line.starts_with(Include) || start == std::string::npos) {
+                continue;
+            }
+            const usize end = line.find('/', start + Objects.size());
+            if (end == std::string::npos) {
+                continue;
+            }
+            std::string name = line.substr(start + Objects.size(), end - start - Objects.size());
+            if (name != own && name != KeepObjectName && !std::ranges::contains(linked, name)) {
+                linked.push_back(std::move(name));
+            }
+        }
+    }
+    return linked;
+}
+
+std::vector<SharedImageFiles> makeLinkedObjects(const Workspace& workspace,
+                                                const std::vector<std::filesystem::path>& files,
+                                                const std::string_view own) {
+    std::vector<SharedImageFiles> shared;
+    for (const std::string& name : findLinkedObjects(files, own)) {
+        const SpecSegment* linked = workspace.getSpec().findSegment(name);
+        const std::optional<AssetDirectory> directory =
+            findObjectDirectory(workspace.getAssets(), name);
+        if (linked != nullptr && linked->number && directory) {
+            shared.push_back(makeSharedObject(workspace, *directory, *linked->number));
+        }
+    }
+    return shared;
+}
+
 std::vector<SharedImageFiles> makeObjectImageFiles(const Workspace& workspace,
                                                    const AssetDirectory& asset, const u8 segment) {
     std::vector<SharedImageFiles> shared{makeSharedGameCode(workspace.getRoot())};
@@ -164,6 +207,11 @@ std::vector<SharedImageFiles> makeObjectImageFiles(const Workspace& workspace,
                 findObjectDirectory(workspace.getAssets(), KeepObjectName)) {
             shared.push_back(makeSharedObject(workspace, *keep, KeepSegment));
         }
+    }
+    if (!asset.name.starts_with(OverlayPrefix)) {
+        std::ranges::move(
+            makeLinkedObjects(workspace, findObjectFiles(workspace, asset).files, asset.name),
+            std::back_inserter(shared));
     }
     shared.push_back(makeSharedObject(workspace, asset, segment));
     return shared;

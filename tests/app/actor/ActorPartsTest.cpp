@@ -186,3 +186,29 @@ parts = [
     REQUIRE(isReported(database, "a scene is matched by its enum name"));
     REQUIRE(isReported(database, "an age is \"child\" or \"adult\""));
 }
+
+TEST_CASE("a segment points into another object, at its start or a symbol", "[actor][database]") {
+    const toki::actor::ActorDatabase database = toki::actor::parseActorDatabase(R"(format = 3
+[[actors.ACTOR_BG_MORI_HINERI.variants]]
+parts = [{ display_list = "gMoriHineriDL", segments = { 8 = { object = "object_mori_tex" }, 9 = { object = "object_fa", symbol = "gFaEyeOpenTex" }, 10 = { symbol = "gX" } } }]
+)",
+                                                                                "actors.toml");
+
+    const std::vector<toki::actor::PartSegment>& segments =
+        database.entries.at("ACTOR_BG_MORI_HINERI").variants[0].parts[0].segments;
+    REQUIRE(segments.size() == 3);
+    const auto& start = std::get<toki::actor::SegmentObject>(segments[0].target);
+    REQUIRE(start.object == "object_mori_tex");
+    REQUIRE(start.symbol.empty());
+    REQUIRE(std::get<toki::actor::SegmentObject>(segments[1].target).symbol == "gFaEyeOpenTex");
+    const auto isNamingSymbol = [](const base::Diagnostic& diagnostic) {
+        return diagnostic.message.contains("10.symbol");
+    };
+    REQUIRE((std::ranges::any_of(database.problems, isNamingSymbol) ||
+             std::ranges::any_of(database.diagnostics, isNamingSymbol)));
+
+    const std::string written = toki::actor::formatActorDatabase(database);
+    INFO(written);
+    REQUIRE(written.contains("8 = { object = 'object_mori_tex' }"));
+    REQUIRE(written.contains("9 = { object = 'object_fa', symbol = 'gFaEyeOpenTex' }"));
+}

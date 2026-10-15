@@ -80,6 +80,17 @@ public:
 private:
     [[nodiscard]] u32 writeBuiltList(const actor::BuiltList& built);
 
+    [[nodiscard]] std::vector<usize> makeAlsoImages(const usize object) const {
+        std::vector<usize> images;
+        if (object < draws.linkedImages.size()) {
+            for (const usize linked : draws.linkedImages[object]) {
+                images.push_back(firstImage + linked);
+            }
+        }
+        images.push_back(firstImage + object);
+        return images;
+    }
+
     [[nodiscard]] u32 startList(const std::optional<u32> setupList) {
         const u32 start = writer.getAddress();
         if (setupList) {
@@ -164,7 +175,7 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
         .push_back(viewport::ViewportDraw{
             .image = imageIndex,
             .displayList = start,
-            .alsoImages = {firstImage + skeleton.object},
+            .alsoImages = makeAlsoImages(skeleton.object),
             .pointedSegments = pointers,
             .lookAtTarget = findLookAtTarget(skeleton.state),
         });
@@ -179,7 +190,7 @@ void ActorWriter::writeSkeleton(const SkeletonDrawing& skeleton, const glm::mat4
             .push_back(viewport::ViewportDraw{
                 .image = imageIndex,
                 .displayList = limbStart,
-                .alsoImages = {firstImage + limb.object},
+                .alsoImages = makeAlsoImages(limb.object),
                 .pointedSegments = pointers,
                 .lookAtTarget = findLookAtTarget(skeleton.state),
             });
@@ -195,7 +206,7 @@ void ActorWriter::writeDisplayList(const ActorDisplayList& list, const glm::mat4
     findPass(list.pass).push_back(viewport::ViewportDraw{
         .image = imageIndex,
         .displayList = start,
-        .alsoImages = {firstImage + list.object},
+        .alsoImages = makeAlsoImages(list.object),
         .pointedSegments = std::move(pointers),
         .modelView = parent * list.state.placement,
         .isBillboard = list.state.isBillboard,
@@ -291,6 +302,13 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
     ActorDraws draws;
     for (const ActorObject& object : actors.objects) {
         draws.images.push_back(object.image);
+    }
+    for (const ActorObject& object : actors.objects) {
+        std::vector<usize>& linked = draws.linkedImages.emplace_back();
+        for (const std::shared_ptr<const z64::MemoryImage>& image : object.linked) {
+            linked.push_back(draws.images.size());
+            draws.images.push_back(image);
+        }
     }
     for (usize index = 0; index < placed.size(); ++index) {
         const PlacedActor& actor = placed[index];

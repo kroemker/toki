@@ -11,10 +11,11 @@
 
 namespace toki::actor {
 
-/// A part's segments, 8 to 12, as rows of its properties: each pointed at a
-/// symbol of `object`, or built, as the game builds a list at run time, from
-/// colours and tile sizes. A segment is pointed or left at nothing by buttons.
-/// Returns whether anything changed.
+/// A part's segments, 8 to 12, under their own heading and outside any table of
+/// properties: a strip of five slots, each saying what its segment points at,
+/// and below it the selected one's editor. A segment points at nothing, at a
+/// symbol of `object`, or at a list built as the game builds one at run time,
+/// from colours and tile sizes. Returns whether anything changed.
 [[nodiscard]] bool editSegments(std::vector<PartSegment>& segments,
                                 const std::optional<std::string>& object,
                                 const EditContext& context);

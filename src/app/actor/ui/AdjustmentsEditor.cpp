@@ -126,9 +126,9 @@ constexpr ImVec4 ChangesColor{0.561F, 0.827F, 1.0F, 1.0F};
     isChanged = editRotates(adjustment.rotates, entry.rotates) || isChanged;
     isChanged = editOptionalColor("Primitive", adjustment.colors.primitive) || isChanged;
     isChanged = editOptionalColor("Environment", adjustment.colors.environment) || isChanged;
-    isChanged = editSegments(adjustment.segments, entry.object, context) || isChanged;
     isChanged = editParts(adjustment.parts, countParts(entry)) || isChanged;
     core::endProperties();
+    isChanged = editSegments(adjustment.segments, entry.object, context) || isChanged;
     return isChanged;
 }
 

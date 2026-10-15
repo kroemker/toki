@@ -26,6 +26,7 @@
 #include <variant>
 #include <vector>
 
+using base::u32;
 using base::usize;
 
 namespace {
@@ -126,7 +127,8 @@ TEST_CASE("objects read one after another share the game code and gameplay_keep"
     std::chrono::milliseconds rest{};
     for (const hackeroot::AssetDirectory& asset : objects) {
         toki::object::Object object = toki::object::readObject(reader, asset);
-        REQUIRE(object.images.size() == 3);
+        REQUIRE(object.images.size() >= 3);
+        REQUIRE(object.objectImage == object.images.size() - 1);
         if (!first) {
             first = std::move(object);
             continue;
@@ -137,4 +139,37 @@ TEST_CASE("objects read one after another share the game code and gameplay_keep"
     }
     WARN(Count << " objects: the first read in " << first->elapsed.count() << " ms, the other "
                << Count - 1 << " in " << rest.count() << " ms");
+}
+
+TEST_CASE("an object pointing into another reads it where the spec links it",
+          "[object][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(loaded.has_value());
+    if (const std::optional<base::Diagnostic> unsupported =
+            hackeroot::findUnsupportedMicrocode(*loaded)) {
+        SKIP(unsupported->message);
+    }
+    const auto workspace = std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    const std::optional<hackeroot::AssetDirectory> asset =
+        hackeroot::findObjectDirectory(workspace->getAssets(), "object_mori_objects");
+    if (!asset) {
+        SKIP("the checkout has no object_mori_objects");
+    }
+    hackeroot::AssetImageReader reader(workspace);
+
+    const toki::object::Object object = toki::object::readObject(reader, *asset);
+
+    INFO(describe(object.diagnostics));
+    REQUIRE(std::ranges::none_of(object.diagnostics, [](const base::Diagnostic& diagnostic) {
+        return diagnostic.message.contains("gMoriElevatorTopTex");
+    }));
+    const std::optional<u32> texture =
+        object.images[object.objectImage - 1]->findAddress("gMoriElevatorTopTex");
+    REQUIRE(texture.has_value());
+    REQUIRE((*texture >> 24U) == 0x08);
 }

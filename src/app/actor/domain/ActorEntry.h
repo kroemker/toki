@@ -113,11 +113,11 @@ struct BuiltList {
     std::vector<TileSize> tiles;
 };
 
-/// A segment from 8 to 12, pointed at a symbol or at a list built as the game
-/// builds one.
-struct PartSegment {
-    u8 segment = 0;
-    std::variant<std::string, BuiltList> target;
+/// Another object a segment points at, as the game points one at an object it
+/// loaded beside the actor's: at `symbol` in it, or at its start without one.
+struct SegmentObject {
+    std::string object;
+    std::string symbol;
 };
 
 /// Where something is drawn relative to its actor: moved, turned in degrees
@@ -126,6 +126,13 @@ struct PartPlacement {
     std::array<f32, 3> translation{};
     std::array<f32, 3> rotation{};
     std::array<f32, 3> scale{1.0F, 1.0F, 1.0F};
+};
+
+/// A segment from 8 to 12, pointed at a symbol of the part's object, at a list
+/// built as the game builds one, or into another object.
+struct PartSegment {
+    u8 segment = 0;
+    std::variant<std::string, BuiltList, SegmentObject> target;
 };
 
 /// What a skeleton draws at one of its limbs in place of the limb's own display

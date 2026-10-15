@@ -4,6 +4,7 @@
 #include "hackeroot/Types.h"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -14,12 +15,14 @@ class MacroTable;
 
 namespace hackeroot {
 
-/// One `beginseg` .. `endseg` of the spec: the segment's name and the object
+/// One `beginseg` .. `endseg` of the spec: the segment's name, the object
 /// files it is linked from, in order, as the spec spells them with
-/// `$(BUILD_DIR)/` taken off (`assets/objects/gameplay_keep/gameplay_keep.o`).
+/// `$(BUILD_DIR)/` taken off (`assets/objects/gameplay_keep/gameplay_keep.o`),
+/// and the segment its symbols are linked at, when it says (`number 8`).
 struct SpecSegment {
     std::string name;
     std::vector<std::string> includes;
+    std::optional<u8> number;
 };
 
 /// The ROM's segments as `spec/spec` lists them, its conditionals answered

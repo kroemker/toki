@@ -198,6 +198,14 @@ bool editObject(const char* label, std::optional<std::string>& object, const Edi
     return true;
 }
 
+bool editObjectName(const char* label, std::string& object, const EditContext& context) {
+    core::drawPropertyLabel(label);
+    ImGui::PushID(label);
+    const bool isChanged = drawPicker("##value", object, context.objects, "pick an object");
+    ImGui::PopID();
+    return isChanged;
+}
+
 bool editSymbol(const char* label, std::string& symbol, const std::optional<std::string>& object,
                 const std::span<const object::AssetKind> kinds, const EditContext& context) {
     core::drawPropertyLabel(label);

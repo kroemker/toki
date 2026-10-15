@@ -34,6 +34,9 @@ struct ActorObject {
     std::string name;
     u8 segment = 0;
     std::shared_ptr<const z64::MemoryImage> image;
+    /// The other objects it points into, each in the segment the spec links it
+    /// at, as `object_mori_objects` points into `object_mori_tex` in 8.
+    std::vector<std::shared_ptr<const z64::MemoryImage>> linked;
 };
 
 /// An address in one of the actor objects, as of an eye texture.

@@ -211,6 +211,13 @@ void insertSegments(toml::table& table, const std::vector<PartSegment>& segments
         const std::string key = std::to_string(segment.segment);
         if (const auto* symbol = std::get_if<std::string>(&segment.target)) {
             written.insert(key, *symbol);
+        } else if (const auto* other = std::get_if<SegmentObject>(&segment.target)) {
+            toml::table target = makeInline();
+            target.insert("object", other->object);
+            if (!other->symbol.empty()) {
+                target.insert("symbol", other->symbol);
+            }
+            written.insert(key, std::move(target));
         } else {
             written.insert(key, makeBuiltList(std::get<BuiltList>(segment.target)));
         }

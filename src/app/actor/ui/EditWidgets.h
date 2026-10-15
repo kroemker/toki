@@ -91,6 +91,10 @@ template <typename Enum, usize Count>
 [[nodiscard]] bool editObject(const char* label, std::optional<std::string>& object,
                               const EditContext& context, std::string_view inherited);
 
+/// An object of the checkout that must be named, with nothing to inherit.
+[[nodiscard]] bool editObjectName(const char* label, std::string& object,
+                                  const EditContext& context);
+
 /// A symbol of `object` of the kinds `kinds`, picked from its catalog once
 /// read, or typed.
 [[nodiscard]] bool editSymbol(const char* label, std::string& symbol,

@@ -57,6 +57,8 @@ inline constexpr std::array PartKeys = {
 inline constexpr std::array ItemChoiceKeys = {std::string_view("param"), std::string_view("table")};
 inline constexpr std::array LimbKeys = {std::string_view("display_list"),
                                         std::string_view("object")};
+inline constexpr std::array SegmentObjectKeys = {std::string_view("object"),
+                                                 std::string_view("symbol")};
 inline constexpr std::array BuiltListKeys = {std::string_view("prim"), std::string_view("env"),
                                              std::string_view("tiles")};
 inline constexpr std::array TileSizeKeys = {std::string_view("tile"), std::string_view("x"),
@@ -129,6 +131,8 @@ private:
     [[nodiscard]] std::optional<u8> readLimbNumber(const toml::node& node, std::string_view key,
                                                    std::string_view path);
     [[nodiscard]] BuiltList readBuiltList(const toml::table& table, std::string_view path);
+
+    [[nodiscard]] SegmentObject readSegmentObject(const toml::table& table, std::string_view path);
     [[nodiscard]] std::optional<TileSize> readTileSize(const toml::node& node,
                                                        std::string_view path);
     [[nodiscard]] std::vector<ChildActor> readChildren(const toml::array& children,

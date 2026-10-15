@@ -11,6 +11,7 @@
 #include "app/scene/domain/ActorObjects.h"
 #include "app/scene/domain/SceneActors.h"
 #include "base/Diagnostic.h"
+#include "n64/Segment.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -46,6 +47,22 @@ constexpr u8 DefaultSetup = 25;
                       glm::vec3(placement.scale[0], placement.scale[1], placement.scale[2]));
 }
 
+[[nodiscard]] std::optional<ObjectAddress>
+findSegmentObject(const actor::SegmentObject& target, ActorObjects& objects,
+                  std::vector<base::Diagnostic>& diagnostics) {
+    const std::optional<usize> object = objects.findObject(target.object, diagnostics);
+    if (!object) {
+        return std::nullopt;
+    }
+    if (target.symbol.empty()) {
+        const u32 start = n64::pack({.segment = objects.getObject(*object).segment, .offset = 0});
+        return ObjectAddress{.object = *object, .address = start};
+    }
+    const std::optional<u32> address = objects.findAddress(*object, target.symbol, diagnostics);
+    return address ? std::optional(ObjectAddress{.object = *object, .address = *address})
+                   : std::nullopt;
+}
+
 [[nodiscard]] std::vector<ActorSegment>
 findSegments(const std::span<const actor::PartSegment> segments, const std::optional<usize> object,
              ActorObjects& objects, std::vector<base::Diagnostic>& diagnostics) {
@@ -53,6 +70,13 @@ findSegments(const std::span<const actor::PartSegment> segments, const std::opti
     for (const actor::PartSegment& segment : segments) {
         if (const auto* built = std::get_if<actor::BuiltList>(&segment.target)) {
             found.push_back(ActorSegment{.segment = segment.segment, .target = *built});
+            continue;
+        }
+        if (const auto* other = std::get_if<actor::SegmentObject>(&segment.target)) {
+            if (const std::optional<ObjectAddress> address =
+                    findSegmentObject(*other, objects, diagnostics)) {
+                found.push_back(ActorSegment{.segment = segment.segment, .target = *address});
+            }
             continue;
         }
         if (const std::optional<u32> address =

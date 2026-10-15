@@ -1017,7 +1017,7 @@ parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304", l
 
 [actors.ACTOR_EN_KO]
 name = "Kokiri"
-notes = "A Kokiri child of Kokiri Forest or the Lost Woods, or Fado. Each type is a boy or girl body from object_km1 or object_kw1, posed from object_os_anime by sOsAnimeLookup at the forest's quest state, drawn here at its first (before the Deku Tree). Its head is put on limb 15 by OverrideLimbDraw, from the head object sHead names; Fado's eyes are that object's too, which a segment cannot name, so hers are drawn with the girls'. Types 5 and 9 hold StandUp at frame 1, type 6 at frame 2. Which types appear depends on the quest state too."
+notes = "A Kokiri child of Kokiri Forest or the Lost Woods, or Fado. Each type is a boy or girl body from object_km1 or object_kw1, posed from object_os_anime by sOsAnimeLookup at the forest's quest state, drawn here at its first (before the Deku Tree). Its head is put on limb 15 by OverrideLimbDraw, from the head object sHead names; Fado's eyes are that object's too. Types 5 and 9 hold StandUp at frame 1, type 6 at frame 2. Which types appear depends on the quest state too."
 scale = 0.01
 
 [actors.ACTOR_EN_KO.params]
@@ -1077,7 +1077,7 @@ parts = [{ skeleton = "gKm1Skel", pose = "gKokiriSittingAnim", pose_object = "ob
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 12 }
 object = "object_kw1"
-parts = [{ skeleton = "gKw1Skel", pose = "gKokiriIdleAnim", pose_object = "object_os_anime", limbs = { 15 = { display_list = "gFaDL", object = "object_fa" } }, segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = "gKw1EyeOpenTex" } }]
+parts = [{ skeleton = "gKw1Skel", pose = "gKokiriIdleAnim", pose_object = "object_os_anime", limbs = { 15 = { display_list = "gFaDL", object = "object_fa" } }, segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [100, 30, 0, 255] }, 10 = { object = "object_fa", symbol = "gFaEyeOpenTex" } } }]
 
 [actors.ACTOR_EN_ZF]
 name = "Lizalfos or Dinolfos"
@@ -1106,3 +1106,747 @@ rotates = { x = false, y = true, z = false }
 
 [[actors.ACTOR_BOSS_GOMA.variants]]
 parts = [{ skeleton = "gGohmaSkel", pose = "gGohmaWalkAnim", translation = [0, 4000, 0], rotation = [180, 0, 0] }]
+
+[actors.ACTOR_BG_MORI_HINERI]
+name = "Twisted hallway"
+notes = "A Forest Temple hallway with the room beyond it, which a switch twists. Hallway picks the first or second; while its Switch Flag is set the twisted model is drawn instead (object_mori_hineri1a or 2a), which a scene does not say, so it is drawn untwisted. The first hallway also draws a decorative boss key chest at a fixed spot while untwisted; its segment 8 is pointed at a render mode list in the game's code (D_80116280), left at gEmptyDL here. The hallway turns about Z as Link walks along it, and while turned draws gDungeonDoorDL at a position given in world space; both are left out. A Swap Copy is drawn only during the twist cutscene, swapped with the other model, and is a marker here. The twisted first hallway spawns the real boss key chest. Bits 8 to 13 are read but have no effect."
+object = "object_mori_hineri1"
+scale = 1
+
+[actors.ACTOR_BG_MORI_HINERI.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Twisted while set" }
+"Unused Flag" = { mask = 0x3F00, kind = "number", description = "Read, but has no effect" }
+"Swap Copy" = { mask = 0x4000, kind = "flag", description = "Hidden until the twist cutscene, where it is the other model" }
+Hallway = { mask = 0x8000, kind = "choice", values = { 0 = "First", 1 = "Second" } }
+
+[[actors.ACTOR_BG_MORI_HINERI.variants]]
+match = { "Swap Copy" = true }
+draw = "marker"
+
+[[actors.ACTOR_BG_MORI_HINERI.variants]]
+match = { Hallway = 0 }
+object = "object_mori_hineri1"
+parts = [
+    { display_list = "object_mori_hineri1_DL_0024E0", segments = { 8 = { object = "object_mori_tex" } } },
+    { display_list = "gTreasureChestBossKeyChestFrontDL", object = "object_box", translation = [147, -245, -453], rotation = [0, 90, 0], scale = 0.01 },
+    { display_list = "gTreasureChestBossKeyChestSideAndTopDL", object = "object_box", translation = [167, -218, -453], rotation = [0, 0, 180], scale = 0.01 },
+]
+
+[[actors.ACTOR_BG_MORI_HINERI.variants]]
+object = "object_mori_hineri2"
+parts = [{ display_list = "object_mori_hineri2_DL_0020F0", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_MORI_HASHIRA4]
+name = "Forest Temple pillars or gate"
+notes = "The four-pillar platform that turns about Y without stopping, or a gate that rises when its switch flag is set. Drawn at the placed angle. A gate is gone while its flag is set."
+object = "object_mori_objects"
+scale = 1
+
+[actors.ACTOR_BG_MORI_HASHIRA4.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Turning pillars", 1 = "Gate" } }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", description = "A gate opens when set, and is gone while set" }
+
+[[actors.ACTOR_BG_MORI_HASHIRA4.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gMoriHashiraGateDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[[actors.ACTOR_BG_MORI_HASHIRA4.variants]]
+parts = [{ display_list = "gMoriHashiraPlatformsDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_MORI_IDOMIZU]
+name = "Forest Temple well water"
+notes = "The water of the well in the Forest Temple courtyards, drained by its switch flag. Its texture scrolls; it is drawn where the scroll starts. Init moves it outright to x 119, z -1820 and y 184, or -282 while drained, wherever it is placed, which an entry cannot say: it is drawn where it is placed. Only one exists at a time, the first of its placements spawned; it stays across rooms, and is killed when Link leaves rooms 7, 8 and 9. Scaled 1.1 on X."
+object = "object_mori_objects"
+scale = 1
+
+[actors.ACTOR_BG_MORI_IDOMIZU.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Drained while set" }
+
+[[actors.ACTOR_BG_MORI_IDOMIZU.variants]]
+parts = [{ display_list = "gMoriIdomizuWaterDL", pass = "translucent", scale = [1.1, 1, 1], env = [0, 0, 0, 128], segments = { 8 = { object = "object_mori_tex" }, 9 = { tiles = [{ tile = 0, x = 127, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[actors.ACTOR_BG_MORI_ELEVATOR]
+name = "Forest Temple elevator"
+notes = "The elevator between the courtyard well's top floor and the basement, placed in both rooms; only the first spawned exists, and it stays across rooms. It rides between heights the code sets outright (73 and 233 in room 2, below -275 in room 17), and starts at 73 in room 2 while its switch flag is set; drawn where it is placed."
+object = "object_mori_objects"
+scale = 1
+
+[actors.ACTOR_BG_MORI_ELEVATOR.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Lowers it to the basement's level while set" }
+
+[[actors.ACTOR_BG_MORI_ELEVATOR.variants]]
+parts = [{ display_list = "gMoriElevatorDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_MORI_RAKKATENJO]
+name = "Falling ceiling"
+notes = "The Forest Temple ceiling that falls on Link and rises again. The code expects it at (1991, 683, -2520) turned 180 degrees and sets y 683 outright when it rests; drawn where it is placed. It has no params and is always there."
+object = "object_mori_objects"
+scale = 1
+
+[[actors.ACTOR_BG_MORI_RAKKATENJO.variants]]
+parts = [{ display_list = "gMoriRakkatenjoDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_MORI_KAITENKABE]
+name = "Rotating wall"
+notes = "The wall in the Forest Temple basement that Link pushes to turn it a quarter at a time. Drawn at the placed angle. It has no params and is always there."
+object = "object_mori_objects"
+scale = 1
+
+[[actors.ACTOR_BG_MORI_KAITENKABE.variants]]
+parts = [{ display_list = "gMoriKaitenkabeDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_MORI_BIGST]
+name = "Key-shaped ceiling"
+notes = "The Forest Temple platform that lowers once the two Stalfos below it are beaten, which spawns them (Stalfos at fixed world positions, not children) when Link enters with the room cleared. It is 270 units above where it is placed while its switch flag is clear, as drawn here, and at its place once set."
+object = "object_mori_objects"
+scale = 1
+height_offset = 270
+
+[actors.ACTOR_BG_MORI_BIGST.params]
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set once the Stalfos are beaten; lowered while set" }
+
+[[actors.ACTOR_BG_MORI_BIGST.variants]]
+parts = [{ display_list = "gMoriBigstDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[actors.ACTOR_BG_PO_SYOKUDAI]
+name = "Poe Sisters' torch"
+notes = "A golden torch lit with its Poe Sister's flame once she is beaten. The flame, in the sister's colours from sPrimColors and sEnvColors, is drawn only while its switch flag is set, which a scene does not say, so it is drawn unlit. While unlit it spawns its Poe Sister above itself, and the purple torch spawns Meg in the courtyard once the other three are lit."
+object = "object_syokudai"
+scale = 1
+
+[actors.ACTOR_BG_PO_SYOKUDAI.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Lit while set; 0x1C to 0x1F in vanilla" }
+Flame = { mask = 0xFF00, kind = "choice", values = "PoeFlameColor" }
+
+[[actors.ACTOR_BG_PO_SYOKUDAI.variants]]
+parts = [{ display_list = "gGoldenTorchDL" }]
+
+[actors.ACTOR_BG_PO_EVENT]
+name = "Poe Sisters' painting or block"
+notes = "A painting a Poe Sister appears in, or a block of Amy's puzzle. Index 0 of a painting spawns the two more of its sister, and index 0 of Amy's puzzle the three more blocks, each at a fixed world position rather than an offset, so they are not children here. A block's height is set outright to 833 at rest, 50 below where vanilla places it. Paintings are drawn empty, as they start. Gone while its switch flag is set."
+object = "object_po_sisters"
+scale = 1
+
+[actors.ACTOR_BG_PO_EVENT.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Gone while set" }
+Type = { mask = 0x0F00, kind = "choice", values = { 0 = "Amy's puzzle block", 1 = "Amy and Beth's block", 2 = "Joelle's painting", 3 = "Beth's painting", 4 = "Amy's painting" } }
+Index = { mask = 0xF000, kind = "number", description = "Which of its set; 0 spawns the rest" }
+
+[[actors.ACTOR_BG_PO_EVENT.variants]]
+match = { Type = 0 }
+height_offset = -50
+parts = [{ display_list = "gPoSistersAmyBlockDL" }]
+
+[[actors.ACTOR_BG_PO_EVENT.variants]]
+match = { Type = 1 }
+height_offset = -50
+parts = [{ display_list = "gPoSistersAmyBethBlockDL" }]
+
+[[actors.ACTOR_BG_PO_EVENT.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gPoSistersJoellePaintingDL", env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_BG_PO_EVENT.variants]]
+match = { Type = 3 }
+parts = [{ display_list = "gPoSistersBethPaintingDL", env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_BG_PO_EVENT.variants]]
+match = { Type = 4 }
+parts = [{ display_list = "gPoSistersAmyPaintingDL" }]
+
+[actors.ACTOR_EN_BB]
+name = "Bubble"
+notes = "A flying skull. Blue, red and green ones burn in a flame drawn behind them, which faces the camera about Y only in the game; white ones fly a path trailing a blur, drawn here without it. A red one waits hidden 80 units below its placement, in lava, until Link comes near; it is drawn at its placement as it looks once out. A blue one flies 50 units above its placement. A green one circles its placement at Bob distance, from a random start, which is not drawn: it is drawn at its placement. Type 0 is a piece of the flame trail a Bubble spawns, never placed. The flame's texture scrolls; it is drawn where the scroll starts."
+object = "object_Bb"
+scale = 0.01
+height_offset = 200
+
+[actors.ACTOR_EN_BB.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Flame trail piece (spawned)", 251 = "Green, big", 252 = "Green", 253 = "White", 254 = "Red", 255 = "Blue" } }
+"Bob or Path" = { mask = 0xFF00, kind = "number", hex = true, description = "Blue and red: how far it bobs, by 20 units. White: its path. Green: bob distance in the low four bits, and a big green's path in the high four" }
+
+[[actors.ACTOR_EN_BB.variants]]
+match = { Type = 0 }
+draw = "marker"
+
+[[actors.ACTOR_EN_BB.variants]]
+match = { Type = 255 }
+height_offset = 5200
+parts = [
+    { skeleton = "object_Bb_Skel_001A30", pose = "object_Bb_Anim_000444" },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, -4000, 0], scale = [1, 0.8, 1], billboard = true, prim = [255, 255, 255, 255], env = [0, 0, 255, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_BB.variants]]
+match = { Type = 254 }
+parts = [
+    { skeleton = "object_Bb_Skel_001A30", pose = "object_Bb_Anim_000184" },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, -4000, 0], scale = [1, 0.8, 1], billboard = true, prim = [255, 255, 0, 255], env = [255, 0, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_BB.variants]]
+match = { Type = 253 }
+parts = [{ skeleton = "object_Bb_Skel_001A30", pose = "object_Bb_Anim_000444" }]
+
+[[actors.ACTOR_EN_BB.variants]]
+match = { Type = [251, 252] }
+parts = [
+    { skeleton = "object_Bb_Skel_001A30", pose = "object_Bb_Anim_000444" },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", translation = [0, -4000, 0], scale = [1, 0.8, 1], billboard = true, prim = [255, 255, 0, 255], env = [0, 255, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_BB.adjustments]]
+match = { Type = 251 }
+scale = 0.03
+
+[actors.ACTOR_EN_ST]
+name = "Skulltula"
+notes = "A big spider hanging from a thread, which drops to the floor when Link comes near and climbs back when he leaves; the thread is not drawn by this actor. Drawn in object_st_Anim_000304, the animation Init gives it. Its teeth are coloured by an environment colour set at limb 4, black at rest and flashing red while it waits on the floor; the whole skeleton is drawn with it here. An invisible one is seen only through the Lens of Truth; it is drawn as seen."
+object = "object_st"
+scale = 0.04
+
+[actors.ACTOR_EN_ST.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Skulltula", 1 = "Big Skulltula", 2 = "Invisible Skulltula" } }
+
+[[actors.ACTOR_EN_ST.variants]]
+parts = [{ skeleton = "object_st_Skel_005298", pose = "object_st_Anim_000304", env = [0, 0, 0, 0] }]
+
+[[actors.ACTOR_EN_ST.adjustments]]
+match = { Type = 1 }
+scale = 0.056
+
+[actors.ACTOR_EN_DEKUBABA]
+name = "Deku Baba"
+notes = "A carnivorous plant, drawn as it waits: its head pointing up out of its leaves on a retracted stem, until Link comes near and it rises. SetupWait turns the head up and raises it 14 units, times its size, above its placement; the stem is drawn 6 units below. A big one is two and a half times the size. Its shadow is not drawn. When killed it may leave a Deku Stick, drawn by itself."
+object = "object_dekubaba"
+scale = 0.005
+
+[actors.ACTOR_EN_DEKUBABA.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "DekuBabaType" }
+
+[[actors.ACTOR_EN_DEKUBABA.variants]]
+parts = [
+    { skeleton = "gDekuBabaSkel", pose = "gDekuBabaFastChompAnim", translation = [0, 2800, 0], rotation = [-90, 0, 0] },
+    { display_list = "gDekuBabaStemTopDL", translation = [0, -1200, 0], rotation = [-90, 0, 0], scale = 2 },
+    { display_list = "gDekuBabaBaseLeavesDL", scale = 2 },
+]
+
+[[actors.ACTOR_EN_DEKUBABA.adjustments]]
+match = { Type = 1 }
+scale = 0.0125
+
+[actors.ACTOR_EN_WF]
+name = "Wolfos"
+notes = "A wolf that rises out of the ground when Link comes within 240 units, unseen until then (its height scale starts at 0). Drawn in the first frame of gWolfosRearingUpFallingOverAnim, which SetupWaitToAppear starts it in, 5 units below its placement as Init puts it. Its eyes blink through segment 8, drawn open. A White Wolfos is bigger and stronger; one with a switch flag plays the miniboss music. Gone while its switch flag is set, which it sets when it dies."
+object = "object_wf"
+
+[actors.ACTOR_EN_WF.params]
+Type = { mask = 0x00FF, kind = "choice", values = "EnWfType", description = "Anything but 0 is a White Wolfos" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", flag_use = "both", description = "0xFF is none" }
+
+[[actors.ACTOR_EN_WF.variants]]
+match = { Type = 0 }
+scale = 0.0075
+height_offset = -666.667
+parts = [{ skeleton = "gWolfosNormalSkel", pose = "gWolfosRearingUpFallingOverAnim", segments = { 8 = "gWolfosNormalEyeOpenTex" } }]
+
+[[actors.ACTOR_EN_WF.variants]]
+scale = 0.01
+height_offset = -500
+parts = [{ skeleton = "gWolfosWhiteSkel", pose = "gWolfosRearingUpFallingOverAnim", segments = { 8 = "gWolfosWhiteEyeOpenTex" } }]
+
+[actors.ACTOR_EN_TEST]
+name = "Stalfos"
+notes = "A sword-and-shield skeleton. One on the ground rises out of it when Link comes within 150 units in height, unseen until then (its height scale starts at 0), 3.5 units below its placement as Init puts it. One from the ceiling waits unseen 150 units above its placement and drops when Link comes near; it is drawn at its placement, where it lands. An invisible one is seen only through the Lens of Truth; it is drawn as seen. Its head glows by an environment colour set at the head limb, pulsing from dark red; the whole skeleton is drawn with it at its first frame. Drawn in gStalfosMiddleGuardAnim, the animation its setup at Init plays. All but type 2 start the miniboss music when they rise. Types 4 and 5 are set by its death code and differ only in how it falls apart and reassembles."
+object = "object_sk2"
+scale = 0.015
+height_offset = -233.333
+
+[actors.ACTOR_EN_TEST.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Invisible", 1 = "Rises from the ground", 2 = "Rises from the ground, no miniboss music", 3 = "Drops from the ceiling", 4 = "Type 4", 5 = "Type 5", 65535 = "Rises from the ground (-1)" } }
+
+[[actors.ACTOR_EN_TEST.variants]]
+parts = [{ skeleton = "gStalfosSkel", pose = "gStalfosMiddleGuardAnim", env = [80, 0, 0, 255], hilite = true }]
+
+[[actors.ACTOR_EN_TEST.adjustments]]
+match = { Type = 3 }
+height_offset = 0
+
+[actors.ACTOR_EN_OKUTA]
+name = "Octorok"
+notes = "An octopus that pops out of water and spits rocks. Init moves it to the surface of the water box above its placement, and kills it where there is none; that move is not drawn, so it is drawn at its placement. Unseen (no draw function) until Link is between 200 and 480 units away; drawn at the last frame of gOctorokAppearAnim, the animation it appears with. Any other type is the rock it spits, a billboard drawn 11 units up, spawned rather than placed."
+object = "object_okuta"
+scale = 0.01
+
+[actors.ACTOR_EN_OKUTA.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Octorok", 16 = "Rock (spawned)" } }
+Shots = { mask = 0xFF00, kind = "number", hex = true, description = "How many rocks it spits each time it surfaces; 0 and 0xFF are one" }
+
+[[actors.ACTOR_EN_OKUTA.variants]]
+match = { Type = 0 }
+parts = [{ skeleton = "gOctorokSkel", pose = "gOctorokAppearAnim", pose_frame = 19 }]
+
+[[actors.ACTOR_EN_OKUTA.variants]]
+height_offset = 1100
+parts = [{ display_list = "gOctorokProjectileDL", billboard = true }]
+
+[actors.ACTOR_EN_FLOORMAS]
+name = "Floormaster"
+notes = "A hand that crawls the floor and splits into three small ones when hit; they merge back unless all are killed. Init spawns the two small ones, hidden (no draw function) until it splits, so they are not drawn as children. OverrideLimbDraw moves its root limb 1600 back along Z; PostLimbDraw adds a finger at limb 2, as the Wallmaster's. Drawn in gWallmasterWaitAnim, the animation Init and its first setup give it. An invisible one is drawn translucent and seen only through the Lens of Truth; it is drawn as seen."
+object = "object_wallmaster"
+scale = 0.01
+
+[actors.ACTOR_EN_FLOORMAS.params]
+Small = { mask = 0x0010, kind = "flag", description = "One of the small hands a Floormaster spawns, hidden until it splits; not placed" }
+Invisible = { mask = 0x8000, kind = "flag", description = "Seen only through the Lens of Truth" }
+
+[[actors.ACTOR_EN_FLOORMAS.variants]]
+match = { Small = true }
+scale = 0.004
+draw = "marker"
+
+[[actors.ACTOR_EN_FLOORMAS.variants]]
+match = { Invisible = true }
+parts = [
+    { skeleton = "gWallmasterSkel", pose = "gWallmasterWaitAnim", translation = [0, 0, -1600], pass = "translucent" },
+    { display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700], rotation = [24.146, 56.774, 28.187], scale = 2, pass = "translucent" },
+]
+
+[[actors.ACTOR_EN_FLOORMAS.variants]]
+parts = [
+    { skeleton = "gWallmasterSkel", pose = "gWallmasterWaitAnim", translation = [0, 0, -1600] },
+    { display_list = "gWallmasterFingerDL", limb = 2, translation = [1600, -700, -1700], rotation = [24.146, 56.774, 28.187], scale = 2 },
+]
+
+[actors.ACTOR_ELF_MSG2]
+name = "Navi check spot"
+notes = "A spot Link targets and checks with C-up to hear a message from Navi. Drawn only in debug builds while a debug register is set, as the overlay's own sCubeDL in a translucent blue; a marker here. Gone once its switch flag is set; Rotation Y can also make it wait for a switch flag, or vanish with another flag or the room's clear flag."
+draw = "marker"
+scale = 0.2
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_ELF_MSG2.params]
+Message = { mask = 0x00FF, kind = "number", hex = true, description = "Navi's message, plus 0x100" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set once the message is read; gone while set. 0x3F is none" }
+"Target Range" = { mask = 0xFFFF, source = "rotation_x", kind = "number", description = "1 to 7: its attention range type, plus one; other values keep the default" }
+Condition = { mask = 0xFFFF, source = "rotation_y", kind = "number", signed = true, description = "1 to 0x40: gone once switch flag (this - 1) is set; -1: gone once the room is clear; 0x41 to 0x80: checkable only once switch flag (this - 0x41) is set" }
+Repeat = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "1: stays after it is read; anything else: gone once read" }
+
+[actors.ACTOR_EN_LIGHT]
+name = "Flame"
+notes = "A free-standing flame that lights its surroundings, as on the torches of Ganon's Castle, the Shadow Temple and the fairy fountains; with Candle set, the small flame of a candle, without its sound. Its colour and size come from the table D_80A9E840 by Color; a candle keeps its own colours but takes the size. The game turns it to face the camera about Y only, and scrolls its texture from a random frame; drawn here facing the camera at the scroll's start. A switched flame shrinks away while its switch flag says off: one with Lit While Set is unseen until the flag is set, which is not drawn: every flame is drawn lit."
+object = "gameplay_keep"
+scale = 0.0075
+
+[actors.ACTOR_EN_LIGHT.params]
+Color = { mask = 0x000F, kind = "choice", values = { 0 = "Orange", 1 = "Orange (1)", 2 = "Blue", 3 = "Green", 4 = "Orange, small", 5 = "Orange (5)", 6 = "Green (6)", 7 = "Blue (7)", 8 = "Magenta", 9 = "White, orange glow", 10 = "White, yellow glow", 11 = "White, green glow", 12 = "Pink, red glow", 13 = "Pink, violet glow", 14 = "Cyan, blue glow", 15 = "Cyan, sky glow" } }
+"Switch Flag" = { mask = 0x03F0, kind = "number", scene_flag = "switch", description = "For a switched flame: puts it out, or with Lit While Set lights it" }
+Switched = { mask = 0x0400, kind = "flag", description = "Lit or put out by its switch flag" }
+"Lit While Set" = { mask = 0x0800, kind = "flag", description = "For a switched flame: lit only while the flag is set, rather than while it is clear" }
+Candle = { mask = 0x8000, kind = "flag", description = "A candle's small flame, with a dimmer light and no sound" }
+
+[[actors.ACTOR_EN_LIGHT.variants]]
+match = { Candle = true }
+parts = [{ display_list = "gUnusedCandleDL", object = "gameplay_dangeon_keep", pass = "translucent", billboard = true, prim = [255, 200, 0, 0], env = [255, 0, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 16, height = 32 }, { tile = 1, width = 16, height = 32 }] } } }]
+
+[[actors.ACTOR_EN_LIGHT.variants]]
+parts = [{ display_list = "gEffFire1DL", pass = "translucent", billboard = true, prim = [255, 200, 0, 255], env = [255, 0, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } }]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 4 }
+scale = 0.004
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = [2, 7], Candle = false }
+prim = [0, 170, 255, 255]
+env = [0, 0, 255, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = [3, 6], Candle = false }
+prim = [170, 255, 0, 255]
+env = [0, 150, 0, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 8, Candle = false }
+prim = [255, 0, 170, 255]
+env = [200, 0, 0, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 9, Candle = false }
+prim = [255, 255, 170, 255]
+env = [255, 50, 0, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 10, Candle = false }
+prim = [255, 255, 170, 255]
+env = [255, 255, 0, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 11, Candle = false }
+prim = [255, 255, 170, 255]
+env = [100, 255, 0, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 12, Candle = false }
+prim = [255, 170, 255, 255]
+env = [255, 0, 100, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 13, Candle = false }
+prim = [255, 170, 255, 255]
+env = [100, 0, 255, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 14, Candle = false }
+prim = [170, 255, 255, 255]
+env = [0, 0, 255, 0]
+
+[[actors.ACTOR_EN_LIGHT.adjustments]]
+match = { Color = 15, Candle = false }
+prim = [170, 255, 255, 255]
+env = [0, 150, 255, 0]
+
+[actors.ACTOR_OBJ_HSBLOCK]
+name = "Hookshot post or target"
+notes = "A stone post or a wall target Link hookshots to. Brown in the Fire Temple, white elsewhere (debug builds take the colour from a debug register, white by default). The rising post waits 105 units below its placement until its switch flag is set, then rises; drawn here risen. Frozen spawns Obj_Ice_Poly over it, which must be melted first."
+object = "object_d_hsblock"
+scale = 0.1
+
+[actors.ACTOR_OBJ_HSBLOCK.params]
+Type = { mask = 0x0003, kind = "choice", values = { 0 = "Post", 1 = "Post, rises on switch", 2 = "Target" } }
+Frozen = { mask = 0x0020, kind = "flag", description = "Encased in ice that must be melted first" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", description = "For the rising post: it rises once this is set" }
+
+[[actors.ACTOR_OBJ_HSBLOCK.variants]]
+match = { Type = 2, Frozen = true }
+parts = [{ display_list = "gHookshotTargetDL", env = [255, 255, 255, 255] }]
+children = [{ actor = "ACTOR_OBJ_ICE_POLY", params = 0x0001, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_OBJ_HSBLOCK.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gHookshotTargetDL", env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_HSBLOCK.variants]]
+match = { Frozen = true }
+parts = [{ display_list = "gHookshotPostDL", env = [255, 255, 255, 255] }]
+children = [{ actor = "ACTOR_OBJ_ICE_POLY", params = 0x0001, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_OBJ_HSBLOCK.variants]]
+parts = [{ display_list = "gHookshotPostDL", env = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_OBJ_HSBLOCK.adjustments]]
+match = { scene = "SCENE_FIRE_TEMPLE" }
+env = [165, 125, 55, 255]
+
+[actors.ACTOR_OBJ_BLOCKSTOP]
+name = "Push block goal"
+notes = "An unseen point that sets its switch flag, with a chime, when a push block (Obj_Oshihiki) is pushed onto it. Draws nothing; a marker. Gone while its switch flag is set. Raised one unit on Init so its line test starts above the floor."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_OBJ_BLOCKSTOP.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when a block reaches it; gone while set" }
+
+[actors.ACTOR_OBJ_TIMEBLOCK]
+name = "Song of Time block"
+notes = "A blue stone block that appears or vanishes when Link plays the Song of Time near it. Drawn whether or not it is there at the start, which is decided by Visible, its switch flag and Link's age: with Visible set it is there for an adult; a block whose flag is under 0x38, without Unsaved or Switch Driven, is the other way round for a child. Its colour comes from sPrimColors by rotation Z, which Init clears. Playing the song spawns Demo_Effect's flash, not drawn."
+object = "object_timeblock"
+scale = 1
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_OBJ_TIMEBLOCK.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Toggled by the song; 0x38 and up are kept only while in the room" }
+Unsaved = { mask = 0x0040, kind = "flag", description = "Remembers the song by its own params rather than its switch flag, so it resets when the room reloads" }
+Size = { mask = 0x0100, kind = "choice", values = { 0 = "Large", 1 = "Small" } }
+"Switch Driven" = { mask = 0x0400, kind = "flag", description = "Appears and vanishes as its switch flag changes, whatever sets it" }
+Range = { mask = 0x3800, kind = "choice", values = { 0 = "60", 1 = "100", 2 = "140", 3 = "180", 4 = "220", 5 = "260", 6 = "300", 7 = "300 (7)" }, description = "How near Link must stand to play to it, in units" }
+Visible = { mask = 0x8000, kind = "flag", description = "There at the start, with its switch flag clear" }
+Color = { mask = 0x0007, source = "rotation_z", kind = "number", description = "Which of sPrimColors' eight blues" }
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.variants]]
+parts = [{ display_list = "gSongOfTimeBlockDL", prim = [100, 120, 140, 255] }]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Size = 1 }
+scale = 0.6
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 1 }
+prim = [80, 140, 200, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 2 }
+prim = [100, 150, 200, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 3 }
+prim = [100, 200, 240, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 4 }
+prim = [80, 110, 140, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 5 }
+prim = [70, 160, 225, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 6 }
+prim = [80, 100, 130, 255]
+
+[[actors.ACTOR_OBJ_TIMEBLOCK.adjustments]]
+match = { Color = 7 }
+prim = [100, 110, 190, 255]
+
+[actors.ACTOR_EN_KAKASI2]
+name = "Pierre's spot"
+notes = "Where Pierre the scarecrow rises from the ground when an adult Link who has taught him a song plays it nearby, to be hookshotted to. Underground and undrawn until then, unless its switch flag is already set; drawn here risen, in object_ka_Anim_000214 at its first frame, as it stands once up. Its XZ range is Range times 40 plus 40 units, its Y range rotation Z times 40 plus 40; the game also tilts it by rotation Z."
+object = "object_ka"
+scale = 0.01
+
+[actors.ACTOR_EN_KAKASI2.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when he rises; risen from the start while set. 0x3F is none" }
+Range = { mask = 0x3FC0, kind = "number", description = "How near Link must be across the ground: times 40, plus 40 units" }
+"Height Range" = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "How near Link must be in height: times 40, plus 40 units" }
+
+[[actors.ACTOR_EN_KAKASI2.variants]]
+parts = [{ skeleton = "object_ka_Skel_0065B0", pose = "object_ka_Anim_000214" }]
+
+[actors.ACTOR_EN_DOOR]
+name = "Door"
+notes = "A door with a handle that Link opens by hand, a transition actor between two rooms or at a scene's exit. Its look is picked by its scene, as sDoorInfo says: the Fire Temple's, the Water Temple's, the Shadow Temple's (also in Bottom of the Well), the field door of gameplay_field_keep in every scene that loads it, else gameplay_keep's. The game draws the side facing the camera; both sides are drawn here, each one-sided as the game's are. A locked door draws the chains and padlock of gameplay_dangeon_keep while its switch flag is clear. A double door moves 30 units aside and spawns its twin turned about, drawn here as a second door. An ajar door stands open 34 degrees until Link comes near, not drawn. The evening door (Dampé's hut) is checkable outside 18:00 to 21:00."
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_DOOR.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "For a locked door: unlocked while set, and set when a key opens it. For a checkable door, its message is this plus 0x200" }
+"Double Door" = { mask = 0x0040, kind = "flag", description = "Spawns a twin 60 units beside it, turned about" }
+Type = { mask = 0x0380, kind = "choice", values = "EnDoorType" }
+"Transition Index" = { mask = 0xFC00, kind = "number", description = "Set by the game to its entry in the scene's transition actors" }
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, "Double Door" = true, scene = "SCENE_FIRE_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, scene = "SCENE_FIRE_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } } },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } } },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { "Double Door" = true, scene = "SCENE_FIRE_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { scene = "SCENE_FIRE_TEMPLE" }
+parts = [{ skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleLeftDL", object = "object_hidan_objects" } } }, { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFireTempleDoorWithHandleRightDL", object = "object_hidan_objects" } } }]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, "Double Door" = true, scene = "SCENE_WATER_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, scene = "SCENE_WATER_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } } },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } } },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { "Double Door" = true, scene = "SCENE_WATER_TEMPLE" }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { scene = "SCENE_WATER_TEMPLE" }
+parts = [{ skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorLeftDL", object = "object_mizu_objects" } } }, { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gWaterTempleDoorRightDL", object = "object_mizu_objects" } } }]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, "Double Door" = true, scene = ["SCENE_SHADOW_TEMPLE", "SCENE_BOTTOM_OF_THE_WELL"] }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, scene = ["SCENE_SHADOW_TEMPLE", "SCENE_BOTTOM_OF_THE_WELL"] }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } } },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } } },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { "Double Door" = true, scene = ["SCENE_SHADOW_TEMPLE", "SCENE_BOTTOM_OF_THE_WELL"] }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { scene = ["SCENE_SHADOW_TEMPLE", "SCENE_BOTTOM_OF_THE_WELL"] }
+parts = [{ skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorLeftDL", object = "object_haka_door" } } }, { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gShadowDoorRightDL", object = "object_haka_door" } } }]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { "Double Door" = true, scene = ["SCENE_GANON_BOSS", "SCENE_GANONS_TOWER_COLLAPSE_EXTERIOR", "SCENE_BOMBCHU_BOWLING_ALLEY", "SCENE_GREAT_FAIRYS_FOUNTAIN_MAGIC", "SCENE_CASTLE_COURTYARD_GUARDS_DAY", "SCENE_CASTLE_COURTYARD_GUARDS_NIGHT", "SCENE_GRAVEKEEPERS_HUT", "SCENE_LAKESIDE_LABORATORY", "SCENE_DOG_LADY_HOUSE", "SCENE_KAKARIKO_CENTER_GUEST_HOUSE", "SCENE_KNOW_IT_ALL_BROS_HOUSE", "SCENE_TWINS_HOUSE", "SCENE_SARIAS_HOUSE", "SCENE_IMPAS_HOUSE", "SCENE_POTION_SHOP_GRANNY", "SCENE_STABLE", "SCENE_MARKET_GUARD_HOUSE", "SCENE_CASTLE_COURTYARD_ZELDA", "SCENE_LON_LON_BUILDINGS", "SCENE_SHOOTING_GALLERY", "SCENE_CARPENTERS_TENT", "SCENE_TEMPLE_OF_TIME", "SCENE_FAIRYS_FOUNTAIN", "SCENE_GREAT_FAIRYS_FOUNTAIN_SPELLS", "SCENE_MARKET_ENTRANCE_RUINS", "SCENE_MARKET_ENTRANCE_DAY", "SCENE_MARKET_ENTRANCE_NIGHT", "SCENE_GRAVE_WITH_FAIRYS_FOUNTAIN", "SCENE_BACK_ALLEY_HOUSE", "SCENE_GROTTOS", "SCENE_HOUSE_OF_SKULLTULA", "SCENE_BACK_ALLEY_DAY", "SCENE_BACK_ALLEY_NIGHT", "SCENE_MARKET_DAY", "SCENE_MARKET_NIGHT", "SCENE_TEMPLE_OF_TIME_EXTERIOR_DAY", "SCENE_FISHING_POND", "SCENE_OUTSIDE_GANONS_CASTLE", "SCENE_HYRULE_FIELD", "SCENE_KAKARIKO_VILLAGE", "SCENE_GRAVEYARD", "SCENE_ZORAS_RIVER", "SCENE_KOKIRI_FOREST", "SCENE_SACRED_FOREST_MEADOW", "SCENE_LAKE_HYLIA", "SCENE_ZORAS_DOMAIN", "SCENE_ZORAS_FOUNTAIN", "SCENE_GERUDO_VALLEY", "SCENE_LOST_WOODS", "SCENE_DESERT_COLOSSUS", "SCENE_GERUDOS_FORTRESS", "SCENE_HAUNTED_WASTELAND", "SCENE_HYRULE_CASTLE", "SCENE_DEATH_MOUNTAIN_TRAIL", "SCENE_DEATH_MOUNTAIN_CRATER", "SCENE_GORON_CITY", "SCENE_LON_LON_RANCH", "SCENE_POTION_SHOP_MARKET", "SCENE_POTION_SHOP_KAKARIKO", "SCENE_BOMBCHU_SHOP"] }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorLeftDL", object = "gameplay_field_keep" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorRightDL", object = "gameplay_field_keep" } }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorLeftDL", object = "gameplay_field_keep" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorRightDL", object = "gameplay_field_keep" } }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { scene = ["SCENE_GANON_BOSS", "SCENE_GANONS_TOWER_COLLAPSE_EXTERIOR", "SCENE_BOMBCHU_BOWLING_ALLEY", "SCENE_GREAT_FAIRYS_FOUNTAIN_MAGIC", "SCENE_CASTLE_COURTYARD_GUARDS_DAY", "SCENE_CASTLE_COURTYARD_GUARDS_NIGHT", "SCENE_GRAVEKEEPERS_HUT", "SCENE_LAKESIDE_LABORATORY", "SCENE_DOG_LADY_HOUSE", "SCENE_KAKARIKO_CENTER_GUEST_HOUSE", "SCENE_KNOW_IT_ALL_BROS_HOUSE", "SCENE_TWINS_HOUSE", "SCENE_SARIAS_HOUSE", "SCENE_IMPAS_HOUSE", "SCENE_POTION_SHOP_GRANNY", "SCENE_STABLE", "SCENE_MARKET_GUARD_HOUSE", "SCENE_CASTLE_COURTYARD_ZELDA", "SCENE_LON_LON_BUILDINGS", "SCENE_SHOOTING_GALLERY", "SCENE_CARPENTERS_TENT", "SCENE_TEMPLE_OF_TIME", "SCENE_FAIRYS_FOUNTAIN", "SCENE_GREAT_FAIRYS_FOUNTAIN_SPELLS", "SCENE_MARKET_ENTRANCE_RUINS", "SCENE_MARKET_ENTRANCE_DAY", "SCENE_MARKET_ENTRANCE_NIGHT", "SCENE_GRAVE_WITH_FAIRYS_FOUNTAIN", "SCENE_BACK_ALLEY_HOUSE", "SCENE_GROTTOS", "SCENE_HOUSE_OF_SKULLTULA", "SCENE_BACK_ALLEY_DAY", "SCENE_BACK_ALLEY_NIGHT", "SCENE_MARKET_DAY", "SCENE_MARKET_NIGHT", "SCENE_TEMPLE_OF_TIME_EXTERIOR_DAY", "SCENE_FISHING_POND", "SCENE_OUTSIDE_GANONS_CASTLE", "SCENE_HYRULE_FIELD", "SCENE_KAKARIKO_VILLAGE", "SCENE_GRAVEYARD", "SCENE_ZORAS_RIVER", "SCENE_KOKIRI_FOREST", "SCENE_SACRED_FOREST_MEADOW", "SCENE_LAKE_HYLIA", "SCENE_ZORAS_DOMAIN", "SCENE_ZORAS_FOUNTAIN", "SCENE_GERUDO_VALLEY", "SCENE_LOST_WOODS", "SCENE_DESERT_COLOSSUS", "SCENE_GERUDOS_FORTRESS", "SCENE_HAUNTED_WASTELAND", "SCENE_HYRULE_CASTLE", "SCENE_DEATH_MOUNTAIN_TRAIL", "SCENE_DEATH_MOUNTAIN_CRATER", "SCENE_GORON_CITY", "SCENE_LON_LON_RANCH", "SCENE_POTION_SHOP_MARKET", "SCENE_POTION_SHOP_KAKARIKO", "SCENE_BOMBCHU_SHOP"] }
+parts = [{ skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorLeftDL", object = "gameplay_field_keep" } } }, { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = { display_list = "gFieldDoorRightDL", object = "gameplay_field_keep" } } }]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1, "Double Door" = true }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [-3000, 5000, 500] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [3000, 5000, -500], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { Type = 1 }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim" },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" } },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 0] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 118.12] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 180] },
+    { display_list = "gDoorChainDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500], rotation = [0, 0, 298.12] },
+    { display_list = "gDoorLockDL", object = "gameplay_dangeon_keep", translation = [0, 5000, 500] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+match = { "Double Door" = true }
+parts = [
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" }, translation = [-3000, 0, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", translation = [3000, 0, 0], rotation = [0, 180, 0] },
+    { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" }, translation = [3000, 0, 0], rotation = [0, 180, 0] },
+]
+
+[[actors.ACTOR_EN_DOOR.variants]]
+parts = [{ skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim" }, { skeleton = "gDoorSkel", pose = "gDoorAdultOpeningLeftAnim", limbs = { 4 = "gDoorRightDL" } }]
+
+
+[actors.ACTOR_BOSS_GANONDROF]
+name = "Phantom Ganon"
+notes = "The Forest Temple's boss, riding his phantom horse (En_fHG, spawned as his child at his own position with his params). He is drawn in the ride pose of his intro with his mask off, his head swapped for gPhantomGanonFaceDL; his eyes' env colour starts at 0 and brightens during the fight. In the game he rides wherever the horse is: the horse's Init moves it to the room's centre at Y -300 whatever the placement, which is not drawn, so both are drawn at the placement. Params under 10 are the real boss (Init sets them to 1); 10 to 15 are the fake that the horse spawns in another painting, 10 plus its painting. Once the room is clear he is gone and spawns the blue warp at (14, -33, -3315) and a heart container at (214, -33, -3315), which are not drawn. The paintings are the room's own geometry, not actors."
+object = "object_gnd"
+scale = 0.01
+
+[actors.ACTOR_BOSS_GANONDROF.params]
+Type = { mask = 0xFFFF, kind = "number", signed = true, description = "Under 10 is the real boss; 10 to 15 a fake, in painting Type - 10, spawned by the horse" }
+
+[[actors.ACTOR_BOSS_GANONDROF.variants]]
+match = { Type = [10, 11, 12, 13, 14, 15] }
+parts = [{ skeleton = "gPhantomGanonSkel", pose = "gPhantomGanonRideAnim", env = [0, 0, 0, 0] }]
+children = [{ actor = "ACTOR_EN_FHG", params = 0x0000, take = { Type = "Type" }, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_BOSS_GANONDROF.variants]]
+parts = [{ skeleton = "gPhantomGanonSkel", pose = "gPhantomGanonRidePoseAnim", limbs = { 15 = "gPhantomGanonFaceDL" }, env = [0, 0, 0, 0] }]
+children = [{ actor = "ACTOR_EN_FHG", params = 0x0000, take = { Type = "Type" }, offset = [0, 0, 0] }]
+default_params = 0xFFFF
+
+[actors.ACTOR_EN_FHG]
+name = "Phantom Ganon's horse"
+notes = "The phantom horse Phantom Ganon rides, spawned by him with his params; it rides out of the paintings in his first phase and spawns the fake Phantom Ganon. Marked: its skeleton is a skin (Skin_Init, drawn by func_800A6330), which Toki does not draw yet; the variants say what it will be drawn with. The real boss's horse stands in its idle animation and Init moves it to the room's centre at Y -300 whatever its placement; a fake's gallops out of painting Type - 10. Init sets switch flag 0x14."
+object = "object_fhg"
+scale = 0.0115
+height_offset = -2600
+draw = "marker"
+
+[actors.ACTOR_EN_FHG.params]
+Type = { mask = 0xFFFF, kind = "number", signed = true, description = "1 is the real boss's horse; 10 to 15 a fake's, in painting Type - 10" }
+
+[[actors.ACTOR_EN_FHG.variants]]
+match = { Type = [10, 11, 12, 13, 14, 15] }
+parts = [{ skeleton = "gPhantomHorseSkel", pose = "gPhantomHorseRunningAnim" }]
+
+[[actors.ACTOR_EN_FHG.variants]]
+parts = [{ skeleton = "gPhantomHorseSkel", pose = "gPhantomHorseIdleAnim" }]
+default_params = 0x0001

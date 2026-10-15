@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -59,9 +60,24 @@ inline constexpr std::string_view OverlayPrefix = "ovl_";
 [[nodiscard]] SharedImageFiles makeSharedObject(const Workspace& workspace,
                                                 const AssetDirectory& asset, u8 segment);
 
+/// The other objects whose headers the C files `files` include, by name, as
+/// `object_mori_objects` includes `object_mori_tex`'s: the objects whose
+/// symbols they point at and the linker resolves. `gameplay_keep` and `own`
+/// are left out.
+[[nodiscard]] std::vector<std::string>
+findLinkedObjects(const std::vector<std::filesystem::path>& files, std::string_view own);
+
+/// The objects whose headers `files` include, as `findLinkedObjects` finds
+/// them, as shared images, each in the segment the spec links it at. One the
+/// spec gives no segment is left out.
+[[nodiscard]] std::vector<SharedImageFiles>
+makeLinkedObjects(const Workspace& workspace, const std::vector<std::filesystem::path>& files,
+                  std::string_view own);
+
 /// What an object is read with as shared images: the game code, then
-/// `gameplay_keep` under any object but itself, then the object in `segment`,
-/// last.
+/// `gameplay_keep` under any object but itself, then each other object it
+/// points into in the segment the spec links it at (`findLinkedObjects`), then
+/// the object in `segment`, last.
 [[nodiscard]] std::vector<SharedImageFiles>
 makeObjectImageFiles(const Workspace& workspace, const AssetDirectory& asset, u8 segment);
 
