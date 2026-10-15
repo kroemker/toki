@@ -4397,3 +4397,1166 @@ parts = [
 [[actors.ACTOR_OBJ_LIGHTSWITCH.adjustments]]
 match = { "On Push Block" = true }
 rotates = { x = false, y = true, z = false }
+
+[actors.ACTOR_EN_DHA]
+name = "Dead Hand's hand"
+notes = "One of the long grey arms that reach out of the ground around Dead Hand and grab Link. Drawn in object_dh_Anim_0015B0, the loop SetupWait plays. OverrideLimbDraw sets the rotations of its three limbs from angles it computes as it reaches toward Link; at rest they differ from the animation's first frame by a few degrees (limb 1's Y, limb 2's Z and limb 3's Y and Z set to 0), which is not drawn. Sinks into the ground when struck down, and comes back. Finds the nearest Dead Hand as its parent at run time. Its params are not read."
+object = "object_dh"
+scale = 0.01
+
+[[actors.ACTOR_EN_DHA.variants]]
+parts = [{ skeleton = "object_dh_Skel_000BD8", pose = "object_dh_Anim_0015B0" }]
+
+[actors.ACTOR_EN_DH]
+name = "Dead Hand"
+notes = "The miniboss of the Bottom of the Well and the Shadow Temple. Init puts it 15000 model units (150 world units) under the ground at a random spot within 300 units of its placement, and it rises when one of its hands grabs Link or a bomb hits it; drawn here risen, at its placement, in the first frame of object_dh_Anim_003A8C, the loop SetupWait plays. Segment 8 points at &D_80116280[2] while it is opaque; it fades out translucent when killed. The ring of dirt it raises as it emerges (object_dh_DL_007FC0, scaled by its spread) is not drawn. Init overwrites its params with its state, which its hands read, so placed params are not read."
+object = "object_dh"
+scale = 0.01
+
+[[actors.ACTOR_EN_DH.variants]]
+parts = [{ skeleton = "object_dh_Skel_007E88", pose = "object_dh_Anim_003A8C", env = [0, 0, 0, 255], segments = { 8 = { code = "D_80116280", index = 2 } } }]
+
+[actors.ACTOR_EN_DEKUNUTS]
+name = "Mad Scrub"
+notes = "A Deku Scrub that hides in its flower and pops up to spit nuts at Link. A placed one spawns its flower as a child (params 10) and waits hidden in it, at frame 0 of gDekuNutsUpAnim held still; drawn here standing, in gDekuNutsStandAnim, the animation Init gives it, so it can be seen. Its head limb squashes as it spits; not drawn. The flower is matched on the whole params being 10, as Init compares them, so a scrub placed with Type 10 and nonzero Shots is drawn as a flower here though it is a scrub in the game. Its nuts are En_Nutsball, spawned when it spits."
+object = "object_dekunuts"
+scale = 0.01
+
+[actors.ACTOR_EN_DEKUNUTS.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Mad Scrub", 10 = "Flower (spawned)" } }
+Shots = { mask = 0xFF00, kind = "number", description = "Nuts it spits each time it pops up; 0 and 0xFF are 1" }
+
+[[actors.ACTOR_EN_DEKUNUTS.variants]]
+match = { Type = 10, Shots = 0 }
+parts = [{ display_list = "gDekuNutsFlowerDL" }]
+
+[[actors.ACTOR_EN_DEKUNUTS.variants]]
+parts = [{ skeleton = "gDekuNutsSkel", pose = "gDekuNutsStandAnim" }]
+children = [
+    { actor = "ACTOR_EN_DEKUNUTS", params = 0x000A, offset = [0, 0, 0] },
+]
+
+[actors.ACTOR_EN_ICE_HONO]
+name = "Blue Fire"
+notes = "A blue flame that Link can catch in a bottle, and the flames it leaves when poured out. Drawn as gEffFire1DL from gameplay_keep, turned about Y toward the camera each frame, which a full billboard stands in for; its tiles scroll through a Gfx_TwoTexScroll on segment 8, drawn at the first frame. A placed one (-1) sits 1000 model units low and lights the area pale blue; the light is not drawn. Type 0 is the flame poured from a bottle, spawned, which grows from 0.00002 to 0.0017 and then spreads to 0.011 wide and 0.006 tall before fading, and spawns small flames 1 and 2 that grow to 0.006 wide and a random 0.002 to 0.006 tall; each is drawn at a size it grows to, at its full width."
+object = "gameplay_keep"
+scale = 0.0074
+height_offset = -1000
+
+[actors.ACTOR_EN_ICE_HONO.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Poured from a bottle (spawned)", 1 = "Small flame (spawned)", 2 = "Small flame, lower (spawned)", 65535 = "Blue Fire" } }
+
+[[actors.ACTOR_EN_ICE_HONO.variants]]
+parts = [{ display_list = "gEffFire1DL", pass = "translucent", billboard = true, prim = [170, 255, 255, 255], env = [0, 150, 255, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } }]
+
+[[actors.ACTOR_EN_ICE_HONO.adjustments]]
+match = { Type = 0 }
+scale = 0.0017
+height_offset = 0
+
+[[actors.ACTOR_EN_ICE_HONO.adjustments]]
+match = { Type = [1, 2] }
+scale = 0.006
+height_offset = 0
+
+[actors.ACTOR_EN_BILI]
+name = "Biri"
+notes = "A small electric jellyfish that floats and bobs, shocking Link when touched; a Bari (En_Vali) splits into them when killed. Drawn translucent in gBiriDefaultAnim. Its tentacles' texture is picked on segment 8 from eight frames, the first at rest (gBiriTentacles0Tex), and segment 9 points at a combiner of the overlay's own (D_809C1700), switched to D_809C16F0 on alternate frames while it discharges. OverrideLimbDraw pulses its hood limbs' scale, 1 at the first frame, and turns its tentacles limb toward the camera about Y, which is not drawn. Types 0 and 1 are spawned by a Bari and fly apart; they are drawn the same."
+object = "object_bl"
+scale = 0.01
+
+[actors.ACTOR_EN_BILI.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Spawned by a Bari", 1 = "Dying (spawned)", 65535 = "Biri" } }
+
+[[actors.ACTOR_EN_BILI.variants]]
+parts = [{ skeleton = "gBiriSkel", pose = "gBiriDefaultAnim", pass = "translucent", segments = { 8 = "gBiriTentacles0Tex", 9 = { object = "ovl_En_Bili", symbol = "D_809C1700" } } }]
+
+[actors.ACTOR_EN_BUBBLE]
+name = "Shabom"
+notes = "A floating bubble that bounces around the room and pops into flames when it touches Link. Drawn as gBubbleDL facing the camera, 16 units up, as Init sets its yOffset with scale 1. Its outline wobbles: it is stretched 8% along an axis that turns each frame, drawn here along X at the first frame. It grows when hit and flies off in a random direction; not drawn. Its params are not read."
+object = "object_bubble"
+scale = 1.0
+height_offset = 16
+
+[[actors.ACTOR_EN_BUBBLE.variants]]
+parts = [{ display_list = "gBubbleDL", pass = "translucent", billboard = true, scale = [1.08, 1, 1] }]
+
+[actors.ACTOR_EN_ENCOUNT2]
+name = "Falling rock spawner"
+notes = "Rains burning rocks (En_Fire_Rock, spawned as children) and draws its own sparks while Link is near the summit of Death Mountain Trail (decided by Link's position there, not its params), or within 700 units of it in the collapsing Ganon's Tower while switch flag 0x37 is set. The sparks are effects drawn only while it spawns, so it is a marker. On Death Mountain Trail it is gone for adult Link once the Fire Temple's blue warp has been taken. Its params are not read."
+draw = "marker"
+
+[actors.ACTOR_EN_EG]
+name = "Tower collapse void-out"
+notes = "Voids Link out, with a fade to black, once the escape timer from the collapsing Ganon's Tower runs out while switch flag 0x36 is set. Draws nothing; a marker. Its params are not read."
+draw = "marker"
+
+[actors.ACTOR_EN_HEISHI1]
+name = "Hyrule Castle courtyard guard"
+notes = "A soldier of the Hyrule Castle courtyard who throws Link out when he sees him. By day (before EVENTCHKINF_80) types 0 to 3 walk their path, drawn in the first frame of gEnHeishiWalkAnim, the animation their first action gives them; type 5 stands guard by night or once EVENTCHKINF_80 is set, drawn in gEnHeishiIdleAnim. Each is killed outside its time. Its head turns side to side at run time, not drawn; the search ball it casts and its shadow are not drawn. Type picks a row of sAnimParamsInit for its speeds, which has rows only for 0 to 3. A guard on path 3 spawns eight rupees (En_Ex_Ruppy, params 3) at fixed world positions rather than offsets, so they are not children here."
+object = "object_sd"
+scale = 0.01
+
+[actors.ACTOR_EN_HEISHI1.params]
+Path = { mask = 0x00FF, kind = "number", description = "The path it patrols; path 3 also spawns the courtyard's rupees. Unused by type 5" }
+Type = { mask = 0xFF00, kind = "choice", values = { 0 = "Patrol (slow)", 1 = "Patrol (fast)", 2 = "Patrol (slow, skips points)", 3 = "Patrol (fast, skips points)", 5 = "Night guard" } }
+
+[[actors.ACTOR_EN_HEISHI1.variants]]
+match = { Type = 5 }
+parts = [{ skeleton = "gEnHeishiSkel", pose = "gEnHeishiIdleAnim" }]
+
+[[actors.ACTOR_EN_HEISHI1.variants]]
+parts = [{ skeleton = "gEnHeishiSkel", pose = "gEnHeishiWalkAnim" }]
+
+[actors.ACTOR_EN_DAIKU]
+name = "Carpenter"
+notes = "One of Mutoh's four carpenters: jailed in the Thieves' Hideout until Link frees him, then in the carpenters' tent in Gerudo Valley. Each is killed in the scene he is not in by whether he has been rescued (EVENTCHKINF_CARPENTER_n_RESCUED). Type picks his overalls' colour (env) and his hair, drawn at his head (limb 15) by PostLimbDraw. In the hideout he stands (object_daiku_Anim_007DE0); in the tent types 1 and 3 sit (object_daiku_Anim_008164) and 0 and 2 shout (object_daiku_Anim_001AB0), started at a random frame, drawn at the first. Head and torso, and in places his whole body, turn toward Link at run time, not drawn. Init reads the placed rotation's Z as the switch flag talking to him sets to start the fight with his guard, then zeroes it."
+object = "object_daiku"
+scale = 0.01
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_DAIKU.params]
+Type = { mask = 0x0003, kind = "choice", values = { 0 = "Carpenter 0 (red)", 1 = "Carpenter 1 (light blue)", 2 = "Carpenter 2 (green)", 3 = "Carpenter 3 (purple)" } }
+Path = { mask = 0x00F0, kind = "number", description = "The path he runs out of the hideout on once freed" }
+"Door Switch" = { mask = 0x3F00, kind = "number", scene_flag = "switch", description = "His cell door is open when set" }
+"Fight Switch" = { mask = 0x003F, source = "rotation_z", kind = "number", scene_flag = "switch", flag_use = "sets", description = "Set when talking to him starts the fight with his guard" }
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { scene = "SCENE_THIEVES_HIDEOUT", Type = 0 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_007DE0", env = [170, 10, 70, 255] },
+    { display_list = "object_daiku_DL_005BD0", limb = 15, env = [170, 10, 70, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { scene = "SCENE_THIEVES_HIDEOUT", Type = 1 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_007DE0", env = [170, 200, 255, 255] },
+    { display_list = "object_daiku_DL_005AC0", limb = 15, env = [170, 200, 255, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { scene = "SCENE_THIEVES_HIDEOUT", Type = 2 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_007DE0", env = [0, 230, 70, 255] },
+    { display_list = "object_daiku_DL_005990", limb = 15, env = [0, 230, 70, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { scene = "SCENE_THIEVES_HIDEOUT", Type = 3 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_007DE0", env = [200, 0, 150, 255] },
+    { display_list = "object_daiku_DL_005880", limb = 15, env = [200, 0, 150, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { Type = 0 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_001AB0", env = [170, 10, 70, 255] },
+    { display_list = "object_daiku_DL_005BD0", limb = 15, env = [170, 10, 70, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { Type = 1 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_008164", env = [170, 200, 255, 255] },
+    { display_list = "object_daiku_DL_005AC0", limb = 15, env = [170, 200, 255, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { Type = 2 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_001AB0", env = [0, 230, 70, 255] },
+    { display_list = "object_daiku_DL_005990", limb = 15, env = [0, 230, 70, 255] },
+]
+
+[[actors.ACTOR_EN_DAIKU.variants]]
+match = { Type = 3 }
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "object_daiku_Anim_008164", env = [200, 0, 150, 255] },
+    { display_list = "object_daiku_DL_005880", limb = 15, env = [200, 0, 150, 255] },
+]
+
+[actors.ACTOR_EN_MU]
+name = "Haggling townsperson"
+notes = "One of the two townspeople haggling in the Market by day (and in a Lon Lon Ranch scene layer), one actor with a skeleton for both. Drawn moved 1200 along -X and 1400 along -Z as Draw moves it, in the first frame of object_mu_Anim_0003F4, the animation Init gives it. Segments 8 to 12 colour their clothes from a row of Draw's table picked by params. Draw sets up no display list of its own, so it draws after whatever was drawn last; drawn after SETUPDL_25. Some limbs fidget at run time, not drawn."
+object = "object_mu"
+scale = 0.01
+
+[actors.ACTOR_EN_MU.params]
+Colors = { mask = 0xFFFF, kind = "choice", values = { 0 = "First colours", 1 = "Second colours" }, description = "Picks the row of clothes colours and the mask reaction set" }
+
+[[actors.ACTOR_EN_MU.variants]]
+parts = [{ skeleton = "object_mu_Skel_004F70", pose = "object_mu_Anim_0003F4", translation = [-1200, 0, -1400], segments = { 8 = { env = [100, 130, 235, 0] }, 9 = { env = [160, 250, 60, 0] }, 10 = { env = [90, 60, 20, 0] }, 11 = { env = [30, 240, 200, 0] }, 12 = { env = [140, 70, 20, 0] } } }]
+
+[[actors.ACTOR_EN_MU.adjustments]]
+match = { Colors = 1 }
+segments = { 8 = { env = [140, 70, 20, 0] }, 9 = { env = [30, 240, 200, 0] }, 10 = { env = [90, 60, 20, 0] }, 11 = { env = [160, 250, 60, 0] }, 12 = { env = [100, 130, 235, 0] } }
+
+[actors.ACTOR_EN_MA2]
+name = "Malon (adult)"
+notes = "Adult Malon, only for adult Link; which placement appears is decided in Init by its Spot (the placed rotation's Z), the scene, the time of day and whether Epona is won. Spot 5, in the stable by day before Epona: standing in gMalonAdultStandStillAnim with a basket in her left hand (limb 14), drawn by PostLimbDraw. Spot 6, at the ranch by night before Epona: singing in gMalonAdultSingAnim, waiting for Epona's Song. Spots 7 (day) and 8 (night), at the ranch after Epona: singing, or idle (gMalonAdultIdleAnim) once INFTABLE_8D is set, which nothing sets. OverrideLimbDraw hides both thighs (limbs 3 and 6). Her head and torso turn toward Link and her upper body sways at run time, not drawn. Her eyes blink and her mouth changes as she sings; drawn open and neutral. The Z rotation is not zeroed, so the game draws her turned by it a few binangs; drawn unturned."
+object = "object_ma2"
+scale = 0.01
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_MA2.params]
+Spot = { mask = 0xFFFF, source = "rotation_z", kind = "choice", values = { 5 = "Stable, day, before Epona", 6 = "Ranch, night, before Epona", 7 = "Ranch, day, after Epona", 8 = "Ranch, night, after Epona" } }
+
+[[actors.ACTOR_EN_MA2.variants]]
+match = { Spot = 5 }
+parts = [
+    { skeleton = "gMalonAdultSkel", pose = "gMalonAdultStandStillAnim", limbs = { 3 = false, 6 = false }, segments = { 8 = "gMalonAdultEyeOpenTex", 9 = "gMalonAdultMouthNeutralTex" } },
+    { display_list = "gMalonAdultBasketDL", limb = 14, segments = { 8 = "gMalonAdultEyeOpenTex", 9 = "gMalonAdultMouthNeutralTex" } },
+]
+
+[[actors.ACTOR_EN_MA2.variants]]
+parts = [{ skeleton = "gMalonAdultSkel", pose = "gMalonAdultSingAnim", limbs = { 3 = false, 6 = false }, segments = { 8 = "gMalonAdultEyeOpenTex", 9 = "gMalonAdultMouthNeutralTex" } }]
+
+[actors.ACTOR_EN_NIW_LADY]
+name = "Cucco Lady (Anju)"
+notes = "Anju, the cucco keeper of Kakariko Village, and by night in Impa's house (killed there by day). Her skeleton is object_ane's, posed from object_os_anime; she draws nothing until both are loaded. In the village child Link finds her worrying over her lost cuccos (gObjOsAnim_A630) until he has returned them (ITEMGETINF_0C), then she stands (gObjOsAnim_07D0); adult Link always finds her standing, and so does anyone in Impa's house. Her animation changes with what she says at run time. Head and torso turn toward Link at run time, not drawn. Her eyes blink; drawn open. Segment 12 is an empty list, as the default is. Its params are not read."
+object = "object_ane"
+scale = 0.01
+
+[[actors.ACTOR_EN_NIW_LADY.variants]]
+match = { scene = "SCENE_IMPAS_HOUSE" }
+parts = [{ skeleton = "gCuccoLadySkel", pose = "gObjOsAnim_07D0", pose_object = "object_os_anime", env = [0, 0, 0, 255], segments = { 8 = "gCuccoLadyEyeOpenTex" } }]
+
+[[actors.ACTOR_EN_NIW_LADY.variants]]
+match = { age = "child" }
+parts = [{ skeleton = "gCuccoLadySkel", pose = "gObjOsAnim_A630", pose_object = "object_os_anime", env = [0, 0, 0, 255], segments = { 8 = "gCuccoLadyEyeOpenTex" } }]
+
+[[actors.ACTOR_EN_NIW_LADY.variants]]
+parts = [{ skeleton = "gCuccoLadySkel", pose = "gObjOsAnim_07D0", pose_object = "object_os_anime", env = [0, 0, 0, 255], segments = { 8 = "gCuccoLadyEyeOpenTex" } }]
+
+[actors.ACTOR_EN_DS]
+name = "Potion Shop granny"
+notes = "The old woman of the Kakariko potion shop who sells Blue Potions for Poes, drawn in the first frame of gPotionShopLadyAnim, the animation Init plays once. Her head turns toward Link at run time, not drawn. Its params are not read."
+object = "object_ds"
+scale = 0.013
+
+[[actors.ACTOR_EN_DS.variants]]
+parts = [{ skeleton = "gPotionShopLadySkel", pose = "gPotionShopLadyAnim", setup = 37 }]
+
+[actors.ACTOR_EN_JS]
+name = "Carpet merchant"
+notes = "The magic carpet merchant of the Haunted Wasteland who sells Bombchus, drawn in the first frame of gCarpetMerchantSlappingKneeAnim, the animation Init plays once. He spawns his carpet (En_Jsjutan) at his own position, unturned; as a child here it turns with him. On a sand floor he sinks 2000 model units (shape.yOffset) at run time; not drawn. His head turns toward Link at run time, not drawn. Its params are not read."
+object = "object_js"
+scale = 0.01
+
+[[actors.ACTOR_EN_JS.variants]]
+parts = [{ skeleton = "gCarpetMerchantSkel", pose = "gCarpetMerchantSlappingKneeAnim", setup = 37 }]
+children = [{ actor = "ACTOR_EN_JSJUTAN", params = 0x0000, offset = [0, 0, 0] }]
+
+[actors.ACTOR_EN_MK]
+name = "Lakeside Professor"
+notes = "The professor of the Lakeside Laboratory, who rewards diving and looks at bottled fish; also placed in Lon Lon Ranch's credits layer. Drawn in object_mk_Anim_000D88, the animation Init loops. His head turns toward Link at run time, which is not drawn. No params are read."
+object = "object_mk"
+scale = 0.01
+
+[[actors.ACTOR_EN_MK.variants]]
+parts = [{ skeleton = "object_mk_Skel_005DF0", pose = "object_mk_Anim_000D88", setup = 37 }]
+
+[actors.ACTOR_EN_MM]
+name = "Running Man, child era"
+notes = "The running man of Hyrule Field, who buys the Bunny Hood; also placed in Lon Lon Ranch's credits layer. By day (05:00 to 20:00) he runs his path in gRunningManRunAnim, which is drawn; by night he sits in gRunningManSitWaitAnim, which a placement cannot say. Draw indexes its mouth table with the enum swapped, so running shows gRunningManMouthClosedTex and sitting gRunningManMouthOpenTex; the running mouth is drawn. Once sold the Bunny Hood (ITEMGETINF_3B) he wears it, gLinkChildBunnyHoodDL from object_link_child with its ears on matrices in segment 11 placed from his head, which is not drawn since it depends on the save. Head and torso turn at run time."
+object = "object_mm"
+scale = 0.01
+
+[actors.ACTOR_EN_MM.params]
+Path = { mask = 0x00FF, kind = "number", description = "The path he runs along" }
+
+[[actors.ACTOR_EN_MM.variants]]
+parts = [{ skeleton = "gRunningManSkel", pose = "gRunningManRunAnim", segments = { 8 = "gRunningManMouthClosedTex" } }]
+
+[actors.ACTOR_EN_MM2]
+name = "Running Man, adult era"
+notes = "The running man as an adult: in the Gerudo Valley tent, where he offers the marathon, and at the Lost Woods finish line, where he waits for Link to arrive. Killed for child Link; the finish line one is killed unless the marathon is running (INFTABLE_17F and EVENTINF_MARATHON_ACTIVE), and turns to yaw -0x3E80 in Update, which is not drawn: he is drawn at his placed angle. Both sit in gRunningManSitWaitAnim as Init leaves them, with the closed-mouth index, which Draw's swapped table turns into gRunningManMouthOpenTex. OverrideLimbDraw always tilts his head (limb 15) by a further 0xFA0 about Z, which is not drawn."
+object = "object_mm"
+scale = 0.01
+
+[actors.ACTOR_EN_MM2.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Gerudo Valley tent", 1 = "Lost Woods finish line" } }
+
+[[actors.ACTOR_EN_MM2.variants]]
+parts = [{ skeleton = "gRunningManSkel", pose = "gRunningManSitWaitAnim", segments = { 8 = "gRunningManMouthOpenTex" } }]
+
+[actors.ACTOR_EN_MS]
+name = "Magic Bean Salesman"
+notes = "The man by Zora's River who sells Magic Beans; also placed in Lon Lon Ranch's credits layer, where he rides his carpet. Killed unless Link is a child. Drawn in gBeanSalesmanEatingAnim, the animation Init gives him. No params are read."
+object = "object_ms"
+scale = 0.015
+
+[[actors.ACTOR_EN_MS.variants]]
+parts = [{ skeleton = "gBeanSalesmanSkel", pose = "gBeanSalesmanEatingAnim" }]
+
+[actors.ACTOR_EN_BOM_BOWL_MAN]
+name = "Bombchu Bowling Girl"
+notes = "The girl who runs Bombchu Bowling in the Market; also placed in Lon Lon Ranch's credits layer. Asleep behind the counter in gChuGirlNoddingOffAnim with her eyes closed (gChuGirlEyeClosedTex, as Update sets them on the first frame) until Link talks to her; awake states and the prize shown on the counter are run time. Init spawns two Syateki cuccos (params 1, the alley's) at fixed world positions, (60, -60, -430) at scale 0.01 and (0, -120, -620) at scale 0.03; they are children here only in the Bombchu Bowling Alley, at offsets computed from her placement there at (180, -12, 260) facing -0x4000, and drawn at their own entry's scale, not the one she sets. In the credits they would spawn in the same world spots, which are not drawn. No params are read."
+object = "object_bg"
+scale = 0.013
+height_offset = -60
+
+[[actors.ACTOR_EN_BOM_BOWL_MAN.variants]]
+match = { scene = "SCENE_BOMBCHU_BOWLING_ALLEY" }
+parts = [{ skeleton = "gChuGirlSkel", pose = "gChuGirlNoddingOffAnim", segments = { 8 = "gChuGirlEyeClosedTex" } }]
+children = [
+    { actor = "ACTOR_EN_SYATEKI_NIW", params = 0x0001, offset = [-690, -48, 120] },
+    { actor = "ACTOR_EN_SYATEKI_NIW", params = 0x0001, offset = [-880, -108, 180] },
+]
+
+[[actors.ACTOR_EN_BOM_BOWL_MAN.variants]]
+parts = [{ skeleton = "gChuGirlSkel", pose = "gChuGirlNoddingOffAnim", segments = { 8 = "gChuGirlEyeClosedTex" } }]
+
+[actors.ACTOR_EN_DU]
+name = "Darunia"
+notes = "The Goron leader: in his Goron City room for child Link, where he dances to Saria's Song, and in the Fire Temple for adult Link until freed (INFTABLE_11A); killed anywhere else, and in the other age. Drawn in gDaruniaIdleAnim, the animation Init gives him, with eyes open, a serious mouth and nose. His eyes blink and his face changes in cutscenes; head and torso turn toward Link; none of that is drawn. Segment 12 is an empty list built at run time, which the default gEmptyDL stands in for. No params are read."
+object = "object_du"
+scale = 0.01
+
+[[actors.ACTOR_EN_DU.variants]]
+parts = [{ skeleton = "gDaruniaSkel", pose = "gDaruniaIdleAnim", env = [0, 0, 0, 255], segments = { 8 = "gDaruniaEyeOpenTex", 9 = "gDaruniaMouthSeriousTex", 10 = "gDaruniaNoseSeriousTex" } }]
+
+[actors.ACTOR_EN_RL]
+name = "Rauru"
+notes = "The Sage of Light in cutscenes. Every type draws nothing until a cutscene cue shows him, so he is drawn here as he is once shown, in object_rl_Anim_000A3C, the animation Init gives him, opaque. Type 0 is the Chamber of Sages, where he gives the Light Medallion (spawning Demo_Effect, not drawn); type 2 is the sages sealing Ganon and dispelling the castle barrier, where he fades in translucent and spawns the light ball (Demo_6K, type 5, at 22 above him), neither drawn. Eyes blink; drawn open (object_rl_Tex_003620 on segments 8 and 9). Segment 12 is pointed at &D_80116280[2] in the game's code, as while he is opaque."
+object = "object_rl"
+scale = 0.01
+
+[actors.ACTOR_EN_RL.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Chamber of Sages", 2 = "Sealing Ganon or the barrier" } }
+
+[[actors.ACTOR_EN_RL.variants]]
+parts = [{ skeleton = "object_rl_Skel_007B38", pose = "object_rl_Anim_000A3C", env = [0, 0, 0, 255], segments = { 8 = "object_rl_Tex_003620", 9 = "object_rl_Tex_003620", 12 = { code = "D_80116280", index = 2 } } }]
+
+[actors.ACTOR_BG_BOMBWALL]
+name = "Bombable wall"
+notes = "A cracked wall of gameplay_field_keep that a bomb breaks open. While its switch flag is set it is drawn broken (gBgBombwallBrokenDL) from the start, which a scene does not say, so it is drawn whole. Chime plays the solved sound when it breaks."
+object = "gameplay_field_keep"
+scale = 0.1
+
+[actors.ACTOR_BG_BOMBWALL.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it breaks; broken while set" }
+Chime = { mask = 0x8000, kind = "flag", description = "Plays the solved chime when it breaks" }
+
+[[actors.ACTOR_BG_BOMBWALL.variants]]
+parts = [{ display_list = "gBgBombwallNormalDL" }]
+
+[actors.ACTOR_BG_HIDAN_SIMA]
+name = "Fire Temple stone platform"
+notes = "A stone platform over lava. Type 0 shakes and sinks while stood on, then rises back. Any other type is the larger platform that bobs and breathes a row of fireballs out of one side and then the other; the fireballs are drawn only while it breathes, from matrices placed in world space by a timer and with textures cycling, and are left out. Any nonzero params is the second type."
+object = "object_hidan_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HIDAN_SIMA.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Sinking platform", 1 = "Fire-breathing platform" } }
+
+[[actors.ACTOR_BG_HIDAN_SIMA.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gFireTempleStonePlatform1DL" }]
+
+[[actors.ACTOR_BG_HIDAN_SIMA.variants]]
+parts = [{ display_list = "gFireTempleStonePlatform2DL" }]
+
+[actors.ACTOR_BG_DY_YOSEIZO]
+name = "Great Fairy"
+notes = "The Great Fairy of a fountain. She draws nothing until Zelda's Lullaby is played, then spins up out of the fountain, grows to 0.035 and rises 40 units, and turns to face world yaw 0 whatever her placed angle; she is drawn as she ends, grown and risen. Which fountain she is in picks her pose: sitting in the magic fountain (SCENE_GREAT_FAIRYS_FOUNTAIN_MAGIC), lying on her side in the others. What she gives comes from the entrance (play->spawn), not params. Her sparkle particles, head and torso tracking and blinking are left out."
+object = "object_dy_obj"
+scale = 0.035
+height_offset = 1142.857
+rotates = { x = true, y = false, z = true }
+
+[[actors.ACTOR_BG_DY_YOSEIZO.variants]]
+match = { scene = "SCENE_GREAT_FAIRYS_FOUNTAIN_MAGIC" }
+parts = [{ skeleton = "gGreatFairySkel", pose = "gGreatFairySittingAnim", segments = { 8 = "gGreatFairyEyeOpenTex", 9 = "gGreatFairyEyeOpenTex", 10 = "gGreatFairyMouthClosedTex" } }]
+
+[[actors.ACTOR_BG_DY_YOSEIZO.variants]]
+parts = [{ skeleton = "gGreatFairySkel", pose = "gGreatFairyLayingSidewaysAnim", segments = { 8 = "gGreatFairyEyeOpenTex", 9 = "gGreatFairyEyeOpenTex", 10 = "gGreatFairyMouthClosedTex" } }]
+
+[actors.ACTOR_BG_HAKA_ZOU]
+name = "Shadow Temple bird statue or bombable wall"
+notes = "A Shadow Temple prop that a bomb breaks: the giant bird statue that falls over into a bridge, a skull wall that bursts into nine fragments, or the Bottom of the Well's rubble (from object_hakach_objects). A wall or rubble is gone while its switch flag is set; the statue is then drawn fallen, turned -90 degrees about X and moved 80 back and 54 down, which a scene does not say, so it is drawn standing. Type 3 is a fragment the wall spawns, drawn at a random scale of 0.025 to 0.03 (0.0275 here) and tumbling. Draws only once its object is loaded; the actor's own object is gameplay_keep."
+object = "object_haka_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HAKA_ZOU.params]
+Type = { mask = 0x00FF, kind = "choice", values = "ShadowTempleAssetsType" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it is blown up; a wall is gone, the statue fallen, while set" }
+
+[[actors.ACTOR_BG_HAKA_ZOU.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "object_haka_objects_DL_0064E0" }]
+
+[[actors.ACTOR_BG_HAKA_ZOU.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "object_haka_objects_DL_005CE0" }]
+
+[[actors.ACTOR_BG_HAKA_ZOU.variants]]
+match = { Type = 2 }
+object = "object_hakach_objects"
+parts = [{ display_list = "gBotwBombSpotDL" }]
+
+[[actors.ACTOR_BG_HAKA_ZOU.variants]]
+match = { Type = 3 }
+scale = 0.0275
+parts = [{ display_list = "object_haka_objects_DL_005CE0" }]
+
+[actors.ACTOR_BG_HAKA_SGAMI]
+name = "Spinning scythe trap"
+notes = "The spinning blade trap of the Shadow Temple and the Ice Cavern. It spins about Y the whole time, so its placed angle is only where it starts. Any nonzero Mode loads object_ice_objects and draws the Ice Cavern's blade; the enum calls 1 invisible, but vanilla places the Ice Cavern's as 1. A nonzero Invisible draws the Shadow Temple blade translucent and is seen only through the Lens of Truth; it is drawn as always seen, and is meant for Mode 0. Its swing trails (EffectBlure) are left out. The actor's own object is gameplay_keep."
+object = "object_haka_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HAKA_SGAMI.params]
+Invisible = { mask = 0x00FF, kind = "number", description = "Nonzero: seen only through the Lens of Truth" }
+Mode = { mask = 0xFF00, kind = "choice", values = { 0 = "Shadow Temple", 1 = "Ice Cavern", 2 = "Ice Cavern" } }
+
+[[actors.ACTOR_BG_HAKA_SGAMI.variants]]
+match = { Invisible = 0, Mode = 0 }
+parts = [{ display_list = "object_haka_objects_DL_00BF20" }]
+
+[[actors.ACTOR_BG_HAKA_SGAMI.variants]]
+match = { Invisible = 0 }
+object = "object_ice_objects"
+parts = [{ display_list = "object_ice_objects_DL_0021F0" }]
+
+[[actors.ACTOR_BG_HAKA_SGAMI.variants]]
+parts = [{ display_list = "object_haka_objects_DL_00BF20", pass = "translucent" }]
+
+[actors.ACTOR_BG_HIDAN_FWBIG]
+name = "Fire Temple big fire wall"
+notes = "A wall of fire. Lowers on Switch: it sinks into the floor for 150 frames when its switch flag is set, then rises and clears the flag. Sweeps: the wall of the circular room that rises when Link walks in and sweeps around a circle; Init moves it to a fixed centre (1560, 0) at radius 885.4 and picks its angle from which side Link stands, so where it is drawn is not where the game puts it, and it starts sunk. Drawn risen; its alpha falls as it sinks. The prim colour's LOD fraction (0x80) and the flame's scroll are at their first frame."
+object = "object_hidan_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HIDAN_FWBIG.params]
+"Switch Flag" = { mask = 0x00FF, kind = "number", scene_flag = "switch", flag_use = "both", description = "Lowers the wall while set; cleared when it rises again" }
+Kind = { mask = 0xFF00, kind = "choice", values = { 0 = "Lowers on switch", 1 = "Sweeps around the room" } }
+
+[[actors.ACTOR_BG_HIDAN_FWBIG.variants]]
+match = { Kind = 0 }
+parts = [{ display_list = "gFireTempleBigFireWallDL", pass = "translucent", prim = [255, 220, 0, 255], env = [255, 0, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] }, 9 = { object = "gameplay_keep", symbol = "gEffUnknown4Tex" }, 10 = { object = "gameplay_keep", symbol = "gEffUnknown5Tex" } } }]
+
+[[actors.ACTOR_BG_HIDAN_FWBIG.variants]]
+scale = 0.15
+parts = [{ display_list = "gFireTempleBigFireWallDL", pass = "translucent", prim = [255, 220, 0, 255], env = [255, 0, 0, 0], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] }, 9 = { object = "gameplay_keep", symbol = "gEffUnknown4Tex" }, 10 = { object = "gameplay_keep", symbol = "gEffUnknown5Tex" } } }]
+
+[actors.ACTOR_BG_HEAVY_BLOCK]
+name = "Golden gauntlets pillar"
+notes = "The huge pillar lifted with the Golden Gauntlets. Breakable shatters when thrown and is gone while its switch flag is set; outside Ganon's Castle every one is made the castle's kind, and while its flag is set lies where it was thrown at a fixed position and angle, which a scene does not say, so it is drawn standing. Big and small pieces are the fragments a breakable one spawns, flying off at random angles and a random scale of 0.9 to 1.1 (1 here)."
+object = "object_heavy_object"
+scale = 1
+
+[actors.ACTOR_BG_HEAVY_BLOCK.params]
+Type = { mask = 0x00FF, kind = "choice", values = "HeavyBlockType" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when it is thrown; a breakable one is gone while set" }
+
+[[actors.ACTOR_BG_HEAVY_BLOCK.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gHeavyBlockBigPieceDL", translation = [50, -260, -20] }]
+
+[[actors.ACTOR_BG_HEAVY_BLOCK.variants]]
+match = { Type = 3 }
+parts = [{ display_list = "gHeavyBlockSmallPieceDL", translation = [45, -280, -5] }]
+
+[[actors.ACTOR_BG_HEAVY_BLOCK.variants]]
+parts = [{ display_list = "gHeavyBlockEntirePillarDL" }]
+
+[actors.ACTOR_BG_HIDAN_RSEKIZOU]
+name = "Fire Temple spinning flamethrower"
+notes = "A statue that turns about Y without stopping, breathing two streams of fireballs out of opposite sides. Drawn at the placed angle. The game places each fireball with a matrix loaded in world space, unturned; here they are parts turned with the statue, as they are after its first update (burn frame 1, bend frame 3), each with its texture of that frame. Their texture and bend cycle every frame. Params are unused."
+object = "object_hidan_objects"
+scale = 0.1
+
+[[actors.ACTOR_BG_HIDAN_RSEKIZOU.variants]]
+parts = [
+    { display_list = "gFireTempleSpinningFlamethrowerDL" },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [-45.86, 307, 316.7], scale = 12, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball1Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [-164.53, 314, 556.17], scale = 19, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball2Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [-409.81, 321, 890.2], scale = 26, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball3Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [-826.94, 328, 1275.37], scale = 33, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball4Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [45.86, 307, -316.7], scale = 12, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball1Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [164.53, 314, -556.17], scale = 19, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball2Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [409.81, 321, -890.2], scale = 26, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball3Tex" } },
+    { display_list = "gFireTempleFireballDL", pass = "translucent", setup = 20, translation = [826.94, 328, -1275.37], scale = 33, prim = [255, 255, 0, 150], env = [255, 0, 0, 255], segments = { 9 = "gFireTempleFireball4Tex" } },
+]
+
+[actors.ACTOR_OBJ_COMB]
+name = "Beehive"
+notes = "A beehive hanging from a tree or a wall that breaks when hit and may drop a collectible: half the time, or always for a heart piece not yet collected. The game turns it about a point 118 model units above its origin, not its origin, so a hive placed tilted is drawn here somewhat off from where the game draws it. It wobbles when hit by a hammer, arrow, seed or stick, not drawn."
+object = "gameplay_field_keep"
+scale = 0.1
+
+[actors.ACTOR_OBJ_COMB.params]
+Drop = { mask = 0x001F, kind = "choice", values = "Item00Type", description = "The collectible it may drop when broken" }
+"Collectible Flag" = { mask = 0x3F00, kind = "number", scene_flag = "collectible", flag_use = "both", description = "For a heart piece: set when collected, so it is not dropped again" }
+
+[[actors.ACTOR_OBJ_COMB.variants]]
+parts = [{ display_list = "gFieldBeehiveDL" }]
+
+[actors.ACTOR_OBJ_WARP2BLOCK]
+name = "Song of Time warp block"
+notes = "One of a pair of Song of Time blocks sharing a switch flag: playing the song near either swaps them, so the block moves to its partner's place. The Active one is there at the start, the other is only where it goes and draws nothing until swapped; both are drawn here. With the switch flag set they start swapped. Its colour comes from sColors by rotation Z, which Init clears. Playing the song spawns Demo_Effect's flash, not drawn."
+object = "object_timeblock"
+scale = 1
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_OBJ_WARP2BLOCK.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Shared by the pair; toggled each time they swap" }
+Size = { mask = 0x0100, kind = "choice", values = { 0 = "Large", 1 = "Small" } }
+Range = { mask = 0x3800, kind = "choice", values = { 0 = "60", 1 = "100", 2 = "140", 3 = "180", 4 = "220", 5 = "260", 6 = "300", 7 = "300 (7)" }, description = "How near Link must stand to play to it, in units" }
+Active = { mask = 0x8000, kind = "flag", description = "The block that is there; clear for the place it warps to" }
+Color = { mask = 0x0007, source = "rotation_z", kind = "number", description = "Which of sColors' eight blues" }
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.variants]]
+parts = [{ display_list = "gSongOfTimeBlockDL", prim = [100, 120, 140, 255] }]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Size = 1 }
+scale = 0.6
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 1 }
+prim = [80, 140, 200, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 2 }
+prim = [100, 150, 200, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 3 }
+prim = [100, 200, 240, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 4 }
+prim = [80, 110, 140, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 5 }
+prim = [70, 160, 225, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 6 }
+prim = [80, 100, 130, 255]
+
+[[actors.ACTOR_OBJ_WARP2BLOCK.adjustments]]
+match = { Color = 7 }
+prim = [100, 110, 190, 255]
+
+[actors.ACTOR_MIR_RAY]
+name = "Reflectable light beam"
+notes = "A beam of sunlight in the Spirit Temple or Ganon's Castle that the Mirror Shield reflects. Its source and pool are fixed points in sMirRayData by Location, not its placement. It draws only the glow and reflection on Link's mirror shield while he holds it in the beam, so it is a marker. Its own scale is 0."
+draw = "marker"
+object = "object_mir_ray"
+scale = 0.01
+
+[actors.ACTOR_MIR_RAY.params]
+Location = { mask = 0xFFFF, kind = "choice", values = "MirRayBeamLocations", description = "Which beam of sMirRayData; 10 and up are an error" }
+
+[actors.ACTOR_BG_MIZU_UZU]
+name = "Water Temple whirlpool"
+notes = "The Water Temple's whirlpool current: collision that pushes Link unless he wears the Iron Boots, and a sound. Its Draw is empty; the whirlpool seen is the room's own, so it is a marker."
+draw = "marker"
+object = "object_mizu_objects"
+scale = 0.1
+
+[actors.ACTOR_OBJ_MAKEOSHIHIKI]
+name = "Push block puzzle"
+notes = "Spawns a push block (Obj_Oshihiki) at one of three fixed world positions from sBlocks, picked by which of its two switch flags are set, and sets the flags as the block reaches each. The positions are absolute, so the children here are written as offsets from the two vanilla placements (the Water Temple at (651, 460, 427), the Deku Tree at (-365, -905, -290)); placed elsewhere the child is drawn off. Drawn at the start position, with both flags clear. Init clears rotation Z."
+draw = "children"
+scale = 0.01
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_OBJ_MAKEOSHIHIKI.params]
+"Switch Flag 1" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when the block is pushed to its second position; starts it there" }
+"No Flag 1" = { mask = 0x0040, kind = "flag", description = "Switch Flag 1 is not used" }
+"Switch Flag 2" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when the block is pushed to its third position; starts it there" }
+"No Flag 2" = { mask = 0x4000, kind = "flag", description = "Switch Flag 2 is not used" }
+Block = { mask = 0x0001, source = "rotation_z", kind = "choice", values = { 0 = "Water Temple, large", 1 = "Deku Tree, small" } }
+
+[[actors.ACTOR_OBJ_MAKEOSHIHIKI.variants]]
+match = { Block = 1 }
+children = [{ actor = "ACTOR_OBJ_OSHIHIKI", params = 0xFF00, offset = [-240, 85, 0] }]
+
+[[actors.ACTOR_OBJ_MAKEOSHIHIKI.variants]]
+children = [{ actor = "ACTOR_OBJ_OSHIHIKI", params = 0xFFC2, offset = [9, 0, 233] }]
+
+[actors.ACTOR_BG_GANON_OTYUKA]
+name = "Ganondorf's falling floor tile"
+notes = "A floor tile of Ganondorf's arena that falls when his attack lands near it. In the game the tile with params 0x23 draws every tile, and the rest draw nothing themselves; here each draws its own top. The draw ignores the actor's rotation and scale. Its material and its top are two parts that share state: sPlatformMaterialDL loads the texture and combiner, sPlatformTopDL draws, so it is right only while the texture carries from one part to the next. Its sides, its underside when the camera is below, and the flash along its edges are drawn only while it falls."
+object = "ovl_Bg_Ganon_Otyuka"
+scale = 1
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_BG_GANON_OTYUKA.params]
+Type = { mask = 0xFFFF, kind = "number", hex = true, description = "0x23 is the tile that draws all of them and never falls" }
+
+[[actors.ACTOR_BG_GANON_OTYUKA.variants]]
+parts = [
+    { display_list = "sPlatformMaterialDL" },
+    { display_list = "sPlatformTopDL" },
+]
+
+[actors.ACTOR_BG_SPOT09_OBJ]
+name = "Gerudo Valley bridge and tent"
+notes = "Gerudo Valley's bridge in its states and the carpenters' tent. Which is there depends on age and the carpenters' rescue: the bridge sides only in cutscene layers; the broken bridge as an adult until all four carpenters are rescued, the repaired one after; the child's bridge only as a child; the tent always as an adult. Drawn here by type alone."
+object = "object_spot09_obj"
+scale = 1
+
+[actors.ACTOR_BG_SPOT09_OBJ.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Bridge sides", 1 = "Broken bridge", 2 = "Child bridge", 3 = "Carpenters' tent", 4 = "Repaired bridge" } }
+
+[[actors.ACTOR_BG_SPOT09_OBJ.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gValleyBridgeSidesDL" }]
+
+[[actors.ACTOR_BG_SPOT09_OBJ.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gValleyBrokenBridgeDL" }]
+
+[[actors.ACTOR_BG_SPOT09_OBJ.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gValleyBridgeChildDL" }]
+
+[[actors.ACTOR_BG_SPOT09_OBJ.variants]]
+match = { Type = 3 }
+scale = 0.1
+parts = [
+    { display_list = "gCarpentersTentDL" },
+    { display_list = "gCarpentersTentEntranceDL", pass = "translucent" },
+]
+
+[[actors.ACTOR_BG_SPOT09_OBJ.variants]]
+match = { Type = 4 }
+parts = [{ display_list = "gValleyRepairedBridgeDL" }]
+
+[actors.ACTOR_BG_TOKI_HIKARI]
+name = "Temple of Time light"
+notes = "Type 0 is the Temple of Time's window light: as a child, the windows and the light falling through them, whose textures scroll, drawn where the scroll starts; as an adult, the windows alone. Type 1 is the beam that shines from the Door of Time as it opens, drawn at a fixed point of the room rather than its placement and stretched from nothing as the door opens; killed once the door has been opened, and a marker here."
+object = "object_toki_objects"
+scale = 1
+
+[actors.ACTOR_BG_TOKI_HIKARI.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Window light", 1 = "Door of Time beam" } }
+
+[[actors.ACTOR_BG_TOKI_HIKARI.variants]]
+match = { Type = 1 }
+draw = "marker"
+
+[[actors.ACTOR_BG_TOKI_HIKARI.variants]]
+match = { age = "adult" }
+parts = [{ display_list = "object_toki_objects_DL_008190" }]
+
+[[actors.ACTOR_BG_TOKI_HIKARI.variants]]
+parts = [
+    { display_list = "object_toki_objects_DL_007E20" },
+    { display_list = "object_toki_objects_DL_007EE0", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, width = 64, height = 32 }] }, 9 = { tiles = [{ tile = 0, width = 64, height = 32 }] } } },
+]
+
+[actors.ACTOR_BG_SPOT01_OBJECTS2]
+name = "Kakariko building or sign"
+notes = "Kakariko's signs, the shooting gallery, or the building under construction, each from object_spot01_matoya but the construction site from object_spot01_matoyab, which must be loaded in the room. The construction site spawns the carpenter Sabooro (En_Daiku_Kakariko) by day at the first point of its path, which is not an offset and not drawn."
+object = "object_spot01_matoya"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT01_OBJECTS2.params]
+Type = { mask = 0x0007, kind = "choice", values = { 0 = "Potion shop sign", 1 = "Shooting gallery sign", 2 = "Bazaar sign", 3 = "Construction site", 4 = "Shooting gallery" } }
+Path = { mask = 0xFF00, kind = "number", description = "For the construction site: the path its carpenter starts on and walks" }
+
+[[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gKakarikoPotionShopSignDL" }]
+
+[[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gKakarikoShootingGallerySignDL" }]
+
+[[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gKakarikoBazaarSignDL" }]
+
+[[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
+match = { Type = 3 }
+object = "object_spot01_matoyab"
+parts = [{ display_list = "gKakarikoConstructionSiteDL" }]
+
+[[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
+match = { Type = 4 }
+parts = [{ display_list = "gKakarikoShootingGalleryDL" }]
+
+[actors.ACTOR_EN_YABUSAME_MARK]
+name = "Horseback archery target"
+notes = "The hit box of one of the horseback archery targets in Gerudo's Fortress, which scores an arrow by how near the target's centre (sTargetPos) it lands. The targets seen are the scene's own; it draws nothing, so it is a marker. Killed outside scene layer 4."
+draw = "marker"
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_YABUSAME_MARK.params]
+Size = { mask = 0xFFFF, kind = "choice", values = { 0 = "Small", 1 = "Medium", 2 = "Large" }, description = "The size of the target's rings" }
+
+[actors.ACTOR_EN_HORSE]
+name = "Horse"
+notes = "Epona, or Ingo's horse when bit 0x8000 is set (every vanilla placement is 0xFFFF: Ingo's horse, Type 0x7FFF read as 1). Marked: its skeleton is a skin (Skin_Init, drawn by func_800A6360), which Toki does not draw yet; the variants say what it will be drawn with, in the first frame of the idle animation Init starts. Epona's eyes are pointed into segment 8 at limb 13 (open here; they blink). Ingo's horse in Gerudo's Fortress wears the Gerudo saddle in place of limb 30. In Lon Lon Ranch, Ingo's horse is killed unless rotation Z is 5, it is day and Epona is not yet won; Epona there is killed at night until won; in the stable, only adult Link at night before Epona is won. Init sets rotation Z back to 0. Type 3 spawns Ingo (En_In) riding it at its position; type 8 is horseback archery. The shadow and dust are not drawn."
+object = "object_horse"
+scale = 0.01
+draw = "marker"
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_HORSE.params]
+Type = { mask = 0x7FFF, kind = "choice", values = "HorseParamType", description = "0x7FFF is read as 1" }
+"Ingo's Horse" = { mask = 0x8000, kind = "flag", description = "Ingo's horse from object_hni rather than Epona" }
+"Ranch Spawn" = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "In Lon Lon Ranch, Ingo's horse stays only when this is 5" }
+
+[[actors.ACTOR_EN_HORSE.variants]]
+match = { "Ingo's Horse" = true, scene = "SCENE_GERUDOS_FORTRESS" }
+object = "object_hni"
+parts = [{ skeleton = "gHorseIngoSkel", pose = "gHorseIngoIdleAnim", limbs = { 30 = "gHorseIngoGerudoSaddleDL" } }]
+
+[[actors.ACTOR_EN_HORSE.variants]]
+match = { "Ingo's Horse" = true }
+object = "object_hni"
+parts = [{ skeleton = "gHorseIngoSkel", pose = "gHorseIngoIdleAnim" }]
+
+[[actors.ACTOR_EN_HORSE.variants]]
+parts = [{ skeleton = "gEponaSkel", pose = "gEponaIdleAnim", segments = { 8 = "gEponaEyeOpenTex" } }]
+default_params = 0xFFFF
+
+[actors.ACTOR_EN_HORSE_GAME_CHECK]
+name = "Horse game controller"
+notes = "The unseen controller of a horse game: Ingo's race (Type 1, which spawns Ingo's horse at (-250, 1, -1650) in the world, not relative to it), Gerudo horseback archery (Type 2), or Malon's obstacle course (Type 4; in Lon Lon Ranch it becomes this once Epona is won). Its Draw is empty."
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_EN_HORSE_GAME_CHECK.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EnHorseGameCheckType" }
+
+[actors.ACTOR_BOSS_GANON]
+name = "Ganondorf"
+notes = "Ganondorf, the boss at the top of Ganon's Tower, and in the tower's collapse (Type 1). Init moves him to (0, 112, -333) at the organ, or (-472, 4172, -400) in the collapse, both with shape.yOffset -7000; drawn here at the placement, with that offset. The fight's form plays the organ (gGanondorfPlayOrganAnim from object_ganon_anime2) with his right hand open; the collapse lies in the first frame of gGanondorfCollapseAnim with it closed. His eyes (gGanondorfEyesDL at the jewel limb, translucent) take gGanondorfNormalEyeTex from segment 8. Not drawn: his cape (En_Ganon_Mant, spawned at the world origin and hung from his shoulders and forearms each frame), the organ (En_Ganon_Organ) and Zelda in her crystal (En_Zl3, 0x2000) the intro spawns at fixed world positions, the leg turns, his shadow texture, the Triforce, and the lightning, light balls and dark magic. Params from 0x64 up are the light balls and magic he spawns, never placed. Type 1 is killed once switch flag 0x37 is set in the tower scenes; Init sets switch flag 0x14."
+object = "object_ganon"
+scale = 0.01
+height_offset = -7000
+
+[actors.ACTOR_BOSS_GANON.params]
+Type = { mask = 0xFFFF, kind = "number", signed = true, description = "1 is the tower collapse; under 0x64 otherwise the fight; 0x64 and up his light balls and magic" }
+
+[[actors.ACTOR_BOSS_GANON.variants]]
+match = { Type = 1 }
+parts = [
+    { skeleton = "gGanondorfSkel", pose = "gGanondorfCollapseAnim", pose_object = "object_ganon_anime2" },
+    { display_list = "gGanondorfEyesDL", limb = 11, pass = "translucent", segments = { 8 = "gGanondorfNormalEyeTex" } },
+]
+
+[[actors.ACTOR_BOSS_GANON.variants]]
+parts = [
+    { skeleton = "gGanondorfSkel", pose = "gGanondorfPlayOrganAnim", pose_object = "object_ganon_anime2", limbs = { 10 = "gGanondorfRightHandOpenDL" } },
+    { display_list = "gGanondorfEyesDL", limb = 11, pass = "translucent", segments = { 8 = "gGanondorfNormalEyeTex" } },
+]
+default_params = 0xFFFF
+
+[actors.ACTOR_END_TITLE]
+name = "Ending titles"
+notes = "The ending's title cards. Type 1, in the Temple of Time, fades in 'Presented by Nintendo'; any other, in the castle courtyard, fades in 'The End', 'The Legend of Zelda' and 'Ocarina of Time' as cutscene frames pass. Marked: the cards are texture rectangles on the screen's overlay, and the Triforce it draws (sTriforceDL, translucent) is placed on Link's left hand from Player's matrix, not at the actor."
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_END_TITLE.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 1 = "Presented by Nintendo" }, description = "Anything but 1 draws the title cards and the Triforce" }
+
+[actors.ACTOR_EN_TR]
+name = "Koume and Kotake"
+notes = "Koume (Type 0) or Kotake (Type 1), the Twinrova sisters on their brooms in cutscenes. Drawn only while a cutscene cues its channel (3 for Koume, 2 for Kotake), moved to the cue's positions; drawn here at the placement, in the first frame of the standing pose Init starts, eyes open (they blink). Their spell's Demo_6K, held at the right hand, and their sparkles as they vanish and reappear are not drawn. Other types assert."
+object = "object_tr"
+scale = 0.01
+
+[actors.ACTOR_EN_TR.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "TwinrovaType" }
+
+[[actors.ACTOR_EN_TR.variants]]
+match = { Type = 1 }
+parts = [{ skeleton = "gKotakeSkel", pose = "gKotakeKoumeStandingBroomOverLeftShoulderAnim", setup = 37, hilite = true, segments = { 8 = "gKotakeKoumeEyeOpenTex" } }]
+
+[[actors.ACTOR_EN_TR.variants]]
+parts = [{ skeleton = "gKoumeSkel", pose = "gKotakeKoumeStandingBroomOverRightShoulderAnim", setup = 37, hilite = true, segments = { 8 = "gKotakeKoumeEyeOpenTex" } }]
+
+[actors.ACTOR_DEMO_EC]
+name = "Credits revelers (Lon Lon Ranch)"
+notes = "The woman (type 7) draws her eyes from segment 10, which Demo_Ec never sets (it sets 8 and 9, as for the other townsfolk), so in the game they show whatever segment 10 holds; drawn open here. The townsfolk partying at Lon Lon Ranch in the ending. Each type is one character, drawn from its own object (sDrawObjects) and posed by an animation of object_ec (sAnimationObjects; object_gm for type 33, object_ma2 for Malon), shown at its first frame. Nothing is drawn until both objects are loaded. Eyes that blink are drawn open; King Zora (20) and Mido (21) start on their fourth eye texture as Init sets it. King Zora and Mido move to their cue's start position during the cutscene; root motion of the animations is not followed. Kokiri pass color1 for both tunic segments (DemoEc_DrawSkeletonCustomColor's bug), drawn so. The fishing pond owner's hat is drawn as if it has not been stolen. Type 30 to 33 Gorons are scaled 1, 1, 15 and 5 times. Only placed in Lon Lon Ranch's ending layers."
+scale = 0.01
+
+[actors.ACTOR_DEMO_EC.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Ingo", 1 = "Talon", 2 = "Windmill man", 3 = "Kokiri boy", 4 = "Kokiri girl", 5 = "Old man", 6 = "Bearded man", 7 = "Woman", 8 = "Old woman", 9 = "Boss carpenter", 10 = "Carpenter (Ichiro)", 11 = "Carpenter (Sabooro)", 12 = "Carpenter (Jiro)", 13 = "Carpenter (Shiro)", 14 = "Dancing Kokiri boy", 15 = "Dancing Kokiri girl", 16 = "Gerudo (bob)", 17 = "Gerudo (straight fringe)", 18 = "Gerudo (spiky)", 19 = "Dancing Zora", 20 = "King Zora", 21 = "Mido", 22 = "Cucco (jumping)", 23 = "Cucco (jumping 2)", 24 = "Cucco (walking)", 25 = "Cucco lady", 26 = "Potion shop owner", 27 = "Happy Mask Salesman", 28 = "Fishing pond owner", 29 = "Bombchu shop owner", 30 = "Goron", 31 = "Goron 2", 32 = "Giant Goron", 33 = "Big Goron", 34 = "Malon" } }
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 0 }
+object = "object_in"
+parts = [{ skeleton = "gIngoSkel", pose = "gDemoEcIngoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gIngoEyeClosed2Tex", 9 = "gIngoRedTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 1 }
+object = "object_ta"
+parts = [{ skeleton = "gTalonSkel", pose = "gDemoEcTalonAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gTalonEyeClosed2Tex", 9 = "gTalonRedTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 2 }
+object = "object_fu"
+parts = [{ skeleton = "gWindmillManSkel", pose = "gDemoEcWindmillManAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gWindmillManEyeClosedTex", 9 = "gWindmillManMouthAngryTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 3 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gDemoEcKokiriAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [0, 130, 70, 255] }, 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 4 }
+object = "object_kw1"
+parts = [{ skeleton = "gKw1Skel", pose = "gDemoEcKokiriAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [70, 190, 60, 255] }, 10 = "gKw1EyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 5 }
+object = "object_bji"
+parts = [{ skeleton = "gHylianOldManSkel", pose = "gDemoEcOldManAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [0, 50, 100, 255] }, 9 = { env = [0, 50, 100, 255] }, 10 = "gHylianOldManEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 6 }
+object = "object_ahg"
+parts = [{ skeleton = "gHylianMan1Skel", pose = "gDemoEcOldManAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [255, 255, 255, 255] }, 9 = { env = [255, 255, 255, 255] }, 10 = "gHylianMan1BeardedEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 7 }
+object = "object_bob"
+parts = [{ skeleton = "gHylianWoman2Skel", pose = "gDemoEcOldManAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gHylianWoman2EyeOpenTex", 9 = "gHylianWoman2EyeOpenTex", 10 = "gHylianWoman2EyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 8 }
+object = "object_bba"
+parts = [{ skeleton = "gHylianOldWomanSkel", pose = "gDemoEcOldManAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gHylianOldWomanEyeTex", 9 = "gHylianOldWomanEyeTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 9 }
+object = "object_toryo"
+parts = [{ skeleton = "object_toryo_Skel_007150", pose = "gDemoEcCarpenterAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 10 }
+object = "object_daiku"
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "gDemoEcCarpenterAnim", pose_object = "object_ec", env = [170, 10, 70, 255], segments = { 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_daiku_DL_005BD0", limb = 15, env = [170, 10, 70, 255] },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 11 }
+object = "object_daiku"
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "gDemoEcCarpenterAnim", pose_object = "object_ec", env = [170, 200, 255, 255], segments = { 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_daiku_DL_005AC0", limb = 15, env = [170, 200, 255, 255] },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 12 }
+object = "object_daiku"
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "gDemoEcCarpenterAnim", pose_object = "object_ec", env = [0, 230, 70, 255], segments = { 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_daiku_DL_005990", limb = 15, env = [0, 230, 70, 255] },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 13 }
+object = "object_daiku"
+parts = [
+    { skeleton = "object_daiku_Skel_007958", pose = "gDemoEcCarpenterAnim", pose_object = "object_ec", env = [200, 0, 150, 255], segments = { 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_daiku_DL_005880", limb = 15, env = [200, 0, 150, 255] },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 14 }
+object = "object_km1"
+parts = [{ skeleton = "gKm1Skel", pose = "gDemoEcDancingKokiriAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [0, 130, 70, 255] }, 9 = { env = [0, 130, 70, 255] }, 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 15 }
+object = "object_kw1"
+parts = [{ skeleton = "gKw1Skel", pose = "gDemoEcDancingKokiriAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = { env = [70, 190, 60, 255] }, 9 = { env = [70, 190, 60, 255] }, 10 = "gKw1EyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 16 }
+object = "object_ge1"
+parts = [
+    { skeleton = "gGerudoWhiteSkel", pose = "gDemoEcGerudoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gGerudoWhiteHairstyleBobDL", limb = 15, env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 17 }
+object = "object_ge1"
+parts = [
+    { skeleton = "gGerudoWhiteSkel", pose = "gDemoEcGerudoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gGerudoWhiteHairstyleStraightFringeDL", limb = 15, env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 18 }
+object = "object_ge1"
+parts = [
+    { skeleton = "gGerudoWhiteSkel", pose = "gDemoEcGerudoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gGerudoWhiteHairstyleSpikyDL", limb = 15, env = [0, 0, 0, 255], segments = { 8 = "gGerudoWhiteEyeOpenTex", 9 = "gGerudoWhiteEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 19 }
+object = "object_zo"
+parts = [{ skeleton = "gZoraSkel", pose = "gDemoEcDancingZoraAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gZoraEyeOpenTex", 9 = "gZoraEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 20 }
+object = "object_kz"
+parts = [{ skeleton = "gKzSkel", pose = "gDemoEcKingZoraAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gKzEyeOpen2Tex", 9 = "gKzEyeOpen2Tex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 21 }
+object = "object_md"
+parts = [{ skeleton = "gMidoSkel", pose = "gDemoEcMidoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gMidoEyeAngryTex", 9 = "gMidoEyeAngryTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 22 }
+object = "object_niw"
+parts = [{ skeleton = "gCuccoSkel", pose = "gDemoEcJumpingCuccoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 23 }
+object = "object_niw"
+parts = [{ skeleton = "gCuccoSkel", pose = "gDemoEcJumpingCucco2Anim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 24 }
+object = "object_niw"
+parts = [{ skeleton = "gCuccoSkel", pose = "gDemoEcWalkingCuccoAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 25 }
+object = "object_ane"
+parts = [{ skeleton = "gCuccoLadySkel", pose = "gDemoEcCuccoLadyAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gCuccoLadyEyeOpenTex", 9 = "gCuccoLadyEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 26 }
+object = "object_ds2"
+parts = [{ skeleton = "object_ds2_Skel_004258", pose = "gDemoEcPotionShopOwnerAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gPotionShopkeeperEyeOpenTex", 9 = "gPotionShopkeeperEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 27 }
+object = "object_os"
+parts = [{ skeleton = "gHappyMaskSalesmanSkel", pose = "gDemoEcPotionShopOwnerAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gHappyMaskSalesmanEyeClosedTex", 9 = "gHappyMaskSalesmanEyeClosedTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 28 }
+object = "object_fish"
+parts = [
+    { skeleton = "gFishingOwnerSkel", pose = "gDemoEcPotionShopOwnerAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gFishingOwnerEyeOpenTex", 9 = "gFishingOwnerEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gFishingOwnerHatDL", limb = 8, env = [0, 0, 0, 255], segments = { 8 = "gFishingOwnerEyeOpenTex", 9 = "gFishingOwnerEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } },
+]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 29 }
+object = "object_rs"
+parts = [{ skeleton = "gBombchuShopkeeperSkel", pose = "gDemoEcPotionShopOwnerAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gBombchuShopkeeperEyeOpenTex", 9 = "gBombchuShopkeeperEyeOpenTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 30 }
+object = "object_oF1d_map"
+parts = [{ skeleton = "gGoronSkel", pose = "gDemoEcGoronAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthNeutralTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 31 }
+object = "object_oF1d_map"
+parts = [{ skeleton = "gGoronSkel", pose = "gDemoEcGoron2Anim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthNeutralTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 32 }
+object = "object_oF1d_map"
+scale = 0.15
+parts = [{ skeleton = "gGoronSkel", pose = "gDemoEcGoronAnim", pose_object = "object_ec", env = [0, 0, 0, 255], segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthNeutralTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 33 }
+object = "object_oF1d_map"
+scale = 0.05
+parts = [{ skeleton = "gGoronSkel", pose = "object_gm_Anim_0002B8", pose_object = "object_gm", env = [0, 0, 0, 255], segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthNeutralTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+match = { Type = 34 }
+object = "object_ma2"
+parts = [{ skeleton = "gMalonAdultSkel", pose = "gMalonAdultSingAnim", env = [0, 0, 0, 255], segments = { 8 = "gMalonAdultEyeOpenTex", 9 = "gMalonAdultMouthHappyTex", 12 = { code = "D_80116280", index = 2 } } }]
+
+[[actors.ACTOR_DEMO_EC.variants]]
+draw = "marker"
+
+[actors.ACTOR_DEMO_GJ]
+name = "Ganon's Castle rubble (Ganon fight)"
+notes = "Rubble of the collapsed castle in the arena where Ganondorf turns into Ganon. Type 4 is the ring of rubble around the arena; types 8 to 14 are the piles Ganondorf rises from, which fly apart and vanish as he does (drawn at rest; they tumble by DemoGj_DrawRotated after he rises); types 16, 17 and 22 draw nothing and have no collision until Ganondorf floats up, then appear at 0.8 times their scale and break when Ganon hits them, dropping Amount of Drop. They are drawn here as they appear. Killed on a cutscene layer. Unknown types are killed."
+object = "object_gj"
+scale = 0.1
+
+[actors.ACTOR_DEMO_GJ.params]
+Type = { mask = 0x00FF, kind = "choice", values = "DemoGjType" }
+Amount = { mask = 0x0700, kind = "number", description = "How many collectibles a breakable rubble drops" }
+Drop = { mask = 0xF800, kind = "choice", values = "Item00Type", description = "The collectible a breakable rubble drops" }
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = 4 }
+parts = [{ display_list = "gGanonsCastleRubbleAroundArenaDL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = [8, 16] }
+parts = [{ display_list = "gGanonsCastleRubble2DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = [9, 17] }
+parts = [{ display_list = "gGanonsCastleRubble3DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = 10 }
+parts = [{ display_list = "gGanonsCastleRubble4DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = 11 }
+parts = [{ display_list = "gGanonsCastleRubble5DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = 12 }
+parts = [{ display_list = "gGanonsCastleRubble6DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = 13 }
+parts = [{ display_list = "gGanonsCastleRubble7DL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+match = { Type = [14, 22] }
+parts = [{ display_list = "gGanonsCastleRubbleTallDL" }]
+
+[[actors.ACTOR_DEMO_GJ.variants]]
+draw = "marker"
+
+[[actors.ACTOR_DEMO_GJ.adjustments]]
+match = { Type = [16, 17, 22] }
+scale = 0.08
+
+[actors.ACTOR_DEMO_IK]
+name = "Iron Knuckle armor pieces (cutscene)"
+notes = "Pieces of Nabooru's Iron Knuckle armor in the Spirit Temple cutscenes where it is broken off her: types 0 to 2 fall to the ground, types 3 to 6 come off her helmet. Each is a one-limb skeleton of object_ik posed by its own animation; nothing is drawn until its cue shows it, and it moves to the cue's start position then. Types 0 to 2 are drawn at their animation's first frame; types 3 to 6 hide their limb and their translucent rim before frame 30, so are drawn at frame 30. Types 0 to 2 are flex skeletons drawn as standard ones (the game's own bug). The armor's colours are the built lists of segments 8 to 10."
+object = "object_ik"
+scale = 0.01
+
+[actors.ACTOR_DEMO_IK.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Falling piece 1", 1 = "Falling piece 2", 2 = "Falling piece 3", 3 = "Helmet piece 1", 4 = "Helmet piece 2", 5 = "Helmet piece 3", 6 = "Helmet piece 4" } }
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 0 }
+parts = [
+    { skeleton = "object_ik_Skel_000C90", pose = "object_ik_Anim_000C6C", hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "gIronKnuckleArmorRivetAndSymbolDL", limb = 1, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 1 }
+parts = [{ skeleton = "object_ik_Skel_000660", pose = "object_ik_Anim_000634", hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } }]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 2 }
+parts = [
+    { skeleton = "object_ik_Skel_000380", pose = "object_ik_Anim_00035C", hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "object_ik_DL_016F88", limb = 1, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 3 }
+parts = [
+    { skeleton = "object_ik_Skel_01EB40", pose = "object_ik_Anim_01EB14", pose_frame = 30, hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "object_ik_DL_017028", limb = 1, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 4 }
+parts = [
+    { skeleton = "object_ik_Skel_01EE60", pose = "object_ik_Anim_01EE34", pose_frame = 30, hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "object_ik_DL_017170", limb = 1, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+match = { Type = 5 }
+parts = [
+    { skeleton = "object_ik_Skel_000F30", pose = "object_ik_Anim_000F0C", pose_frame = 30, hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "gIronKnuckleArmorRivetAndSymbolDL", limb = 1, pass = "translucent", hilite = true },
+]
+
+[[actors.ACTOR_DEMO_IK.variants]]
+parts = [
+    { skeleton = "object_ik_Skel_000900", pose = "object_ik_Anim_0008DC", pose_frame = 30, hilite = true, segments = { 8 = { prim = [245, 225, 155, 255], env = [30, 30, 0, 255] }, 9 = { prim = [255, 40, 0, 255], env = [40, 0, 0, 255] }, 10 = { prim = [255, 255, 255, 255], env = [20, 40, 30, 255] } } },
+    { display_list = "object_ik_DL_016CD8", limb = 1, pass = "translucent", hilite = true },
+]
+
+[actors.ACTOR_DEMO_GEFF]
+name = "Ganon's Tower rubble fragment (cutscene)"
+notes = "A chunk of rubble in the tower collapse cutscene. Types 0 to 5 follow the Demo_Gt part they were placed beside (types 0 to 2 the one of type 1, types 3 to 5 the one of type 2) as it moves; types 6 to 8 stay put. Its scale is not uniform: 0.3 for types 0, 3 and 6; (0.15, 0.29, 0.12) for 1, 4 and 7; (0.1, 0.15, 0.2) for 2, 5 and 8, written as a variant scale of 0.1 and a part scale. Drawn once object_geff is loaded. Types 9 and above are killed."
+object = "object_geff"
+scale = 0.3
+
+[actors.ACTOR_DEMO_GEFF.params]
+Type = { mask = 0x00FF, kind = "number", description = "0 to 8: which Demo_Gt part it follows (0-2 type 1, 3-5 type 2, 6-8 none) and its shape by type mod 3" }
+
+[[actors.ACTOR_DEMO_GEFF.variants]]
+match = { Type = [0, 3, 6] }
+parts = [{ display_list = "gGanonRubbleDL" }]
+
+[[actors.ACTOR_DEMO_GEFF.variants]]
+match = { Type = [1, 4, 7] }
+scale = 0.1
+parts = [{ display_list = "gGanonRubbleDL", scale = [1.5, 2.9, 1.2] }]
+
+[[actors.ACTOR_DEMO_GEFF.variants]]
+match = { Type = [2, 5, 8] }
+scale = 0.1
+parts = [{ display_list = "gGanonRubbleDL", scale = [1, 1.5, 2] }]
+
+[[actors.ACTOR_DEMO_GEFF.variants]]
+draw = "marker"
+
+[actors.ACTOR_DEMO_GT]
+name = "Ganon's Tower collapse parts (cutscene)"
+notes = "Parts of Ganon's Tower in the cutscene where it collapses as Link and Zelda escape. Only kept on a cutscene layer; killed otherwise. Each tilts and drops over the cutscene by an angle and offset kept at run time, drawn here upright at the actor (the angle is 0 at the start). Type 0's flame and smoke scroll each frame, and its glowing windows' colours (segments 8 and 10) change with the cutscene frame, drawn with the values before frame 160; type 1's with those before frame 610. Type 5's pillar stops drawing at cutscene frame 301. Unknown types are killed."
+object = "object_gt"
+scale = 0.1
+
+[actors.ACTOR_DEMO_GT.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Exterior structure", 1 = "Collapsed structure, inner", 2 = "Collapsed structure, outer", 5 = "Standalone pillar 1", 6 = "Standalone pillar 2", 7 = "Standalone pillar 3", 23 = "Walkway", 24 = "Alternative walkway" } }
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = 0 }
+parts = [
+    { display_list = "gTowerCollapseCsExteriorStructureDL", segments = { 8 = { env = [100, 255, 200, 128], tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] }, 10 = { env = [255, 120, 100, 128], tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] } } },
+    { display_list = "gTowerCollapseCsFlameSmokeDL", pass = "translucent", env = [128, 128, 128, 128], segments = { 9 = { tiles = [{ tile = 0, width = 16, height = 512 }, { tile = 1, width = 16, height = 512 }] } } },
+]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gTowerCollapseCsCollapsedStructureInnerDL", segments = { 8 = { env = [163, 193, 193, 128], tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] } } }]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gTowerCollapseCsCollapsedStructureOuterDL" }]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = [5, 6, 7] }
+parts = [{ display_list = "gTowerCollapseCsStandalonePillarDL" }]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = 23 }
+parts = [{ display_list = "gTowerCollapseCsWalkwayDL" }]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+match = { Type = 24 }
+parts = [{ display_list = "gTowerCollapseCsAlternativeWalkwayDL" }]
+
+[[actors.ACTOR_DEMO_GT.variants]]
+draw = "marker"
