@@ -5560,3 +5560,983 @@ parts = [{ display_list = "gTowerCollapseCsAlternativeWalkwayDL" }]
 
 [[actors.ACTOR_DEMO_GT.variants]]
 draw = "marker"
+
+[actors.ACTOR_EN_PEEHAT]
+name = "Peahat"
+notes = "A flying plant with spinning blades that rests on the ground by day and rises at Link. A grounded or flying one starts on the ground, held at frame 3 of gPeehatRisingAnim, with shape.yOffset 100; at night it sinks into the ground (yOffset to -1000), not drawn. Its blades spin by turning limb 4 at run time; drawn still. An adult draws its body a second time at limb 3 by PostLimbDraw, moved, turned 3.2 radians about Y and squashed, as the underside; a larva does not. A larva is spawned by a flying one rather than placed, scaled 0.006 across and 0.003 tall, drawn flying in gPeehatFlyingAnim. The jiggle when stabbed on the ground and the dust its blades raise are not drawn."
+object = "object_peehat"
+scale = 0.036
+height_offset = 100
+
+[actors.ACTOR_EN_PEEHAT.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Flying (spawns larvae)", 1 = "Larva (spawned)", 65535 = "Grounded (-1)" } }
+
+[[actors.ACTOR_EN_PEEHAT.variants]]
+match = { Type = 1 }
+scale = 0.006
+parts = [{ skeleton = "gPeehatSkel", pose = "gPeehatFlyingAnim", scale = [1, 0.5, 1] }]
+
+[[actors.ACTOR_EN_PEEHAT.variants]]
+parts = [
+    { skeleton = "gPeehatSkel", pose = "gPeehatRisingAnim", pose_frame = 3 },
+    { display_list = "gPeehatBodyDL", limb = 3, translation = [-500, 0, 0], rotation = [0, 183.346, 0], scale = [0.3, 0.2, 0.2] },
+]
+
+[actors.ACTOR_EN_EIYER]
+name = "Stinger (in the ground)"
+notes = "A stingray that swims under the floor with only its fin showing, and leaps out at Link. While under the floor OverrideLimbDraw hides every limb but the fin (9 and 10), and moves the root 2500 forward; drawn so, in the first frame of gStingerIdleAnim. It rises from 40 under its placement as it appears, drawn at its placement. Type 0 spawns three clones that circle its placement with it, 80 units out, a quarter turn apart, and all four go under when one is hit; type 10 wanders alone. The leader starts at a random angle on the circle and the clones follow it; the leader is drawn at its placement and the clones at their angles from a leader at angle 0, each in fact turned a quarter turn from where it heads. Each clone spawns the next in the game; the three are written as the leader's children. Its segment 8 is pointed at &D_80116280[2] in the game's code. Out of the ground it is drawn whole, with shape.yOffset 600; not drawn."
+object = "object_ei"
+scale = 0.005
+
+[actors.ACTOR_EN_EIYER.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Circling, with three clones", 1 = "Clone 1 (spawned)", 2 = "Clone 2 (spawned)", 3 = "Clone 3 (spawned)", 10 = "Wandering, alone" } }
+
+[[actors.ACTOR_EN_EIYER.variants]]
+match = { Type = 0 }
+parts = [{ skeleton = "gStingerSkel", pose = "gStingerIdleAnim", translation = [0, 0, 2500], limbs = { 3 = false, 4 = false, 5 = false, 6 = false, 12 = false, 14 = false, 15 = false, 17 = false, 18 = false }, env = [255, 255, 255, 255], segments = { 8 = { code = "D_80116280", index = 2 } } }]
+children = [
+    { actor = "ACTOR_EN_EIYER", params = 0x0001, offset = [80, 0, 0] },
+    { actor = "ACTOR_EN_EIYER", params = 0x0002, offset = [0, 0, -80] },
+    { actor = "ACTOR_EN_EIYER", params = 0x0003, offset = [-80, 0, 0] },
+]
+
+[[actors.ACTOR_EN_EIYER.variants]]
+parts = [{ skeleton = "gStingerSkel", pose = "gStingerIdleAnim", translation = [0, 0, 2500], limbs = { 3 = false, 4 = false, 5 = false, 6 = false, 12 = false, 14 = false, 15 = false, 17 = false, 18 = false }, env = [255, 255, 255, 255], segments = { 8 = { code = "D_80116280", index = 2 } } }]
+
+[actors.ACTOR_EN_NY]
+name = "Spike"
+notes = "A spiked metal ball that rolls at Link, turning to stone and pulling its spikes in when it stops. It starts as metal: the metal body translucent at full alpha, the stone body at alpha 0 (not drawn) and the spikes at full size. The metal body is drawn with render mode G_RM_PASS, G_RM_AA_ZB_XLU_SURF2 set directly by Draw, which no part key sets; drawn with the translucent setup's. It also calls into segment 7, which the actor never points; left as the frame has it. Init sets shape.rot.y to 0. Any type but 0 is an unused dummy that stays stone with its spikes in, the stone body at full alpha. The fire it burns with and the shards it breaks into are effects, not drawn."
+object = "object_ny"
+scale = 0.01
+rotates = { x = true, y = false, z = true }
+
+[actors.ACTOR_EN_NY.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Spike", 1 = "Dummy (unused)" } }
+
+[[actors.ACTOR_EN_NY.variants]]
+match = { Type = 0 }
+parts = [
+    { display_list = "gEnNyMetalBodyDL", pass = "translucent", hilite = true, env = [0, 0, 0, 255] },
+    { display_list = "gEnNySpikeDL", hilite = true },
+]
+
+[[actors.ACTOR_EN_NY.variants]]
+parts = [{ display_list = "gEnNyRockBodyDL", pass = "translucent", env = [0, 0, 0, 255] }]
+
+[actors.ACTOR_EN_BX]
+name = "Electric tentacle"
+notes = "A tentacle in Jabu-Jabu's Belly that shocks Link when he touches it. gBxa's list draws its base on the actor and four segments up it, loading matrices Draw computes into segment 12, each 140 units above the last; they pulse in width as it draws, written at rest (the phase at 0). Init moves it 100 units down. Its scale is 0.015 to 0.0225 across as it pulses and 0.03 tall; drawn at 0.03 with the part squashed to 0.0225 across. Texture picks its texture through a table of three; a Texture past 2 (0x7F in placed 0x3FFF) reads past the table, which is not known, and is drawn with the first. Its second texture scrolls through a Gfx_TwoTexScroll on segment 9, drawn at its first frame. Lightning when it shocks is an effect, not drawn."
+object = "object_bxa"
+scale = 0.03
+height_offset = -3333.333
+
+[actors.ACTOR_EN_BX.params]
+Texture = { mask = 0x007F, kind = "number", description = "Which of its three textures; only 0 to 2 are in the table" }
+"Knocks Back Along Facing" = { mask = 0x0080, kind = "flag", description = "Knocks Link back along its own facing rather than away from it, and hits with its tip too" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "Gone while set" }
+
+[[actors.ACTOR_EN_BX.variants]]
+parts = [{ display_list = "object_bxa_DL_0022F0", scale = [0.75, 1, 0.75], segments = { 8 = "object_bxa_Tex_0024F0", 9 = { tiles = [{ tile = 0, width = 16, height = 16 }, { tile = 1, width = 32, height = 32 }] }, 12 = { matrices = [{ translation = [0, 4666.667, 0], scale = [0.75, 0.5, 0.75] }, { translation = [0, 9333.333, 0], scale = [0.676777, 0.5, 0.676777] }, { translation = [0, 14000, 0], scale = [0.5, 0.5, 0.5] }, { translation = [0, 18666.667, 0], scale = [0.323223, 0.5, 0.323223] }] } } }]
+
+[[actors.ACTOR_EN_BX.adjustments]]
+match = { Texture = 1 }
+segments = { 8 = "object_bxa_Tex_0027F0" }
+
+[[actors.ACTOR_EN_BX.adjustments]]
+match = { Texture = 2 }
+segments = { 8 = "object_bxa_Tex_0029F0" }
+
+[actors.ACTOR_EN_PO_FIELD]
+name = "Poe spawn point (Hyrule Field)"
+notes = "A place in Hyrule Field where a Poe appears when Link comes within 150 units, 300 units in front of him, or a Big Poe 480 units away when Link rides Epona or by chance while its Switch Flag is clear. Only the first one placed lives; it remembers every placement's position and flag. Until a Poe appears its scale is 0 and Draw draws nothing, so it is a marker. The Poe, Big Poe and soul it becomes are not drawn."
+object = "object_po_field"
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_EN_PO_FIELD.params]
+"Switch Flag" = { mask = 0x00FF, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when this spot's Big Poe is caught; only small Poes appear here after" }
+
+[actors.ACTOR_EN_WEIYER]
+name = "Stinger (in water)"
+notes = "A stingray that swims in water and dives at Link. It is killed if not placed in water deep enough; it starts halfway between the floor and the water's surface, which is not drawn: it is drawn at its placement. Drawn in the first frame of gStingerHitAnim, the swimming loop its first action sets, with shape.yOffset 1000; OverrideLimbDraw moves the root 2000 forward. Its segment 8 is pointed at &D_80116280[2] in the game's code. Its params are not read."
+object = "object_ei"
+scale = 0.003
+height_offset = 1000
+
+[[actors.ACTOR_EN_WEIYER.variants]]
+parts = [{ skeleton = "gStingerSkel", pose = "gStingerHitAnim", translation = [0, 0, 2000], env = [255, 255, 255, 255], segments = { 8 = { code = "D_80116280", index = 2 } } }]
+
+[actors.ACTOR_EN_POH]
+name = "Poe"
+notes = "A ghost with a lantern; types 2 and 3 are Sharp and Flat, the composer brothers in the graveyard. A Poe starts invisible, only its lantern drawn, and fades in when Link comes within 280 units; drawn here as it is once seen, in the first frame of its float animation, opaque, its body in light colour (255, 255, 210) as it settles. Its lantern limb is hidden and the lantern drawn at that limb's matrix in a flickering colour, drawn at its middle (240, 205, 175). A composer is a flexible skeleton always turned to -0x4000 and raised 20 units; Flat's head is swapped for its own. Type 1 also drops a blue rupee, not drawn, and at most two are spawned. Sharp and Flat set switch flags 0x29 and 0x28 and are gone while either is set or switch flag 9 is. Types past 3 are read as 0. Its soul once killed is not drawn."
+object = "object_poh"
+scale = 0.01
+
+[actors.ACTOR_EN_POH.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EnPohType" }
+
+[[actors.ACTOR_EN_POH.variants]]
+match = { Type = 3 }
+object = "object_po_composer"
+height_offset = 2000
+parts = [
+    { skeleton = "gPoeComposerSkel", pose = "gPoeComposerFloatAnim", rotation = [0, -90, 0], limbs = { 9 = false, 10 = "gPoeComposerFlatHeadDL" }, segments = { 8 = { env = [255, 255, 210, 255] }, 10 = { env = [80, 110, 90, 255] }, 11 = { env = [100, 90, 100, 255] }, 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoeComposerLanternDL", limb = 9, env = [240, 205, 175, 255] },
+    { display_list = "gPoeComposerLanternBottomDL", limb = 9, env = [240, 205, 175, 255] },
+    { display_list = "gPoeComposerLanternTopDL", limb = 9, env = [80, 110, 90, 255] },
+]
+
+[[actors.ACTOR_EN_POH.variants]]
+match = { Type = [2, 3] }
+object = "object_po_composer"
+height_offset = 2000
+parts = [
+    { skeleton = "gPoeComposerSkel", pose = "gPoeComposerFloatAnim", rotation = [0, -90, 0], limbs = { 9 = false }, segments = { 8 = { env = [255, 255, 210, 255] }, 10 = { env = [75, 20, 25, 255] }, 11 = { env = [90, 85, 50, 255] }, 12 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoeComposerLanternDL", limb = 9, env = [240, 205, 175, 255] },
+    { display_list = "gPoeComposerLanternBottomDL", limb = 9, env = [240, 205, 175, 255] },
+    { display_list = "gPoeComposerLanternTopDL", limb = 9, env = [75, 20, 25, 255] },
+]
+
+[[actors.ACTOR_EN_POH.variants]]
+parts = [
+    { skeleton = "gPoeSkel", pose = "gPoeFloatAnim", limbs = { 18 = false }, env = [255, 255, 210, 255], segments = { 8 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoeLanternDL", limb = 18, env = [240, 205, 175, 255] },
+]
+
+[[actors.ACTOR_EN_POH.adjustments]]
+match = { Type = [2, 3] }
+rotates = { x = true, y = false, z = true }
+
+[actors.ACTOR_EN_DODOJR]
+name = "Baby Dodongo"
+notes = "A small Dodongo that waits underground, unseen (Draw draws nothing while it waits), until Link comes within 320 units, then digs out tilted up and crawls at him; one that swallows a bomb explodes. Drawn as it is once out, in object_dodojr_Anim_0009D4, the animation Init gives it; it emerges in object_dodojr_Anim_000860. OverrideLimbDraw swells the root limb while it bloats from a swallowed bomb, at scale 1 at rest. Its params are not read."
+object = "object_dodojr"
+scale = 0.02
+
+[[actors.ACTOR_EN_DODOJR.variants]]
+parts = [{ skeleton = "object_dodojr_Skel_0020E0", pose = "object_dodojr_Anim_0009D4" }]
+
+[actors.ACTOR_EN_SKJ]
+name = "Skull Kid"
+notes = "The Skull Kid of the Lost Woods. Type 0 stands on the stump by the Saria's Song spot playing his flute, and backflips away if Link has not learned the song; types 1 and 2 are the two of the ocarina memory game, faded out (alpha 0) until the game starts, drawn here as seen in gSkullKidWaitAnim; types 5 and 6 are invisible listeners on the short stump that draw nothing. Any other type is the adult-era one, killed unless the adult trade item is the Poacher's Saw or later. Segment 12 holds his alpha as an environment colour, drawn opaque. The Skull Mask drawn on limb 11 once he has bought it (ITEMGETINF_39) is not drawn. The low ten bits of params are not read."
+object = "object_skj"
+scale = 0.01
+
+[actors.ACTOR_EN_SKJ.params]
+Type = { mask = 0xFC00, kind = "choice", values = { 0 = "Saria's Song stump", 1 = "Ocarina game, first", 2 = "Ocarina game, second", 5 = "Saria's Song listener (invisible)", 6 = "Ocarina game listener (invisible)", 63 = "Adult era" } }
+
+[[actors.ACTOR_EN_SKJ.variants]]
+match = { Type = [5, 6] }
+draw = "marker"
+
+[[actors.ACTOR_EN_SKJ.variants]]
+match = { Type = [1, 2] }
+parts = [{ skeleton = "gSkullKidSkel", pose = "gSkullKidWaitAnim", segments = { 12 = { env = [0, 0, 0, 255] } } }]
+
+[[actors.ACTOR_EN_SKJ.variants]]
+parts = [{ skeleton = "gSkullKidSkel", pose = "gSkullKidPlayFluteAnim", segments = { 12 = { env = [0, 0, 0, 255] } } }]
+
+[actors.ACTOR_EN_BROB]
+name = "Flobbery Muscle Block"
+notes = "A fleshy block of Jabu-Jabu's Belly that Link can stand on; when he comes within 300 units it rises into an electrified wobbling column, and sinks back when he leaves. Drawn at rest, at the first frame of gBrobMoveUpAnim it is initialised with. Height scales its height by Height / 30, or Height / 15 when small; 0xFF keeps it whole. Only the heights placed are written: Height 20 big is a variant; a small one with a height other than 0xFF is drawn at its full height. Any nonzero Size is small; only 1 is matched."
+object = "object_brob"
+scale = 0.01
+
+[actors.ACTOR_EN_BROB.params]
+Height = { mask = 0x00FF, kind = "number", description = "Its height in thirtieths; 0xFF is full height" }
+Size = { mask = 0xFF00, kind = "choice", values = { 0 = "Big", 1 = "Small" } }
+
+[[actors.ACTOR_EN_BROB.variants]]
+match = { Height = 20, Size = 0 }
+parts = [{ skeleton = "gBrobSkel", pose = "gBrobMoveUpAnim", scale = [1, 0.666667, 1] }]
+
+[[actors.ACTOR_EN_BROB.variants]]
+parts = [{ skeleton = "gBrobSkel", pose = "gBrobMoveUpAnim" }]
+
+[[actors.ACTOR_EN_BROB.adjustments]]
+match = { Size = 1 }
+scale = 0.005
+
+[actors.ACTOR_EN_VALI]
+name = "Bari"
+notes = "A big electric jellyfish of Jabu-Jabu's Belly. It lurks unseen (Draw is unset) at its placement until Link comes within 150 units, then drops to the floor and floats 40 units above it; drawn at its placement, in gBariLurkingAnim, the animation Init gives it. Drawn translucent: its inner hood, three nuclei and outer hood by Draw, which pulse in scale (1 at the first frame), then its skeleton with the nucleus and hood limbs (2, 26, 27) hidden. The nuclei are turned back against the actor's yaw by Draw, so they always face the same way; here they turn with it. Segment 8 scrolls its texture by Gfx_TexScroll, at its first frame; segment 9 is a combiner of the overlay's own, D_80B289A8, switched to D_80B28998 on alternate frames while it discharges. Killed, it splits into Biri (En_Bili). Its params are overwritten by Init and not read."
+object = "object_vali"
+scale = 0.01
+
+[[actors.ACTOR_EN_VALI.variants]]
+parts = [
+    { display_list = "gBariInnerHoodDL", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+    { display_list = "gBariNucleusDL", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+    { display_list = "gBariNucleusDL", pass = "translucent", translation = [506, 1114, 372], segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+    { display_list = "gBariNucleusDL", pass = "translucent", translation = [-458, 1006, -432], segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+    { display_list = "gBariOuterHoodDL", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+    { skeleton = "gBariSkel", pose = "gBariLurkingAnim", pass = "translucent", limbs = { 2 = false, 26 = false, 27 = false }, segments = { 8 = { tiles = [{ tile = 0, y = 127, width = 32, height = 32 }] }, 9 = { object = "ovl_En_Vali", symbol = "D_80B289A8" } } },
+]
+
+[actors.ACTOR_EN_BA]
+name = "Parasitic Tentacle"
+notes = "A tentacle of Jabu-Jabu's Belly hanging from the ceiling, guarding a room until killed. Init raises it 100 units above its placement and hangs its 14 segments straight down from there, 32 units apart; Draw writes their matrices in world space into segment 12 each frame, unturned by the placement, and they sway toward Link as it moves. Drawn as Init leaves them. Its colour is a texture on segment 8 picked by Type; segment 9 scrolls a second tile, at its first frame. A Type of 3 or more is the pink blob that falls when one dies, drawn as one; the placements of 0x3FFF are such. Gone while its switch flag is set."
+object = "object_bxa"
+scale = 0.01
+height_offset = 10000
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_EN_BA.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Red tentacle", 1 = "Green tentacle", 2 = "Gray tentacle", 3 = "Dead blob", 255 = "Dead blob" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "A tentacle does not appear while set" }
+
+[[actors.ACTOR_EN_BA.variants]]
+match = { Type = [0, 1, 2] }
+parts = [{ display_list = "object_bxa_DL_000890", segments = { 8 = "object_bxa_Tex_0024F0", 9 = { tiles = [{ tile = 0, width = 16, height = 16 }, { tile = 1, width = 32, height = 32 }] }, 12 = { matrices = [{ translation = [0, -3200, 0], rotation = [-90, 0, 0] }, { translation = [0, -6400, 0], rotation = [-90, 0, 0] }, { translation = [0, -9600, 0], rotation = [-90, 0, 0] }, { translation = [0, -12800, 0], rotation = [-90, 0, 0] }, { translation = [0, -16000, 0], rotation = [-90, 0, 0] }, { translation = [0, -19200, 0], rotation = [-90, 0, 0] }, { translation = [0, -22400, 0], rotation = [-90, 0, 0], scale = [0.5, 0.5, 1] }, { translation = [0, -25600, 0], rotation = [-90, 0, 0] }, { translation = [0, -28800, 0], rotation = [-90, 0, 0] }, { translation = [0, -32000, 0], rotation = [-90, 0, 0] }, { translation = [0, -35200, 0], rotation = [-90, 0, 0] }, { translation = [0, -38400, 0], rotation = [-90, 0, 0] }, { translation = [0, -41600, 0], rotation = [-90, 0, 0] }, { translation = [0, -44800, 0], rotation = [-90, 0, 0] }] } } }]
+
+[[actors.ACTOR_EN_BA.variants]]
+scale = 0.021
+height_offset = 0
+parts = [{ display_list = "object_bxa_DL_001D80", prim = [255, 125, 100, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[[actors.ACTOR_EN_BA.adjustments]]
+match = { Type = 1 }
+segments = { 8 = "object_bxa_Tex_0027F0" }
+
+[[actors.ACTOR_EN_BA.adjustments]]
+match = { Type = 2 }
+segments = { 8 = "object_bxa_Tex_0029F0" }
+
+[actors.ACTOR_EN_MB]
+name = "Moblin"
+notes = "A Moblin of the Sacred Forest Meadow. Params 0 is the giant club Moblin, drawn in gEnMbClubStandStillClubDownAnim; Init turns it around and moves it 600 units along Z when Link is behind it, which is not drawn. Params -1 (0xFFFF) is a spear guard that looks around near its home; any other params is a spear Moblin patrolling the path its upper byte names, bigger. Both spear Moblins are drawn in gEnMbSpearLookLeftAndRightAnim, the animation their setup at Init morphs into."
+object = "object_mb"
+
+[actors.ACTOR_EN_MB.params]
+Kind = { mask = 0x00FF, kind = "choice", values = { 0 = "Club Moblin", 255 = "Spear Moblin" }, description = "With Path 0xFF, a spear guard; params 0 is the club Moblin" }
+Path = { mask = 0xFF00, kind = "number", description = "The path a spear Moblin patrols; 0xFF is a guard that does not" }
+
+[[actors.ACTOR_EN_MB.variants]]
+match = { Kind = 0, Path = 0 }
+scale = 0.02
+parts = [{ skeleton = "gEnMbClubSkel", pose = "gEnMbClubStandStillClubDownAnim" }]
+
+[[actors.ACTOR_EN_MB.variants]]
+match = { Kind = 255, Path = 255 }
+scale = 0.01
+parts = [{ skeleton = "gEnMbSpearSkel", pose = "gEnMbSpearLookLeftAndRightAnim" }]
+
+[[actors.ACTOR_EN_MB.variants]]
+scale = 0.014
+parts = [{ skeleton = "gEnMbSpearSkel", pose = "gEnMbSpearLookLeftAndRightAnim" }]
+
+[actors.ACTOR_EN_FR]
+name = "Frog"
+notes = "The frogs of Zora's River that sing with Link. Type 0 is the spot Link plays the ocarina at, and draws nothing; types 1 to 5 are the frogs, coloured by sEnFrColor. Until Link plays there they wait under the water, 80 units below and 80 out from their placement, and only the purple frog is drawn; here every frog is drawn at its placement, the log spot it jumps to, turned as placed. A frog whose song has been played is 0.027 in scale, not 0.015, which is not drawn. Drawn in object_fr_Anim_001534 with its eyes open; its eye limbs 7 and 8 are drawn facing the camera. The butterfly drawn above the frog whose note is next is not drawn."
+object = "object_fr"
+scale = 0.015
+
+[actors.ACTOR_EN_FR.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Ocarina spot", 1 = "Yellow frog", 2 = "Blue frog", 3 = "Red frog", 4 = "Purple frog", 5 = "White frog" } }
+
+[[actors.ACTOR_EN_FR.variants]]
+match = { Type = 0 }
+draw = "marker"
+
+[[actors.ACTOR_EN_FR.variants]]
+parts = [
+    { skeleton = "object_fr_Skel_00B498", pose = "object_fr_Anim_001534", limbs = { 7 = false, 8 = false }, env = [200, 170, 0, 255], segments = { 8 = "object_fr_Tex_0059A0", 9 = "object_fr_Tex_0059A0" } },
+    { display_list = "object_fr_DL_008EC0", limb = 7, billboard = true, env = [200, 170, 0, 255], segments = { 8 = "object_fr_Tex_0059A0", 9 = "object_fr_Tex_0059A0" } },
+    { display_list = "object_fr_DL_008F60", limb = 8, billboard = true, env = [200, 170, 0, 255], segments = { 8 = "object_fr_Tex_0059A0", 9 = "object_fr_Tex_0059A0" } },
+]
+
+[[actors.ACTOR_EN_FR.adjustments]]
+match = { Type = 2 }
+env = [0, 170, 200, 255]
+
+[[actors.ACTOR_EN_FR.adjustments]]
+match = { Type = 3 }
+env = [210, 120, 100, 255]
+
+[[actors.ACTOR_EN_FR.adjustments]]
+match = { Type = 4 }
+env = [120, 130, 230, 255]
+
+[[actors.ACTOR_EN_FR.adjustments]]
+match = { Type = 5 }
+env = [190, 190, 190, 255]
+
+[actors.ACTOR_EN_HEISHI3]
+name = "Hyrule Castle guard (grounds)"
+notes = "A soldier standing sentry on the Hyrule Castle grounds, who sends Link back to the entrance when he is seen. A guard placed with params -1 (or any value 0 or below) watches the grounds, his sight shorter by night and behind him; params 1 is one of the two guards at the castle's front gate, which one decided by whether he stands left or right of X -290, and each catches Link only on his own side. Drawn in the first frame of gEnHeishiIdleAnim, the animation his setup gives him; he walks toward Link once he has caught him, not drawn. His head turning (limbs 9 and 16) is not drawn."
+object = "object_sd"
+scale = 0.01
+
+[actors.ACTOR_EN_HEISHI3.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 1 = "Castle gate", 65535 = "Castle grounds (-1)" }, description = "0 or below watches the grounds; above 0 guards the gate" }
+
+[[actors.ACTOR_EN_HEISHI3.variants]]
+parts = [{ skeleton = "gEnHeishiSkel", pose = "gEnHeishiIdleAnim" }]
+
+[actors.ACTOR_EN_SSH]
+name = "Cursed Skulltula man"
+notes = "A member of the cursed family in the House of Skulltula, hanging as a Skulltula on a thread from the ceiling and dropping toward Link when he comes near. Type 0 is the father, scaled 0.03 with his own limbs 4, 5 and 8 swapped in by OverrideLimbDraw; types 1 to 5 are his sons, scaled 0.02, each gone once Link has 10 times its type in Gold Skulltula tokens (the father at 100). Drawn in the first frame of object_ssh_Anim_000304 with eyes open; the thread, its bobbing and swaying, and the blur of its spin are not drawn. Init reads the ceiling above it for its thread; where it hangs is its placement."
+object = "object_ssh"
+scale = 0.02
+
+[actors.ACTOR_EN_SSH.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Father", 1 = "Son, 10 tokens", 2 = "Son, 20 tokens", 3 = "Son, 30 tokens", 4 = "Son, 40 tokens", 5 = "Son, 50 tokens" }, description = "A son is gone once Link has 10 times this in tokens; the father at 100" }
+
+[[actors.ACTOR_EN_SSH.variants]]
+match = { Type = 0 }
+scale = 0.03
+parts = [{ skeleton = "object_ssh_Skel_0052E0", pose = "object_ssh_Anim_000304", limbs = { 4 = "object_ssh_DL_0046C0", 5 = "object_ssh_DL_004080", 8 = "object_ssh_DL_004DE8" }, segments = { 8 = "object_ssh_Tex_0007E0" } }]
+
+[[actors.ACTOR_EN_SSH.variants]]
+parts = [{ skeleton = "object_ssh_Skel_0052E0", pose = "object_ssh_Anim_000304", segments = { 8 = "object_ssh_Tex_0007E0" } }]
+
+[actors.ACTOR_EN_STH]
+name = "Uncursed Skulltula man"
+notes = "A member of the House of Skulltula's family once the curse on him is lifted, each standing beside his cursed self (En_Ssh) of the same type. Type 0 is the father, a bearded man from object_ahg; types 1 to 5 his sons from object_boj, each in his own shirt colour (sShirtColors) and with the cap the overlay's D_80B0A3C0 draws at the head (limb 15). Every type's head is the overlay's own D_80B0A050, swapped in at limb 15. Each appears only once Link has 10 times its type in tokens (the father at 100), and gives its reward (sGetItemIds). They dance in the overlay's own animations, sParentDanceAnim and sChildDanceAnim, drawn at their first frame; the head turning toward Link and the fidget of limbs 8, 10 and 13 are not drawn either. Profile's object is gameplay_keep: the real object is picked from sObjectIds by type."
+scale = 0.01
+
+[actors.ACTOR_EN_STH.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Father, 100 tokens", 1 = "Son, 10 tokens", 2 = "Son, 20 tokens", 3 = "Son, 30 tokens", 4 = "Son, 40 tokens", 5 = "Son, 50 tokens" }, description = "Appears once Link has 10 times this in tokens; the father at 100" }
+
+[[actors.ACTOR_EN_STH.variants]]
+match = { Type = 0 }
+object = "object_ahg"
+parts = [{ skeleton = "gHylianMan1Skel", pose = "sParentDanceAnim", pose_object = "ovl_En_Sth", setup = 37, limbs = { 15 = { display_list = "D_80B0A050", object = "ovl_En_Sth" } }, segments = { 8 = { env = [190, 110, 0, 255] }, 9 = { env = [190, 110, 0, 255] } } }]
+
+[[actors.ACTOR_EN_STH.variants]]
+object = "object_boj"
+parts = [
+    { skeleton = "gHylianMan2Skel", pose = "sChildDanceAnim", pose_object = "ovl_En_Sth", setup = 37, limbs = { 15 = { display_list = "D_80B0A050", object = "ovl_En_Sth" } }, segments = { 8 = { env = [0, 180, 110, 255] }, 9 = { env = [90, 110, 130, 255] } } },
+    { display_list = "D_80B0A3C0", object = "ovl_En_Sth", limb = 15, setup = 37 },
+]
+
+[[actors.ACTOR_EN_STH.adjustments]]
+match = { Type = 2 }
+parts = [0]
+segments = { 8 = { env = [0, 255, 80, 255] } }
+
+[[actors.ACTOR_EN_STH.adjustments]]
+match = { Type = 3 }
+parts = [0]
+segments = { 8 = { env = [255, 160, 60, 255] } }
+
+[[actors.ACTOR_EN_STH.adjustments]]
+match = { Type = 4 }
+parts = [0]
+segments = { 8 = { env = [190, 230, 250, 255] } }
+
+[[actors.ACTOR_EN_STH.adjustments]]
+match = { Type = 5 }
+parts = [0]
+segments = { 8 = { env = [240, 230, 120, 255] } }
+
+[actors.ACTOR_EN_ANI]
+name = "Man on the roof"
+notes = "The man lying on the roof of the house in Kakariko by the windmill. As a child Link only talks to him; as an adult he gives a Piece of Heart and falls back when Link reaches him. Drawn in the first frame of gRoofManIdleAnim, eyes open, sunk 2800 model units by his shape's yOffset as Init sets it. His head turning toward Link (limb 15) is not drawn."
+object = "object_ani"
+scale = 0.01
+height_offset = -2800
+
+[[actors.ACTOR_EN_ANI.variants]]
+parts = [{ skeleton = "gRoofManSkel", pose = "gRoofManIdleAnim", setup = 37, segments = { 8 = "gRoofManEyeOpenTex" } }]
+
+[actors.ACTOR_EN_JJ]
+name = "Lord Jabu-Jabu"
+notes = "The great fish of Zora's Fountain, his mouth closed until Link drops a fish by him (then opens, EVENTCHKINF_OPENED_JABU_JABU) and opening as Link nears from then on. Type -1 is Jabu-Jabu, drawn ten times larger again by Draw's Matrix_Scale, bobbing up and down with his animation (at rest at its first frame); he spawns type 0 as a child 10 units along world X, the invisible collision of his body. Types 0 and 1 are collision only and draw nothing; the child is not listed, since it draws nothing. His mouth opening (joint 10) and the dust of his cutscene are not drawn. Drawn eyes open in the first frame of gJabuJabuAnim."
+object = "object_jj"
+scale = 0.087
+
+[actors.ACTOR_EN_JJ.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Body collision", 1 = "Unused collision", 65535 = "Jabu-Jabu (-1)" } }
+
+[[actors.ACTOR_EN_JJ.variants]]
+match = { Type = [0, 1] }
+draw = "marker"
+
+[[actors.ACTOR_EN_JJ.variants]]
+parts = [{ skeleton = "gJabuJabuSkel", pose = "gJabuJabuAnim", setup = 37, scale = 10, segments = { 8 = "gJabuJabuEyeOpenTex" } }]
+
+[actors.ACTOR_DEMO_GO]
+name = "Goron (Death Mountain Trail cutscene)"
+notes = "One of three Gorons of a Death Mountain Trail cutscene, each following its own cue channel (type 0 channel 3, type 1 channel 4, others 5). It draws nothing until its cue 2, when it drops along the cue's path to land with a thud and a quake, then curls open (cue 3) and walks off in gGoronAnim_0029A8. Drawn at its placement in the first frame of gGoronAnim_004930, the animation Init gives it, eyes open and smiling; where its cues move it is not drawn."
+object = "object_oF1d_map"
+scale = 0.01
+
+[actors.ACTOR_DEMO_GO.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Cue channel 3", 1 = "Cue channel 4", 2 = "Cue channel 5" }, description = "Picks the cutscene cue channel it follows; types 0 and 1 also play a falling sound" }
+
+[[actors.ACTOR_DEMO_GO.variants]]
+parts = [{ skeleton = "gGoronSkel", pose = "gGoronAnim_004930", segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthSmileTex" } }]
+
+[actors.ACTOR_EN_IT]
+name = "Dampe's digging spot"
+notes = "An invisible cylinder (radius 40, height 10) marking a spot in Dampe's grave-digging minigame; it has no draw function. Init overwrites its params with 0x0D05, so placed params do nothing."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EN_STREAM]
+name = "Whirlpool"
+notes = "A translucent swirling vortex that pulls Link down, as in Jabu-Jabu and Zora's Domain. The texture scroll is drawn at its first frame. Type 1 flattens it to a y scale of 0.01 while x and z stay 0.02; the format has no per-axis scale, so it is drawn at 0.02 on every axis."
+object = "object_stream"
+scale = 0.02
+
+[actors.ACTOR_EN_STREAM.params]
+Type = { mask = 0x00FF, kind = "number", description = "1 flattens the vortex to a y scale of 0.01" }
+
+[[actors.ACTOR_EN_STREAM.variants]]
+parts = [{ display_list = "object_stream_DL_000950", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, width = 64, height = 64 }, { tile = 1, width = 64, height = 64 }] } } }]
+
+[actors.ACTOR_EN_CHANGER]
+name = "Treasure Chest Shop minigame"
+notes = "Draws nothing. In Init it spawns the room's two chests (En_Box) and the Item_Etcetera items above them, at positions from sLeftChestPos and sRightChestPos indexed by the current room number, and in room 6 and on the reward chest with a heart piece or purple rupee. Which chest holds the key is random, and the room number is not a param, so its children cannot be written as an entry's. Killed when the room's chests are already open."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EN_SIOFUKI]
+name = "Water spout"
+notes = "A translucent column of water that rises or falls and carries Link, in the Water Temple. The model is drawn 6023 model units down from the actor (unk_170 = -6058 + 35), so only its top shows above the actor; Update moves the actor itself by its current height and a bob, which is not drawn. The scroll is drawn at its first frame. Width from rotation Z sets x and z scale to Width * 0.1 / 1.73 and Width * 0.05, not expressible from a rotation value: drawn at 0.1, as with Width 0. Init clears every rotation, so it is drawn unturned. Gone in room 10 once switch 0x1E is set. Types other than 0 and 1 are killed."
+object = "object_siofuki"
+scale = 0.1
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_EN_SIOFUKI.params]
+Type = { mask = 0xF000, kind = "choice", values = "EnSiofukiType" }
+"Switch Flag" = { mask = 0x0FC0, kind = "number", scene_flag = "switch", flag_use = "both", description = "Starts the spout moving; unset again when it is done" }
+"Treasure Flag" = { mask = 0x003F, kind = "number", scene_flag = "treasure", description = "Once set, a lowering spout stays down" }
+"Max Height" = { mask = 0xFFFF, source = "rotation_x", kind = "number", description = "Height it rises to, times 40 units" }
+"Active Time" = { mask = 0xFFFF, source = "rotation_y", kind = "number", description = "How long it stays up" }
+Width = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "x scale Width * 0.1 / 1.73, z scale Width * 0.05; 0 keeps 0.1" }
+
+[[actors.ACTOR_EN_SIOFUKI.variants]]
+parts = [{ display_list = "object_siofuki_DL_000B70", pass = "translucent", translation = [0, -6023, 0], segments = { 8 = { tiles = [{ tile = 0, width = 64, height = 64 }, { tile = 1, width = 64, height = 64 }] } } }]
+
+[actors.ACTOR_DEMO_KEKKAI]
+name = "Ganon's Castle barrier"
+notes = "The barrier around Ganon's Tower (type 0), or the barrier of energy over the end of one of the six trials, coloured by sEnergyColors. Each is gone once its trial (or the tower barrier) is dispelled. The energy column's vertex alphas are set by Draw from alphaIndex at full strength (0, 126 or 202); drawn here with the vertices' alphas as the file has them. Scrolls are drawn at their first frame."
+object = "object_demo_kekkai"
+scale = 0.1
+
+[actors.ACTOR_DEMO_KEKKAI.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "DemoKekkaiType" }
+
+[[actors.ACTOR_DEMO_KEKKAI.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gTowerBarrierDL", pass = "translucent", prim = [255, 170, 255, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 64 }] } } }]
+
+[[actors.ACTOR_DEMO_KEKKAI.variants]]
+parts = [
+    { display_list = "gTrialBarrierOrbDL", pass = "translucent", segments = { 9 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } },
+    { display_list = "gTrialBarrierFloorDL", pass = "translucent", prim = [50, 0, 100, 255], segments = { 10 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } },
+    { display_list = "gTrialBarrierEnergyDL", pass = "translucent", prim = [170, 255, 255, 255], env = [0, 50, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 64 }] } } },
+]
+
+[[actors.ACTOR_DEMO_KEKKAI.adjustments]]
+match = { Type = 2 }
+parts = [2]
+prim = [255, 255, 170, 255]
+env = [200, 255, 0, 128]
+
+[[actors.ACTOR_DEMO_KEKKAI.adjustments]]
+match = { Type = 3 }
+parts = [2]
+prim = [255, 255, 170, 255]
+env = [200, 0, 0, 128]
+
+[[actors.ACTOR_DEMO_KEKKAI.adjustments]]
+match = { Type = 4 }
+parts = [2]
+prim = [255, 170, 255, 255]
+env = [100, 0, 200, 128]
+
+[[actors.ACTOR_DEMO_KEKKAI.adjustments]]
+match = { Type = 5 }
+parts = [2]
+prim = [255, 255, 170, 255]
+env = [255, 120, 0, 128]
+
+[[actors.ACTOR_DEMO_KEKKAI.adjustments]]
+match = { Type = 6 }
+parts = [2]
+prim = [255, 255, 170, 255]
+env = [0, 200, 0, 128]
+
+[actors.ACTOR_BG_TOKI_SWD]
+name = "Master Sword in its pedestal"
+notes = "The Master Sword standing in the Pedestal of Time. Drawn only for child Link; as adult its draw is cleared until he places the sword back in a cutscene. Gone once child Link pulls it. Its texture scroll is drawn at its first frame."
+object = "object_toki_objects"
+scale = 0.025
+height_offset = 800
+
+[[actors.ACTOR_BG_TOKI_SWD.variants]]
+match = { age = "adult" }
+draw = "marker"
+
+[[actors.ACTOR_BG_TOKI_SWD.variants]]
+parts = [{ display_list = "object_toki_objects_DL_001BD0", hilite = true, segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }] } } }]
+
+[actors.ACTOR_BG_SPOT06_OBJECTS]
+name = "Lake Hylia object"
+notes = "Lake Hylia's Water Temple gate, the fish-shaped lock that opens it, the lake's water plane, or the ice block on the Zora shortcut. The gate stands 120 higher while adult with its switch flag set. The lock is pulled out by the hookshot and floats on the surface while its flag is set, moved outright to the lake's level and 100 back; drawn where placed. The water is drawn high, except for an adult, for whom it is drawn low as before the Water Temple is cleared, which the game decides by an event flag rather than age; its textures scroll, drawn at the first frame. The ice block is killed for a child, and is a marker then."
+object = "object_spot06_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT06_OBJECTS.params]
+Type = { mask = 0xFF00, kind = "choice", values = "LakeHyliaObjectsType" }
+"Switch Flag" = { mask = 0x00FF, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set by pulling out the lock; opens the gate" }
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gLakeHyliaWaterTempleGateDL" }]
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gLakeHyliaWaterTempleKeyDL" }]
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 2, age = "adult" }
+scale = 1
+parts = [{ display_list = "gLakeHyliaLowWaterDL", pass = "translucent", env = [255, 255, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 9 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 2 }
+scale = 1
+parts = [{ display_list = "gLakeHyliaHighWaterDL", pass = "translucent", env = [255, 255, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 9 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 3, age = "child" }
+draw = "marker"
+
+[[actors.ACTOR_BG_SPOT06_OBJECTS.variants]]
+match = { Type = 3 }
+parts = [{ display_list = "gLakeHyliaZoraShortcutIceblockDL" }]
+
+[actors.ACTOR_BG_SPOT08_ICEBLOCK]
+name = "Zora's Fountain ice floe"
+notes = "A floating ice floe of Zora's Fountain, or the ice ramp by where Jabu-Jabu lay. Killed for a child, so a marker then. Size picks the scale (0.2, 0.1, 0.05). Params other than 0x01, 0x04, 0x10, 0x11, 0x12, 0x14, 0x20, 0x23 and 0x24 in the low byte are replaced by 0x10 (medium, floating), which an entry cannot say. The floes bob, sink under Link, tilt, and some turn; drawn at rest. Action 3 is a pair orbiting each other: the placed one moves 100 forward and spawns its twin (params 0x123) at the placement, which moves 100 back; the 100 is written as a translation for the small size the only vanilla pair uses, so another size draws them wrongly apart."
+object = "object_spot08_obj"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT08_ICEBLOCK.params]
+Action = { mask = 0x000F, kind = "choice", values = { 0 = "Floating", 1 = "Floating, rolls less", 2 = "Floating, turning", 3 = "Orbiting twins", 4 = "Static" } }
+Size = { mask = 0x00F0, kind = "choice", values = { 0 = "Large", 1 = "Medium", 2 = "Small" } }
+Twins = { mask = 0x0100, kind = "flag", description = "The twin spawned by an orbiting floe" }
+Shape = { mask = 0x0200, kind = "choice", values = { 0 = "Iceberg", 1 = "Ice ramp" } }
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.variants]]
+match = { age = "child" }
+draw = "marker"
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.variants]]
+match = { Shape = 1 }
+parts = [{ display_list = "gZorasFountainIceRampDL" }]
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.variants]]
+match = { Twins = true }
+parts = [{ display_list = "gZorasFountainIcebergDL", translation = [0, 0, -2000] }]
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.variants]]
+match = { Action = 3 }
+parts = [{ display_list = "gZorasFountainIcebergDL", translation = [0, 0, 2000] }]
+children = [{ actor = "ACTOR_BG_SPOT08_ICEBLOCK", params = 0x0123, offset = [0, 0, 0] }]
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.variants]]
+parts = [{ display_list = "gZorasFountainIcebergDL" }]
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.adjustments]]
+match = { Size = 0 }
+scale = 0.2
+
+[[actors.ACTOR_BG_SPOT08_ICEBLOCK.adjustments]]
+match = { Size = 2 }
+scale = 0.05
+
+[actors.ACTOR_BG_INGATE]
+name = "Lon Lon Ranch gate"
+notes = "A gate of Lon Lon Ranch's corral. Killed outside Lon Lon Ranch, for a child, and once Epona is won outside the escape cutscene; a marker for a child. Gates with Opens set swing open 90 degrees in the cutscene where Link jumps out on Epona, to the left or right by Direction; drawn closed."
+object = "object_ingate"
+scale = 0.1
+
+[actors.ACTOR_BG_INGATE.params]
+Opens = { mask = 0x0001, kind = "flag", description = "Swings open in the escape cutscene" }
+Direction = { mask = 0x0002, kind = "choice", values = { 0 = "Swings right", 1 = "Swings left" } }
+
+[[actors.ACTOR_BG_INGATE.variants]]
+match = { age = "child" }
+draw = "marker"
+
+[[actors.ACTOR_BG_INGATE.variants]]
+parts = [{ display_list = "gIngoGateDL" }]
+
+[actors.ACTOR_BG_TREEMOUTH]
+name = "Deku Tree's mouth"
+notes = "The Great Deku Tree's mouth, which opens when Link agrees to enter. Update sets its position outright between closed (4029, 136, -1255) and open (3869, -263, -1163), ignoring its placement; it is drawn closed, as it starts for a child before the Deku Tree is opened and always for an adult, by a translation from the vanilla placement (3882, -171, -1161), so placed elsewhere it is drawn off. Its env alpha is 50, or 215 once the Deku Tree has died (an event flag), which an entry cannot say. No params."
+object = "object_spot04_objects"
+scale = 1
+
+[[actors.ACTOR_BG_TREEMOUTH.variants]]
+parts = [{ display_list = "gDekuTreeMouthDL", translation = [147, 307, -94], env = [128, 128, 128, 50] }]
+
+[actors.ACTOR_BG_HIDAN_KOUSI]
+name = "Fire Temple metal fence"
+notes = "A Fire Temple metal fence that slides aside when its switch flag is set: 120 for the slanted one, 150 for the others, in a direction set by its type. Drawn shut; it is open while the flag is set."
+object = "object_hidan_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HIDAN_KOUSI.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "With slant", 1 = "Fence", 2 = "Fence 2" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "Slides open when set" }
+
+[[actors.ACTOR_BG_HIDAN_KOUSI.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gFireTempleMetalFenceDL" }]
+
+[[actors.ACTOR_BG_HIDAN_KOUSI.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gFireTempleMetalFence2DL" }]
+
+[[actors.ACTOR_BG_HIDAN_KOUSI.variants]]
+parts = [{ display_list = "gFireTempleMetalFenceWithSlantDL" }]
+
+[actors.ACTOR_BG_MIZU_WATER]
+name = "Water Temple water"
+notes = "A water surface of the Water Temple. The main one (type 0) is placed at the highest level and drops to the middle or lowest level as the Water Temple's level flags are set; drawn where placed, at the highest. Types 2, 3 and 4 rise 85, 110 and 160 while their switch flag is set; drawn lowered. Its texture scrolls; drawn at the first frame. Type 0 also sets the room's water draw params from its height, which tint the room; left out."
+object = "object_mizu_objects"
+scale = 1
+
+[actors.ACTOR_BG_MIZU_WATER.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Main water level", 1 = "Static", 2 = "Rises 85", 3 = "Rises 110", 4 = "Rises 160" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "Raises types 2 to 4 while set" }
+
+[[actors.ACTOR_BG_MIZU_WATER.variants]]
+parts = [{ display_list = "gObjectMizuObjectsWaterDL_004B20", pass = "translucent", prim = [255, 255, 255, 102], env = [255, 255, 255, 128], segments = { 12 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[actors.ACTOR_BG_BDAN_SWITCH]
+name = "Jabu-Jabu floor switch"
+notes = "A blue or yellow switch of Jabu-Jabu's Belly; the tall ones are hit rather than stepped on. Draw ignores the actor's scale and builds its own: X and Z 0.112 (tall: 0.0575) and Y 0.105 (tall: 0.21) while up, pulsing slightly, and 1.2 up; written at the pulse's peak. While its switch flag is set it is pressed down (Y a tenth, or half for a tall one), which a scene does not say, so it is drawn up. Turned Y, then X, then Z by its rotation; vanilla placements turn about one axis only, so the order does not matter."
+object = "object_bdan_objects"
+scale = 1
+
+[actors.ACTOR_BG_BDAN_SWITCH.params]
+Type = { mask = 0x00FF, kind = "choice", values = "BgBdanSwitchType" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when pressed; the yellow ones unset it when released" }
+
+[[actors.ACTOR_BG_BDAN_SWITCH.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gJabuBlueFloorSwitchDL", translation = [0, 1.2, 0], scale = [0.112, 0.105, 0.112] }]
+
+[[actors.ACTOR_BG_BDAN_SWITCH.variants]]
+match = { Type = [3, 4] }
+parts = [{ display_list = "gJabuYellowFloorSwitchDL", translation = [0, 1.2, 0], scale = [0.0575, 0.21, 0.0575] }]
+
+[[actors.ACTOR_BG_BDAN_SWITCH.variants]]
+parts = [{ display_list = "gJabuYellowFloorSwitchDL", translation = [0, 1.2, 0], scale = [0.112, 0.105, 0.112] }]
+
+[actors.ACTOR_BG_BDAN_OBJECTS]
+name = "Jabu-Jabu platform or water"
+notes = "Jabu-Jabu's Belly's Big Octo platform, its small elevator, a water surface or its falling platform. The Big Octo platform sits 79 below its placement, a further 5 lower before Ruto starts its cutscene, and turns during the fight; after the intro cutscene has been seen (an inf table flag) it spawns Big Octo (Init moves it 263 along Z outright), which is left out. The elevator bobs up and down; drawn where placed. The water rises 75 for a while when its switch flag is set; drawn at rest. The falling platform is 400 lower while its switch flag is set; drawn up."
+object = "object_bdan_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_BDAN_OBJECTS.params]
+Type = { mask = 0x00FF, kind = "choice", values = "BgBdanObjectsType" }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Raises the water; the falling platform is down while set; the Big Octo platform sets it" }
+
+[[actors.ACTOR_BG_BDAN_OBJECTS.variants]]
+match = { Type = 0 }
+height_offset = -790
+parts = [{ display_list = "gJabuObjectsLargeRotatingSpikePlatformDL", translation = [0, -50, 0] }]
+
+[[actors.ACTOR_BG_BDAN_OBJECTS.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gJabuElevatorPlatformDL" }]
+
+[[actors.ACTOR_BG_BDAN_OBJECTS.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gJabuWaterDL", pass = "translucent" }]
+
+[[actors.ACTOR_BG_BDAN_OBJECTS.variants]]
+parts = [{ display_list = "gJabuFallingPlatformDL" }]
+
+[actors.ACTOR_BG_SPOT00_HANEBASI]
+name = "Hyrule Castle drawbridge"
+notes = "The drawbridge across the castle moat in Hyrule Field, and its two chains, which the bridge spawns (chain 1, which spawns chain 2). Init sets the bridge's X rotation outright: raised (-90 degrees) at night as child, on scene layers 4 and 5, and once Link has the three Spiritual Stones until the Zelda's escape cutscene is seen; lowered otherwise. Drawn lowered, at the placed rotation. It is gone as adult outside cutscene layers. While raised at night (or on a cutscene layer) it draws two torch flames (gEffFire1DL, scaled from its angle, 0.008 when fully raised) at world positions (+-260, 128, 690), which are not drawn here since the lowered bridge draws none. Draw moves the chains each frame to (+-158, 10, 400) in the bridge's frame; children of children are not followed, so both chains are written as the bridge's children, and the chains keep the placed X rotation where the game tilts them to 0xF020 while raised."
+object = "object_spot00_objects"
+scale = 1
+
+[actors.ACTOR_BG_SPOT00_HANEBASI.params]
+Type = { mask = 0xFFFF, kind = "choice", hex = true, values = { 65535 = "Drawbridge", 0 = "Chain 1 (spawned)", 1 = "Chain 2 (spawned)" } }
+
+[[actors.ACTOR_BG_SPOT00_HANEBASI.variants]]
+match = { Type = 65535 }
+parts = [{ display_list = "gHyruleFieldCastleDrawbridgeDL" }]
+children = [
+    { actor = "ACTOR_BG_SPOT00_HANEBASI", params = 0x0000, offset = [158, 10, 400] },
+    { actor = "ACTOR_BG_SPOT00_HANEBASI", params = 0x0001, offset = [-158, 10, 400] },
+]
+
+[[actors.ACTOR_BG_SPOT00_HANEBASI.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gHyruleFieldCastleDrawbridgeChainsDL" }]
+children = [{ actor = "ACTOR_BG_SPOT00_HANEBASI", params = 0x0001, offset = [-316, 0, 0] }]
+
+[[actors.ACTOR_BG_SPOT00_HANEBASI.variants]]
+parts = [{ display_list = "gHyruleFieldCastleDrawbridgeChainsDL" }]
+
+[actors.ACTOR_BG_SPOT01_IDOMIZU]
+name = "Kakariko well water"
+notes = "The water in the Kakariko Village well, which drains once the well is drained (EVENTCHKINF_DRAINED_WELL) or as adult. Init sets its height outright to y 52, or -550 when drained, wherever it is placed, which an entry cannot say: it is drawn where it is placed. Its texture scrolls; drawn where the scroll starts. It has no params."
+object = "object_spot01_objects"
+scale = 0.1
+
+[[actors.ACTOR_BG_SPOT01_IDOMIZU.variants]]
+parts = [{ display_list = "gKakarikoWellWaterDL", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, x = 127, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } }]
+
+[actors.ACTOR_BG_HAKA_GATE]
+name = "Truth spinner puzzle"
+notes = "The Shadow Temple's Lens of Truth puzzle: the turning statue, the floor that drops Link when it is turned to a false skull, the gate that rises 80 units once it is turned to the true one, and the skulls on the walls. The true skull is picked at random among those facing within 90 degrees of 0. A skull draws a flame (gEffFire1DL, 0.0035, 15 units up) only while the switch flag is set, which a scene does not say, so it is drawn without; with the Lens active a false skull is drawn translucent. The gate is 80 units higher while the flag is set; drawn closed. The floor is drawn shut."
+object = "object_haka_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HAKA_GATE.params]
+Type = { mask = 0x00FF, kind = "choice", values = "BgHakaGateType" }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when the true skull is found; opens the gate and lights the skulls" }
+
+[[actors.ACTOR_BG_HAKA_GATE.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "object_haka_objects_DL_012270" }]
+
+[[actors.ACTOR_BG_HAKA_GATE.variants]]
+match = { Type = 1 }
+parts = [
+    { display_list = "object_haka_objects_DL_010A10" },
+    { display_list = "object_haka_objects_DL_010C10" },
+]
+
+[[actors.ACTOR_BG_HAKA_GATE.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "object_haka_objects_DL_00A860" }]
+
+[[actors.ACTOR_BG_HAKA_GATE.variants]]
+match = { Type = 3 }
+parts = [{ display_list = "object_haka_objects_DL_00F1B0" }]
+
+[[actors.ACTOR_BG_HAKA_GATE.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_SPOT01_IDOHASHIRA]
+name = "Kakariko well beam"
+notes = "The wooden beam across the top of the Kakariko well, which breaks and falls in the cutscene that drains it (scene layer 4, lowered 110 units by its shape offset there). Gone as adult once the well is drained (EVENTCHKINF_54), and on cutscene layers other than 4 and 6. It has no params."
+object = "object_spot01_objects"
+scale = 0.1
+
+[[actors.ACTOR_BG_SPOT01_IDOHASHIRA.variants]]
+parts = [{ display_list = "gKakarikoWellArchDL" }]
+
+[actors.ACTOR_BG_SPOT18_OBJ]
+name = "Goron City statue"
+notes = "The Goron statue in Darunia's room and the spear in front of it. As adult the statue is pushed back 80 units along its facing, setting its switch flag; while the flag is set it is moved outright to that spot, which an entry cannot say: it is drawn where it is placed. As child it never moves. The spear is gone as adult. Any type but 0 and 1 reads past its tables."
+object = "object_spot18_obj"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT18_OBJ.params]
+Type = { mask = 0x000F, kind = "choice", values = { 0 = "Statue", 1 = "Spear (child only)" } }
+"Switch Flag" = { mask = 0x3F00, kind = "number", scene_flag = "switch", flag_use = "both", description = "The statue's; set once it is pushed back, and moved back while set" }
+
+[[actors.ACTOR_BG_SPOT18_OBJ.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gGoronCityStatueDL" }]
+
+[[actors.ACTOR_BG_SPOT18_OBJ.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gGoronCityStatueSpearDL" }]
+
+[[actors.ACTOR_BG_SPOT18_OBJ.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_GATE_SHUTTER]
+name = "Death Mountain Trail gate"
+notes = "The guarded gate between Kakariko Village and Death Mountain Trail, which slides open sideways when the guard is shown Zelda's Letter. Once open (INFTABLE_76 or EVENTCHKINF_45) in Kakariko it is moved outright to x -89, z -1375, which an entry cannot say: it is drawn closed, where it is placed. It has no params."
+object = "object_spot01_matoyab"
+scale = 1
+
+[[actors.ACTOR_BG_GATE_SHUTTER.variants]]
+parts = [{ display_list = "gKakarikoGuardGateDL" }]
+
+[actors.ACTOR_BG_HAKA_MEGANEBG]
+name = "Shadow Temple moving platform"
+notes = "Shadow Temple scenery picked by Type. The invisible platform slides 320 units back and forth along X and is seen only through the Lens of Truth (drawn here as always seen). The spiked ceiling drops 640 units and rises again; drawn at rest. The turntable turns about Y without stopping; drawn at the placed angle. The gate rises 100 units when its switch flag is set, and is raised while set; drawn closed."
+object = "object_haka_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HAKA_MEGANEBG.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Invisible sliding platform", 1 = "Crushing ceiling", 2 = "Turntable", 3 = "Rising gate" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "The rising gate's; raised while set" }
+
+[[actors.ACTOR_BG_HAKA_MEGANEBG.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "object_haka_objects_DL_008EB0", pass = "translucent" }]
+
+[[actors.ACTOR_BG_HAKA_MEGANEBG.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "object_haka_objects_DL_00A1A0" }]
+
+[[actors.ACTOR_BG_HAKA_MEGANEBG.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "object_haka_objects_DL_005000" }]
+
+[[actors.ACTOR_BG_HAKA_MEGANEBG.variants]]
+match = { Type = 3 }
+parts = [{ display_list = "object_haka_objects_DL_000040" }]
+
+[[actors.ACTOR_BG_HAKA_MEGANEBG.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_MIZU_SHUTTER]
+name = "Water Temple shutter"
+notes = "A metal gate of the Water Temple that slides open, 100 units for a small one and 140 for a large one along its own up axis, when its switch flag is set, and closes again after its timer. Init clears the flag unless the timer is 63, so a timed shutter always starts closed; one with timer 63 stays open once set. Drawn closed. A size other than 0 and 1 reads past its tables."
+object = "object_mizu_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_MIZU_SHUTTER.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Opens it; cleared when the timer runs out" }
+Timer = { mask = 0x0FC0, kind = "number", description = "How long it stays open, in units of 20 frames; 63 keeps it open" }
+Size = { mask = 0xF000, kind = "choice", values = "BgMizuShutterSize" }
+
+[[actors.ACTOR_BG_MIZU_SHUTTER.variants]]
+match = { Size = 0 }
+parts = [{ display_list = "gObjectMizuObjectsShutterDL_007130" }]
+
+[[actors.ACTOR_BG_MIZU_SHUTTER.variants]]
+match = { Size = 1 }
+parts = [{ display_list = "gObjectMizuObjectsShutterDL_0072D0" }]
+
+[[actors.ACTOR_BG_MIZU_SHUTTER.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_RELAY_OBJECTS]
+name = "Windmill gear or Dampe race door"
+notes = "The windmill's turning platform, or a stone door of Dampe's race that rises 120 while its switch flag is set and falls shut again after a time. The platform turns about Y without stopping, faster once the Song of Storms has been played (EVENTCHKINF_65); drawn at the placed angle. Only one of each exists at a time, and they stay across rooms. A door whose number (its switch flag less 0x33 in room 0, its room plus 1 elsewhere) is 5 starts raised by 120 and closes as Link arrives; vanilla places none, and it is drawn where it is placed."
+object = "object_relay_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_RELAY_OBJECTS.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "A door rises while set; cleared when it shuts" }
+Type = { mask = 0xFF00, kind = "choice", values = "WindmillSetpiecesMode" }
+
+[[actors.ACTOR_BG_RELAY_OBJECTS.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gWindmillRotatingPlatformDL" }]
+
+[[actors.ACTOR_BG_RELAY_OBJECTS.variants]]
+parts = [{ display_list = "gDampeRaceDoorDL" }]
+
+[actors.ACTOR_BG_SPOT07_TAKI]
+name = "Zora's Domain waterfall"
+notes = "The waterfall of Zora's Domain, or of its fountain, frozen over for adults: an adult sees the ice (opaque) and frozen falls (translucent) with collision, a child the flowing water. The water's textures scroll on segments 8 to 10; drawn where the scroll starts. The adult's translucent ice is drawn with segment 8's scroll too, and with whatever env colour was set before it. Which of Zora's Domain's two falls each Waterfall value is, is a guess from the collision; vanilla places both, three times each."
+object = "object_spot07_object"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT07_TAKI.params]
+Waterfall = { mask = 0xFFFF, kind = "choice", values = { 0 = "Main waterfall", 1 = "Second waterfall" } }
+
+[[actors.ACTOR_BG_SPOT07_TAKI.variants]]
+match = { Waterfall = 0, age = "adult" }
+parts = [
+    { display_list = "object_spot07_object_DL_001CF0" },
+    { display_list = "object_spot07_object_DL_001F68", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } },
+]
+
+[[actors.ACTOR_BG_SPOT07_TAKI.variants]]
+match = { age = "adult" }
+parts = [
+    { display_list = "object_spot07_object_DL_003210" },
+    { display_list = "object_spot07_object_DL_0032D8", pass = "translucent", segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] } } },
+]
+
+[[actors.ACTOR_BG_SPOT07_TAKI.variants]]
+match = { Waterfall = 0 }
+parts = [{ display_list = "object_spot07_object_DL_000460", pass = "translucent", env = [255, 255, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 9 = { tiles = [{ tile = 0, width = 64, height = 64 }, { tile = 1, width = 64, height = 64 }] }, 10 = { tiles = [{ tile = 0, width = 32, height = 128 }, { tile = 1, width = 32, height = 128 }] } } }]
+
+[[actors.ACTOR_BG_SPOT07_TAKI.variants]]
+parts = [{ display_list = "object_spot07_object_DL_000BE0", pass = "translucent", env = [255, 255, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 9 = { tiles = [{ tile = 0, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 10 = { tiles = [{ tile = 0, width = 32, height = 128 }, { tile = 1, width = 32, height = 128 }] } } }]
+
+[actors.ACTOR_BG_HAKA_HUTA]
+name = "Coffin lid"
+notes = "A coffin lid in the Bottom of the Well that slides open when its switch flag is set and spawns what the coffin holds: two Fire Keese or a Gibdo rising out of it, at offsets turned by the lid, spawned on opening rather than in Init, so not children here. While its flag is already set it is drawn slid aside and tipped off the coffin, 30 units along an axis it turns about, which an entry cannot say: it is drawn shut."
+object = "object_hakach_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_HAKA_HUTA.params]
+"Switch Flag" = { mask = 0x00FF, kind = "number", scene_flag = "switch", description = "Opens when set" }
+Contents = { mask = 0xFF00, kind = "choice", values = { 0 = "Nothing", 1 = "Gibdo", 2 = "Two Fire Keese" } }
+
+[[actors.ACTOR_BG_HAKA_HUTA.variants]]
+parts = [{ display_list = "gBotwCoffinLidDL" }]
+
+[actors.ACTOR_BG_JYA_GOROIWA]
+name = "Spirit Temple rolling boulder"
+notes = "A boulder that rolls back and forth along a fixed stretch of the Spirit Temple (x 1393 to 1745), its height set outright by its x as it goes, turning about Z as it rolls; drawn where it is placed, unturned, as Init zeroes its shape's rotation. Its placed Y rotation is only the direction it rolls. It has no params."
+object = "object_goroiwa"
+scale = 0.1
+height_offset = 595
+rotates = { x = false, y = false, z = false }
+
+[[actors.ACTOR_BG_JYA_GOROIWA.variants]]
+parts = [{ display_list = "gRollingRockDL" }]
+
+[actors.ACTOR_BG_SPOT05_SOKO]
+name = "Sacred Forest Meadow gate or wall"
+notes = "In the Sacred Forest Meadow, a wall that is there only for a child (Type 0, killed for an adult, so drawn as a marker), or the metal gate that sinks 120 and is gone once its switch flag is set, and gone while it is already set (Type 1)."
+object = "object_spot05_objects"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT05_SOKO.params]
+Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Child-only wall", 1 = "Gate" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "A gate sinks when set, and is gone while set" }
+
+[[actors.ACTOR_BG_SPOT05_SOKO.variants]]
+match = { Type = 0, age = "adult" }
+draw = "marker"
+
+[[actors.ACTOR_BG_SPOT05_SOKO.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "object_spot05_objects_DL_000840" }]
+
+[[actors.ACTOR_BG_SPOT05_SOKO.variants]]
+parts = [{ display_list = "object_spot05_objects_DL_001190" }]
+
+[actors.ACTOR_BG_SPOT11_BAKUDANKABE]
+name = "Desert Colossus bombable wall"
+notes = "A wall in the Desert Colossus that a bomb breaks, setting its switch flag; gone while the flag is set. Its hit cylinder sits at a fixed offset (2259, 108, -1580) from where it is placed, which suggests its model is modelled at that offset too. Placements with Switch Flag 0x3F are never broken for good."
+object = "object_spot11_obj"
+scale = 1
+
+[actors.ACTOR_BG_SPOT11_BAKUDANKABE.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when broken; gone while set" }
+
+[[actors.ACTOR_BG_SPOT11_BAKUDANKABE.variants]]
+parts = [{ display_list = "gDesertColossusBombableWallDL" }]
+
+[actors.ACTOR_BG_SPOT12_GATE]
+name = "Gerudo Fortress wasteland gate"
+notes = "The gate from Gerudo's Fortress to the Haunted Wasteland, which rises 200 when its switch flag is set, and is 200 higher while it is already set. Drawn shut."
+object = "object_spot12_obj"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT12_GATE.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Raised while set" }
+
+[[actors.ACTOR_BG_SPOT12_GATE.variants]]
+parts = [{ display_list = "gGerudoFortressWastelandGateDL" }]
+
+[actors.ACTOR_BG_SPOT12_SAKU]
+name = "Gerudo Training Ground shutter"
+notes = "The shutter in front of the Gerudo Training Ground, which slides aside, shrinking on X to about 0.0071 and moving 78 to its side, when its switch flag is set, and stays so while it is set. Drawn shut."
+object = "object_spot12_obj"
+scale = 0.1
+
+[actors.ACTOR_BG_SPOT12_SAKU.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Open while set" }
+
+[[actors.ACTOR_BG_SPOT12_SAKU.variants]]
+parts = [{ display_list = "gGerudoFortressGTGShutterDL" }]
