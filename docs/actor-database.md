@@ -260,9 +260,11 @@ Some display lists are defined by an overlay itself rather than an object: En_Ho
 `sPlaneDL` is in `z_en_holl.c`, its vertices included from `assets/overlays/ovl_En_Holl/`.
 An object named `ovl_<Actor>` is that overlay's own data. Its main file is read as an object
 is, into segment 6 (`SegmentFiles::isOverlay`): only declarations the RSP draws with are kept,
-display lists, vertices, matrices, viewports, lights and integer arrays, since the rest is its
-code's and points at its functions, and its folder is read inline so its own header is. Its
-symbols are picked in the panel as an object's, typed as `ovl_En_Holl`.
+display lists, vertices, matrices, viewports, lights and integer arrays, and the animations it
+poses a skeleton with (`AnimationHeader` and its `JointIndex` arrays, as En_Sth's dances), since
+the rest is its code's and points at its functions, and its folder is read inline so its own
+header is. Its symbols are picked in the panel as an object's, typed as `ovl_En_Holl`, and a
+part's `pose_object` may name it too.
 
 ### Items
 
