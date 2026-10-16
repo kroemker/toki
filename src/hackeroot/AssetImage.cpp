@@ -51,9 +51,10 @@ constexpr usize WordAlignment = 4;
 constexpr std::array<std::string_view, 1> AlsoHidden{"ultra64/gbi.f3dex3.h"};
 constexpr std::string_view GbiHeader = "ultra64/gbi.h";
 constexpr std::array<std::string_view, 19> OverlayDataTypes{
-    "Gfx",     "Vtx",     "Mtx",     "Vp",      "u64",     "u32",     "u16",
-    "u8",      "s16",     "Lights0", "Lights1", "Lights2", "Lights3", "Lights4",
-    "Lights5", "Lights6", "Lights7", "AnimationHeader", "JointIndex"};
+    "Gfx",       "Vtx",     "Mtx",     "Vp",      "u64",     "u32",
+    "u16",       "u8",      "s16",     "Lights0", "Lights1", "Lights2",
+    "Lights3",   "Lights4", "Lights5", "Lights6", "Lights7", "AnimationHeader",
+    "JointIndex"};
 
 struct FileRead {
     usize image = 0;
