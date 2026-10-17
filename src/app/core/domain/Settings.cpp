@@ -7,6 +7,7 @@
 #include <toml++/toml.hpp>
 
 #include <algorithm>
+#include <array>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -23,6 +24,11 @@
 namespace toki::core {
 
 namespace {
+
+constexpr auto MarkerShapeNames = std::to_array<std::string_view>({"cube", "diamond", "pin"});
+
+static_assert(MarkerShapeNames.size() == MarkerShapeCount,
+              "a marker shape was added to the enum without a name");
 
 [[nodiscard]] std::expected<std::string, std::string> readFile(const std::filesystem::path& path) {
     const std::ifstream stream(path, std::ios::binary);
@@ -125,6 +131,24 @@ void readPanels(const toml::table& root, Settings& settings) {
     if (const toml::array* closed = root["panels"]["closed"].as_array()) {
         settings.closedPanels = readIds(*closed);
     }
+}
+
+void readMarkers(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
+    const std::optional<std::string> shape = root["markers"]["shape"].value<std::string>();
+    if (!shape) {
+        return;
+    }
+    if (const std::optional<MarkerShape> parsed = parseMarkerShape(*shape)) {
+        settings.markerShape = *parsed;
+    } else {
+        logWarn("{}: unknown markers.shape '{}', using '{}'", encodeUtf8(path), *shape,
+                getMarkerShapeName(settings.markerShape));
+    }
+}
+
+void writeMarkers(toml::table& root, const Settings& settings) {
+    ensureSection(root, "markers")
+        .insert_or_assign("shape", std::string{getMarkerShapeName(settings.markerShape)});
 }
 
 void readActors(const toml::table& root, Settings& settings) {
@@ -304,6 +328,20 @@ void writePanels(toml::table& root, const Settings& settings) {
 
 } // namespace
 
+std::string_view getMarkerShapeName(const MarkerShape shape) {
+    return MarkerShapeNames[static_cast<usize>(shape)];
+}
+
+std::optional<MarkerShape> parseMarkerShape(const std::string_view name) {
+    for (usize i = 0; i < MarkerShapeCount; ++i) {
+        const auto shape = static_cast<MarkerShape>(i);
+        if (getMarkerShapeName(shape) == name) {
+            return shape;
+        }
+    }
+    return std::nullopt;
+}
+
 bool isSamePath(const std::filesystem::path& first, const std::filesystem::path& second) {
     std::filesystem::path left = first.lexically_normal();
     std::filesystem::path right = second.lexically_normal();
@@ -333,6 +371,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readBuild(*root, path, settings);
     readSession(*root, settings);
     readActors(*root, settings);
+    readMarkers(*root, path, settings);
 
     return settings;
 }
@@ -367,6 +406,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeBuild(root, settings);
     writeSession(root, settings);
     writeActors(root, settings);
+    writeMarkers(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

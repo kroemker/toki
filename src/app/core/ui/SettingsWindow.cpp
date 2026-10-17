@@ -28,6 +28,10 @@ namespace {
 constexpr const char* PopupName = "Settings";
 constexpr s64 SmallestLog = 100;
 constexpr s64 LargestLog = 1'000'000;
+constexpr auto MarkerShapeLabels = std::to_array<const char*>({"Cube", "Diamond", "Pin"});
+
+static_assert(MarkerShapeLabels.size() == MarkerShapeCount,
+              "a marker shape was added to the enum without a label");
 
 template <usize Size>
 void copyText(std::array<char, Size>& into, const std::string_view text) {
@@ -91,6 +95,15 @@ SettingsWindow::SettingsWindow() {
         .drawControl = [this] { drawBuildRows(); },
         .isChanged = [this] { return !buildRows.empty(); },
         .reset = [this] { buildRows.clear(); },
+    });
+    entries.push_back(Entry{
+        .category = "Viewport",
+        .label = "Actor markers",
+        .help = "The shape an actor is marked with when it is not drawn as its model, and "
+                "player entries always are.",
+        .drawControl = [this] { drawMarkerShape(); },
+        .isChanged = [this, defaults] { return draft.markerShape != defaults.markerShape; },
+        .reset = [this, defaults] { draft.markerShape = defaults.markerShape; },
     });
     entries.push_back(Entry{
         .category = "Log",
@@ -311,6 +324,20 @@ void SettingsWindow::drawLogEntries() {
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
     if (ImGui::InputScalar("##entries", ImGuiDataType_S64, &kept)) {
         draft.log.maxEntries = static_cast<usize>(std::clamp(kept, SmallestLog, LargestLog));
+    }
+}
+
+void SettingsWindow::drawMarkerShape() {
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
+    if (ImGui::BeginCombo("##markerShape",
+                          MarkerShapeLabels[static_cast<usize>(draft.markerShape)])) {
+        for (usize i = 0; i < MarkerShapeCount; ++i) {
+            const auto shape = static_cast<MarkerShape>(i);
+            if (ImGui::Selectable(MarkerShapeLabels[i], shape == draft.markerShape)) {
+                draft.markerShape = shape;
+            }
+        }
+        ImGui::EndCombo();
     }
 }
 

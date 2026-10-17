@@ -114,8 +114,8 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         CHECK(std::ranges::any_of(
             main.rooms, [](const toki::scene::RoomHeader& room) { return !room.objects.empty(); }));
 
-        const toki::viewport::ViewportContent content =
-            toki::scene::makeSceneContent(scene, toki::scene::makeSceneView(scene));
+        const toki::viewport::ViewportContent content = toki::scene::makeSceneContent(
+            scene, toki::scene::makeSceneView(scene), toki::core::MarkerShape::Cube);
         const toki::viewport::Frame frame = toki::viewport::runFrame(
             content, toki::viewport::OrbitCamera{}, {.width = 640, .height = 480});
         INFO("frame: " << describe(frame.diagnostics));

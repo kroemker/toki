@@ -98,7 +98,7 @@ void ScenePanel::setScene(Scene read) {
         !scene->layers.front().header.playerEntries.empty()) {
         target = makePoint(scene->layers.front().header.playerEntries.front().position);
     }
-    viewportPanel.setContent(makeSceneContent(*scene, sceneView), target);
+    viewportPanel.setContent(makeSceneContent(*scene, sceneView, markerShape), target);
     if (isRestored && pendingSession->camera) {
         viewportPanel.setCameraPose(*pendingSession->camera);
     }
@@ -122,7 +122,7 @@ std::optional<core::SceneSession> ScenePanel::makeSession() const {
 
 void ScenePanel::showScene() {
     if (scene) {
-        viewportPanel.setContent(makeSceneContent(*scene, sceneView));
+        viewportPanel.setContent(makeSceneContent(*scene, sceneView, markerShape));
     }
 }
 

@@ -1,6 +1,6 @@
 # Actor rendering
 
-Design for drawing a scene's placed actors as what they are, instead of the diamonds
+Design for drawing a scene's placed actors as what they are, instead of the markers
 `makeActorMarkers` draws now. Nothing here is built yet. Once it is, this document is
 rewritten to describe what was built, the way the other documents are.
 
@@ -224,7 +224,7 @@ A symbol is also checked against its role by its declared type: a display list m
 `Gfx`, a skeleton a `SkeletonHeader` or `FlexSkeletonHeader`, an animation an
 `AnimationHeader`.
 
-An actor without a drawing keeps its diamond. `SceneView::drawsModels` switches between
+An actor without a drawing keeps its marker. `SceneView::drawsModels` switches between
 models and markers.
 
 The Scene panel marks each placed actor with a cube when it is drawn as its model and a

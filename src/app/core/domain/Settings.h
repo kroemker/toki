@@ -10,6 +10,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace toki::core {
@@ -21,6 +22,21 @@ struct WindowGeometry {
     s32 height = 0;
     bool maximized = false;
 };
+
+/// What an actor the viewport does not draw as its model is marked with.
+enum class MarkerShape : u8 {
+    Cube,
+    Diamond,
+    Pin,
+};
+
+inline constexpr usize MarkerShapeCount = static_cast<usize>(MarkerShape::Pin) + 1;
+
+/// What `shape` is called in the config.
+[[nodiscard]] std::string_view getMarkerShapeName(MarkerShape shape);
+
+/// The shape `name` calls, if any.
+[[nodiscard]] std::optional<MarkerShape> parseMarkerShape(std::string_view name);
 
 struct LogSettings {
     LogLevel minLevel = LogLevel::Debug;
@@ -68,6 +84,8 @@ struct Settings {
     std::vector<std::string> closedPanels;
 
     std::optional<SceneSession> session;
+
+    MarkerShape markerShape = MarkerShape::Cube;
 
     /// The new actors of the checkout that the person chose not to derive, by
     /// enum name, so they are not asked about again until the set changes.

@@ -66,6 +66,12 @@ public:
         inspectDisplayList = std::move(inspector);
     }
 
+    /// Marks actors not drawn as their models with `shape` from now on.
+    void setMarkerShape(core::MarkerShape shape) {
+        markerShape = shape;
+        showScene();
+    }
+
     void draw() override;
 
 private:
@@ -94,6 +100,7 @@ private:
     std::function<void(const std::string&)> openActorEditor;
     std::optional<Scene> scene;
     SceneView sceneView;
+    core::MarkerShape markerShape = core::MarkerShape::Cube;
     std::optional<core::SceneSession> pendingSession;
     bool showsFlagLinks = true;
     std::optional<std::pair<actor::SceneFlag, s64>> hoveredFlag;

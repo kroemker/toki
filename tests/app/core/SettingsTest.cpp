@@ -214,6 +214,19 @@ TEST_CASE("the new actors not to derive round-trip", "[core][settings]") {
     REQUIRE(loaded->dismissedNewActors == written.dismissedNewActors);
 }
 
+TEST_CASE("actors are marked by cubes unless the config names another shape", "[core][settings]") {
+    const TempDir dir("markers");
+    REQUIRE(Settings{}.markerShape == toki::core::MarkerShape::Cube);
+
+    Settings written;
+    written.markerShape = toki::core::MarkerShape::Pin;
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    REQUIRE(loadSettings(dir.getFile())->markerShape == toki::core::MarkerShape::Pin);
+
+    writeFile(dir.getFile(), "[markers]\nshape = \"star\"\n");
+    REQUIRE(loadSettings(dir.getFile())->markerShape == toki::core::MarkerShape::Cube);
+}
+
 TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
     const TempDir dir("session");
     Settings written;

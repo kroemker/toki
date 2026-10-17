@@ -62,6 +62,7 @@ private:
     void drawBuildRows();
     void drawLogLevel();
     void drawLogEntries();
+    void drawMarkerShape();
     [[nodiscard]] Settings makeApplied() const;
 
     std::vector<Entry> entries;

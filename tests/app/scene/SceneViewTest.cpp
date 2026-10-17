@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <tuple>
 #include <variant>
 #include <vector>
 
@@ -78,9 +79,9 @@ usize countTriangles(const n64::RspResult& result) {
         }));
 }
 
-toki::viewport::Frame runScene(const toki::scene::Scene& scene,
-                               const toki::scene::SceneView& view) {
-    return toki::viewport::runFrame(toki::scene::makeSceneContent(scene, view),
+toki::viewport::Frame runScene(const toki::scene::Scene& scene, const toki::scene::SceneView& view,
+                               const toki::core::MarkerShape shape) {
+    return toki::viewport::runFrame(toki::scene::makeSceneContent(scene, view, shape),
                                     toki::viewport::OrbitCamera{}, {.width = 320, .height = 240});
 }
 
@@ -96,27 +97,42 @@ TEST_CASE("a scene first shows its main layer at midday, every room, actors mark
     REQUIRE(view.lightSetting == 1);
     REQUIRE(view.hiddenRooms == std::vector<bool>{false, false});
     REQUIRE(view.showsActors);
-    const toki::viewport::ViewportContent content = toki::scene::makeSceneContent(scene, view);
+    const toki::viewport::ViewportContent content =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
     REQUIRE(content.lighting.has_value());
     REQUIRE(content.lighting->zFar == 6400.0F);
 }
 
-TEST_CASE("every shown room is drawn, and actors are marked by outlined diamonds",
-          "[scene][view]") {
+TEST_CASE("every shown room is drawn, and actors are marked by shapes", "[scene][view]") {
     const toki::scene::Scene scene = makeScene();
     toki::scene::SceneView view = toki::scene::makeSceneView(scene);
 
-    const toki::viewport::Frame all = runScene(scene, view);
+    const toki::viewport::Frame all = runScene(scene, view, toki::core::MarkerShape::Diamond);
     REQUIRE(all.diagnostics.empty());
-    const usize marked = countTriangles(all.rspResult) - 2;
-    REQUIRE(marked > 3 * 4);
-    REQUIRE(marked < 3 * 16);
+    REQUIRE(countTriangles(all.rspResult) > 2 + (3 * 4));
 
     view.hiddenRooms[1] = true;
     view.showsActors = false;
-    const toki::viewport::Frame one = runScene(scene, view);
+    const toki::viewport::Frame one = runScene(scene, view, toki::core::MarkerShape::Diamond);
     REQUIRE(one.diagnostics.empty());
     REQUIRE(countTriangles(one.rspResult) == 1);
+}
+
+TEST_CASE("every marker shape marks each actor, edges and all", "[scene][view]") {
+    const toki::scene::Scene scene = makeScene();
+    const toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+
+    constexpr usize TrianglesPerEdge = 12;
+    for (const auto [shape, faces, edges] :
+         {std::tuple{toki::core::MarkerShape::Cube, usize{12}, usize{12}},
+          std::tuple{toki::core::MarkerShape::Diamond, usize{8}, usize{12}},
+          std::tuple{toki::core::MarkerShape::Pin, usize{6}, usize{8}}}) {
+        const toki::viewport::Frame frame = runScene(scene, view, shape);
+        REQUIRE(frame.diagnostics.empty());
+        const usize marked = countTriangles(frame.rspResult) - 2;
+        REQUIRE(marked > 3 * edges);
+        REQUIRE(marked < 3 * (faces + (edges * TrianglesPerEdge)));
+    }
 }
 
 TEST_CASE("a view kept across a read again stays within what the scene has", "[scene][view]") {

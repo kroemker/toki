@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
 #include "z64/MemoryImage.h"
 
@@ -29,11 +30,12 @@ struct ActorMarkers {
     u32 displayList = 0;
 };
 
-/// A small diamond at every marker, coloured by kind and outlined in near black,
-/// as a memory image of one display list built by hand. The outline is a
-/// slightly larger diamond of which only the far side is drawn, so it shows as
-/// a rim around the near one. Depth tested, so a marker inside a wall is hidden
-/// as the actor would be.
-[[nodiscard]] ActorMarkers makeActorMarkers(std::span<const Marker> markers);
+/// A small `shape` at every marker, coloured by kind with its edges drawn as
+/// thin near-black boxes, as a memory image of one display list built by hand.
+/// Each marker is drawn under its own matrix, which scales vertices written at
+/// a finer step than a world unit, so the edges can be thinner than one. Depth tested, so a marker
+/// inside a wall is hidden as the actor would be.
+[[nodiscard]] ActorMarkers makeActorMarkers(std::span<const Marker> markers,
+                                            core::MarkerShape shape);
 
 } // namespace toki::scene

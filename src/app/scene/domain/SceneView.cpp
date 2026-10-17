@@ -122,11 +122,12 @@ struct Placed {
     return markers;
 }
 
-void addMarkers(viewport::ViewportContent& content, const std::span<const Marker> markers) {
+void addMarkers(viewport::ViewportContent& content, const std::span<const Marker> markers,
+                const core::MarkerShape shape) {
     if (markers.empty()) {
         return;
     }
-    ActorMarkers made = makeActorMarkers(markers);
+    ActorMarkers made = makeActorMarkers(markers, shape);
     content.draws.push_back(
         viewport::ViewportDraw{.image = content.images.size(), .displayList = made.displayList});
     content.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(made.image)));
@@ -231,7 +232,8 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
     return session;
 }
 
-viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view) {
+viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
+                                           const core::MarkerShape markerShape) {
     viewport::ViewportContent content{.images = scene.images};
     if (scene.images.empty() || view.layer >= scene.layers.size()) {
         return content;
@@ -251,7 +253,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
             std::ranges::move(draws.opaque, std::back_inserter(content.draws));
             translucentActors = std::move(draws.translucent);
         }
-        addMarkers(content, makeMarkers(placed));
+        addMarkers(content, makeMarkers(placed), markerShape);
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
