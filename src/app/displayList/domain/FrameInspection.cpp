@@ -78,7 +78,10 @@ FrameInspection::FrameInspection(const viewport::Frame& frame,
 
 void FrameInspection::indexSymbols(const viewport::ViewportContent& content) {
     for (usize i = 0; i < content.images.size() && i < frame.mappedImages.size(); ++i) {
-        const z64::MappedImage& mapped = frame.mappedImages[i];
+        if (!frame.mappedImages[i]) {
+            continue;
+        }
+        const z64::MappedImage& mapped = *frame.mappedImages[i];
         for (const auto& [name, symbol] : content.images[i]->symbols) {
             const u32 base = mapped.segments[symbol.segment & 0x0F];
             const auto begin = static_cast<u32>(base + symbol.offset);

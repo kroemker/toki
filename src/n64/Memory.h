@@ -10,6 +10,10 @@
 
 namespace n64 {
 
+/// The size of the physical address space: 24 bits, as the RSP's DMA engine
+/// sees it.
+inline constexpr u64 AddressSpaceSize = 0x0100'0000;
+
 /// The physical address space the RSP and RDP read from: the stand-in for
 /// RDRAM. Rather than one flat 8 MB buffer it is a set of regions, each a
 /// borrowed byte span placed at a physical address, so a segment buffer can be

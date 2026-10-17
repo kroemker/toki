@@ -97,6 +97,15 @@ memory. Segment 0 always maps at physical address 0, so an address in the game's
 physical, as on the N64, and a `gsSPSegment(0x08, gEmptyDL)` in code data points where it
 should.
 
+The physical address space is 24 bits, 16 MiB, as the RSP's DMA engine sees it, and the
+mask that keeps it to 24 bits is also what turns the game code's KSEG0 pointers
+(`0x80116280`) into physical ones. It is not widened. The game never holds more than two
+rooms and an object bank at once, but the viewport maps every room and every object of a
+scene, so a large one can run out of room: an image that would end past it is left out, with
+every draw that needs it, as an error of the frame, and the rest is drawn
+(`viewport::runFrame`). Images are packed on 16-byte boundaries so that only real data
+counts against the space.
+
 ## Measured
 
 Against a HackerOoT checkout over `\\wsl.localhost`, release build: a room's prelude, 71

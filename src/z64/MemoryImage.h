@@ -116,6 +116,10 @@ struct MappedImage {
 [[nodiscard]] std::expected<MappedImage, base::Diagnostic>
 mapImageAt(const MemoryImage& image, n64::Memory& memory, u32 physicalAddress);
 
+/// Where `mapImageAt` would end mapping `image` from `physicalAddress`, without
+/// mapping it, so a caller can tell whether it fits.
+[[nodiscard]] u64 findMappedEnd(const MemoryImage& image, u32 physicalAddress);
+
 /// Maps every segment of `image` into `memory` at its own physical address,
 /// and gives the segment table that points each segment number at it. The
 /// image must outlive the memory.

@@ -2,8 +2,10 @@
 
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ReferenceGrid.h"
+#include "base/Diagnostic.h"
 #include "base/Types.h"
 #include "n64/DisplayListWriter.h"
+#include "n64/Memory.h"
 #include "n64/Opcode.h"
 #include "n64/RspResult.h"
 #include "z64/MemoryImage.h"
@@ -17,12 +19,15 @@
 
 #include <array>
 #include <memory>
+#include <utility>
 #include <variant>
 #include <vector>
 
 using base::f32;
 using base::u32;
+using base::u64;
 using base::u8;
+using base::usize;
 using toki::viewport::FrameSize;
 using toki::viewport::OrbitCamera;
 using toki::viewport::ViewportContent;
@@ -69,6 +74,15 @@ ViewportContent makeTriangleAt(const glm::vec3& corner) {
     writer.drawTriangle({0, 1, 2});
     writer.endDisplayList();
     return makeContent(writer, start);
+}
+
+constexpr u32 FirstImageAddress = 0x0010'0000;
+
+std::shared_ptr<const z64::MemoryImage> makeFiller(const usize size) {
+    z64::MemoryImage image;
+    image.segments.push_back(
+        z64::ImageSegment{.number = 0x07, .bytes = std::vector<u8>(size, 0)});
+    return std::make_shared<const z64::MemoryImage>(std::move(image));
 }
 
 } // namespace
@@ -219,4 +233,39 @@ TEST_CASE("a LookAt is the view's right and up, as guLookAtHilite makes it", "[v
 
     REQUIRE(lookAt[0] == std::array<base::s8, 3>{-128, 0, 0});
     REQUIRE(lookAt[1] == std::array<base::s8, 3>{0, 127, 0});
+}
+
+TEST_CASE("an image past the address space is left out with its draws, and the rest is drawn",
+          "[viewport]") {
+    ViewportContent content = makeTriangleAt(glm::vec3(0.0F));
+    content.images.push_back(makeFiller(0x00F0'0000));
+    content.draws.push_back(ViewportDraw{.image = 1, .displayList = 0x0700'0000});
+    const ViewportContent after = makeTriangleAt(glm::vec3(100.0F, 0.0F, 0.0F));
+    content.draws.push_back(ViewportDraw{.image = 2, .displayList = after.draws[0].displayList});
+    content.images.push_back(after.images[0]);
+
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, OrbitCamera{}, FrameSize{.width = 640, .height = 480});
+
+    REQUIRE(frame.diagnostics.size() == 1);
+    REQUIRE(frame.diagnostics[0].severity == base::Severity::Error);
+    REQUIRE(frame.diagnostics[0].message.contains("1 of the 3 images"));
+    REQUIRE(frame.mappedImages.size() == 3);
+    REQUIRE_FALSE(frame.mappedImages[1].has_value());
+    REQUIRE(frame.mappedImages[2].has_value());
+    REQUIRE(findTriangles(frame.rspResult).size() == 2);
+}
+
+TEST_CASE("images that leave no room for the frame's list make way for it", "[viewport]") {
+    ViewportContent content = makeTriangleAt(glm::vec3(0.0F));
+    const u64 triangleEnd = z64::findMappedEnd(*content.images[0], FirstImageAddress);
+    content.images.push_back(makeFiller(n64::AddressSpaceSize - triangleEnd));
+
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, OrbitCamera{}, FrameSize{.width = 640, .height = 480});
+
+    REQUIRE(frame.diagnostics.size() == 1);
+    REQUIRE_FALSE(frame.mappedImages[1].has_value());
+    REQUIRE(frame.frameListAddress + frame.frameListSize <= n64::AddressSpaceSize);
+    REQUIRE(findTriangles(frame.rspResult).size() == 1);
 }

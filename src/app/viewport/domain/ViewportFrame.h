@@ -72,7 +72,9 @@ struct ViewportDraw {
 /// What a viewport draws: memory images, such as a scene and each of its
 /// rooms, and the display lists in them to run, in order. Every image is
 /// mapped into memory at once, and each segment starts the frame pointed at
-/// the first image that has it. Before a draw, the segments of its image are
+/// the first image that has it. An image that would end past the 16 MiB the
+/// RSP addresses is left out, with every draw that needs it, and that is an
+/// error of the frame. Before a draw, the segments of its image are
 /// pointed at it with `gSPSegment`, as the game points segment 3 at each room
 /// in turn.
 struct ViewportContent {
@@ -91,12 +93,13 @@ struct FrameSize {
 
 /// What the RSP and RDP made of one frame, ready for the GPU, and where the
 /// content's images and the frame's own display list were in memory, for
-/// naming the addresses its trace holds.
+/// naming the addresses its trace holds. An image that did not fit in memory
+/// has no place.
 struct Frame {
     n64::RspResult rspResult;
     n64::RdpResult rdpResult;
     std::vector<base::Diagnostic> diagnostics;
-    std::vector<z64::MappedImage> mappedImages;
+    std::vector<std::optional<z64::MappedImage>> mappedImages;
     u32 frameListAddress = 0;
     usize frameListSize = 0;
 };

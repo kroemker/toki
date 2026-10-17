@@ -172,6 +172,17 @@ mapImageAt(const MemoryImage& image, n64::Memory& memory, const u32 physicalAddr
     return mapped;
 }
 
+u64 findMappedEnd(const MemoryImage& image, const u32 physicalAddress) {
+    usize physical = alignUp(physicalAddress, SegmentRegionAlignment);
+    for (const ImageSegment& segment : image.segments) {
+        if (segment.number != 0) {
+            physical = alignUp(physical + std::max<usize>(segment.bytes.size(), 1),
+                               SegmentRegionAlignment);
+        }
+    }
+    return physical;
+}
+
 std::expected<std::array<u32, n64::SegmentCount>, base::Diagnostic>
 mapImage(const MemoryImage& image, n64::Memory& memory) {
     std::expected<MappedImage, base::Diagnostic> mapped =

@@ -83,7 +83,7 @@ TEST_CASE("a traced frame reads as its commands, named by the content's symbols"
     REQUIRE(call->end == callRow + 4);
     REQUIRE(inspection.describeEffect(callRow, names) ==
             "Called gTestDL, which ran 3 commands before returning here.");
-    REQUIRE(inspection.findFirstRun(frame.mappedImages.front().segments[Segment] +
+    REQUIRE(inspection.findFirstRun(frame.mappedImages.front()->segments[Segment] +
                                     (start & 0x00FF'FFFF)) == callRow + 1);
     REQUIRE(inspection.findPhysicalName(frame.frameListAddress) == "Toki's frame list");
 

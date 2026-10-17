@@ -43,6 +43,16 @@ struct FrameList {
     u32 start = 0;
 };
 
+using MappedImages = std::vector<std::optional<z64::MappedImage>>;
+
+[[nodiscard]] bool isMapped(const ViewportDraw& draw, const MappedImages& mapped) {
+    const auto isImageMapped = [&mapped](const usize image) { return mapped[image].has_value(); };
+    return isImageMapped(draw.image) && std::ranges::all_of(draw.alsoImages, isImageMapped) &&
+           std::ranges::all_of(draw.pointedSegments, [&](const SegmentPointer& pointer) {
+               return isImageMapped(pointer.image);
+           });
+}
+
 void setSegments(n64::DisplayListWriter& writer, const z64::MemoryImage& image,
                  const z64::MappedImage& mapped) {
     for (const z64::ImageSegment& segment : image.segments) {
@@ -135,22 +145,25 @@ struct DrawData {
 }
 
 void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
-                const std::vector<z64::MappedImage>& mapped, const DrawData& data) {
+                const MappedImages& mapped, const DrawData& data) {
     std::optional<usize> current = 0;
     for (usize i = 0; i < content.draws.size(); ++i) {
         const ViewportDraw& draw = content.draws[i];
+        if (!isMapped(draw, mapped)) {
+            continue;
+        }
         for (const usize image : draw.alsoImages) {
-            setSegments(writer, *content.images[image], mapped[image]);
+            setSegments(writer, *content.images[image], *mapped[image]);
             current.reset();
         }
         if (draw.image != current) {
-            setSegments(writer, *content.images[draw.image], mapped[draw.image]);
+            setSegments(writer, *content.images[draw.image], *mapped[draw.image]);
             current = draw.image;
         }
         for (const SegmentPointer& pointer : draw.pointedSegments) {
             const n64::SegmentAddress address = n64::unpack(pointer.address);
             writer.setSegment(pointer.segment,
-                              mapped[pointer.image].segments[address.segment] + address.offset);
+                              mapped[pointer.image]->segments[address.segment] + address.offset);
         }
         if (data.matrices[i]) {
             writer.loadMatrix(*data.matrices[i], n64::MatrixLoad::ModelView);
@@ -168,9 +181,8 @@ void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
     }
 }
 
-FrameList writeFrameList(const ViewportContent& content,
-                         const std::vector<z64::MappedImage>& mapped, const OrbitCamera& camera,
-                         const FrameSize size) {
+FrameList writeFrameList(const ViewportContent& content, const MappedImages& mapped,
+                         const OrbitCamera& camera, const FrameSize size) {
     const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
     const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
     const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
@@ -206,7 +218,9 @@ FrameList writeFrameList(const ViewportContent& content,
     writer.setGeometryMode(0x00FF'FFFF, n64::geometry::ZBuffer | n64::geometry::Shade |
                                             n64::geometry::SmoothShading);
     for (usize image = content.images.size(); image-- > 0;) {
-        setSegments(writer, *content.images[image], mapped[image]);
+        if (mapped[image]) {
+            setSegments(writer, *content.images[image], *mapped[image]);
+        }
     }
     writeDraws(writer, content, mapped, data);
     writer.endDisplayList();
@@ -275,6 +289,72 @@ n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix) {
     return n64::makeFixedMatrix(elements);
 }
 
+namespace {
+
+/// The content's images mapped one after another from `FirstPhysicalAddress`,
+/// leaving out each that would end past a limit, and the frame's own display
+/// list after them.
+struct PlacedFrame {
+    n64::Memory memory;
+    MappedImages mapped;
+    usize leftOut = 0;
+    FrameList frameList;
+    u32 frameListAddress = 0;
+};
+
+[[nodiscard]] std::expected<void, base::Diagnostic>
+mapImages(const ViewportContent& content, PlacedFrame& placed, const u64 limit) {
+    u32 physical = FirstPhysicalAddress;
+    for (const std::shared_ptr<const z64::MemoryImage>& image : content.images) {
+        if (z64::findMappedEnd(*image, physical) > limit) {
+            placed.mapped.emplace_back();
+            ++placed.leftOut;
+            continue;
+        }
+        std::expected<z64::MappedImage, base::Diagnostic> mapped =
+            z64::mapImageAt(*image, placed.memory, physical);
+        if (!mapped) {
+            return std::unexpected(std::move(mapped.error()));
+        }
+        physical = mapped->end;
+        placed.mapped.emplace_back(*mapped);
+    }
+    placed.frameListAddress = physical;
+    return {};
+}
+
+[[nodiscard]] std::expected<PlacedFrame, base::Diagnostic>
+placeFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size) {
+    u64 limit = n64::AddressSpaceSize;
+    while (true) {
+        PlacedFrame placed;
+        if (std::expected<void, base::Diagnostic> mapped = mapImages(content, placed, limit);
+            !mapped) {
+            return std::unexpected(std::move(mapped.error()));
+        }
+        placed.frameList = writeFrameList(content, placed.mapped, camera, size);
+        const u64 listSize = placed.frameList.bytes.size();
+        if (placed.frameListAddress + listSize <= n64::AddressSpaceSize) {
+            if (std::expected<void, base::Diagnostic> mapped =
+                    placed.memory.map(placed.frameListAddress, placed.frameList.bytes);
+                !mapped) {
+                return std::unexpected(std::move(mapped.error()));
+            }
+            return placed;
+        }
+        if (listSize >= n64::AddressSpaceSize - FirstPhysicalAddress ||
+            n64::AddressSpaceSize - listSize >= limit) {
+            return std::unexpected(base::makeError(
+                {}, std::format("the frame's display list of {} bytes fits nowhere in the 16 MiB "
+                                "the RSP addresses",
+                                listSize)));
+        }
+        limit = n64::AddressSpaceSize - listSize;
+    }
+}
+
+} // namespace
+
 Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size,
                const bool recordsTrace) {
     Frame frame;
@@ -286,29 +366,23 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
         return frame;
     }
 
-    n64::Memory memory;
-    std::vector<z64::MappedImage> mapped;
-    u32 physical = FirstPhysicalAddress;
-    for (const std::shared_ptr<const z64::MemoryImage>& image : content.images) {
-        std::expected<z64::MappedImage, base::Diagnostic> placed =
-            z64::mapImageAt(*image, memory, physical);
-        if (!placed) {
-            frame.diagnostics.push_back(std::move(placed.error()));
-            return frame;
-        }
-        physical = placed->end;
-        mapped.push_back(*placed);
-    }
-
-    const FrameList frameList = writeFrameList(content, mapped, camera, size);
-    if (const std::expected<void, base::Diagnostic> placed = memory.map(physical, frameList.bytes);
-        !placed) {
-        frame.diagnostics.push_back(placed.error());
+    std::expected<PlacedFrame, base::Diagnostic> placed = placeFrame(content, camera, size);
+    if (!placed) {
+        frame.diagnostics.push_back(std::move(placed.error()));
         return frame;
     }
+    if (placed->leftOut > 0) {
+        frame.diagnostics.push_back(base::makeError(
+            {}, std::format("{} of the {} images to draw do not fit in the 16 MiB the RSP "
+                            "addresses, so what is drawn from them is left out",
+                            placed->leftOut, content.images.size())));
+    }
+    const n64::Memory& memory = placed->memory;
+    const u32 physical = placed->frameListAddress;
+    const FrameList& frameList = placed->frameList;
     std::array<u32, n64::SegmentCount> segments{};
     segments[FrameSegment] = physical;
-    frame.mappedImages = mapped;
+    frame.mappedImages = placed->mapped;
     frame.frameListAddress = physical;
     frame.frameListSize = frameList.bytes.size();
 

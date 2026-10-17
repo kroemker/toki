@@ -12,12 +12,6 @@
 
 namespace n64 {
 
-namespace {
-
-constexpr u64 AddressSpaceSize = 0x0100'0000;
-
-} // namespace
-
 std::expected<void, base::Diagnostic> Memory::map(const u32 physicalAddress,
                                                   const std::span<const u8> bytes) {
     const u64 end = u64{physicalAddress} + bytes.size();
