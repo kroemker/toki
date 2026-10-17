@@ -18,6 +18,7 @@ why it is shaped that way, and what was measured.
 | [workspace.md](workspace.md) | How one checkout is read, kept current off the UI thread, and watched for changes. |
 | [tools.md](tools.md) | How the tools change the checkout: planned and shown before they are written, never over a change they did not see, into blocks of their own; and how the configuration headers are read as settings. |
 | [display-list-viewer.md](display-list-viewer.md) | How the Display List panel reads the viewport's traced frame into commands, names and sentences, the RDP state and texture memory behind each draw, and how it is opened from other panels. |
+| [viewport.md](viewport.md) | How the viewport is given content and chooses how to draw it in its bar, and what it reports about each frame. |
 | [renderer.md](renderer.md) | Why the renderer is our own, what it takes from Fast3D, RT64 and parallel-rdp, and how its stages divide the work. |
 
 A new concept gets its own document here and a line in this table, and a link from the

@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 namespace n64 {
 
@@ -35,6 +36,12 @@ RspResult RspInterpreter::run() {
             break;
         }
     }
+    result.statistics.commands = static_cast<usize>(commandCount);
+    result.statistics.culled = culled;
+    result.statistics.triangles =
+        static_cast<usize>(std::ranges::count_if(result.outputs, [](const RspOutput& output) {
+            return std::holds_alternative<Triangle>(output);
+        }));
     return std::move(result);
 }
 

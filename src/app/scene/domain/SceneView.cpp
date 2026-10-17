@@ -134,6 +134,42 @@ void addMarkers(viewport::ViewportContent& content, const std::span<const Marker
     content.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(made.image)));
 }
 
+/// Names every image of `content` not yet named `name`.
+void labelImages(viewport::ViewportContent& content, const std::string& name,
+                 const viewport::ImageKind kind) {
+    while (content.labels.size() < content.images.size()) {
+        content.labels.push_back(viewport::ImageLabel{.name = name, .kind = kind});
+    }
+}
+
+void labelSceneImages(viewport::ViewportContent& content, const Scene& scene) {
+    for (usize i = 0; i < content.images.size(); ++i) {
+        if (i < SceneImage) {
+            content.labels.push_back({.name = "Game code", .kind = viewport::ImageKind::Code});
+        } else if (i == SceneImage) {
+            content.labels.push_back({.name = scene.name, .kind = viewport::ImageKind::Scene});
+        } else {
+            content.labels.push_back({.name = std::format("Room {}", i - FirstRoomImage),
+                                      .kind = viewport::ImageKind::Room});
+        }
+    }
+}
+
+/// Names the images `makeActorDraws` added: each object, then the objects
+/// each points into, then the actors' own display lists.
+void labelActorImages(viewport::ViewportContent& content, const SceneActors& actors) {
+    for (const ActorObject& object : actors.objects) {
+        content.labels.push_back({.name = object.name, .kind = viewport::ImageKind::Object});
+    }
+    for (const ActorObject& object : actors.objects) {
+        for (usize i = 0; i < object.linked.size(); ++i) {
+            content.labels.push_back({.name = std::format("{}, linked {}", object.name, i + 1),
+                                      .kind = viewport::ImageKind::Object});
+        }
+    }
+    labelImages(content, "Placed actors", viewport::ImageKind::Actor);
+}
+
 struct PassSource {
     const SceneLayer& layer;
     const SceneView& view;
@@ -248,6 +284,7 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
 viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                            const core::MarkerShape markerShape) {
     viewport::ViewportContent content{.images = scene.images};
+    labelSceneImages(content, scene);
     if (scene.images.empty() || view.layer >= scene.layers.size()) {
         return content;
     }
@@ -261,6 +298,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
                             .standInImage = content.images.size(),
                             .standIn = runtime.standIn};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
+    labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
     content.draws = makePass(source, true);
     std::vector<viewport::ViewportDraw> translucentActors;
@@ -269,10 +307,12 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         if (view.drawsModels) {
             ActorDraws draws = drawModels(scene, view, placed, content.images.size());
             std::ranges::move(draws.images, std::back_inserter(content.images));
+            labelActorImages(content, scene.actors);
             std::ranges::move(draws.opaque, std::back_inserter(content.draws));
             translucentActors = std::move(draws.translucent);
         }
         addMarkers(content, makeMarkers(placed), markerShape);
+        labelImages(content, "Actor markers", viewport::ImageKind::Generated);
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));

@@ -213,6 +213,7 @@ std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
                                                const n64::RdpResult& rdpResult,
                                                const RenderTarget& target,
                                                const ScreenSize screen) {
+    drawCalls = 0;
     DrawBatches drawBatches = makeDrawBatches(rspResult, rdpResult, screen);
     std::vector<base::Diagnostic> diagnostics = std::move(drawBatches.diagnostics);
     if (std::expected<void, base::Diagnostic> uploaded =
@@ -245,6 +246,7 @@ std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
         SDL_PushGPUFragmentUniformData(commands, 0, &batch.fragmentUniforms,
                                        sizeof(batch.fragmentUniforms));
         SDL_DrawGPUPrimitives(pass, batch.vertexCount, 1, batch.firstVertex, 0);
+        ++drawCalls;
     }
     SDL_EndGPURenderPass(pass);
     if (!SDL_SubmitGPUCommandBuffer(commands)) {

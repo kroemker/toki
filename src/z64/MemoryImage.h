@@ -104,6 +104,8 @@ struct LayoutOptions {
 /// has, zero for those it lacks, and the first free address after it.
 struct MappedImage {
     std::array<u32, n64::SegmentCount> segments{};
+    /// Where the image's segments other than 0 start and end.
+    u32 start = 0;
     u32 end = 0;
 };
 

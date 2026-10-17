@@ -49,6 +49,7 @@ void RspInterpreter::runVertex(const u32 word0, const u32 word1) {
     }
     const LightSetup& setup = getLightSetup();
     const usize viewportSlot = findViewportIndex();
+    result.statistics.vertices += count;
     for (usize i = 0; i < count; ++i) {
         vertices[end - count + i] = VertexSlot{
             .vertex = shadeVertex(bytes->subspan(i * VertexSize, VertexSize), setup),

@@ -119,6 +119,7 @@ void RdpInterpreter::apply(const RdpCommand& command) {
     case Opcode::LoadTile:
     case Opcode::LoadBlock:
     case Opcode::LoadTlut:
+        ++result.textureLoads;
         applyTexture(command, true);
         break;
     case Opcode::FillRectangle:

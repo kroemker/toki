@@ -8,6 +8,7 @@
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ViewportStatusBar.h"
 #include "gfx/Device.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
@@ -159,6 +160,7 @@ private:
     ViewportView viewportView;
     std::optional<ViewportChoices> viewportChoices;
     std::function<void(const ViewportChoices&)> chooseHandler;
+    ViewportStatusBar statusBar;
     std::vector<std::array<glm::vec2, 3>> highlight;
     FrameSize highlightSize;
     bool isTracing = false;

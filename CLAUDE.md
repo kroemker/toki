@@ -294,6 +294,11 @@ listed below is only what no change may break.
   frame ran are shown, explained and tied back to what they drew.
   - What is shown is what the RSP ran, from its trace, never what the C says.
   - The viewport traces only while the panel is open.
+- **[The viewport](docs/viewport.md)** — how its content is set, how it is drawn is chosen in
+  its bar, and what each frame cost and held.
+  - The viewport knows no scene. What a content's owner lets the bar choose is offered as
+    `ViewportChoices`, and the owner applies what is picked.
+  - A view that differs from what the game would draw says so over the image.
 - **[The renderer](docs/renderer.md)** — what was evaluated, what is taken from where, and
   how the RSP, RDP and GPU stages divide the work.
   - Everything that can be computed on the CPU is, in `n64/`, under tests. `gfx/` only

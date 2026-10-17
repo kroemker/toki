@@ -147,6 +147,7 @@ std::expected<MappedImage, base::Diagnostic>
 mapImageAt(const MemoryImage& image, n64::Memory& memory, const u32 physicalAddress) {
     MappedImage mapped;
     u32 physical = static_cast<u32>(alignUp(physicalAddress, SegmentRegionAlignment));
+    mapped.start = physical;
     for (const ImageSegment& segment : image.segments) {
         if (segment.number >= n64::SegmentCount) {
             return std::unexpected(base::makeError(

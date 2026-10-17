@@ -33,6 +33,11 @@ public:
                                                        const RenderTarget& target,
                                                        ScreenSize screen = {});
 
+    /// How many draw calls the last `render` made.
+    [[nodiscard]] usize getDrawCalls() const {
+        return drawCalls;
+    }
+
 private:
     struct GrowableBuffer {
         BufferHandle buffer;
@@ -55,6 +60,7 @@ private:
     GrowableBuffer textureMemoryBuffer;
     TransferBufferHandle uploadBuffer;
     u32 uploadCapacity = 0;
+    usize drawCalls = 0;
 };
 
 } // namespace gfx

@@ -23,11 +23,13 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <expected>
 #include <format>
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <ratio>
 #include <utility>
 #include <vector>
 
@@ -35,7 +37,12 @@ namespace toki::viewport {
 
 namespace {
 
-constexpr u32 FirstPhysicalAddress = 0x0010'0000;
+using Clock = std::chrono::steady_clock;
+
+[[nodiscard]] f64 makeMilliseconds(const Clock::duration duration) {
+    return std::chrono::duration<f64, std::milli>(duration).count();
+}
+
 constexpr f32 DepthHalfRange = 511.0F;
 
 struct FrameList {
@@ -291,7 +298,7 @@ n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix) {
 
 namespace {
 
-/// The content's images mapped one after another from `FirstPhysicalAddress`,
+/// The content's images mapped one after another from `FirstImageAddress`,
 /// leaving out each that would end past a limit, and the frame's own display
 /// list after them.
 struct PlacedFrame {
@@ -304,7 +311,7 @@ struct PlacedFrame {
 
 [[nodiscard]] std::expected<void, base::Diagnostic>
 mapImages(const ViewportContent& content, PlacedFrame& placed, const u64 limit) {
-    u32 physical = FirstPhysicalAddress;
+    u32 physical = FirstImageAddress;
     for (const std::shared_ptr<const z64::MemoryImage>& image : content.images) {
         if (z64::findMappedEnd(*image, physical) > limit) {
             placed.mapped.emplace_back();
@@ -342,7 +349,7 @@ placeFrame(const ViewportContent& content, const OrbitCamera& camera, const Fram
             }
             return placed;
         }
-        if (listSize >= n64::AddressSpaceSize - FirstPhysicalAddress ||
+        if (listSize >= n64::AddressSpaceSize - FirstImageAddress ||
             n64::AddressSpaceSize - listSize >= limit) {
             return std::unexpected(base::makeError(
                 {}, std::format("the frame's display list of {} bytes fits nowhere in the 16 MiB "
@@ -366,6 +373,7 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
         return frame;
     }
 
+    const Clock::time_point started = Clock::now();
     std::expected<PlacedFrame, base::Diagnostic> placed = placeFrame(content, camera, size);
     if (!placed) {
         frame.diagnostics.push_back(std::move(placed.error()));
@@ -386,10 +394,15 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
     frame.frameListAddress = physical;
     frame.frameListSize = frameList.bytes.size();
 
+    const Clock::time_point placedAt = Clock::now();
     frame.rspResult = n64::runTask(memory, n64::RspTask{.displayList = frameList.start,
                                                         .segments = segments,
                                                         .recordsTrace = recordsTrace});
+    const Clock::time_point ranAt = Clock::now();
     frame.rdpResult = n64::runRdp(frame.rspResult, memory);
+    frame.timings = FrameTimings{.place = makeMilliseconds(placedAt - started),
+                                 .rsp = makeMilliseconds(ranAt - placedAt),
+                                 .rdp = makeMilliseconds(Clock::now() - ranAt)};
     std::ranges::move(frame.rspResult.diagnostics, std::back_inserter(frame.diagnostics));
     std::ranges::move(frame.rdpResult.diagnostics, std::back_inserter(frame.diagnostics));
     return frame;

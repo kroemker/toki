@@ -196,6 +196,24 @@ TEST_CASE("culling follows the winding on screen", "[n64][rsp]") {
     REQUIRE(triangles[1].vertices[1].position[1] == Catch::Approx(10.0F));
 }
 
+TEST_CASE("a task counts its commands, vertices, triangles and culled triangles untraced",
+          "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.setGeometryMode(0, CullBack);
+    builder.drawTriangle(0, 1, 2);
+    builder.drawTriangle(0, 2, 1);
+    builder.endDisplayList();
+
+    const n64::RspStatistics statistics = runDisplayList(builder, start).statistics;
+
+    REQUIRE(statistics.commands == 5);
+    REQUIRE(statistics.vertices == 3);
+    REQUIRE(statistics.triangles == 1);
+    REQUIRE(statistics.culled == 1);
+}
+
 TEST_CASE("flat shading takes the first vertex's colour", "[n64][rsp]") {
     DisplayListBuilder builder;
     const u32 vertices = addTriangleVertices(builder);

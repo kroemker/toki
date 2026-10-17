@@ -88,6 +88,8 @@ struct RdpResult {
     std::vector<TextureMemoryImage> textureMemories;
     std::vector<Draw> draws;
     std::vector<base::Diagnostic> diagnostics;
+    /// How many `G_LOADTILE`, `G_LOADBLOCK` and `G_LOADTLUT` the task ran.
+    usize textureLoads = 0;
 };
 
 /// Feeds what the RSP produced through the RDP's state in order, reading

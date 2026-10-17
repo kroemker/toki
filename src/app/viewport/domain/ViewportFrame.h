@@ -13,6 +13,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace toki::viewport {
@@ -69,6 +70,25 @@ struct ViewportDraw {
     std::optional<glm::vec3> lookAtTarget;
 };
 
+/// What kind of thing an image of a viewport's content holds.
+enum class ImageKind : u8 {
+    Code,
+    Scene,
+    Room,
+    Object,
+    Actor,
+    Generated,
+};
+
+inline constexpr usize ImageKindCount = static_cast<usize>(ImageKind::Generated) + 1;
+
+/// What one of the content's images is, for naming it where the frame's
+/// memory is shown.
+struct ImageLabel {
+    std::string name;
+    ImageKind kind = ImageKind::Generated;
+};
+
 /// What a viewport draws: memory images, such as a scene and each of its
 /// rooms, and the display lists in them to run, in order. Every image is
 /// mapped into memory at once, and each segment starts the frame pointed at
@@ -83,12 +103,24 @@ struct ViewportContent {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     std::vector<ViewportDraw> draws;
     std::optional<ViewportLighting> lighting;
+    /// What each image is, by its index in `images`; an image past the end
+    /// has no name.
+    std::vector<ImageLabel> labels;
 };
 
 /// The size of the screen a frame is drawn for, in pixels.
 struct FrameSize {
     u32 width = 320;
     u32 height = 240;
+};
+
+/// How long each step of running a frame on the CPU took, in milliseconds:
+/// placing its images in memory and writing its display list, the RSP, and
+/// the RDP.
+struct FrameTimings {
+    f64 place = 0.0;
+    f64 rsp = 0.0;
+    f64 rdp = 0.0;
 };
 
 /// What the RSP and RDP made of one frame, ready for the GPU, and where the
@@ -102,7 +134,12 @@ struct Frame {
     std::vector<std::optional<z64::MappedImage>> mappedImages;
     u32 frameListAddress = 0;
     usize frameListSize = 0;
+    FrameTimings timings;
 };
+
+/// Where the content's images start in memory. Below it is the game code's
+/// data, which segment 0 maps at physical address 0.
+inline constexpr u32 FirstImageAddress = 0x0010'0000;
 
 /// The segment the frame's own display list and matrices are written to,
 /// starting with the camera's billboard matrix at its address 0, where

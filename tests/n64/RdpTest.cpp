@@ -79,6 +79,7 @@ TEST_CASE("texture memory is copied only after a load changed it", "[n64][rdp]")
     REQUIRE(result.states[1].tiles[0].line == 1);
     REQUIRE(result.states[1].textureMemory == 0);
     REQUIRE(result.states[2].textureMemory == 1);
+    REQUIRE(result.textureLoads == 2);
 }
 
 TEST_CASE("state commands are decoded into the state", "[n64][rdp]") {

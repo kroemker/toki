@@ -6,13 +6,15 @@
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/FrameStatistics.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ReferenceGrid.h"
-#include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportChoices.h"
+#include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportView.h"
 #include "app/viewport/ui/ViewportBar.h"
+#include "app/viewport/ui/ViewportStatusBar.h"
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/DrawBatches.h"
@@ -27,6 +29,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <expected>
@@ -34,6 +37,7 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <ratio>
 #include <string>
 #include <utility>
 #include <vector>
@@ -129,7 +133,8 @@ void ViewportPanel::draw() {
         }
     }
     const ImVec2 origin = ImGui::GetCursorScreenPos();
-    const ImVec2 size = ImGui::GetContentRegionAvail();
+    const ImVec2 available = ImGui::GetContentRegionAvail();
+    const ImVec2 size{available.x, available.y - ViewportStatusBar::getHeight()};
     if (size.x < 1.0F || size.y < 1.0F) {
         return;
     }
@@ -193,6 +198,8 @@ void ViewportPanel::draw() {
         const std::string note = std::format("{} diagnostics, see the log", diagnosticCount);
         drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::Warning), note.c_str());
     }
+    ImGui::SetCursorScreenPos(ImVec2(origin.x, end.y));
+    statusBar.draw();
 }
 
 void ViewportPanel::drawOverlay(ImDrawList& drawList, const ImVec2 origin,
@@ -299,9 +306,15 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     const u32 height = target.getHeight();
     const FrameSize size{.width = width, .height = height};
     Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing);
+    const auto started = std::chrono::steady_clock::now();
     std::vector<base::Diagnostic> drawn =
         renderer->render(frame.rspResult, frame.rdpResult, target,
                          gfx::ScreenSize{.width = width, .height = height});
+    statusBar.addFrame(FrameReport{
+        .statistics = makeFrameStatistics(frame, viewportContent),
+        .drawCalls = renderer->getDrawCalls(),
+        .render = std::chrono::duration<f64, std::milli>(std::chrono::steady_clock::now() - started)
+                      .count()});
     std::ranges::move(drawn, std::back_inserter(frame.diagnostics));
     diagnosticCount = frame.diagnostics.size();
     const bool isReported = reported;

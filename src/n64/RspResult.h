@@ -66,12 +66,22 @@ struct TraceEntry {
     usize culled = 0;
 };
 
+/// What a task did, counted whether or not it was traced: commands run,
+/// vertices loaded, triangles sent to the RDP, and triangles culled instead.
+struct RspStatistics {
+    usize commands = 0;
+    usize vertices = 0;
+    usize triangles = 0;
+    usize culled = 0;
+};
+
 struct RspResult {
     std::vector<Viewport> viewports;
     std::vector<RspOutput> outputs;
     /// Every command run, when the task asked for it.
     std::vector<TraceEntry> trace;
     std::vector<base::Diagnostic> diagnostics;
+    RspStatistics statistics;
 };
 
 } // namespace n64
