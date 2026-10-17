@@ -21,7 +21,7 @@ namespace z64 {
 
 namespace {
 
-constexpr usize SegmentRegionAlignment = 0x10000;
+constexpr usize SegmentRegionAlignment = 0x10;
 constexpr u32 FirstPhysicalAddress = 0x100000;
 
 usize alignUp(const usize value, const usize alignment) {

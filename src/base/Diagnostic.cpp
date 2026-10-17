@@ -45,6 +45,9 @@ Diagnostic makeError(SourceLocation location, std::string message) {
 
 std::string describe(const Diagnostic& diagnostic) {
     const std::string file = diagnostic.location.file.string();
+    if (file.empty()) {
+        return std::format("{}: {}", spell(diagnostic.severity), diagnostic.message);
+    }
     if (diagnostic.location.line == 0) {
         return std::format("{}: {}: {}", file, spell(diagnostic.severity), diagnostic.message);
     }

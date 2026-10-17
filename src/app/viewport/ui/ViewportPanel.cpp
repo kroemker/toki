@@ -266,7 +266,12 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
 
 void ViewportPanel::reportDiagnostics(const Frame& frame) {
     for (usize i = 0; i < std::min(frame.diagnostics.size(), ReportedDiagnostics); ++i) {
-        core::logWarn("viewport: {}", base::describe(frame.diagnostics[i]));
+        const base::Diagnostic& diagnostic = frame.diagnostics[i];
+        if (diagnostic.severity == base::Severity::Error) {
+            core::logError("viewport: {}", base::describe(diagnostic));
+        } else {
+            core::logWarn("viewport: {}", base::describe(diagnostic));
+        }
     }
     if (frame.diagnostics.size() > ReportedDiagnostics) {
         core::logWarn("viewport: {} more diagnostics",

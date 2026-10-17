@@ -108,7 +108,7 @@ struct MappedImage {
 };
 
 /// Maps every segment of `image` into `memory`, one after another from
-/// `physicalAddress`, each on a 64 KiB boundary, except segment 0: the game
+/// `physicalAddress`, each on a 16-byte boundary, except segment 0: the game
 /// code's data, which is mapped at physical address 0, so that an address in it
 /// is physical, as the game's own code addresses are, and segment 0 points at 0
 /// as on the N64. The image must outlive the memory. Several images map into
