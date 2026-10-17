@@ -1,22 +1,29 @@
 #include "app/displayList/domain/FrameInspection.h"
 
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Types.h"
 #include "cparser/MacroTable.h"
 #include "n64/DisplayListWriter.h"
+#include "n64/Rdp.h"
+#include "n64/RspResult.h"
+#include "n64/Viewport.h"
 #include "z64/GbiNames.h"
 #include "z64/MemoryImage.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <glm/vec2.hpp>
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
+using base::f32;
 using base::u32;
 using base::u8;
 using base::usize;
@@ -87,17 +94,23 @@ TEST_CASE("a traced frame reads as its commands, named by the content's symbols"
                                     (start & 0x00FF'FFFF)) == callRow + 1);
     REQUIRE(inspection.findPhysicalName(frame.frameListAddress) == "Toki's frame list");
 
-    const std::vector<toki::displayList::ScreenTriangle> drawn =
-        inspection.listScreenTriangles(*triangle);
+    const n64::Viewport& viewport = frame.rspResult.viewports.front();
+    const std::vector<toki::viewport::ClipTriangle> drawn =
+        inspection.listClipTriangles(*triangle, viewport);
     REQUIRE(drawn.size() == 1);
-    for (const glm::vec2& corner : drawn.front()) {
-        REQUIRE(corner.x >= 0.0F);
-        REQUIRE(corner.x <= 320.0F);
-        REQUIRE(corner.y >= 0.0F);
-        REQUIRE(corner.y <= 240.0F);
+    for (usize i = 0; i < 3; ++i) {
+        const toki::viewport::ClipPosition& corner = drawn.front()[i];
+        const std::array<f32, 4>& drawnCorner =
+            std::get<n64::Triangle>(
+                frame.rdpResult.draws[inspection.listDraws(*triangle).front()].primitive)
+                .vertices[i]
+                .position;
+        for (usize axis = 0; axis < 4; ++axis) {
+            REQUIRE(corner[axis] == Catch::Approx(drawnCorner[axis]).margin(1.0e-4));
+        }
     }
-    REQUIRE(inspection.listScreenTriangles(callRow).size() == 1);
-    REQUIRE(inspection.listScreenTriangles(*vertex).empty());
+    REQUIRE(inspection.listClipTriangles(callRow, viewport).size() == 1);
+    REQUIRE(inspection.listClipTriangles(*vertex, viewport).empty());
     REQUIRE(inspection.findSymbolRun("gTestDL") == callRow + 1);
     REQUIRE_FALSE(inspection.findSymbolRun("gTestVtx"));
 }

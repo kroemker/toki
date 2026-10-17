@@ -100,6 +100,24 @@ void addArrowHead(std::vector<gfx::OverlayLine>& lines, const gfx::OverlayLine& 
 
 } // namespace
 
+std::vector<gfx::OverlayLine> makeOutlines(const std::vector<ClipTriangle>& triangles,
+                                           const LineStyle& style) {
+    std::vector<gfx::OverlayLine> lines;
+    lines.reserve(triangles.size() * 3);
+    for (const ClipTriangle& triangle : triangles) {
+        for (usize i = 0; i < 3; ++i) {
+            if (const std::optional<gfx::OverlayLine> clipped =
+                    clipToNearPlane({.from = triangle[i],
+                                     .to = triangle[(i + 1) % 3],
+                                     .color = style.color,
+                                     .width = style.width})) {
+                lines.push_back(*clipped);
+            }
+        }
+    }
+    return lines;
+}
+
 std::vector<gfx::OverlayLine> makeArrowLines(const ViewportOverlay& overlay,
                                              const glm::mat4& viewProjection, const FrameSize size,
                                              const ArrowStyle& style) {

@@ -38,8 +38,10 @@ tested like a parser.
   matrix was applied, what geometry mode bits changed, whether a cull list ended its list.
 - **Draws.** Each RSP output that reaches the RDP as a primitive is paired with its RDP draw,
   so a row knows the triangles and rectangles it drew (`listDraws`), the RDP state they were
-  drawn under (`findDrawState`) and where they landed on the screen (`listScreenTriangles`,
-  through the frame's viewports; a triangle with a corner behind the eye is left out).
+  drawn under (`findDrawState`) and where they landed (`listClipTriangles`: each triangle
+  where its own viewport put it on the screen, at its own depth, in the clip space of the
+  frame's viewport; each rectangle at the near plane, as it has no depth; a triangle with a
+  corner behind the eye is left out).
 
 ## Three levels of explanation
 
@@ -61,8 +63,11 @@ tooltips on the section headers.
 ## In the viewport
 
 Selecting a row picks out what it drew in the viewport: for a call, everything the call ran.
-The panel hands the screen triangles to `ViewportPanel::setHighlight`, in pixels of the frame
-they came from, and the viewport scales them to its image.
+The panel hands the triangles to `ViewportPanel::setHighlight` in clip space, and the
+viewport fills and outlines them in its overlay pass ([renderer.md](renderer.md)): what a
+command drew behind a wall is drawn faintly through it, whether or not X-ray is on, so that
+a selection never shows nothing. Changing
+the selection draws the last frame again without running it.
 
 ## Jumping in
 

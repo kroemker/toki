@@ -229,7 +229,8 @@ render modes built on that.
 
 ## The overlay pass
 
-What an editor draws over the frame — triangle edges, links between actors, a grid — is
+What an editor draws over the frame — triangle edges, links between actors, a grid, what a
+display list command drew — is
 drawn by a second shader, `Overlay.hlsl`, in the same render pass after the last RDP draw,
 so it is tested against the depth the frame left. Drawing it in an ImGui list over the
 image instead would put it in front of everything, and a geometry editor cannot show which
@@ -239,15 +240,17 @@ A line is two points in the N64's clip space, the space the RSP leaves its verti
 the overlay's vertex stage takes them through the viewport exactly as the ubershader does.
 An edge drawn between two of a triangle's vertices therefore lands on the triangle's own
 pixels at the triangle's own depth; a depth bias of one 2048th of the range pulls it in
-front of the surface it lies on, and nothing else. The GPU has no wide lines, so each line
+front of the surface it lies on, and nothing else. A filled triangle is drawn the same way,
+before the lines, its corners pushed out by nothing. The GPU has no wide lines, so each line
 is a quad of two triangles whose corners the vertex stage pushes out sideways on screen, a
 constant width in target pixels whatever the distance. A quad needs a screen position at
 both ends, so a line is clipped to the near plane on the CPU before it is drawn
 (`viewport::clipToNearPlane`).
 
 The overlay blends over the frame and never writes depth. It has two pipelines, one that
-draws where a line is in front of the frame and one that draws where the frame hides it,
-for drawing hidden parts faintly. `toki_gpu_tests` checks that an edge wins against its own
+draws where a shape is in front of the frame and one that draws where the frame hides it,
+each shape at the opacity it asks for there (`hiddenOpacity`, zero for none), so X-ray
+and a highlight that must always be found share one pass. `toki_gpu_tests` checks that an edge wins against its own
 triangle and that a line behind a triangle is hidden by it, on D3D12 and on Vulkan.
 
 ## Scope

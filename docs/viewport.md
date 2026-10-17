@@ -21,8 +21,8 @@ scene is; an owner that offers nothing gets no rows.
 
 ## The bar
 
-Above the image, from the left: a button for each shading (Alt+1 to Alt+5), the wireframe
-button (Shift+Z), the Shading popover, and at the right the X-ray switch (Alt+Z), a switch
+Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading
+popover, and at the right the X-ray switch (Alt+Z), a switch
 that hides every overlay at once (Shift+Alt+Z), and the Overlays popover, whose button
 counts the overlays that are on. Every popover is a form of two-column rows. Hotkeys act
 only while the cursor is over the viewport.
@@ -33,10 +33,12 @@ Everything drawn over the frame is drawn in the overlay pass ([renderer.md](rend
 tested against the frame's depth, never in ImGui's draw list over the image:
 
 - **Flag Links**, the lines the content's owner gives as a `ViewportOverlay`.
+- **Highlight**, what the display list viewer's selected command drew, filled and outlined
+  in the accent colour. It is drawn whether or not the overlays are shown, and always
+  faintly where the frame hides it.
 - **Grid**, a floor grid on the XZ plane around the camera's target, a line every 100 units,
   the X axis red and the Z axis blue.
-- **X-Ray** draws what the frame hides of every overlay, the wireframe's edges included,
-  faintly.
+- **X-Ray** draws what the frame hides of every overlay faintly.
 
 Changing an overlay draws the last frame again without running it: the RSP's and RDP's
 results are kept (`DrawnFrame`), so hovering a flag costs a draw, not the whole frame.
@@ -46,22 +48,21 @@ what the game would (`listViewChanges`), so that a debug view is never taken for
 
 ## Render modes
 
-A `RenderMode` is how a frame is drawn: its shading, its wireframe, five stages of the pipeline that can be
+A `RenderMode` is how a frame is drawn: its shading, five stages of the pipeline that can be
 turned off, and the texture filter. The default is the frame the game would draw. Every other
 choice is made on the CPU, by changing what the RSP is asked to do or the RDP state each
 primitive is drawn under, so the ubershader never learns of it and the GPU tests that pin it to
 `n64/` still hold.
 
-- **Wireframe.** Over Shading draws the edges of every triangle the frame drew over it, in
-  the overlay pass ([renderer.md](renderer.md)), so a wall hides the edges behind it. Only
-  draws the edges alone, none hidden. An edge two triangles share is drawn once. The button
-  beside the shadings cycles through Off, Over Shading and Only (Shift+Z).
 - **Shading.** N64 is the frame as the RDP draws it. Shade Only, Texture Only, Normals and
   Depth each give every triangle a copy of its state whose colour combiner selects one input
   (`applyRenderMode`): its shade; its first texture, or its shade where it has none; or a
   shade written over its vertices, the normal of its face in world space, or its depth between
   the nearest and farthest vertex of the frame, near white and far black. Alpha is combined as
-  it was, so a cutout keeps its shape in every shading.
+  it was, so a cutout keeps its shape in every shading. Wireframe draws no surface at all,
+  only the edges of every triangle the frame drew, in the overlay pass
+  ([renderer.md](renderer.md)), none hidden, an edge two triangles share once. Edges over
+  shaded faces are left to an edge select mode when editing comes.
 - **Lighting.** Off, the RSP shades lit vertices white (`n64::RspOverrides::lightsWhite`), so
   textures show without the light setting. Texture generation still reads the normals.
 - **Fog.** Off, a blender cycle that reads the fog colour passes the pixel through.

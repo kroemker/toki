@@ -216,18 +216,18 @@ void Renderer::drawOverlay(SDL_GPURenderPass* pass, SDL_GPUCommandBuffer* comman
                            .h = static_cast<int>(target.getHeight())};
     SDL_SetGPUScissor(pass, &scissor);
     const SDL_GPUBufferBinding binding{.buffer = overlayBuffer.buffer.get(), .offset = 0};
-    const auto drawPart = [&](const OverlayDepth depth, const f32 opacity) {
+    const auto drawPart = [&](const OverlayDepth depth) {
         SDL_BindGPUGraphicsPipeline(pass, overlayPipeline.getPipeline(depth));
         SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
-        const OverlayUniforms uniforms = makeOverlayUniforms(overlay.viewport, screen, opacity);
+        const OverlayUniforms uniforms = makeOverlayUniforms(overlay.viewport, screen, depth);
         SDL_PushGPUVertexUniformData(commands, 0, &uniforms, sizeof(uniforms));
         SDL_DrawGPUPrimitives(pass, vertexCount, 1, 0, 0);
         ++drawCalls;
     };
-    if (overlay.hiddenOpacity > 0.0F) {
-        drawPart(OverlayDepth::Hidden, overlay.hiddenOpacity);
+    if (hasHiddenPart(overlay)) {
+        drawPart(OverlayDepth::Hidden);
     }
-    drawPart(OverlayDepth::Visible, 1.0F);
+    drawPart(OverlayDepth::Visible);
 }
 
 std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
@@ -237,7 +237,7 @@ std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
     drawCalls = 0;
     DrawBatches drawBatches = makeDrawBatches(rspResult, rdpResult, screen);
     std::vector<base::Diagnostic> diagnostics = std::move(drawBatches.diagnostics);
-    const std::vector<GpuOverlayVertex> overlayVertices = makeOverlayVertices(overlay.lines);
+    const std::vector<GpuOverlayVertex> overlayVertices = makeOverlayVertices(overlay);
     if (std::expected<void, base::Diagnostic> uploaded =
             upload(drawBatches.vertices, overlayVertices, rdpResult.textureMemories);
         !uploaded) {

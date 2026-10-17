@@ -28,7 +28,6 @@
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/ext/matrix_float4x4.hpp>
-#include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
 
@@ -52,8 +51,8 @@ namespace toki::viewport {
 namespace {
 
 constexpr f32 HighlightFill = 0.35F;
-constexpr LineStyle WireframeStyle{.color = {16, 16, 16, 200}, .width = 1.0F};
-constexpr LineStyle WireframeOnlyStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
+constexpr LineStyle WireframeStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
+constexpr f32 HighlightEdgeWidth = 1.0F;
 
 constexpr f32 DegreesPerPoint = 0.4F;
 constexpr float ChipOpacity = 0.8F;
@@ -112,9 +111,7 @@ void ViewportPanel::setCameraPose(const core::CameraPose& pose) {
 }
 
 void ViewportPanel::setView(const ViewportView& view) {
-    RenderMode run = viewportView.renderMode;
-    run.wireframe = view.renderMode.wireframe;
-    if (run != view.renderMode) {
+    if (view.renderMode != viewportView.renderMode) {
         stale = true;
     } else {
         isOverlayStale = true;
@@ -195,7 +192,6 @@ void ViewportPanel::draw() {
     drawList->AddImage(texture, origin, end);
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
-    drawHighlight(*drawList, origin, size);
     drawViewChanges(*drawList, origin, size);
     drawList->PopClipRect();
     ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
@@ -212,26 +208,24 @@ void ViewportPanel::draw() {
     statusBar.draw();
 }
 
-void ViewportPanel::drawHighlight(ImDrawList& drawList, const ImVec2 origin,
-                                  const ImVec2 size) const {
-    if (highlight.empty() || highlightSize.width == 0 || highlightSize.height == 0) {
-        return;
-    }
-    const ImVec2 scale{size.x / static_cast<f32>(highlightSize.width),
-                       size.y / static_cast<f32>(highlightSize.height)};
-    const auto place = [&](const glm::vec2& corner) {
-        return ImVec2(origin.x + (corner.x * scale.x), origin.y + (corner.y * scale.y));
+gfx::Overlay ViewportPanel::makeHighlight(const f32 scale) const {
+    const auto makeColor = [](const f32 alpha) {
+        const ImVec4& accent = core::palette::Accent;
+        return std::array<u8, 4>{
+            static_cast<u8>(accent.x * 255.0F), static_cast<u8>(accent.y * 255.0F),
+            static_cast<u8>(accent.z * 255.0F), static_cast<u8>(alpha * 255.0F)};
     };
-    const u32 fill = ImGui::GetColorU32(ImVec4(core::palette::Accent.x, core::palette::Accent.y,
-                                               core::palette::Accent.z, HighlightFill));
-    const u32 edge = ImGui::GetColorU32(core::palette::Accent);
-    for (const std::array<glm::vec2, 3>& triangle : highlight) {
-        const ImVec2 a = place(triangle[0]);
-        const ImVec2 b = place(triangle[1]);
-        const ImVec2 c = place(triangle[2]);
-        drawList.AddTriangleFilled(a, b, c, fill);
-        drawList.AddTriangle(a, b, c, edge);
+    gfx::Overlay overlay;
+    for (const ClipTriangle& triangle : highlight) {
+        overlay.triangles.push_back(
+            {.corners = triangle, .color = makeColor(HighlightFill), .hiddenOpacity = XrayOpacity});
     }
+    overlay.lines =
+        makeOutlines(highlight, {.color = makeColor(1.0F), .width = HighlightEdgeWidth * scale});
+    for (gfx::OverlayLine& line : overlay.lines) {
+        line.hiddenOpacity = XrayOpacity;
+    }
+    return overlay;
 }
 
 void ViewportPanel::drawViewChanges(ImDrawList& drawList, const ImVec2 origin,
@@ -325,37 +319,40 @@ std::vector<base::Diagnostic> ViewportPanel::drawFrame(const gfx::RenderTarget& 
     }
     const DrawnFrame& drawing = *drawnFrame;
     const FrameSize size{.width = target.getWidth(), .height = target.getHeight()};
-    const Wireframe wireframe = viewportView.renderMode.wireframe;
-    return renderer->render(drawing.rspResult,
-                            wireframe == Wireframe::Only ? n64::RdpResult{} : drawing.rdpResult,
+    const bool isWireframe = viewportView.renderMode.shading == Shading::Wireframe;
+    return renderer->render(drawing.rspResult, isWireframe ? n64::RdpResult{} : drawing.rdpResult,
                             target, gfx::ScreenSize{.width = size.width, .height = size.height},
                             makeOverlay(drawing, size));
 }
 
 gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSize size) const {
     const ViewportOverlays& overlays = viewportView.overlays;
-    gfx::Overlay overlay{.viewport = makeFrameViewport(size),
-                         .lines = {},
-                         .hiddenOpacity = overlays.xray ? XrayOpacity : 0.0F};
-    const Wireframe wireframe = viewportView.renderMode.wireframe;
-    if (wireframe != Wireframe::Off) {
-        overlay.lines =
-            makeTriangleEdges(drawing.rspResult, drawing.rdpResult, overlay.viewport,
-                              wireframe == Wireframe::Only ? WireframeOnlyStyle : WireframeStyle);
+    gfx::Overlay overlay{.viewport = makeFrameViewport(size)};
+    if (viewportView.renderMode.shading == Shading::Wireframe) {
+        overlay.lines = makeTriangleEdges(drawing.rspResult, drawing.rdpResult, overlay.viewport,
+                                          WireframeStyle);
     }
-    if (!overlays.isShown) {
-        return overlay;
+    const f32 scale = ImGui::GetIO().DisplayFramebufferScale.x;
+    if (overlays.isShown) {
+        const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
+        if (overlays.grid) {
+            std::ranges::move(makeGridLines(viewProjection, orbitCamera.getTarget()),
+                              std::back_inserter(overlay.lines));
+        }
+        if (overlays.flagLinks) {
+            std::ranges::move(
+                makeArrowLines(viewportOverlay, viewProjection, size, scaleArrowStyle(scale)),
+                std::back_inserter(overlay.lines));
+        }
     }
-    const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
-    if (overlays.grid) {
-        std::ranges::move(makeGridLines(viewProjection, orbitCamera.getTarget()),
-                          std::back_inserter(overlay.lines));
+    if (overlays.xray) {
+        for (gfx::OverlayLine& line : overlay.lines) {
+            line.hiddenOpacity = XrayOpacity;
+        }
     }
-    if (overlays.flagLinks) {
-        std::ranges::move(makeArrowLines(viewportOverlay, viewProjection, size,
-                                         scaleArrowStyle(ImGui::GetIO().DisplayFramebufferScale.x)),
-                          std::back_inserter(overlay.lines));
-    }
+    gfx::Overlay highlighted = makeHighlight(scale);
+    overlay.triangles = std::move(highlighted.triangles);
+    std::ranges::move(highlighted.lines, std::back_inserter(overlay.lines));
     return overlay;
 }
 

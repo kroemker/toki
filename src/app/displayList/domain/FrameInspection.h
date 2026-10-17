@@ -1,13 +1,13 @@
 #pragma once
 
 #include "app/displayList/Types.h"
+#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "n64/CommandDecoder.h"
 #include "n64/Rdp.h"
 #include "n64/Segment.h"
+#include "n64/Viewport.h"
 #include "z64/GbiNames.h"
-
-#include <glm/vec2.hpp>
 
 #include <array>
 #include <optional>
@@ -16,9 +16,6 @@
 #include <vector>
 
 namespace toki::displayList {
-
-/// A triangle's corners on the screen, in pixels.
-using ScreenTriangle = std::array<glm::vec2, 3>;
 
 /// One command a frame ran, as the viewer shows it: the trace entry it is, its
 /// decoded command, how many calls deep it ran, and, for a call, the row one
@@ -72,11 +69,12 @@ public:
     /// into the frame's RDP draws.
     [[nodiscard]] std::vector<usize> listDraws(usize row) const;
 
-    /// Where on the screen the command at `row` drew, and for a call every
-    /// command it ran: each triangle, and each rectangle as two, in pixels of
-    /// the frame from its top left. A triangle with a corner behind the eye is
-    /// left out.
-    [[nodiscard]] std::vector<ScreenTriangle> listScreenTriangles(usize row) const;
+    /// What the command at `row` drew, and for a call every command it ran,
+    /// in the clip space of `viewport`: each triangle where it showed on the
+    /// screen at its own depth, and each rectangle, which has none, as two at
+    /// the near plane. A triangle with a corner behind the eye is left out.
+    [[nodiscard]] std::vector<viewport::ClipTriangle>
+    listClipTriangles(usize row, const n64::Viewport& viewport) const;
 
     /// The RDP state the command at `row` drew its first primitive with.
     [[nodiscard]] const n64::RdpState* findDrawState(usize row) const;
@@ -100,8 +98,8 @@ private:
     void readRows();
     void findLoadGroups();
     [[nodiscard]] std::string makeLoadLabel(usize first, usize end) const;
-    void appendScreenTriangles(const n64::RdpPrimitive& primitive,
-                               std::vector<ScreenTriangle>& triangles) const;
+    [[nodiscard]] std::vector<viewport::ClipTriangle>
+    makeClipTriangles(const n64::RdpPrimitive& primitive, const n64::Viewport& viewport) const;
 
     const viewport::Frame& frame;
     std::vector<NamedRange> symbols;

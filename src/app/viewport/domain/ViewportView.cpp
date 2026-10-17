@@ -13,8 +13,8 @@ namespace toki::viewport {
 
 namespace {
 
-constexpr auto ShadingLabels =
-    std::to_array<std::string_view>({"N64", "Shade Only", "Texture Only", "Normals", "Depth"});
+constexpr auto ShadingLabels = std::to_array<std::string_view>(
+    {"N64", "Shade Only", "Texture Only", "Normals", "Depth", "Wireframe"});
 
 static_assert(ShadingLabels.size() == ShadingCount,
               "a shading was added to the enum without a label");
@@ -30,11 +30,6 @@ std::vector<std::string> listViewChanges(const ViewportView& view) {
     std::vector<std::string> changes;
     if (mode.shading != Shading::N64) {
         changes.emplace_back(getShadingLabel(mode.shading));
-    }
-    if (mode.wireframe == Wireframe::OverShading) {
-        changes.emplace_back("Wireframe");
-    } else if (mode.wireframe == Wireframe::Only) {
-        changes.emplace_back("Wireframe Only");
     }
     const std::array<std::pair<bool, std::string_view>, 5> switches{{
         {mode.lighting, "No Lighting"},

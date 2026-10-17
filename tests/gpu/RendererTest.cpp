@@ -30,6 +30,7 @@
 #include <functional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 using base::f32;
@@ -708,4 +709,63 @@ TEST_CASE("a line behind a triangle is hidden by it and one in front is not", "[
 
     REQUIRE(frame.getPixel(160, 60) == green);
     REQUIRE(frame.getPixel(160, 180) == Color{255, 0, 0, 255});
+}
+
+TEST_CASE("an overlay triangle over the triangle it repeats wins against it", "[gpu][overlay]") {
+    Gpu gpu = Gpu::create();
+    Scene scene;
+    const Color green{20, 200, 40, 255};
+    const u32 vertices = scene.builder.addVertex({-200, -200, -60}, {0, 0}, green);
+    scene.builder.addVertex({200, -200, 70}, {0, 0}, green);
+    scene.builder.addVertex({-200, 200, 30}, {0, 0}, green);
+    scene.builder.addVertex({200, 200, -80}, {0, 0}, green);
+    scene.beginCommands();
+    scene.builder.setGeometryMode(0, ZBuffer);
+    scene.setOtherMode(0, DepthCompareAndUpdate);
+    scene.setCombine({.d = 4, .alphaD = 4});
+    scene.drawScreen(vertices);
+
+    const Gpu::Frame frame =
+        gpu.draw(scene, [](const n64::RspResult& rsp, const n64::RdpResult& rdp) {
+            const auto& drawn = std::get<n64::Triangle>(rdp.draws.at(0).primitive);
+            gfx::Overlay overlay{.viewport = rsp.viewports.at(0)};
+            overlay.triangles.push_back(
+                {.corners = {drawn.vertices[0].position, drawn.vertices[1].position,
+                             drawn.vertices[2].position},
+                 .color = {255, 0, 0, 255}});
+            return overlay;
+        });
+
+    REQUIRE(frame.getPixel(40, 40) == Color{255, 0, 0, 255});
+    REQUIRE(frame.getPixel(280, 200) == green);
+}
+
+TEST_CASE("only the hidden lines that ask for it show through a triangle", "[gpu][overlay]") {
+    Gpu gpu = Gpu::create();
+    Scene scene;
+    const Color green{20, 200, 40, 255};
+    const u32 vertices = scene.addScreenVertices(green);
+    scene.beginCommands();
+    scene.builder.setGeometryMode(0, ZBuffer);
+    scene.setOtherMode(0, DepthCompareAndUpdate);
+    scene.setCombine({.d = 4, .alphaD = 4});
+    scene.drawScreen(vertices);
+
+    const Gpu::Frame frame = gpu.draw(scene, [](const n64::RspResult& rsp, const n64::RdpResult&) {
+        const std::array<u8, 4> red{255, 0, 0, 255};
+        gfx::Overlay overlay{.viewport = rsp.viewports.at(0)};
+        overlay.lines.push_back({.from = {-0.5F, 0.5F, 0.5F, 1},
+                                 .to = {0.5F, 0.5F, 0.5F, 1},
+                                 .color = red,
+                                 .width = 3.0F,
+                                 .hiddenOpacity = 1.0F});
+        overlay.lines.push_back({.from = {-0.5F, -0.5F, 0.5F, 1},
+                                 .to = {0.5F, -0.5F, 0.5F, 1},
+                                 .color = red,
+                                 .width = 3.0F});
+        return overlay;
+    });
+
+    REQUIRE(frame.getPixel(160, 60) == Color{255, 0, 0, 255});
+    REQUIRE(frame.getPixel(160, 180) == green);
 }

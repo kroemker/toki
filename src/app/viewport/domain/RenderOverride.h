@@ -12,7 +12,8 @@ namespace toki::viewport {
 [[nodiscard]] n64::RspOverrides makeRspOverrides(const RenderMode& mode);
 
 /// `rdpResult` drawn as `mode` asks. Fog, translucency, alpha cutout and the
-/// filter change the other mode of every state. A shading other than N64
+/// filter change the other mode of every state. Wireframe leaves the result as
+/// it is: the viewport draws its edges instead. Any other shading but N64
 /// draws every triangle through a combiner that selects one input: its
 /// shade, its first texture (shade where it has none), or a shade written
 /// for it: the normal of its face in world space, which `viewProjection`

@@ -8,6 +8,8 @@
 #include "app/displayList/Types.h"
 #include "app/displayList/domain/FrameInspection.h"
 #include "app/displayList/domain/RdpStateText.h"
+#include "app/viewport/domain/OverlayGeometry.h"
+#include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "base/Diagnostic.h"
@@ -21,6 +23,7 @@
 #include "n64/OtherMode.h"
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
+#include "n64/Viewport.h"
 #include "z64/GbiNames.h"
 
 #include <imgui.h>
@@ -37,6 +40,7 @@
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace toki::displayList {
 
@@ -164,9 +168,10 @@ void DisplayListPanel::updateHighlight() {
     }
     highlightRow = row;
     highlightGeneration = generation;
-    viewportPanel.setHighlight(row ? inspection->listScreenTriangles(*row)
-                                   : std::vector<ScreenTriangle>(),
-                               shownFrame != nullptr ? shownFrame->size : viewport::FrameSize{});
+    viewportPanel.setHighlight(
+        row && shownFrame != nullptr
+            ? inspection->listClipTriangles(*row, viewport::makeFrameViewport(shownFrame->size))
+            : std::vector<viewport::ClipTriangle>());
 }
 
 void DisplayListPanel::inspectSymbol(std::string symbol) {

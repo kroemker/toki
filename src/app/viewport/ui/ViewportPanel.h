@@ -4,6 +4,7 @@
 #include "app/core/ui/Panel.h"
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -116,11 +117,12 @@ public:
         chooseHandler = nullptr;
     }
 
-    /// Triangles to pick out over the image, in pixels of a frame of `size`,
-    /// as the display list viewer shows what a command drew.
-    void setHighlight(std::vector<std::array<glm::vec2, 3>> triangles, const FrameSize size) {
+    /// Triangles to pick out over the image, in the clip space of the frame's
+    /// viewport, as the display list viewer shows what a command drew. They
+    /// are drawn in the overlay pass, hidden by what stands in front of them.
+    void setHighlight(std::vector<ClipTriangle> triangles) {
         highlight = std::move(triangles);
-        highlightSize = size;
+        isOverlayStale = true;
     }
 
     /// Whether frames are drawn with their commands recorded, for looking
@@ -158,8 +160,8 @@ private:
     void render(const gfx::RenderTarget& target);
     [[nodiscard]] std::vector<base::Diagnostic> drawFrame(const gfx::RenderTarget& target);
     [[nodiscard]] gfx::Overlay makeOverlay(const DrawnFrame& drawing, FrameSize size) const;
+    [[nodiscard]] gfx::Overlay makeHighlight(f32 scale) const;
     static void reportDiagnostics(const Frame& frame);
-    void drawHighlight(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
 
     const gfx::Device& device;
     std::optional<gfx::Renderer> renderer;
@@ -173,8 +175,7 @@ private:
     std::optional<ViewportChoices> viewportChoices;
     std::function<void(const ViewportChoices&)> chooseHandler;
     ViewportStatusBar statusBar;
-    std::vector<std::array<glm::vec2, 3>> highlight;
-    FrameSize highlightSize;
+    std::vector<ClipTriangle> highlight;
     bool isTracing = false;
     std::optional<TracedFrame> tracedFrame;
     /// What the RSP and RDP made of the last frame run, as it is drawn, to

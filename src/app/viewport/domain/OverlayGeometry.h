@@ -17,6 +17,12 @@
 
 namespace toki::viewport {
 
+/// A point in the N64's clip space, as the RSP leaves its vertices.
+using ClipPosition = std::array<f32, 4>;
+
+/// A triangle's corners in clip space.
+using ClipTriangle = std::array<ClipPosition, 3>;
+
 /// How a kind of line is drawn over the frame.
 struct LineStyle {
     std::array<u8, 4> color{};
@@ -31,6 +37,11 @@ struct LineStyle {
                                                               const n64::RdpResult& rdpResult,
                                                               const n64::Viewport& viewport,
                                                               const LineStyle& style);
+
+/// The three edges of each of `triangles`, as a highlight outlines what it
+/// fills.
+[[nodiscard]] std::vector<gfx::OverlayLine> makeOutlines(const std::vector<ClipTriangle>& triangles,
+                                                         const LineStyle& style);
 
 /// How the lines of a `ViewportOverlay` are drawn, in target pixels.
 struct ArrowStyle {

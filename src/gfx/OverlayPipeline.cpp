@@ -32,7 +32,7 @@ PipelineHandle makePipeline(const Device& device, SDL_GPUShader* vertexShader,
         .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
         .instance_step_rate = 0,
     };
-    const std::array<SDL_GPUVertexAttribute, 4> attributes{{
+    const std::array<SDL_GPUVertexAttribute, 5> attributes{{
         {.location = 0,
          .buffer_slot = 0,
          .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
@@ -49,6 +49,10 @@ PipelineHandle makePipeline(const Device& device, SDL_GPUShader* vertexShader,
          .buffer_slot = 0,
          .format = SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM,
          .offset = offsetof(GpuOverlayVertex, color)},
+        {.location = 4,
+         .buffer_slot = 0,
+         .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,
+         .offset = offsetof(GpuOverlayVertex, hiddenOpacity)},
     }};
     const SDL_GPUColorTargetDescription colorTarget{
         .format = RenderTarget::ColorFormat,

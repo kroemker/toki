@@ -207,7 +207,7 @@ n64::RdpResult applyRenderMode(n64::RdpResult rdpResult, const RenderMode& mode,
     for (n64::RdpState& state : rdpResult.states) {
         state.otherMode = overrideOtherMode(state.otherMode, mode);
     }
-    if (mode.shading == Shading::N64) {
+    if (mode.shading == Shading::N64 || mode.shading == Shading::Wireframe) {
         return rdpResult;
     }
     return reshade(std::move(rdpResult), mode.shading, viewProjection);

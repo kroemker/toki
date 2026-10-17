@@ -14,7 +14,8 @@ cbuffer OverlayUniforms : register(b0, space1)
 {
     float4 viewportScale;
     float4 viewportTranslate;
-    // The target's width and height, the depth bias, the opacity.
+    // The target's width and height, the depth bias, and 1 in the pass that
+    // draws what the frame hides, 0 in the one that draws what it does not.
     float4 screen;
 };
 
@@ -24,6 +25,7 @@ struct VertexInput
     float4 other : TEXCOORD1;
     float2 extrusion : TEXCOORD2;
     float4 color : TEXCOORD3;
+    float hiddenOpacity : TEXCOORD4;
 };
 
 static const float DepthRange = 1023.0;
@@ -48,7 +50,7 @@ Interpolants VertexMain(VertexInput input)
 
     Interpolants output;
     output.position = float4(here.xy + (offset * here.w), here.z - (screen.z * here.w), here.w);
-    output.color = float4(input.color.rgb, input.color.a * screen.w);
+    output.color = float4(input.color.rgb, input.color.a * lerp(1.0, input.hiddenOpacity, screen.w));
     return output;
 }
 

@@ -32,15 +32,12 @@ constexpr auto MarkerShapeNames = std::to_array<std::string_view>({"cube", "diam
 static_assert(MarkerShapeNames.size() == MarkerShapeCount,
               "a marker shape was added to the enum without a name");
 
-constexpr auto ShadingNames =
-    std::to_array<std::string_view>({"n64", "shade_only", "texture_only", "normals", "depth"});
-constexpr auto WireframeNames = std::to_array<std::string_view>({"off", "over_shading", "only"});
+constexpr auto ShadingNames = std::to_array<std::string_view>(
+    {"n64", "shade_only", "texture_only", "normals", "depth", "wireframe"});
 constexpr auto TextureFilterNames = std::to_array<std::string_view>({"n64", "point"});
 
 static_assert(ShadingNames.size() == viewport::ShadingCount,
               "a shading was added to the enum without a name");
-static_assert(WireframeNames.size() == viewport::WireframeCount,
-              "a wireframe was added to the enum without a name");
 static_assert(TextureFilterNames.size() == viewport::TextureFilterCount,
               "a texture filter was added to the enum without a name");
 
@@ -183,7 +180,6 @@ void readViewport(const toml::table& root, Settings& settings) {
     }
     viewport::RenderMode& mode = settings.viewport.renderMode;
     mode.shading = readEnum((*viewport)["shading"], ShadingNames, mode.shading);
-    mode.wireframe = readEnum((*viewport)["wireframe"], WireframeNames, mode.wireframe);
     mode.lighting = (*viewport)["lighting"].value_or(mode.lighting);
     mode.fog = (*viewport)["fog"].value_or(mode.fog);
     mode.culling = (*viewport)["culling"].value_or(mode.culling);
@@ -203,7 +199,6 @@ void writeViewport(toml::table& root, const Settings& settings) {
     const viewport::ViewportOverlays& overlays = settings.viewport.overlays;
     toml::table viewport;
     viewport.insert_or_assign("shading", ShadingNames[static_cast<usize>(mode.shading)]);
-    viewport.insert_or_assign("wireframe", WireframeNames[static_cast<usize>(mode.wireframe)]);
     viewport.insert_or_assign("lighting", mode.lighting);
     viewport.insert_or_assign("fog", mode.fog);
     viewport.insert_or_assign("culling", mode.culling);
