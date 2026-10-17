@@ -8205,3 +8205,1470 @@ scale = 0.1
 [[actors.ACTOR_BG_SPOT18_BASKET.variants]]
 parts = [{ display_list = "gGoronCityVaseDL" }]
 children = [{ actor = "ACTOR_BG_SPOT18_FUTA", params = 0xFFFF, offset = [0, 0, 0] }]
+
+[actors.ACTOR_ARMS_HOOK]
+name = "Hookshot"
+notes = "The hookshot's tip, spawned by Player as a child when he uses the Hookshot or Longshot (params 0, his yaw). Drawn only while Player is drawn holding it. Drawn here as its tip, gLinkAdultHookshotTipDL, at the actor's own matrix. The chain is gLinkAdultHookshotChainDL stretched from the tip back to Player's hand, scaled 0.015 across and by the distance along; at rest the distance is 0, so it is not drawn."
+object = "object_link_boy"
+scale = 0.01
+
+[[actors.ACTOR_ARMS_HOOK.variants]]
+parts = [{ display_list = "gLinkAdultHookshotTipDL" }]
+
+[actors.ACTOR_ARROW_FIRE]
+name = "Fire Arrow effect"
+notes = "The flame around a Fire Arrow, spawned by En_Arrow as its child (params 0) and drawn at the arrow's position and rotation; draws nothing without its arrow. Drawn fully charged as it sits on the bow (radius 10, alpha 160), its flame tube turned 90 degrees about X and moved 1500 along it before being scaled by the charge (2, 4, 2) and moved back 700, written as one translation of (0, 0, -1300). Its material and model are two parts that share state: sMaterialDL loads the textures and combiner, sModelDL draws, so it is right only while state carries from one part to the next. Draw calls Gfx_TwoTexScroll between them directly rather than through a segment, which is not drawn: the textures stand still at the tile sizes sMaterialDL sets. In flight the flame stretches with the distance flown and turns opaque; on a hit it swells and a red flash fills the screen; none of it is drawn."
+object = "ovl_Arrow_Fire"
+scale = 0.01
+
+[[actors.ACTOR_ARROW_FIRE.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", translation = [0, 0, -1300], rotation = [90, 0, 0], scale = [2, 4, 2], prim = [255, 200, 0, 160], env = [255, 0, 0, 128] },
+    { display_list = "sModelDL", pass = "translucent", translation = [0, 0, -1300], rotation = [90, 0, 0], scale = [2, 4, 2], prim = [255, 200, 0, 160], env = [255, 0, 0, 128] },
+]
+
+[actors.ACTOR_ARROW_ICE]
+name = "Ice Arrow effect"
+notes = "The frost around an Ice Arrow, spawned by En_Arrow as its child (params 0) and drawn at the arrow's position and rotation; draws nothing without its arrow. Drawn fully charged as it sits on the bow (radius 10, alpha 100), its tube turned 90 degrees about X and moved 1500 along it before being scaled by the charge (2, 3, 2) and moved back 700, written as one translation of (0, 0, -600). Its material and model are two parts that share state: sMaterialDL loads the textures and combiner, sModelDL draws, so it is right only while state carries from one part to the next. Draw calls Gfx_TwoTexScroll between them directly rather than through a segment, which is not drawn: the textures stand still at the tile sizes sMaterialDL sets. In flight it stretches with the distance flown and turns opaque; on a hit it swells and a blue flash fills the screen; none of it is drawn."
+object = "ovl_Arrow_Ice"
+scale = 0.01
+
+[[actors.ACTOR_ARROW_ICE.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", translation = [0, 0, -600], rotation = [90, 0, 0], scale = [2, 3, 2], prim = [170, 255, 255, 100], env = [0, 0, 255, 128] },
+    { display_list = "sModelDL", pass = "translucent", translation = [0, 0, -600], rotation = [90, 0, 0], scale = [2, 3, 2], prim = [170, 255, 255, 100], env = [0, 0, 255, 128] },
+]
+
+[actors.ACTOR_ARROW_LIGHT]
+name = "Light Arrow effect"
+notes = "The light around a Light Arrow, spawned by En_Arrow as its child (params 0) and drawn at the arrow's position and rotation; draws nothing without its arrow. Drawn fully charged as it sits on the bow (radius 10, alpha 130), its tube turned 90 degrees about X and moved 1500 along it before being scaled by the charge (2, 4, 2) and moved back 700, written as one translation of (0, 0, -1300). Its material and model are two parts that share state: sMaterialDL loads the textures and combiner, sModelDL draws, so it is right only while state carries from one part to the next. Draw calls Gfx_TwoTexScroll between them directly rather than through a segment, which is not drawn: the textures stand still at the tile sizes sMaterialDL sets. In flight it stretches with the distance flown and turns opaque; on a hit it swells and a yellow flash fills the screen; none of it is drawn."
+object = "ovl_Arrow_Light"
+scale = 0.01
+
+[[actors.ACTOR_ARROW_LIGHT.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", translation = [0, 0, -1300], rotation = [90, 0, 0], scale = [2, 4, 2], prim = [255, 255, 170, 130], env = [255, 255, 0, 128] },
+    { display_list = "sModelDL", pass = "translucent", translation = [0, 0, -1300], rotation = [90, 0, 0], scale = [2, 4, 2], prim = [255, 255, 170, 130], env = [255, 255, 0, 128] },
+]
+
+[actors.ACTOR_EN_ARROW]
+name = "Arrow, Deku Seed or Deku Nut"
+notes = "A projectile: Player's arrows (as his child, params by the arrow he nocks) and Deku Nuts (ARROW_NUT), the arrow traps' arrows (ARROW_NORMAL_SILENT, aimed at Link), and the nuts Sheik throws in cutscenes (ARROW_CS_NUT, read as a nut). Arrows are drawn as gArrowSkel in gArrow2Anim, the animation Init gives it; its far LOD and the motion blur trail are not drawn. Fire, Ice and Light arrows (and the unused 6 to 8, which take the fire effect) spawn their effect actor as a child at their position on their first update, drawn here as a child. A lit arrow's flame dust is not drawn. Seeds and nuts draw only while flying (speed not 0): a billboarded sparkle (gEffSparklesDL), spinning at run time and pulsing its env alpha, drawn here at rest as in flight with the alpha at its peak."
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_ARROW.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Normal, lit", 1 = "Normal (on horseback)", 2 = "Normal", 3 = "Fire", 4 = "Ice", 5 = "Light", 6 = "Fire (unused 0C)", 7 = "Fire (unused 0D)", 8 = "Fire (unused 0E)", 9 = "Deku Seed", 10 = "Deku Nut", 65526 = "Deku Nut (cutscene)", 65535 = "Normal, silent (enemy)" } }
+
+[[actors.ACTOR_EN_ARROW.variants]]
+match = { Type = [3, 6, 7, 8] }
+parts = [{ skeleton = "gArrowSkel", pose = "gArrow2Anim" }]
+children = [
+    { actor = "ACTOR_ARROW_FIRE", params = 0x0000, offset = [0, 0, 0] },
+]
+
+[[actors.ACTOR_EN_ARROW.variants]]
+match = { Type = 4 }
+parts = [{ skeleton = "gArrowSkel", pose = "gArrow2Anim" }]
+children = [
+    { actor = "ACTOR_ARROW_ICE", params = 0x0000, offset = [0, 0, 0] },
+]
+
+[[actors.ACTOR_EN_ARROW.variants]]
+match = { Type = 5 }
+parts = [{ skeleton = "gArrowSkel", pose = "gArrow2Anim" }]
+children = [
+    { actor = "ACTOR_ARROW_LIGHT", params = 0x0000, offset = [0, 0, 0] },
+]
+
+[[actors.ACTOR_EN_ARROW.variants]]
+match = { Type = 9 }
+parts = [{ display_list = "gEffSparklesDL", pass = "translucent", scale = 50, billboard = true, prim = [255, 255, 255, 255], env = [0, 255, 255, 255] }]
+
+[[actors.ACTOR_EN_ARROW.variants]]
+match = { Type = [10, 65526] }
+parts = [{ display_list = "gEffSparklesDL", pass = "translucent", scale = 150, billboard = true, prim = [12, 0, 0, 255], env = [250, 250, 0, 255] }]
+
+[[actors.ACTOR_EN_ARROW.variants]]
+parts = [{ skeleton = "gArrowSkel", pose = "gArrow2Anim" }]
+
+[actors.ACTOR_EN_BOM]
+name = "Bomb"
+notes = "A bomb: Player's (as his child), and those dropped or thrown by Dodongos, Bombchus, Gorons, Armos, Beamos, Peahats, Fire Dancers and others, all BOMB_BODY. It spawns at scale 0 and is set to 0.01 three frames later, drawn here at 0.01; it swells just before it explodes. Its cap is billboarded and its body is the cap's billboard turned 90 degrees about X; a billboard part cannot be turned after facing the camera, so the body (a flat quad) is drawn unbillboarded, turned 90 about X, facing the actor's +Z, and looks right only from in front. Its red flash as the fuse burns is drawn at its start (prim and env red 0). The fuse sparks and smoke are effects and not drawn. BOMB_EXPLOSION, what a bomb becomes when it explodes, draws nothing. The high byte of rotation Z adds to the explosion's damage; its low byte is kept as the Z rotation, which the billboard hides."
+object = "gameplay_keep"
+scale = 0.01
+height_offset = 700
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_BOM.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Bomb", 1 = "Explosion" } }
+"Extra Damage" = { mask = 0xFF00, source = "rotation_z", kind = "number", description = "Added to the explosion's damage" }
+
+[[actors.ACTOR_EN_BOM.variants]]
+match = { Type = 1 }
+draw = "marker"
+
+[[actors.ACTOR_EN_BOM.variants]]
+parts = [
+    { display_list = "gBombCapDL", billboard = true, hilite = true },
+    { display_list = "gBombBodyDL", rotation = [90, 0, 0], hilite = true, prim = [0, 0, 40, 255], env = [0, 0, 40, 255] },
+]
+
+[actors.ACTOR_EN_BOM_CHU]
+name = "Bombchu"
+notes = "A Bombchu, spawned by Player as his child when he sets one down (params 0, his yaw), which then runs along floors, walls and ceilings, turned to the surface under it at run time. Drawn as gBombchuDL; its sideways jitter while running and its blinking (env flashes red faster as its timer runs out) are drawn at rest, at the colour of its first frame. Its two motion blur trails are effects and not drawn. When it explodes it spawns a bomb (En_Bom, BOMB_BODY) with its timer at 0, not drawn here. Params are not read."
+object = "gameplay_keep"
+scale = 0.01
+
+[[actors.ACTOR_EN_BOM_CHU.variants]]
+parts = [{ display_list = "gBombchuDL", hilite = true, env = [9, 9, 35, 255] }]
+
+[actors.ACTOR_EN_BOOM]
+name = "Boomerang"
+notes = "The boomerang Link throws, spawned by Player 30 units up and 10 ahead of him, turned by his yaw (and toward his lock-on target) and his focus pitch (params 0). Init zeroes its shape rotation and Draw turns it by its flight direction instead, yaw then a fixed tilt of 0x1F40 (43.945 degrees) about Z then the pitch; at rest the pitch is 0, so it is drawn turned by its yaw and the tilt. Its spin (12000 per frame about Y) and motion blur trail are not drawn. It flies off and back at run time. Params are not read."
+object = "gameplay_keep"
+scale = 0.01
+rotates = { x = false, y = true, z = false }
+
+[[actors.ACTOR_EN_BOOM.variants]]
+parts = [{ display_list = "gBoomerangRefDL", rotation = [0, 0, 43.945] }]
+
+[actors.ACTOR_MAGIC_DARK]
+name = "Nayru's Love"
+notes = "The crystal of Nayru's Love, spawned by Player when he casts it (params 0) and kept at his waist, wherever it is placed. Drawn as the diamond it settles into: 0.6 for adult Link, 0.4 for a child, widened 1.3 across, prim alpha 255 times 0.6. It first appears as a growing orb of two billboarded gEffFlash1DL between Link's hands (scaled up from 0 over 35 frames, then rising), which is not drawn, nor the diamond's squash as it forms and its flicker as it runs out. It spins with the camera's yaw at run time, drawn unturned. Its material and model are two parts that share state: sDiamondMaterialDL loads the texture and combiner, sDiamondModelDL draws, so it is right only while state carries from one part to the next. Draw calls Gfx_TwoTexScroll between them directly rather than through a segment, which is not drawn: the texture stands still. Spawned again at full size if Nayru's Love is still running when a scene loads."
+object = "ovl_Magic_Dark"
+scale = 0.6
+rotates = { x = false, y = false, z = false }
+
+[[actors.ACTOR_MAGIC_DARK.variants]]
+parts = [
+    { display_list = "sDiamondMaterialDL", pass = "translucent", scale = [1.3, 1, 1.3], prim = [170, 255, 255, 153], env = [0, 100, 255, 128] },
+    { display_list = "sDiamondModelDL", pass = "translucent", scale = [1.3, 1, 1.3], prim = [170, 255, 255, 153], env = [0, 100, 255, 128] },
+]
+
+[[actors.ACTOR_MAGIC_DARK.adjustments]]
+match = { age = "child" }
+scale = 0.4
+
+[actors.ACTOR_MAGIC_FIRE]
+name = "Din's Fire"
+notes = "The fire dome of Din's Fire, spawned by Player at Link with params 0 and kept on him. A marker: Draw loads its texture (sTex) with gDPLoadTextureBlock in code before calling sMaterialDL and sModelDL, so the dome cannot be drawn from the overlay's lists alone, and they have no segment to load it through. It also starts at scale 0, grows to 0.4 (then times 0.15 in Draw) and fades, scrolls its texture, tints the whole screen with a rectangle, and sets its vertex alphas each frame."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_MAGIC_WIND]
+name = "Farore's Wind"
+notes = "The green cylinders of Farore's Wind, spawned by Player at Link. Drawn by SkelCurve, which the format has no skeleton for, so its two limbs' display lists are drawn as parts with the limbs' scales at the last frame of sAnim (inner 0.5 x 1.5 x 0.5, outer 0.7 x 1.0 x 0.7), when fully grown: leaving (0) waits 29 frames unseen, then grows over 60 frames from height 0, holds and fades; arriving (1) starts grown and shrinks. Each limb's texture scroll (segments 8 and 9) is drawn at its first frame. The fade of the alpha is not drawn."
+object = "ovl_Magic_Wind"
+scale = 0.01
+
+[actors.ACTOR_MAGIC_WIND.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Leaving (grows)", 1 = "Arriving (shrinks)" } }
+
+[[actors.ACTOR_MAGIC_WIND.variants]]
+parts = [
+    { display_list = "sInnerCylinderDL", pass = "translucent", scale = [0.5, 1.5, 0.5], segments = { 8 = { tiles = [{ tile = 0, y = 255, width = 64, height = 64 }, { tile = 1, y = 255, width = 64, height = 64 }] } } },
+    { display_list = "sOuterCylinderDL", pass = "translucent", scale = [0.7002, 1, 0.7002], segments = { 9 = { tiles = [{ tile = 0, y = 255, width = 64, height = 64 }, { tile = 1, y = 255, width = 64, height = 64 }] } } },
+]
+
+[actors.ACTOR_OCEFF_SPOT]
+name = "Sun's Song effect"
+notes = "The column of light around Link when the Sun's Song is played, spawned by the message system at Link with params 0 and kept 5 units above him. Drawn fully grown: x and z grow from 0 to 0.42; y is 0.3 in a scene with the default camera type and 2.4 otherwise (R_SCENE_CAM_TYPE), drawn as 0.3. Draw calls sCylinderMaterialDL, a built texture scroll and sCylinderModelDL in a row; they are written as two parts, right only while the texture loaded by the first carries to the second, and the setup list drawn before the second replaces the material's combiner and render mode. The scroll is left out (at its first frame it matches the material's tile sizes). The lights it adds and the dimming of the scene's lights are not drawn."
+object = "ovl_Oceff_Spot"
+scale = 0.42
+height_offset = 11.905
+
+[[actors.ACTOR_OCEFF_SPOT.variants]]
+parts = [
+    { display_list = "sCylinderMaterialDL", pass = "translucent", prim = [255, 255, 170, 255], env = [200, 255, 0, 128] },
+    { display_list = "sCylinderModelDL", pass = "translucent", scale = [1, 0.714286, 1], prim = [255, 255, 170, 255], env = [200, 255, 0, 128] },
+]
+
+[actors.ACTOR_OCEFF_STORM]
+name = "Song of Storms effect"
+notes = "The swirling cylinder around Link when the Song of Storms is played, spawned by the message system at Link with params 0; it spawns En_Okarina_Effect (params 1) 30 units below, which starts the storm. Drawn at its full size (0.4 wide, 0.3 tall), which it has only between its frames 10 and 65; it starts at scale 0. It turns to face the camera's yaw each frame, so the placed rotation is ignored. Draw calls sCylinderMaterialDL, a built texture scroll and sCylinderModelDL in a row; they are written as two parts, right only while the textures loaded by the first carry to the second, and the setup list drawn before the second replaces the material's combiner and render mode; the scroll is left out. Not drawn: the screen-wide rain of sMaterialDL drawn as a texture rectangle, which is all that params 1 (spawned by nothing) draws, and the vertex alphas Draw sets each frame."
+object = "ovl_Oceff_Storm"
+scale = 0.4
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_OCEFF_STORM.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Song of Storms", 1 = "Rain only (unused)" } }
+
+[[actors.ACTOR_OCEFF_STORM.variants]]
+match = { Type = 1 }
+draw = "marker"
+
+[[actors.ACTOR_OCEFF_STORM.variants]]
+parts = [
+    { display_list = "sCylinderMaterialDL", pass = "translucent", prim = [255, 255, 200, 255], env = [150, 150, 0, 128] },
+    { display_list = "sCylinderModelDL", pass = "translucent", scale = [1, 0.75, 1], prim = [255, 255, 200, 255], env = [150, 150, 0, 128] },
+]
+children = [{ actor = "ACTOR_EN_OKARINA_EFFECT", params = 0x0001, offset = [0, -30, 0] }]
+
+[actors.ACTOR_OCEFF_WIPE]
+name = "Zelda's Lullaby / Song of Time effect"
+notes = "The wipe of light when Zelda's Lullaby (params 0) or the Song of Time (1) is played, spawned by the message system. In the game it is drawn at the camera's eye, turned to face the camera and pushed 1400 model units (140 world units) toward the view so it rings the screen; it is drawn here at the actor, facing the camera, without that push, and ignores the placed rotation. Draw calls sMaterialDL, a built texture scroll and sFrustumDL in a row; they are written as two parts, right only while the texture loaded by the first carries to the second, and the setup list drawn before the second replaces the material's combiner and render mode; the scroll is left out. Its vertex alphas are set each frame from a table, drawn as the file has them."
+object = "ovl_Oceff_Wipe"
+scale = 0.1
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_OCEFF_WIPE.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "OceffWipeType" }
+
+[[actors.ACTOR_OCEFF_WIPE.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", billboard = true, prim = [170, 255, 255, 255], env = [0, 150, 255, 128] },
+    { display_list = "sFrustumDL", pass = "translucent", billboard = true, prim = [170, 255, 255, 255], env = [0, 150, 255, 128] },
+]
+
+[[actors.ACTOR_OCEFF_WIPE.adjustments]]
+match = { Type = 0 }
+prim = [255, 255, 200, 255]
+env = [100, 0, 255, 128]
+
+[actors.ACTOR_OCEFF_WIPE2]
+name = "Epona's Song effect"
+notes = "The wipe of light when Epona's Song is played, spawned by the message system with params 0. In the game it is drawn at the camera's eye, turned to face the camera and pushed 1330 model units (133 world units) toward the view; it is drawn here at the actor, facing the camera, without that push, and ignores the placed rotation. Draw calls sMaterialDL, a built texture scroll and sFrustumDL in a row; they are written as two parts, right only while the textures loaded by the first carry to the second, and the setup list drawn before the second replaces the material's combiner and render mode; the scroll is left out. Its fading vertex alphas are not drawn."
+object = "ovl_Oceff_Wipe2"
+scale = 0.1
+rotates = { x = false, y = false, z = false }
+
+[[actors.ACTOR_OCEFF_WIPE2.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", billboard = true, prim = [255, 255, 170, 255], env = [255, 100, 0, 128] },
+    { display_list = "sFrustumDL", pass = "translucent", billboard = true, prim = [255, 255, 170, 255], env = [255, 100, 0, 128] },
+]
+
+[actors.ACTOR_OCEFF_WIPE3]
+name = "Saria's Song effect"
+notes = "The wipe of light when Saria's Song is played, spawned by the message system with params 0. In the game it is drawn at the camera's eye, turned to face the camera and pushed 1330 model units (133 world units) toward the view; it is drawn here at the actor, facing the camera, without that push, and ignores the placed rotation. Draw calls sMaterialDL, a built texture scroll and sFrustumDL in a row; they are written as two parts, right only while the texture loaded by the first carries to the second, and the setup list drawn before the second replaces the material's combiner and render mode; the scroll is left out. Its fading vertex alphas are not drawn."
+object = "ovl_Oceff_Wipe3"
+scale = 0.1
+rotates = { x = false, y = false, z = false }
+
+[[actors.ACTOR_OCEFF_WIPE3.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", billboard = true, prim = [255, 255, 170, 255], env = [100, 200, 0, 128] },
+    { display_list = "sFrustumDL", pass = "translucent", billboard = true, prim = [255, 255, 170, 255], env = [100, 200, 0, 128] },
+]
+
+[actors.ACTOR_OCEFF_WIPE4]
+name = "Scarecrow's Song effect"
+notes = "The wipe of light when the Scarecrow's Song is played, spawned by the message system with params 0, and by Zelda (En_Zl3) in Ganon's Castle. In the game it is drawn at the camera's eye, turned to face the camera and pushed 1330 model units (133 world units) toward the view; it is drawn here at the actor, facing the camera, without that push, and ignores the placed rotation. sMaterialDL (sUnusedMaterialDL for params 1) loads the second texture and sets the colours, and sMaterial2DL loads the first, sets the combiner and draws; written as two parts, right only while the texture loaded by the first carries to the second. Not drawn: the built texture scroll Draw calls between them, the second draw of the frustum from sMaterial2DL[11] after it, and the fading vertex alphas."
+object = "ovl_Oceff_Wipe4"
+scale = 0.1
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_OCEFF_WIPE4.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "OceffWipe4Type" }
+
+[[actors.ACTOR_OCEFF_WIPE4.variants]]
+match = { Type = 1 }
+parts = [
+    { display_list = "sUnusedMaterialDL", pass = "translucent", billboard = true },
+    { display_list = "sMaterial2DL", pass = "translucent", billboard = true, prim = [255, 170, 255, 255], env = [120, 0, 100, 128] },
+]
+
+[[actors.ACTOR_OCEFF_WIPE4.variants]]
+parts = [
+    { display_list = "sMaterialDL", pass = "translucent", billboard = true },
+    { display_list = "sMaterial2DL", pass = "translucent", billboard = true, prim = [170, 255, 255, 255], env = [0, 150, 0, 128] },
+]
+
+[actors.ACTOR_EN_OKARINA_EFFECT]
+name = "Song of Storms storm"
+notes = "Starts the rain, lightning and storm sounds of the Song of Storms for 20 seconds and, at a set frame, the cutscene flag that makes magic beans grow; spawned by Oceff_Storm with params 1, which it does not read. It has no Draw: a marker. Killed at once when it is already raining."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EFF_DUST]
+name = "Dust particles"
+notes = "Sparkles that gather or scatter: type 0 around Jabu-Jabu's mouth (spawned by En_Jj), type 1 in the sages' light (Demo_6K), types 2 to 4 gathering into Link's sword while a spin attack charges (En_M_Thunder, 2 plus the charge level). A marker: each of its 64 sparkles (gEffSparklesDL) is placed at a random point each frame relative to the actor or to Player's sword, and none is drawn until the first is spawned."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EFF_DUST.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EffDustType" }
+
+[actors.ACTOR_BG_SST_FLOOR]
+name = "Bongo Bongo's drum"
+notes = "The drum floor of Bongo Bongo's room, spawned by Boss_Sst at the room's centre (-50, 0, 0) with BONGOFLOOR_REST. Draw scales its membrane by drumHeight * -0.0025 in Y, and drumHeight is 0 at rest, so at rest the drum is drawn flat at Y 0 as the game draws it; it bulges up and down only for a moment after it is hit (by Link landing from a fall over 1000, or by the hands: BONGOFLOOR_HIT, which Update turns back to rest at once), which is not drawn. Its collision mesh moves with it; the camera turns to the boss setting while Link is above it."
+object = "object_sst"
+scale = 0.1
+
+[actors.ACTOR_BG_SST_FLOOR.params]
+State = { mask = 0xFFFF, kind = "choice", values = "BgSstFloorParams", description = "Set to hit by Update and Boss_Sst to bounce the drum; always spawned at rest" }
+
+[[actors.ACTOR_BG_SST_FLOOR.variants]]
+parts = [{ display_list = "gBongoDrumDL", scale = [1, 0, 1] }]
+default_params = 0x0000
+
+[actors.ACTOR_BG_VB_SIMA]
+name = "Volvagia's platform"
+notes = "The rising stone platform in Volvagia's lava room, spawned by Boss_Fd at (680, -100, 0) with params 100, which are not read. When Volvagia signals it, it shakes and sinks to Y -1000 throwing lava splashes and embers (Boss_Fd's effects), which is not drawn; once the room is clear it stays."
+object = "object_fd"
+scale = 0.1
+
+[[actors.ACTOR_BG_VB_SIMA.variants]]
+parts = [{ display_list = "gVolvagiaPlatformDL" }]
+default_params = 0x0064
+
+[actors.ACTOR_BOSS_FD2]
+name = "Volvagia (in the holes)"
+notes = "Volvagia's head and arms popping out of the lava holes of its room, spawned by Boss_Fd at (0, -200, 0) unless the room is clear, with Boss_Fd's intro state as params. With params 0 (BFD_CS_NONE) it fights: Init moves it to Y -850 and to a random one of nine holes (sHoleLocations, at Y 90, 243 apart), rising to Y 150 as it emerges, lowered by shape.yOffset -580 / scale; drawn here at the placement with that offset, in the first frame of its idle. Any other params wait unseen for the intro cutscene (Draw draws nothing while waiting). Limbs 1 to 15 are hidden by OverrideLimbDraw. Its skin texture scrolls through Gfx_TwoTexScroll on segment 8, drawn with tile 0 at Y 120 as Update keeps it; the second texture blends by env alpha, which OverrideLimbDraw sets per limb from Boss_Fd (body pulsing 30 to 158, head 0 to 255): drawn at 158 on every limb, since an entry cannot set it per limb. Eyes open on segment 9 (they blink). Not drawn: the three fire manes (gHoleVolvagiaManeModelDL strips, translucent), the head turning to Link, the jaw opening, the broken face once its skin burns (gHoleVolvagiaBrokenFaceDL at limb 35), the damage fog flash, fire breath, debris and embers."
+object = "object_fd2"
+scale = 0.007
+height_offset = -82857.14
+
+[actors.ACTOR_BOSS_FD2.params]
+"Intro State" = { mask = 0xFFFF, kind = "choice", values = { 0 = "Fighting", 1 = "Waiting for the intro" }, description = "Boss_Fd's intro state; anything but 0 waits unseen" }
+
+[[actors.ACTOR_BOSS_FD2.variants]]
+match = { "Intro State" = 0 }
+parts = [{ skeleton = "gHoleVolvagiaSkel", pose = "gHoleVolvagiaIdleAnim", limbs = { 1 = false, 2 = false, 3 = false, 4 = false, 5 = false, 6 = false, 7 = false, 8 = false, 9 = false, 10 = false, 11 = false, 12 = false, 13 = false, 14 = false, 15 = false }, prim = [255, 255, 255, 255], env = [255, 255, 255, 158], segments = { 8 = { tiles = [{ tile = 0, y = 120, width = 32, height = 32 }, { tile = 1, width = 32, height = 32 }] }, 9 = "gHoleVolvagiaEyeOpenTex" } }]
+
+[[actors.ACTOR_BOSS_FD2.variants]]
+draw = "marker"
+default_params = 0x0000
+
+[actors.ACTOR_EN_FD_FIRE]
+name = "Flare Dancer flame"
+notes = "A flame the Flare Dancer (En_Fd) throws off in a ring around itself, spawned as its child at its position, turned by its share of the ring, with the colour in bit 15 and its index in the low bits. It hops out to where Link stood and burns for 300 frames (red), or dances around Link for 200 (blue), then shrinks away. Draw places it at its world position with MTXMODE_NEW, ignoring the actor's rotation and scale, turned to the camera about Y and leaning and stretching with its velocity (not drawn: drawn upright at rest), at this->scale 3 * 0.001. Drawn as a billboard; the game turns it about Y only. Its texture scrolls through Gfx_TwoTexScroll on segment 8, drawn at its first frame; its primitive colour's LOD fraction 128 cannot be written. Its circle shadow is not drawn."
+object = "gameplay_keep"
+scale = 0.003
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_EN_FD_FIRE.params]
+Index = { mask = 0x7FFF, kind = "number", description = "Its place in the ring, which offsets where a blue flame dances" }
+Blue = { mask = 0x8000, kind = "flag", description = "A blue flame that dances around Link rather than a red one that burns in place" }
+
+[[actors.ACTOR_EN_FD_FIRE.variants]]
+parts = [{ display_list = "gEffFire1DL", pass = "translucent", billboard = true, prim = [255, 255, 0, 255], env = [255, 10, 0, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } }]
+default_params = 0x0000
+
+[[actors.ACTOR_EN_FD_FIRE.adjustments]]
+match = { Blue = true }
+prim = [255, 255, 255, 255]
+env = [0, 10, 255, 255]
+
+[actors.ACTOR_EN_VB_BALL]
+name = "Volvagia's rocks and bones"
+notes = "A falling rock in Volvagia's fight, or a piece of its ribs as it dies. Params 100 is a rock Boss_Fd drops from Y 1000, scaled by its rotation Z / 10000 (130 to 179: 0.013 to 0.018, drawn at 0.0155); when it lands it breaks into two of params 101 at half its size, which break into two of 102 at a quarter, which are not drawn as children. Params 200 and up are rib pieces Boss_Fd spawns as each of its body segments falls apart, at the segment's place and turn, scaled from Volvagia's scale and the segment's size (0.005 for the first, smaller toward the tail; drawn at 0.005). Rocks spin and fall; their circle shadow (gCircleShadowDL at world Y 100, under the rock) is not drawn. Rotation Z, read as the rock's size, also turns it."
+object = "object_fd"
+scale = 0.0155
+
+[actors.ACTOR_EN_VB_BALL.params]
+Type = { mask = 0xFFFF, kind = "number", description = "100 a large rock, 101 and 102 its pieces; 200 and up a rib piece of body segment Type - 200" }
+Size = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "A rock's scale times 10000" }
+
+[[actors.ACTOR_EN_VB_BALL.variants]]
+match = { Type = [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217] }
+scale = 0.005
+parts = [{ display_list = "gVolvagiaRibsDL" }]
+
+[[actors.ACTOR_EN_VB_BALL.variants]]
+match = { Type = 101 }
+scale = 0.00775
+parts = [{ display_list = "gVolvagiaRockDL" }]
+
+[[actors.ACTOR_EN_VB_BALL.variants]]
+match = { Type = 102 }
+scale = 0.003875
+parts = [{ display_list = "gVolvagiaRockDL" }]
+
+[[actors.ACTOR_EN_VB_BALL.variants]]
+parts = [{ display_list = "gVolvagiaRockDL" }]
+default_params = 0x0064
+
+[actors.ACTOR_EN_FHG_FIRE]
+name = "Phantom Ganon's magic"
+notes = "Phantom Ganon's lightning, energy balls and painting warps, spawned by Boss_Ganondrof, his horse (En_fHG) and itself; its profile's ID is 0. Every type starts at scale 0 and grows in Update, so each is drawn at its full size. Lightning strike (1): the bolt the horse calls down, 200 tall, scale 1, turned to the camera about Y (drawn as a billboard); it drops 200 and spawns a burst (36, rotation X 500) and 8 trails (100 to 107, turned 0x2000 apart and lying on their side by rotation Z 0x4000) and 8 shocks (35), which are not drawn as children. Shocks draw nothing (Draw is cleared) and only run along the floor with the Fhg_Flash sparks. The burst grows to rotation X / 100 (5). Spear light (38) and energy ball (50) face the camera at scale 6 (flickering with 5.25) and spin about Z; the spear light is held at the spear's tip, green while rotation Y is 0 and cyan otherwise (its time is rotation X), the ball is green and turns cyan when reflected (not drawn). Warps (39 emerge, 40 retreat, 41 death) are the purple painting portal, scale 7, flattened to Z 1 for the death warp, which the boss spawns lying flat (rotation X 0x4000); they fade in from alpha 0 and out again, drawn at full alpha, their textures scrolling through Gfx_TwoTexScroll on segment 8, drawn at their first frame. Not drawn: the screen flash and lens flare, the light it casts, the light balls and sparks (Effect_Ss_Fhg_Flash)."
+object = "object_fhg"
+scale = 1
+
+[actors.ACTOR_EN_FHG_FIRE.params]
+Type = { mask = 0xFFFF, kind = "number", description = "1 strike, 35 shock, 36 burst, 38 spear light, 39 to 41 warps, 50 energy ball, 100 and up a lightning trail (FhgFireParam)" }
+"Light Mode" = { mask = 0xFFFF, source = "rotation_y", kind = "choice", values = "FhgLightMode", description = "A spear light's colour: green, or cyan otherwise" }
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = 35 }
+draw = "marker"
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = 36 }
+scale = 5
+parts = [{ display_list = "gPhantomLightningBlastDL", pass = "translucent", prim = [255, 255, 255, 255], env = [165, 255, 75, 0] }]
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = [38, 50] }
+scale = 6
+parts = [{ display_list = "gPhantomEnergyBallDL", pass = "translucent", billboard = true, prim = [255, 255, 255, 200], env = [165, 255, 75, 0] }]
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = 41 }
+scale = 7
+parts = [{ display_list = "gPhantomWarpDL", pass = "translucent", scale = [1, 1, 0.142857], prim = [0, 0, 0, 255], env = [90, 50, 95, 127], segments = { 8 = { tiles = [{ tile = 0, width = 64, height = 64 }, { tile = 1, width = 64, height = 64 }] } } }]
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = [39, 40] }
+scale = 7
+parts = [{ display_list = "gPhantomWarpDL", pass = "translucent", prim = [0, 0, 0, 255], env = [90, 50, 95, 127], segments = { 8 = { tiles = [{ tile = 0, width = 64, height = 64 }, { tile = 1, width = 64, height = 64 }] } } }]
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gPhantomLightningDL", pass = "translucent", billboard = true, translation = [0, -100, 0], prim = [255, 255, 255, 200], env = [0, 255, 30, 0] }]
+
+[[actors.ACTOR_EN_FHG_FIRE.variants]]
+parts = [{ display_list = "gPhantomLightningDL", pass = "translucent", translation = [0, -100, 0], scale = [1, 1.7, 1.7], prim = [255, 255, 255, 200], env = [0, 255, 30, 0] }]
+default_params = 0x0001
+
+[[actors.ACTOR_EN_FHG_FIRE.adjustments]]
+match = { Type = 38, "Light Mode" = [1, 2] }
+env = [0, 255, 255, 0]
+
+[actors.ACTOR_EN_GANON_MANT]
+name = "Ganondorf's cape"
+notes = "Ganondorf's cloth cape, spawned at the world origin by Boss_Ganon (params 1) and by En_Viewer in cutscenes (params 0x23). Marked: it is a 12 by 12 grid of strands simulated each frame, hung from his shoulders and forearms, whose vertices Draw writes in world space into gMant1Vtx or gMant2Vtx (in turn, through segment 12) before drawing gMantDL at the world origin; the data as compiled is a flat 11000-unit sheet, not the cape. It tears where it is hit."
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_EN_GANON_MANT.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 1 = "Boss fight", 35 = "Cutscene (En_Viewer)" } }
+
+[actors.ACTOR_EN_GANON_ORGAN]
+name = "Ganondorf's organ"
+notes = "The organ, carpet, statues and floor of the room at the top of Ganon's Tower, spawned by Boss_Ganon at the world origin with params 1 when its intro starts. Draw ignores the actor's position, turn and scale (MTXMODE_NEW at the origin), so it is drawn unscaled and unturned at the placement, which is right for the vanilla spawn. Segments 8 and 9 are empty while it is opaque; when the tower collapses Boss_Ganon fades it out through an env colour and translucent render mode on them (organAlpha) and it is killed at 0, which is not drawn."
+object = "ovl_En_Ganon_Organ"
+scale = 1
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_EN_GANON_ORGAN.params]
+Type = { mask = 0xFFFF, kind = "number", description = "1 fades with Ganondorf's organAlpha and is killed at 0" }
+
+[[actors.ACTOR_EN_GANON_ORGAN.variants]]
+parts = [
+    { display_list = "sRoomOrganAndFloorDL" },
+    { display_list = "sRoomStatuesDL" },
+]
+default_params = 0x0001
+
+[actors.ACTOR_EN_HORSE_GANON]
+name = "Ganondorf's horse"
+notes = "Ganondorf's black horse. Init leaves it standing still in its idle; its second action, which Init does not start, rides a fixed loop of 14 world points. No code in the checkout spawns it; En_Viewer draws the horse of the cutscenes itself. Marked: its skeleton is a skin (Skin_Init, drawn by func_800A6330), which Toki does not draw yet; the variant says what it will be drawn with, the first frame of the idle animation Init starts. Its shadow is not drawn. Params are not read."
+object = "object_horse_ganon"
+scale = 0.0115
+draw = "marker"
+
+[[actors.ACTOR_EN_HORSE_GANON.variants]]
+parts = [{ skeleton = "gHorseGanonSkel", pose = "gHorseGanonIdleAnim" }]
+
+[actors.ACTOR_EN_ANUBICE]
+name = "Anubis"
+notes = "A jackal-headed ghost of the Spirit Temple that mirrors Link's movements and spits fireballs (En_Anubice_Fire), killed by fire. Spawned by its tag (En_Anubice_Tag), never placed. Init sinks it into the floor (shape.yOffset -4230) and it rises once the tag starts mirroring Link; drawn here risen, at the first frame of gAnubiceIdleAnim. Its eyes are drawn translucent at the head (limb 13) by PostLimbDraw. The head's pitch toward Link is not drawn. Its params are read only by Destroy, to tell its tag it is gone."
+object = "object_anubice"
+scale = 0.015
+
+[[actors.ACTOR_EN_ANUBICE.variants]]
+parts = [
+    { skeleton = "gAnubiceSkel", pose = "gAnubiceIdleAnim" },
+    { display_list = "gAnubiceEyesDL", limb = 13, pass = "translucent" },
+]
+
+[actors.ACTOR_EN_ANUBICE_FIRE]
+name = "Anubis fireball"
+notes = "The fireball an Anubis spits from its head, flying straight until it hits a wall or Link, spawned by En_Anubice. It grows from nothing to its full size of 2 in world terms (Draw builds its matrix from the world position, so the actor's scale is the fireball's), drawn here full grown. It is a billboarded quad of gAnubiceFireAttackDL textured with gameplay_keep's gDust4Tex, the first of the eight textures it names (it always draws the first). It trails five smaller copies, 0.2 smaller each, at its last positions; at rest they sit inside the first and are not drawn. Its spin about the view axis and the sparkles it leaves are not drawn. Its params are set to 1 at run time once a shield deflects it."
+object = "object_anubice"
+scale = 2
+
+[[actors.ACTOR_EN_ANUBICE_FIRE.variants]]
+parts = [{ display_list = "gAnubiceFireAttackDL", pass = "translucent", billboard = true, prim = [255, 255, 0, 255], env = [255, 0, 0, 0], segments = { 8 = { object = "gameplay_keep", symbol = "gDust4Tex" } } }]
+
+[actors.ACTOR_EN_BIGOKUTA]
+name = "Big Octo"
+notes = "Jabu-Jabu's mini-boss, a giant Octorok circling its platform, spawned by the platform (Bg_Bdan_Objects) rather than placed. Type 0 is the first meeting: it waits under the water and leaps onto the platform during its intro cutscene; type 3 is spawned once the cutscene has been seen and starts fighting at once, 263 units along the platform's Z, which is not drawn: it is drawn at its placement. Types 1 and 2 are set at run time by the cutscene. Drawn at the first frame of object_bigokuta_Anim_0014B8, the animation Init gives it, opaque and white, with segment 12 at &D_80116280[2]. Its flashing body while stunned, the squash of its back (limb 17) and the wobble when hit are not drawn; when it dies it fades out translucent."
+object = "object_bigokuta"
+scale = 0.033
+
+[actors.ACTOR_EN_BIGOKUTA.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Intro (leaps out in the cutscene)", 1 = "Leaping (set at run time)", 2 = "Fighting (set at run time)", 3 = "Fighting at once (cutscene seen)" } }
+
+[[actors.ACTOR_EN_BIGOKUTA.variants]]
+parts = [{ skeleton = "object_bigokuta_Skel_006BC0", pose = "object_bigokuta_Anim_0014B8", env = [255, 255, 255, 255], segments = { 12 = { code = "D_80116280", index = 2 } } }]
+
+[actors.ACTOR_EN_PO_SISTERS]
+name = "Poe Sister"
+notes = "One of the Forest Temple's four Poe Sisters, spawned by her painting or block (Bg_Po_Event) or torch (Bg_Po_Syokudai), never placed. Each draws her own body (limb 9) and face (limb 10) from sDLists by Sister; her lantern glow (limb 11) is coloured by her own environment colour, so it is hidden and drawn as a part at that limb. Her torch is hidden at limb 8 and drawn at that limb's matrix, and its flame (gEffFire1DL of gameplay_keep, scrolled by Gfx_TwoTexScroll, drawn at its first frame) is drawn 1000, -1700 from it, half her scale, turned to the camera's yaw (drawn as a billboard). Joelle, Beth and Amy start invisible with only their torch drawn and fade in when Link nears; drawn here as seen, opaque, in the first frame of gPoeSistersFloatAnim, body colour (255, 255, 210). The real Meg (Copy 0) starts visible, crying (gPoeSistersMegCryAnim) with no torch or flame, and spawns her three copies (Copy 1 to 3) at her own position, not drawn as children since they draw nothing until she splits; the copies are drawn as she looks once split. With Torch Flame set it is only her flame burning on her torch before she appears: drawn 0.0027 in world terms, in her colours. The primitive colour her body multiplies by is not set by Draw (left from what the game drew before); not written. Her colours while attacking, fleeing or hurt, the fades, and her burning away are not drawn."
+object = "object_po_sisters"
+scale = 0.007
+
+[actors.ACTOR_EN_PO_SISTERS.params]
+"Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "sets", description = "Set when she is beaten" }
+Sister = { mask = 0x0300, kind = "choice", values = { 0 = "Meg (purple)", 1 = "Joelle (red)", 2 = "Beth (blue)", 3 = "Amy (green)" } }
+Copy = { mask = 0x0C00, kind = "number", description = "Meg only: 0 is the real one, 1 to 3 the copies she spawns" }
+"Torch Flame" = { mask = 0x1000, kind = "flag", description = "Only her flame on her torch, before she appears" }
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+match = { "Torch Flame" = true }
+parts = [{ display_list = "gEffFire1DL", object = "gameplay_keep", pass = "translucent", billboard = true, scale = 0.385714, prim = [255, 170, 255, 248], env = [100, 0, 255, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } }]
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+match = { Sister = 0, Copy = 0 }
+parts = [
+    { skeleton = "gPoeSistersSkel", pose = "gPoeSistersMegCryAnim", env = [255, 255, 210, 255], limbs = { 8 = false, 9 = "gPoeSistersMegBodyDL", 10 = "gPoeSistersMegFaceDL", 11 = false }, segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_po_sisters_0024A8_DL", limb = 11, env = [80, 0, 100, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+]
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+match = { Sister = 0 }
+parts = [
+    { skeleton = "gPoeSistersSkel", pose = "gPoeSistersFloatAnim", env = [255, 255, 210, 255], limbs = { 8 = false, 9 = "gPoeSistersMegBodyDL", 10 = "gPoeSistersMegFaceDL", 11 = false }, segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_po_sisters_0024A8_DL", limb = 11, env = [80, 0, 100, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoSistersTorchDL", limb = 8, env = [80, 0, 100, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", limb = 8, translation = [1000, -1700, 0], scale = 0.5, pass = "translucent", billboard = true, prim = [255, 170, 255, 248], env = [100, 0, 255, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+match = { Sister = 1 }
+parts = [
+    { skeleton = "gPoeSistersSkel", pose = "gPoeSistersFloatAnim", env = [255, 255, 210, 255], limbs = { 8 = false, 9 = "gPoeSistersJoelleBodyDL", 10 = "gPoeSistersJoelleFaceDL", 11 = false }, segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_po_sisters_0024A8_DL", limb = 11, env = [80, 15, 0, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoSistersTorchDL", limb = 8, env = [80, 15, 0, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", limb = 8, translation = [1000, -1700, 0], scale = 0.5, pass = "translucent", billboard = true, prim = [255, 200, 0, 248], env = [255, 0, 0, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+match = { Sister = 2 }
+parts = [
+    { skeleton = "gPoeSistersSkel", pose = "gPoeSistersFloatAnim", env = [255, 255, 210, 255], limbs = { 8 = false, 9 = "gPoeSistersBethBodyDL", 10 = "gPoeSistersBethFaceDL", 11 = false }, segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_po_sisters_0024A8_DL", limb = 11, env = [0, 70, 50, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoSistersTorchDL", limb = 8, env = [0, 70, 50, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", limb = 8, translation = [1000, -1700, 0], scale = 0.5, pass = "translucent", billboard = true, prim = [0, 170, 255, 248], env = [0, 0, 255, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_PO_SISTERS.variants]]
+parts = [
+    { skeleton = "gPoeSistersSkel", pose = "gPoeSistersFloatAnim", env = [255, 255, 210, 255], limbs = { 8 = false, 9 = "gPoeSistersAmyBodyDL", 10 = "gPoSistersAmyFaceDL", 11 = false }, segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "object_po_sisters_0024A8_DL", limb = 11, env = [70, 70, 0, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gPoSistersTorchDL", limb = 8, env = [70, 70, 0, 255], segments = { 9 = { code = "D_80116280", index = 2 } } },
+    { display_list = "gEffFire1DL", object = "gameplay_keep", limb = 8, translation = [1000, -1700, 0], scale = 0.5, pass = "translucent", billboard = true, prim = [170, 255, 0, 248], env = [0, 150, 0, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 32, height = 128 }] } } },
+]
+
+[[actors.ACTOR_EN_PO_SISTERS.adjustments]]
+match = { Sister = 1, "Torch Flame" = true }
+prim = [255, 200, 0, 248]
+env = [255, 0, 0, 255]
+
+[[actors.ACTOR_EN_PO_SISTERS.adjustments]]
+match = { Sister = 2, "Torch Flame" = true }
+prim = [0, 170, 255, 248]
+env = [0, 0, 255, 255]
+
+[[actors.ACTOR_EN_PO_SISTERS.adjustments]]
+match = { Sister = 3, "Torch Flame" = true }
+prim = [170, 255, 0, 248]
+env = [0, 150, 0, 255]
+
+[actors.ACTOR_EN_REEBA]
+name = "Leever"
+notes = "A burrowing sand creature of the Haunted Wasteland and Desert Colossus that surfaces and spins at Link, spawned by an enemy spawner (En_Encount1), never placed. Init buries it (shape.yOffset -27500 times its scale) and it rises once it notices Link; drawn here risen, at the first frame of object_reeba_Anim_0001E4. A big one is 1.5 times the size and purple (primitive 155, 55, 255), a small one white. The ice it leaves when frozen is not drawn."
+object = "object_reeba"
+scale = 0.04
+
+[actors.ACTOR_EN_REEBA.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "LeeverType" }
+
+[[actors.ACTOR_EN_REEBA.variants]]
+parts = [{ skeleton = "object_reeba_Skel_001EE8", pose = "object_reeba_Anim_0001E4", prim = [255, 255, 255, 255] }]
+
+[[actors.ACTOR_EN_REEBA.adjustments]]
+match = { Type = 1 }
+scale = 0.06
+prim = [155, 55, 255, 255]
+
+[actors.ACTOR_EN_SKB]
+name = "Stalchild"
+notes = "A skeleton that rises out of the ground in Hyrule Field at night, spawned by an enemy spawner (En_Encount1), never placed. Its scale is (1 + Size / 10) / 100, which the format cannot compute: the spawner sends 0, and every tenth kill Kill Count / 10 * 5 (a bigger one); 5, 10, 15 and 20 are written as adjustments, larger ones are drawn at the base size. Init buries it (shape.yOffset -8000) while it uncurls; drawn here risen, at the first frame of gStalchildWalkingAnim, the walk it takes next. Its head (limb 11 on) pulses in an environment grey of 160 to 255 with the frame count, drawn at 160 for the whole skeleton. Its head and jaw falling off and the flames when burnt are not drawn."
+object = "object_skb"
+scale = 0.01
+
+[actors.ACTOR_EN_SKB.params]
+Size = { mask = 0xFFFF, kind = "number", description = "Its scale is (1 + Size / 10) / 100, and its reach grows with it" }
+
+[[actors.ACTOR_EN_SKB.variants]]
+parts = [{ skeleton = "gStalchildSkel", pose = "gStalchildWalkingAnim", env = [160, 160, 160, 255] }]
+
+[[actors.ACTOR_EN_SKB.adjustments]]
+match = { Size = 5 }
+scale = 0.015
+
+[[actors.ACTOR_EN_SKB.adjustments]]
+match = { Size = 10 }
+scale = 0.02
+
+[[actors.ACTOR_EN_SKB.adjustments]]
+match = { Size = 15 }
+scale = 0.025
+
+[[actors.ACTOR_EN_SKB.adjustments]]
+match = { Size = 20 }
+scale = 0.03
+
+[actors.ACTOR_EN_SKJNEEDLE]
+name = "Skull Kid's needle"
+notes = "A needle Skull Kid (En_Skj) shoots at Link, spawned 27 units up and turned as he is, flying 24 units a frame for up to 100 frames. Its params are not read."
+object = "object_skj"
+scale = 0.01
+
+[[actors.ACTOR_EN_SKJNEEDLE.variants]]
+parts = [{ display_list = "gSkullKidNeedleDL" }]
+
+[actors.ACTOR_EN_NUTSBALL]
+name = "Deku Nut (spit)"
+notes = "The nut a Deku Scrub spits at Link, spawned by the scrub (En_Dekunuts, En_Hintnuts, En_Shopnuts, En_Dnt_Nomal) and turned as it is. Each type draws the nut of the scrub's object (sObjectIds and sDLists by Type), faced to the camera by the billboard matrix Draw multiplies in, with shape.yOffset 400. Type 3 (object_dns) is spawned by nothing. Its spin about the view axis (by home.rot.z) is not drawn; it is drawn unturned. It flies back at the scrub when Link's shield deflects it."
+scale = 0.01
+height_offset = 400
+
+[actors.ACTOR_EN_NUTSBALL.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EnNutsballType" }
+
+[[actors.ACTOR_EN_NUTSBALL.variants]]
+match = { Type = 1 }
+object = "object_hintnuts"
+parts = [{ display_list = "gHintNutsNutDL", billboard = true }]
+
+[[actors.ACTOR_EN_NUTSBALL.variants]]
+match = { Type = 2 }
+object = "object_shopnuts"
+parts = [{ display_list = "gBusinessScrubDekuNutDL", billboard = true }]
+
+[[actors.ACTOR_EN_NUTSBALL.variants]]
+match = { Type = 3 }
+object = "object_dns"
+parts = [{ display_list = "gDntJijiNutDL", billboard = true }]
+
+[[actors.ACTOR_EN_NUTSBALL.variants]]
+match = { Type = 4 }
+object = "object_dnk"
+parts = [{ display_list = "gDntStageNutDL", billboard = true }]
+
+[[actors.ACTOR_EN_NUTSBALL.variants]]
+object = "object_dekunuts"
+parts = [{ display_list = "gDekuNutsDekuNutDL", billboard = true }]
+
+[actors.ACTOR_EN_BDFIRE]
+name = "King Dodongo's fire"
+notes = "King Dodongo's fire breath, spawned by Boss_Dodongo, never placed: a billboarded flame of object_kingdodongo_DL_01D950 textured by one of eight textures picked at random (drawn with the first, object_kingdodongo_Tex_0264E0), raised 11 units. Type -1 is the glow in his mouth as he inhales, 2.8 in world terms, its alpha rising to 128 (drawn so), and lights the room. Any other value is the breath's Nth flame, flying 30 units a frame along his facing: it grows to 4.2 - N x 0.15 (at least 0.9) with alpha 255 - N x 10 (at least 20), which the format cannot compute, so every flame is drawn as the first, full grown. Draw sets its own combiner, (PRIMITIVE - ENVIRONMENT) x TEXEL0 + ENVIRONMENT, after setup list 20, which a part cannot say; the list's own state is drawn."
+object = "object_kingdodongo"
+scale = 4.2
+
+[actors.ACTOR_EN_BDFIRE.params]
+Flame = { mask = 0xFFFF, kind = "number", signed = true, description = "-1: the glow in his mouth; 0 and up: which flame of the breath, later ones smaller and fainter" }
+
+[[actors.ACTOR_EN_BDFIRE.variants]]
+match = { Flame = -1 }
+scale = 2.8
+parts = [{ display_list = "object_kingdodongo_DL_01D950", pass = "translucent", setup = 20, translation = [0, 11, 0], billboard = true, prim = [255, 255, 100, 128], env = [200, 0, 0, 0], segments = { 8 = "object_kingdodongo_Tex_0264E0" } }]
+
+[[actors.ACTOR_EN_BDFIRE.variants]]
+parts = [{ display_list = "object_kingdodongo_DL_01D950", pass = "translucent", setup = 20, translation = [0, 11, 0], billboard = true, prim = [255, 255, 100, 255], env = [200, 0, 0, 0], segments = { 8 = "object_kingdodongo_Tex_0264E0" } }]
+
+[actors.ACTOR_EN_DNS]
+name = "Business Scrub (selling)"
+notes = "The Business Scrub that sells what Type says, spawned by an attacking scrub (En_Shopnuts) with its params and rotation once Link hits it; never placed in vanilla. Drawn in the first frame of gBusinessScrubNervousTransitionAnim, the animation Init gives it, before it settles into its nervous idle. For child Link, Arrows are sold as Deku Seeds; this changes only what it sells, not how it is drawn. Its burrowing away after a sale, the dust and the hearts it may drop are not drawn."
+object = "object_shopnuts"
+scale = 0.01
+
+[actors.ACTOR_EN_DNS.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EnDnsType", description = "What it sells; negative params kill it" }
+
+[[actors.ACTOR_EN_DNS.variants]]
+parts = [{ skeleton = "gBusinessScrubSkel", pose = "gBusinessScrubNervousTransitionAnim" }]
+
+[actors.ACTOR_EN_DNT_JIJI]
+name = "Deku Scrub mask contest leader"
+notes = "The elder of the Deku Scrub mask contest in the Lost Woods' stage grotto, spawned by En_Dnt_Demo at a fixed world position (4050, -20, 1000) with params 0; he rises to judge Link's mask and gives the Deku Stick or Deku Nut upgrade. Drawn as he waits hidden in his flower, gDntJijiBurrowAnim held at frame 8 as SetupWait holds it, eyes open (they blink). Update sets his scale to 0.015; his flower is drawn at scale 0.01 where he first lands (his position here), unturned in world space, written here as 0.666667 of his scale and turned with him. His walk, talk and cower poses, and the nut he spits, are not drawn. Params are not read."
+object = "object_dns"
+scale = 0.015
+
+[[actors.ACTOR_EN_DNT_JIJI.variants]]
+parts = [
+    { skeleton = "gDntJijiSkel", pose = "gDntJijiBurrowAnim", pose_frame = 8, segments = { 8 = "gDntJijiEyeOpenTex" } },
+    { display_list = "gDntJijiFlowerDL", scale = 0.666667 },
+]
+
+[actors.ACTOR_EN_GO]
+name = "Goron (unused)"
+notes = "An earlier version of the Goron NPC (En_Go2 is the one the game places); unused and never spawned in vanilla. Type picks the scale and what it does. Most start curled up into a rock (gGoronDL_00BD80) until Link comes near. Link the Goron (0) and the small Death Mountain roller (3) roll as gGoronDL_00C140, raised by 1400 and spinning at run time; Link the Goron curls up at the end of his path instead once Link owns the Goron Tunic, moved there by Init, which is not drawn. The Fire Temple Goron (1) stands, held at the last frame (52) of gGoronAnim_004930, eyes open (a guess, they do not blink here). Woken, talking and walking poses, dust and the bomb a roller drops are not drawn. Whether it appears depends on scene and age: 1 only in the Fire Temple as adult while its switch flag is clear, 0 in Goron City as adult, 2 to 4 on Death Mountain Trail as child, 5 to 7 in Goron City as child, Biggoron (9) anywhere; 8 and 10 to 15 are killed."
+object = "object_oF1d_map"
+scale = 0.01
+rotates = { x = true, y = true, z = false }
+
+[actors.ACTOR_EN_GO.params]
+Path = { mask = 0x000F, kind = "number", description = "The path it rolls along; 15 is none" }
+Type = { mask = 0x00F0, kind = "choice", values = { 0 = "Link the Goron (Goron City)", 1 = "Fire Temple Goron", 2 = "Dodongo's Cavern entrance (DMT)", 3 = "Small roller (DMT)", 4 = "By the bomb flower (DMT)", 5 = "Goron City entrance", 6 = "Goron City island", 7 = "Goron City, by the Lost Woods", 8 = "Unused (killed)", 9 = "Biggoron", 10 = "Unused (killed)", 11 = "Unused (killed)", 12 = "Unused (killed)", 13 = "Unused (killed)", 14 = "Unused (killed)", 15 = "Unused (killed)" } }
+"Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "Fire Temple Goron: gone while set. Link the Goron: stops rolling at his path's end once set" }
+Waypoints = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "How many waypoints a roller follows" }
+
+[[actors.ACTOR_EN_GO.variants]]
+match = { Type = [8, 10, 11, 12, 13, 14, 15] }
+draw = "marker"
+
+[[actors.ACTOR_EN_GO.variants]]
+match = { Type = 1 }
+parts = [{ skeleton = "gGoronSkel", pose = "gGoronAnim_004930", pose_frame = 52, setup = 37, segments = { 8 = "gGoronCsEyeOpenTex", 9 = "gGoronCsMouthNeutralTex" } }]
+
+[[actors.ACTOR_EN_GO.variants]]
+match = { Type = [0, 3] }
+height_offset = 1400
+parts = [{ display_list = "gGoronDL_00C140" }]
+
+[[actors.ACTOR_EN_GO.variants]]
+parts = [{ display_list = "gGoronDL_00BD80" }]
+
+[[actors.ACTOR_EN_GO.adjustments]]
+match = { Type = 0 }
+scale = 0.008
+
+[[actors.ACTOR_EN_GO.adjustments]]
+match = { Type = 4 }
+scale = 0.015
+
+[[actors.ACTOR_EN_GO.adjustments]]
+match = { Type = 9 }
+scale = 0.16
+
+[actors.ACTOR_EN_GE3]
+name = "Gerudo (gives the membership card)"
+notes = "The red Gerudo who gives Link the Gerudo membership card, spawned by the last carpenter (En_Daiku) 120 units in front of him once all four are freed, with params 2, which are not read. Drawn in the first frame of gGerudoRedStandAnim, eyes open (they blink); her veil and both swords (limbs 5, 11 and 16) are hidden. In this version (before PAL 1.1) her OverrideLimbDraw sets no colours, so her clothes take whatever environment colour was set last in the frame; drawn here red (140, 0, 0), as later versions set them. Her head turns toward Link at run time, not drawn. Init zeroes her rotation's Z."
+object = "object_geldb"
+scale = 0.01
+rotates = { x = true, y = true, z = false }
+
+[[actors.ACTOR_EN_GE3.variants]]
+parts = [{ skeleton = "gGerudoRedSkel", pose = "gGerudoRedStandAnim", setup = 37, env = [140, 0, 0, 255], limbs = { 5 = false, 11 = false, 16 = false }, segments = { 8 = "gGerudoRedEyeOpenTex" } }]
+
+[actors.ACTOR_EN_HORSE_ZELDA]
+name = "Zelda's horse (unused)"
+notes = "A white horse that gallops a fixed loop of points across Hyrule Field, speeding up near Link; unused and never spawned in vanilla. Marked: its skeleton is a skin (Skin_Init, drawn by func_800A6330), which Toki does not draw yet; the variant says what it will be drawn with, in the first frame of gHorseZeldaGallopingAnim, which Init plays. Draw tilts it to the ground's slope at run time; the shadow is not drawn. Params are not read."
+object = "object_horse_zelda"
+scale = 0.0115
+draw = "marker"
+
+[[actors.ACTOR_EN_HORSE_ZELDA.variants]]
+parts = [{ skeleton = "gHorseZeldaSkel", pose = "gHorseZeldaGallopingAnim" }]
+
+[actors.ACTOR_EN_SYATEKI_MAN]
+name = "Shooting gallery man"
+notes = "The man who runs a shooting gallery, spawned by the gallery's game actor (En_Syateki_Itm) at (140, 0, 255) turned to -0x4000, with params 0, which are not read. Drawn in the first frame of gObjectOssanAnim_000338, the animation Init gives him, with his head (limb 8) swapped for gObjectOssanEnSyatekiManDL_007E28. His head and body turn toward Link at run time, and tilt a little for child Link; not drawn. His eyes blink by a state Draw never uses."
+object = "object_ossan"
+scale = 0.01
+
+[[actors.ACTOR_EN_SYATEKI_MAN.variants]]
+parts = [{ skeleton = "gObjectOssanSkel", pose = "gObjectOssanAnim_000338", limbs = { 8 = "gObjectOssanEnSyatekiManDL_007E28" } }]
+
+[actors.ACTOR_EN_NWC]
+name = "Cucco chicks (unused)"
+notes = "An unfinished cluster of sixteen cucco chicks that fall to the floor and push apart; unused and never spawned in vanilla. Marked: each chick is placed at random within 50 units of the actor and 25 above it, and drawn as a setup list followed by a body, eyes and beak list (gCuccoChickSetupBodyDL then gCuccoChickBodyDL, and so on), whose texture and combiner carry from the setup list into the next; a part draws one list with nothing carried over, so they cannot be drawn. Their shadows are drawn on the floor below each. Params are not read."
+object = "object_nwc"
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_EN_OE2]
+name = "Navi target spot (unused)"
+notes = "A blue Navi target spot (object_oE2) with no behaviour: Init, Update and Draw do nothing, so it draws nothing. Unused and never spawned in vanilla. Params are not read."
+object = "object_oE2"
+scale = 0.01
+draw = "marker"
+
+[actors.ACTOR_EN_DY_EXTRA]
+name = "Great Fairy healing beam"
+notes = "The spiralling beam a Great Fairy pours over Link as she heals him, spawned by Bg_Dy_Yoseizo 200 units above Link: Type 0 in the magic fountain (pink), 1 in the others (cyan). It sinks and fades out after a while. Drawn at Init's scale (0.025, 0.039, 0.025, written as 0.025 and a part scale of 1.56 on Y) with its two textures at their first frame of scrolling. Draw rewrites the beam's vertex alphas from its fade each frame (240 and 255 at full strength), straight into the object's vertices; not drawn, the vertices keep the file's alphas. Types other than 0 and 1 read past its colour tables."
+object = "object_dy_obj"
+scale = 0.025
+
+[actors.ACTOR_EN_DY_EXTRA.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Magic fountain (pink)", 1 = "Other fountains (cyan)" } }
+
+[[actors.ACTOR_EN_DY_EXTRA.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gGreatFairySpiralBeamDL", pass = "translucent", scale = [1, 1.56, 1], prim = [255, 255, 170, 255], env = [255, 100, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 16, height = 16 }] } } }]
+
+[[actors.ACTOR_EN_DY_EXTRA.variants]]
+parts = [{ display_list = "gGreatFairySpiralBeamDL", pass = "translucent", scale = [1, 1.56, 1], prim = [255, 255, 170, 255], env = [100, 255, 255, 128], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 64 }, { tile = 1, width = 16, height = 16 }] } } }]
+default_params = 0x0001
+
+[actors.ACTOR_BG_JYA_HAHENIRON]
+name = "Iron Knuckle debris"
+notes = "Chunks of the Spirit Temple's Iron Knuckle throne and pillar, spawned by Bg_Jya_Ironobj when it is broken: flying chair chunks (0), the pillar's falling top (1) and its rubble (2). Each tumbles and shatters into fragments (effects, not drawn) within a second; drawn unturned, as spawned. A chair chunk starts at a random Z turn, which is not drawn."
+object = "object_jya_iron"
+scale = 0.1
+
+[actors.ACTOR_BG_JYA_HAHENIRON.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Chair chunk", 1 = "Pillar chunk", 2 = "Rubble" } }
+
+[[actors.ACTOR_BG_JYA_HAHENIRON.variants]]
+match = { Type = 0 }
+scale = 0.13
+parts = [{ display_list = "gObjectJyaIronDL_000880" }]
+
+[[actors.ACTOR_BG_JYA_HAHENIRON.variants]]
+match = { Type = 1 }
+parts = [{ display_list = "gObjectJyaIronDL_000AE0" }]
+
+[[actors.ACTOR_BG_JYA_HAHENIRON.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gObjectJyaIronDL_000600" }]
+
+[[actors.ACTOR_BG_JYA_HAHENIRON.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_MORI_HASHIGO]
+name = "Forest Temple falling ladder (unused)"
+notes = "An unused Forest Temple ladder held up by a clasp: hitting the clasp (-1) drops the ladder (0), which the clasp spawns as its child 210 below and 6 in front of itself, and which bounces to rest on the floor. Both draw nothing until object_mori_tex is loaded, then point segment 8 at it. The ladder is drawn where it hangs."
+object = "object_mori_objects"
+scale = 1
+
+[actors.ACTOR_BG_MORI_HASHIGO.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Ladder", 65535 = "Clasp (-1)" } }
+
+[[actors.ACTOR_BG_MORI_HASHIGO.variants]]
+match = { Type = 65535 }
+parts = [{ display_list = "gMoriHashigoClaspDL", segments = { 8 = { object = "object_mori_tex" } } }]
+children = [{ actor = "ACTOR_BG_MORI_HASHIGO", params = 0x0000, offset = [0, -210, 6] }]
+
+[[actors.ACTOR_BG_MORI_HASHIGO.variants]]
+match = { Type = 0 }
+parts = [{ display_list = "gMoriHashigoLadderDL", segments = { 8 = { object = "object_mori_tex" } } }]
+
+[[actors.ACTOR_BG_MORI_HASHIGO.variants]]
+draw = "marker"
+
+[actors.ACTOR_BG_PUSHBOX]
+name = "Pushable block (unused)"
+notes = "An unused, non-functional small pushable block. Its profile loads gameplay_dangeon_keep, not object_pu_box where gBlockSmallDL is, so in the game segment 6 points at the wrong object and it draws garbage; drawn here from object_pu_box as intended. Params are not read."
+object = "object_pu_box"
+scale = 0.01
+
+[[actors.ACTOR_BG_PUSHBOX.variants]]
+parts = [{ display_list = "gBlockSmallDL" }]
+
+[actors.ACTOR_BG_SPOT18_FUTA]
+name = "Goron City vase lid"
+notes = "The lid of the spinning vase in Goron City, spawned by Bg_Spot18_Basket (params -1) and turned with it. Once its parent is gone it shrinks away. Params are not read."
+object = "object_spot18_obj"
+scale = 0.1
+
+[[actors.ACTOR_BG_SPOT18_FUTA.variants]]
+parts = [{ display_list = "gGoronCityVaseLidDL" }]
+
+[actors.ACTOR_DOOR_TOKI]
+name = "Door of Time collision"
+notes = "The collision of the Door of Time, spawned by Demo_Kankyo in the Temple of Time; disabled once the door has been opened. Draws nothing: the door itself is part of the room. Params are not read."
+draw = "marker"
+object = "object_toki_objects"
+scale = 1
+
+[actors.ACTOR_OBJ_ELEVATOR]
+name = "Stone elevator (unused)"
+notes = "An unused stone platform that rises when Link steps on it and returns when he steps on it again. Rise is how far, in steps of 80 units; Speed is its maximum speed, times 2. Drawn at rest."
+object = "object_d_elevator"
+scale = 0.1
+
+[actors.ACTOR_OBJ_ELEVATOR.params]
+Size = { mask = 0x0001, kind = "choice", values = { 0 = "Large", 1 = "Small" } }
+Speed = { mask = 0x0F00, kind = "number", description = "Maximum speed, times 2" }
+Rise = { mask = 0xF000, kind = "number", description = "How far it rises, in steps of 80 units" }
+
+[[actors.ACTOR_OBJ_ELEVATOR.variants]]
+parts = [{ display_list = "object_d_elevator_DL_000180" }]
+
+[[actors.ACTOR_OBJ_ELEVATOR.adjustments]]
+match = { Size = 1 }
+scale = 0.05
+
+[actors.ACTOR_OBJ_ICE_POLY]
+name = "Ice encasing"
+notes = "A block of ice over a frozen actor, spawned by its parent (a frozen switch with size 0, a frozen hookshot post with size 1); melted by fire, then its parent is freed. It is gone the frame after it has no parent, so a placed one vanishes. Translucent, drawn at full alpha; its textures scroll through a Gfx_TwoTexScroll on segment 8, drawn at the first frame. Sizes past 2 are killed. Init lowers it 25 (small) or 20 (large) units. The sparkles are effects, not drawn."
+object = "gameplay_keep"
+scale = 1
+
+[actors.ACTOR_OBJ_ICE_POLY.params]
+Size = { mask = 0x00FF, kind = "choice", values = { 0 = "Small", 1 = "Medium", 2 = "Large" } }
+"Unused Flag" = { mask = 0xFF00, kind = "number", description = "Stored but never read; a frozen switch passes its switch flag here" }
+
+[[actors.ACTOR_OBJ_ICE_POLY.variants]]
+match = { Size = [0, 1, 2] }
+parts = [{ display_list = "gEffIceFragment3DL", pass = "translucent", hilite = true, rotation = [7.03125, 0, -7.03125], env = [0, 50, 100, 255], segments = { 8 = { tiles = [{ tile = 0, width = 32, height = 16 }, { tile = 1, width = 64, height = 32 }] } } }]
+
+[[actors.ACTOR_OBJ_ICE_POLY.variants]]
+draw = "marker"
+
+[[actors.ACTOR_OBJ_ICE_POLY.adjustments]]
+match = { Size = 0 }
+scale = 0.5
+height_offset = -50
+
+[[actors.ACTOR_OBJ_ICE_POLY.adjustments]]
+match = { Size = 2 }
+scale = 1.5
+height_offset = -13.333333
+
+[actors.ACTOR_EN_PU_BOX]
+name = "Stone cube (unused)"
+notes = "An unused stone cube Link can push. Sizes past 3 keep the default scale, 0.01, as size 3 does."
+object = "object_pu_box"
+scale = 0.01
+
+[actors.ACTOR_EN_PU_BOX.params]
+Size = { mask = 0xFFFF, kind = "choice", values = { 0 = "Smallest", 1 = "Small", 2 = "Medium", 3 = "Large" } }
+
+[[actors.ACTOR_EN_PU_BOX.variants]]
+parts = [{ display_list = "gBlockMediumDL" }]
+
+[[actors.ACTOR_EN_PU_BOX.adjustments]]
+match = { Size = 0 }
+scale = 0.0025
+
+[[actors.ACTOR_EN_PU_BOX.adjustments]]
+match = { Size = 1 }
+scale = 0.005
+
+[[actors.ACTOR_EN_PU_BOX.adjustments]]
+match = { Size = 2 }
+scale = 0.0075
+
+[actors.ACTOR_EN_WALL_TUBO]
+name = "Bombchu Bowling bullseye"
+notes = "The target of a Bombchu Bowling wall, spawned by Bg_Bowl_Wall at its bullseye with the wall's params: a Bombchu reaching it marks the wall hit in the alley girl's wallStatus[Wall], explodes and drops the wall. Draws nothing; the bullseye is the wall's model. Debug builds draw a debug shape while a debug register is set."
+draw = "marker"
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_WALL_TUBO.params]
+Wall = { mask = 0xFFFF, kind = "number", description = "The wall's index in the alley girl's wallStatus, passed from Bg_Bowl_Wall" }
+
+[actors.ACTOR_EN_EX_ITEM]
+name = "Minigame prize"
+notes = "A prize shown by a minigame or a fairy: Bombchu Bowling's prizes as they fly at the camera (types 0 to 4) and as they turn on its counter (5 to 9), a Treasure Box Shop chest's rupee or key rising out of it (10 to 15), a Great Fairy's spell (16 to 18), and the Deku Scrub's bullet bag in the Lost Woods (19). Each loads its item's object at run time and draws once it is in. Drawn as Init leaves it, except the bullet bag, which grows from 0.1 to 0.8 within a second and is drawn at 0.8. Type 13 sets no draw ID, so it draws GID 0, the empty bottle; drawn as that. The prizes turn, fly and rise at run time. The translucent hilite (func_8002ED80) that most of them also set is drawn as the part's hilite."
+object = "gameplay_keep"
+scale = 0.5
+
+[actors.ACTOR_EN_EX_ITEM.params]
+Type = { mask = 0x00FF, kind = "choice", values = "EnExItemType" }
+Unused = { mask = 0xFF00, kind = "number", description = "Read and printed, never used" }
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = [0, 5] }
+parts = [{ get_item = "GID_BOMB_BAG_30", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = [1, 6] }
+parts = [{ get_item = "GID_HEART_PIECE", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = [2, 7] }
+parts = [{ get_item = "GID_BOMBCHU", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = [3, 8] }
+parts = [{ get_item = "GID_BOMB", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = [4, 9, 14] }
+parts = [{ get_item = "GID_RUPEE_PURPLE", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 10 }
+parts = [{ get_item = "GID_RUPEE_GREEN", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 11 }
+parts = [{ get_item = "GID_RUPEE_BLUE", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 12 }
+parts = [{ get_item = "GID_RUPEE_RED", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 13 }
+parts = [{ get_item = "GID_BOTTLE_EMPTY", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 15 }
+scale = 0.05
+parts = [{ display_list = "gItemDropDL", segments = { 8 = "gDropKeySmallTex" }, setup = 41 }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 16 }
+scale = 0.35
+parts = [{ get_item = "GID_DINS_FIRE", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 17 }
+scale = 0.35
+parts = [{ get_item = "GID_FARORES_WIND", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 18 }
+scale = 0.35
+parts = [{ get_item = "GID_NAYRUS_LOVE", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+match = { Type = 19 }
+scale = 0.8
+parts = [{ get_item = "GID_BULLET_BAG", hilite = true }]
+
+[[actors.ACTOR_EN_EX_ITEM.variants]]
+draw = "marker"
+
+[[actors.ACTOR_EN_EX_ITEM.adjustments]]
+match = { Type = 5 }
+height_offset = -18
+
+[[actors.ACTOR_EN_EX_ITEM.adjustments]]
+match = { Type = 6 }
+height_offset = -10
+
+[[actors.ACTOR_EN_EX_ITEM.adjustments]]
+match = { Type = 8 }
+height_offset = 10
+
+[[actors.ACTOR_EN_EX_ITEM.adjustments]]
+match = { Type = 9 }
+height_offset = 40
+
+[actors.ACTOR_EN_EX_RUPPY]
+name = "Minigame rupee"
+notes = "A rupee of a minigame: thrown into the Zora's Domain diving game (type 0), the giant rupee that blows up (1) or a small one of random colour (2), one a Deku Scrub or the Hyrule Castle guard gives (3), and the Shooting Gallery's progress markers (4). Its colour is mostly picked at run time: the diving game's by a roll (a 500-rupee one is orange at twice the size), type 2's at random, type 3's by a roll or by the scrub that spawns it, the gallery's by sRupeeTypes per marker (green or blue, or orange), each drawn here as the first it can be. A gallery marker sits 700 below its place until it is hit, drawn so. It spins at run time."
+object = "gameplay_keep"
+scale = 0.02
+height_offset = 700
+
+[actors.ACTOR_EN_EX_RUPPY.params]
+Type = { mask = 0xFFFF, kind = "choice", values = { 0 = "Diving game", 1 = "Giant, blows up", 2 = "Small, blows up", 3 = "Given", 4 = "Gallery marker" } }
+
+[[actors.ACTOR_EN_EX_RUPPY.variants]]
+match = { Type = 0 }
+scale = 0.01
+parts = [{ display_list = "gRupeeDL", segments = { 8 = "gRupeeBlueTex" }, hilite = true }]
+
+[[actors.ACTOR_EN_EX_RUPPY.variants]]
+match = { Type = 1 }
+scale = 0.1
+parts = [{ display_list = "gRupeeDL", segments = { 8 = "gRupeeOrangeTex" }, hilite = true }]
+
+[[actors.ACTOR_EN_EX_RUPPY.variants]]
+match = { Type = 2 }
+parts = [{ display_list = "gRupeeDL", segments = { 8 = "gRupeeBlueTex" }, hilite = true }]
+
+[[actors.ACTOR_EN_EX_RUPPY.variants]]
+match = { Type = 4 }
+scale = 0.01
+height_offset = -700
+parts = [{ display_list = "gRupeeDL", segments = { 8 = "gRupeeGreenTex" }, hilite = true }]
+
+[[actors.ACTOR_EN_EX_RUPPY.variants]]
+parts = [{ display_list = "gRupeeDL", segments = { 8 = "gRupeeGreenTex" }, hilite = true }]
+
+[actors.ACTOR_ITEM_B_HEART]
+name = "Heart Container"
+notes = "The Heart Container a boss leaves, spawned by the boss with params 0. Gone once collectible flag 0x1F of the boss room is set. It grows from nothing to 0.4 and floats 15 to 25 above where it was spawned, drawn at 0.4 and 20 up; it turns at run time. It is drawn translucent while a blue warp is behind it, not drawn so."
+object = "object_gi_hearts"
+scale = 0.4
+height_offset = 50
+rotates = { x = false, y = true, z = false }
+
+[[actors.ACTOR_ITEM_B_HEART.variants]]
+parts = [
+    { display_list = "gGiHeartBorderDL" },
+    { display_list = "gGiHeartContainerDL" },
+]
+
+[actors.ACTOR_ITEM_INBOX]
+name = "Item in a box"
+notes = "Draws the get-item model its params name, until treasure flag (params >> 8) & 0x1F is set. Spawned by nothing in the game and placed nowhere; the description calls it Zelda's magic in the castle escape. The translucent hilite (func_8002ED80) is drawn as the part's hilite."
+object = "gameplay_keep"
+scale = 0.2
+
+[actors.ACTOR_ITEM_INBOX.params]
+Item = { mask = 0x00FF, kind = "choice", values = "GetItemDrawID", description = "The model it draws" }
+"Treasure Flag" = { mask = 0x1F00, kind = "number", scene_flag = "treasure", description = "Removes it once set" }
+
+[[actors.ACTOR_ITEM_INBOX.variants]]
+parts = [{ get_item = { param = "Item" }, hilite = true }]
+
+[actors.ACTOR_EN_GIRLA]
+name = "Shop item"
+notes = "An item on a shop's shelf, spawned by the shopkeeper (En_Ossan) from its shop's stock, its params an EnGirlAShopItem. Each item's model is its giDrawId in sShopItemEntries, a table of structs, so a variant is written per item; it loads that object at run time. Items with a hilite function are drawn with the part's hilite, the translucent one of func_8002ED80 and func_80A3C498 included. Some items become Sold Out or a recovery heart once bought, which the save decides. A selected item turns at run time."
+object = "gameplay_keep"
+scale = 0.25
+height_offset = 24
+rotates = { x = false, y = true, z = true }
+
+[actors.ACTOR_EN_GIRLA.params]
+Item = { mask = 0xFFFF, kind = "choice", values = "EnGirlAShopItem" }
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [0, 4] }
+parts = [{ get_item = "GID_DEKU_NUTS", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 1 }
+parts = [{ get_item = "GID_ARROWS_10", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 2 }
+parts = [{ get_item = "GID_ARROWS_30", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 44 }
+parts = [{ get_item = "GID_ARROWS_5", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [3, 6, 45, 46, 47] }
+parts = [{ get_item = "GID_BOMB", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 5 }
+parts = [{ get_item = "GID_DEKU_STICK" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 7 }
+parts = [{ get_item = "GID_FISH", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [8, 48, 49] }
+parts = [{ get_item = "GID_BOTTLE_POTION_RED", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 9 }
+parts = [{ get_item = "GID_BOTTLE_POTION_GREEN", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 10 }
+parts = [{ get_item = "GID_BOTTLE_POTION_BLUE", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 11 }
+parts = [{ get_item = "GID_SWORD_BIGGORON", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 12 }
+parts = [{ get_item = "GID_SHIELD_HYLIAN", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 13 }
+parts = [{ get_item = "GID_SHIELD_DEKU", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 14 }
+parts = [{ get_item = "GID_TUNIC_GORON" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 15 }
+parts = [{ get_item = "GID_TUNIC_ZORA" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 16 }
+parts = [{ get_item = "GID_RECOVERY_HEART" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [17, 19] }
+parts = [{ get_item = "GID_BOTTLE_MILK_FULL", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [18, 20] }
+parts = [{ get_item = "GID_EGG", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = [21, 22, 23, 24, 25, 26, 27, 28] }
+parts = [{ get_item = "GID_BOMBCHU", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 29 }
+parts = [{ get_item = "GID_DEKU_SEEDS", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 30 }
+parts = [{ get_item = "GID_MASK_KEATON", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 31 }
+parts = [{ get_item = "GID_MASK_SPOOKY", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 32 }
+parts = [{ get_item = "GID_MASK_SKULL", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 33 }
+parts = [{ get_item = "GID_MASK_BUNNY_HOOD", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 34 }
+parts = [{ get_item = "GID_MASK_TRUTH", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 35 }
+parts = [{ get_item = "GID_MASK_ZORA" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 36 }
+parts = [{ get_item = "GID_MASK_GORON" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 37 }
+parts = [{ get_item = "GID_MASK_GERUDO" }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 38 }
+parts = [{ get_item = "GID_SOLDOUT", object = "object_gi_soldout", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 39 }
+parts = [{ get_item = "GID_BLUE_FIRE", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 40 }
+parts = [{ get_item = "GID_BUG", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 41 }
+parts = [{ get_item = "GID_BIG_POE", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 42 }
+parts = [{ get_item = "GID_POE", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+match = { Item = 43 }
+parts = [{ get_item = "GID_FAIRY", object = "object_gi_soul", hilite = true }]
+
+[[actors.ACTOR_EN_GIRLA.variants]]
+draw = "marker"
+
+[actors.ACTOR_EN_JSJUTAN]
+name = "Magic carpet"
+notes = "The carpet the Magic Carpet salesman (En_Js) sits on, spawned by him with params 0. Draw ignores the actor's turn and height: it is drawn at its own X and Z, which are its parent's, at a world height of 3, unturned. Its vertices ripple each frame and are drawn at rest, 800 up with no wave, plus the 3 Draw lifts it, as the part's translation. Its shadow is a texture built at run time from the carpet's and is not drawn. The carpet's material (sCarpetMaterialDL) and its model (sModelDL, vertices on segment 12) are two lists the game draws one after the other; written as two parts, the model relies on the material's texture load surviving its own setup list. Type 1, a carpet on its parent as in the credits, is drawn the same."
+object = "ovl_En_Jsjutan"
+scale = 0.02
+rotates = { x = false, y = false, z = false }
+
+[actors.ACTOR_EN_JSJUTAN.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "EnJsjutanType" }
+
+[[actors.ACTOR_EN_JSJUTAN.variants]]
+parts = [
+    { display_list = "sCarpetMaterialDL", translation = [0, 950, 0] },
+    { display_list = "sModelDL", translation = [0, 950, 0], segments = { 12 = { object = "ovl_En_Jsjutan", symbol = "sCarpetOddVtx" } } },
+]
+
+[actors.ACTOR_EN_LIGHTBOX]
+name = "Lightbox"
+notes = "An unused box that can be carried and thrown, in four sizes by its params; another value keeps the default scale. Placed and spawned nowhere."
+object = "object_lightbox"
+scale = 0.01
+
+[actors.ACTOR_EN_LIGHTBOX.params]
+Size = { mask = 0xFFFF, kind = "choice", values = { 0 = "Small", 1 = "Medium", 2 = "Large", 3 = "Largest" } }
+
+[[actors.ACTOR_EN_LIGHTBOX.variants]]
+parts = [{ display_list = "object_lightbox_DL_000B70" }]
+
+[[actors.ACTOR_EN_LIGHTBOX.adjustments]]
+match = { Size = 0 }
+scale = 0.025
+
+[[actors.ACTOR_EN_LIGHTBOX.adjustments]]
+match = { Size = 1 }
+scale = 0.05
+
+[[actors.ACTOR_EN_LIGHTBOX.adjustments]]
+match = { Size = 2 }
+scale = 0.075
+
+[[actors.ACTOR_EN_LIGHTBOX.adjustments]]
+match = { Size = 3 }
+scale = 0.1
+
+[actors.ACTOR_EN_VASE]
+name = "Unused vase"
+notes = "An unused orange pot after A Link to the Past's, without collision. Placed and spawned nowhere. Its params are not read."
+object = "object_vase"
+scale = 0.01
+
+[[actors.ACTOR_EN_VASE.variants]]
+parts = [{ display_list = "gUnusedVaseDL" }]
+
+[actors.ACTOR_DEMO_TRE_LGT]
+name = "Chest light"
+notes = "The light that shines out of a big chest as it opens, spawned by En_Box with params 0xFFFF. It draws nothing until the chest's lid reaches frame 10, then a curve skeleton (gTreasureChestCurveSkel, SkelCurve) animated by gTreasureChestCurveAnim_4B60 or _4F70 by Link's age, fading out; a curve skeleton has no part, so a marker."
+draw = "marker"
+object = "object_box"
+scale = 0.01
+
+[actors.ACTOR_EN_AROW_TRAP]
+name = "Arrow trap (unused)"
+notes = "An unused trap that draws nothing itself: while Link is within 400 units it fires a silent arrow (En_Arrow, ARROW_NORMAL_SILENT) along its rotation every 80 frames. The arrows exist only at run time and are not drawn."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EN_ATTACK_NIW]
+name = "Attacking cucco"
+notes = "One of the flock a cucco (En_Niw) calls on Link after being hit too often, spawned by it near the camera at a random spot, up to seven at once. Drawn in the first frame of gCuccoAnim; its head, wings and body are turned at run time by OverrideLimbDraw, all at rest here. Its turn is random at spawn. Params are unused (negative ones are made 0)."
+object = "object_niw"
+scale = 0.01
+
+[[actors.ACTOR_EN_ATTACK_NIW.variants]]
+parts = [{ skeleton = "gCuccoSkel", pose = "gCuccoAnim" }]
+
+[actors.ACTOR_EN_BIRD]
+name = "Brown bird (unused)"
+notes = "An unused brown bird, spawned by nothing in the game, that idles and flies about its home. Drawn in the first frame of gBirdFlyAnim at its shape's height offset of 5500; the offset bobs at run time. Params are passed around but never read."
+object = "object_bird"
+scale = 0.01
+height_offset = 5500
+
+[[actors.ACTOR_EN_BIRD.variants]]
+parts = [{ skeleton = "gBirdSkel", pose = "gBirdFlyAnim" }]
+
+[actors.ACTOR_EN_BOM_BOWL_PIT]
+name = "Bombchu Bowling goal"
+notes = "The invisible goal at the end of the Bombchu Bowling Alley, spawned by the bowling man (En_Bom_Bowl_Man) at a fixed spot. It draws nothing: when a bombchu reaches it, it moves the camera, shows a message and spawns the prize (En_Ex_Item) 70 units in front of it, all at run time."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EN_BUTTE]
+name = "Butterfly"
+notes = "A butterfly of gameplay_field_keep, spawned by a group spawner (Obj_Mure), in the first frame of gButterflyAnim. Init tilts it nose down by 0x2320 (49.4 degrees) on its shape's X, drawn as a part rotation after the placed one, which comes to the same while the placed X and Z are 0. Its height bobs at run time. One that turns into a fairy follows Link while he holds a Deku Stick and then becomes a healing fairy with a flash (gEffFlash1DL), neither drawn. Params of -1 are made 0 by Init, which the flag does not show."
+object = "gameplay_field_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_BUTTE.params]
+"Turns into a fairy" = { mask = 0x0001, kind = "flag", description = "Follows Link holding a Deku Stick and turns into a healing fairy" }
+
+[[actors.ACTOR_EN_BUTTE.variants]]
+parts = [{ skeleton = "gButterflySkel", pose = "gButterflyAnim", rotation = [-49.4, 0, 0] }]
+
+[actors.ACTOR_EN_CLEAR_TAG]
+name = "Arwing"
+notes = "The Arwing a fake ice trap item calls in, spawned by Player 100 units above Link (Type 0, with its intro cutscene; Type 1 only from a debug register), and the green lasers it fires (Type 100). The Arwing's model and its billboarded backfire are its overlay's own display lists; Update sets its scale to 0.2 on its first frame (0.01 before). The cutscene Arwing starts pointing straight up (world X 0x4000, shape X negated), drawn here level. Its roll, the shake while crashing and the backfire's flicker are run time. Its shadow is drawn at the floor below it, in world space, which a part cannot say, and is not drawn. Its debris, fire, smoke and flash effects when shot down are drawn from a shared effect pool, not drawn. A laser is scaled 0.4, 0.4, 2 (drawn as 0.4 with the part stretched 5 along Z) and its shape's X is negated from its spawn rotation."
+object = "ovl_En_Clear_Tag"
+scale = 0.2
+
+[actors.ACTOR_EN_CLEAR_TAG.params]
+Type = { mask = 0xFFFF, kind = "choice", values = "ClearTagType" }
+
+[[actors.ACTOR_EN_CLEAR_TAG.variants]]
+match = { Type = 100 }
+scale = 0.4
+parts = [
+    { display_list = "gArwingLaserDL", pass = "translucent", translation = [25, 0, 0], scale = [1, 1, 5], prim = [0, 255, 0, 255] },
+    { display_list = "gArwingLaserDL", pass = "translucent", translation = [-25, 0, 0], scale = [1, 1, 5], prim = [0, 255, 0, 255] },
+]
+
+[[actors.ACTOR_EN_CLEAR_TAG.variants]]
+parts = [
+    { display_list = "gArwingDL", prim = [255, 255, 255, 255] },
+    { display_list = "gArwingBackfireDL", pass = "translucent", translation = [0, 0, -60], scale = [2.5, 1.3, 0], billboard = true, prim = [255, 255, 200, 155], env = [255, 50, 0, 0] },
+]
+
+[actors.ACTOR_EN_INSECT]
+name = "Bug"
+notes = "A bug of gameplay_keep, in the first frame of gBugCrawlAnim: one of a group spawner (Obj_Mure, permanent), one that crawls out from under a bush or rock (En_Kusa, En_Ishi, short lived), or bugs Link lets out of a bottle. A dropped bug starts at scale 0.003 and grows to 0.01 as it crawls; the first spawns two more at its spot, drawn here as children. Its turn and pitch while digging into soft soil or fleeing Link are run time. A caught bug is not drawn."
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_INSECT.params]
+Type = { mask = 0x0003, kind = "choice", values = "EnInsectType" }
+
+[[actors.ACTOR_EN_INSECT.variants]]
+match = { Type = 2 }
+scale = 0.003
+parts = [{ skeleton = "gBugSkel", pose = "gBugCrawlAnim" }]
+children = [
+    { actor = "ACTOR_EN_INSECT", params = 0x0003, offset = [0, 0, 0] },
+    { actor = "ACTOR_EN_INSECT", params = 0x0003, offset = [0, 0, 0] },
+]
+
+[[actors.ACTOR_EN_INSECT.variants]]
+match = { Type = 3 }
+scale = 0.003
+parts = [{ skeleton = "gBugSkel", pose = "gBugCrawlAnim" }]
+
+[[actors.ACTOR_EN_INSECT.variants]]
+parts = [{ skeleton = "gBugSkel", pose = "gBugCrawlAnim" }]
+
+[actors.ACTOR_EN_SCENE_CHANGE]
+name = "Scene change (broken)"
+notes = "A broken leftover that is spawned by nothing: its Draw allocates a display list, points segment 12 at it without writing anything into it, and draws nothing. Its profile loads object_jj, which it never uses."
+draw = "marker"
+scale = 0.01
+
+[actors.ACTOR_EN_FW]
+name = "Flare Dancer core"
+notes = "The Flare Dancer's core, spawned as its child (En_Fd) when the dancer is hooked: it bounces, runs in circles about the dancer's home, and jumps back into it to reform it. Drawn in gFlareDancerCoreInitRunCycleAnim at its first frame, where Init holds it (play speed 0) until it lands. The dust it kicks up (gFlareDancerSquareParticleDL, billboarded) is an effect and is not drawn; its red flash on damage is a colour filter."
+object = "object_fw"
+scale = 0.01
+
+[actors.ACTOR_EN_FW.params]
+"Run Direction" = { mask = 0xFFFF, kind = "number", signed = true, description = "The way it runs about the dancer, negated: the dancer passes 1 or -1, picked at random" }
+
+[[actors.ACTOR_EN_FW.variants]]
+parts = [{ skeleton = "gFlareDancerCoreSkel", pose = "gFlareDancerCoreInitRunCycleAnim" }]
+default_params = 1
+
+[actors.ACTOR_EN_M_FIRE1]
+name = "Deku Nut flash hitbox"
+notes = "The stunning hitbox a Deku Nut leaves where it bursts, spawned by En_Arrow with params 0: a cylinder of radius 200 that lasts five frames. It has no Draw; the flash is the screen's transition fade. Params below 0 move it to the item-action category."
+draw = "marker"
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_M_THUNDER]
+name = "Spin attack"
+notes = "The spin attack's wave and the sword's charging glow, spawned by Player at his waist, turned away from him, with his sword in the low byte and 2 in the high byte (the magic cost) for a magic spin, 0 for a charged one. Drawn as the ring of a charged spin, blue (gSpinAttack1DL and 2DL) at its full size: it grows from 0.1 to 4 (2 with the Kokiri Sword), its alpha fading out as it does. A great spin, released with magic once fully charged, is the yellow ring (gSpinAttack3DL and 4DL, prim 255 255 170) at twice the size, chosen at run time, not drawn. Segment 8 is a Gfx_TwoTexScroll, drawn at its first frame. The charging glow (gSpinAttackChargingDL) is placed by Player's sword matrix (mf_9E0) and its colour and alpha follow the charge, so it is not drawn. Its light dims the scene; not drawn."
+object = "gameplay_keep"
+scale = 4
+
+[actors.ACTOR_EN_M_THUNDER.params]
+"Sword" = { mask = 0x00FF, kind = "choice", values = { 1 = "Master Sword", 2 = "Kokiri Sword", 3 = "Biggoron Sword" } }
+"Magic Cost" = { mask = 0xFF00, kind = "number", description = "Magic spent at once for a spin without charging; 0 for a charged spin" }
+
+[[actors.ACTOR_EN_M_THUNDER.variants]]
+parts = [
+    { display_list = "gSpinAttack1DL", pass = "translucent", scale = 0.02, prim = [170, 255, 255, 255], segments = { 8 = { tiles = [{ tile = 0, x = 255, width = 64, height = 32 }, { tile = 1, x = 255, width = 8, height = 8 }] } } },
+    { display_list = "gSpinAttack2DL", pass = "translucent", scale = 0.02, prim = [170, 255, 255, 255], segments = { 8 = { tiles = [{ tile = 0, x = 255, width = 64, height = 32 }, { tile = 1, x = 255, width = 8, height = 8 }] } } },
+]
+default_params = 0x0001
+
+[[actors.ACTOR_EN_M_THUNDER.adjustments]]
+match = { "Sword" = 2 }
+scale = 2
+
+[actors.ACTOR_EN_PART]
+name = "Body part"
+notes = "A piece of an enemy or a broken object flying apart as it dies or breaks, spawned by game code (Actor_SpawnBodyParts, func_800358DC) for some sixty actors. It draws a display list its spawner hands it, from the spawner's object (passed in its rotation Z as an object slot), at the spawner's scale; which list is decided at run time, so a marker here. Params pick how it flies and fades: 5, 6 and 7 colour segments 8 to 10 by built lists (Stalfos, Iron Knuckle and others), 9 and 10 point them at a Tektite's red or blue textures; 1, 11 and 14 burn, 12 and 13 bounce on the floor."
+draw = "marker"
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_PART.params]
+"Type" = { mask = 0xFFFF, kind = "number", description = "How it flies, fades and is coloured, by its spawner" }
+
+[actors.ACTOR_EN_SDA]
+name = "Link's dynamic shadow"
+notes = "A shadow of Link drawn on the floor beneath him from a texture rendered each frame out of his body parts' positions, with built display lists of the overlay's. Nothing in the vanilla game spawns it. It is drawn at Player's position, not its own, from a texture made at run time, so a marker here."
+draw = "marker"
+object = "gameplay_keep"
+scale = 0.01
+
+[actors.ACTOR_EN_TORCH2]
+name = "Dark Link"
+notes = "Link's shadow in the Water Temple, spawned by En_Blkobj at its own position facing Link, with params 0. It is a Player instance run by a fake controller: Player's Init and draw with gDarkLinkSkel, a Master Sword and Hylian Shield, his hands and equipment swapped in by Player's limb callbacks. Marked like Player until his pose can be read: his animations are in link_animetion, which is not asset C, and at rest his limbs lie apart. The variant says what he will be drawn with: translucent at alpha 95 with a red env and segment 12 at the start of D_80116280; once his alpha reaches 255 he is drawn opaque with segment 12 at D_80116280[2]. Player's limb callbacks (the sword, shield and hands from gameplay_keep and object_link_boy) are not written."
+draw = "marker"
+object = "object_torch2"
+scale = 0.01
+
+[[actors.ACTOR_EN_TORCH2.variants]]
+parts = [{ skeleton = "gDarkLinkSkel", pass = "translucent", hilite = true, env = [255, 0, 0, 95], segments = { 12 = { code = "D_80116280" } } }]
