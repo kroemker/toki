@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/displayList/Types.h"
-#include "app/viewport/domain/OverlayGeometry.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "n64/CommandDecoder.h"
 #include "n64/Rdp.h"
@@ -72,7 +72,8 @@ public:
     /// What the command at `row` drew, and for a call every command it ran,
     /// in the clip space of `viewport`: each triangle where it showed on the
     /// screen at its own depth, and each rectangle, which has none, as two at
-    /// the near plane. A triangle with a corner behind the eye is left out.
+    /// the near plane. A triangle with a corner behind the eye is kept whole,
+    /// for the GPU to clip as it clips the frame.
     [[nodiscard]] std::vector<viewport::ClipTriangle>
     listClipTriangles(usize row, const n64::Viewport& viewport) const;
 

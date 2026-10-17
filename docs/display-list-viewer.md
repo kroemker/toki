@@ -40,8 +40,9 @@ tested like a parser.
   so a row knows the triangles and rectangles it drew (`listDraws`), the RDP state they were
   drawn under (`findDrawState`) and where they landed (`listClipTriangles`: each triangle
   where its own viewport put it on the screen, at its own depth, in the clip space of the
-  frame's viewport; each rectangle at the near plane, as it has no depth; a triangle with a
-  corner behind the eye is left out).
+  frame's viewport; each rectangle at the near plane, as it has no depth). A triangle with a
+  corner behind the eye is kept whole, without dividing by its `w`, and the GPU clips it at
+  the near plane as it clips the frame.
 
 ## Three levels of explanation
 
@@ -66,8 +67,14 @@ Selecting a row picks out what it drew in the viewport: for a call, everything t
 The panel hands the triangles to `ViewportPanel::setHighlight` in clip space, and the
 viewport fills and outlines them in its overlay pass ([renderer.md](renderer.md)): what a
 command drew behind a wall is drawn faintly through it, whether or not X-ray is on, so that
-a selection never shows nothing. Changing
-the selection draws the last frame again without running it.
+a selection never shows nothing. Changing the selection draws the last frame again without
+running it.
+
+The triangles are where the command drew in the frame the panel shows, so the viewport draws
+them only over that frame: the panel names its generation, and a frame drawn since, for a
+camera that moved or with the panel no longer following, shows no highlight until the panel
+catches up. A highlight that lags the camera would sit on the wrong surface, and being
+depth-tested, would hide behind it.
 
 ## Jumping in
 

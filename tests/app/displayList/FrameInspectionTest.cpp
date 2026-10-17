@@ -1,7 +1,7 @@
 #include "app/displayList/domain/FrameInspection.h"
 
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/OrbitCamera.h"
-#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Types.h"
 #include "cparser/MacroTable.h"
@@ -14,16 +14,19 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
-#include <variant>
+#include <utility>
 #include <vector>
 
 using base::f32;
+using base::s16;
 using base::u32;
 using base::u8;
 using base::usize;
@@ -39,6 +42,20 @@ constexpr u8 Segment = 0x06;
         rows, [&name](const auto& row) { return row.command.name == name && row.depth > 0; });
     return found == rows.end() ? std::nullopt
                                : std::optional<usize>(static_cast<usize>(found - rows.begin()));
+}
+
+[[nodiscard]] toki::viewport::ViewportContent makeContent(const n64::DisplayListWriter& writer,
+                                                          const u32 start) {
+    z64::MemoryImage image;
+    image.segments.push_back(z64::ImageSegment{.number = Segment, .bytes = writer.getBytes()});
+    toki::viewport::ViewportContent content;
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(image)));
+    content.draws.push_back(toki::viewport::ViewportDraw{.image = 0, .displayList = start});
+    return content;
+}
+
+[[nodiscard]] s16 makeCoordinate(const f32 value) {
+    return static_cast<s16>(std::lround(value));
 }
 
 } // namespace
@@ -113,4 +130,103 @@ TEST_CASE("a traced frame reads as its commands, named by the content's symbols"
     REQUIRE(inspection.listClipTriangles(*vertex, viewport).empty());
     REQUIRE(inspection.findSymbolRun("gTestDL") == callRow + 1);
     REQUIRE_FALSE(inspection.findSymbolRun("gTestVtx"));
+}
+
+TEST_CASE("a triangle is placed where it showed, in the clip space of another viewport",
+          "[displayList]") {
+    n64::DisplayListWriter writer(Segment);
+    const u32 vertices = writer.addVertex({.position = {0, 0, 0}, .color = {255, 255, 255, 255}});
+    static_cast<void>(writer.addVertex({.position = {300, 0, 0}, .color = {255, 255, 255, 255}}));
+    static_cast<void>(writer.addVertex({.position = {0, 300, 0}, .color = {255, 255, 255, 255}}));
+    const u32 start = writer.loadVertices(vertices, 3, 0);
+    writer.drawTriangles({0, 1, 2}, {0, 2, 1});
+    writer.endDisplayList();
+    const toki::viewport::ViewportContent content = makeContent(writer, start);
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, toki::viewport::OrbitCamera{}, {}, true);
+    const toki::displayList::FrameInspection inspection(frame, content);
+    const std::optional<usize> row = findRow(inspection, "gsSP2Triangles");
+    REQUIRE(row.has_value());
+    REQUIRE_FALSE(inspection.listDraws(*row).empty());
+
+    const n64::Viewport target{.scale = {400.0F, 250.0F, 511.0F},
+                               .translate = {420.0F, 260.0F, 511.0F}};
+    const std::vector<toki::viewport::ClipTriangle> placed =
+        inspection.listClipTriangles(*row, target);
+    REQUIRE(placed.size() == inspection.listDraws(*row).size());
+    const auto& drawn = std::get<n64::Triangle>(
+        frame.rdpResult.draws[inspection.listDraws(*row).front()].primitive);
+    const n64::Viewport& viewport = frame.rspResult.viewports.at(drawn.viewport);
+    for (usize i = 0; i < 3; ++i) {
+        const toki::viewport::ClipPosition& corner = placed.front()[i];
+        const auto& [x, y, z, w] = drawn.vertices[i].position;
+        REQUIRE((corner[0] / corner[3] * target.scale[0]) + target.translate[0] ==
+                Catch::Approx((x / w * viewport.scale[0]) + viewport.translate[0]).margin(1.0e-2));
+        REQUIRE((-corner[1] / corner[3] * target.scale[1]) + target.translate[1] ==
+                Catch::Approx((-y / w * viewport.scale[1]) + viewport.translate[1]).margin(1.0e-2));
+        REQUIRE(corner[2] == Catch::Approx(z));
+        REQUIRE(corner[3] == Catch::Approx(w));
+    }
+}
+
+TEST_CASE("a triangle with a corner behind the eye is kept whole", "[displayList]") {
+    const toki::viewport::OrbitCamera camera;
+    const glm::vec3 behind = camera.getEye() * 1.5F;
+    n64::DisplayListWriter writer(Segment);
+    const u32 vertices = writer.addVertex(
+        {.position = {makeCoordinate(behind.x), makeCoordinate(behind.y), makeCoordinate(behind.z)},
+         .color = {255, 255, 255, 255}});
+    static_cast<void>(
+        writer.addVertex({.position = {-300, 0, 300}, .color = {255, 255, 255, 255}}));
+    static_cast<void>(
+        writer.addVertex({.position = {300, 0, -300}, .color = {255, 255, 255, 255}}));
+    const u32 start = writer.loadVertices(vertices, 3, 0);
+    writer.drawTriangles({0, 1, 2}, {0, 2, 1});
+    writer.endDisplayList();
+    const toki::viewport::ViewportContent content = makeContent(writer, start);
+    const toki::viewport::Frame frame = toki::viewport::runFrame(content, camera, {}, true);
+    const toki::displayList::FrameInspection inspection(frame, content);
+    const std::optional<usize> row = findRow(inspection, "gsSP2Triangles");
+    REQUIRE(row.has_value());
+    const std::vector<usize> draws = inspection.listDraws(*row);
+    REQUIRE_FALSE(draws.empty());
+    const auto& drawn = std::get<n64::Triangle>(frame.rdpResult.draws[draws.front()].primitive);
+    REQUIRE(drawn.vertices[0].position[3] < 0.0F);
+
+    const std::vector<toki::viewport::ClipTriangle> placed =
+        inspection.listClipTriangles(*row, frame.rspResult.viewports.at(drawn.viewport));
+    REQUIRE(placed.size() == draws.size());
+    for (usize i = 0; i < 3; ++i) {
+        for (usize axis = 0; axis < 4; ++axis) {
+            REQUIRE(placed.front()[i][axis] ==
+                    Catch::Approx(drawn.vertices[i].position[axis]).margin(1.0e-3));
+        }
+    }
+}
+
+TEST_CASE("a rectangle is placed at the near plane, over the pixels it covered", "[displayList]") {
+    n64::DisplayListWriter writer(Segment);
+    const u32 start =
+        writer.addCommand(0xF6000000U | (40U << 14) | (30U << 2), (8U << 14) | (4U << 2));
+    writer.endDisplayList();
+    const toki::viewport::ViewportContent content = makeContent(writer, start);
+    const toki::viewport::Frame frame =
+        toki::viewport::runFrame(content, toki::viewport::OrbitCamera{}, {}, true);
+    const toki::displayList::FrameInspection inspection(frame, content);
+    const std::optional<usize> row = findRow(inspection, "gsDPFillRectangle");
+    REQUIRE(row.has_value());
+
+    const n64::Viewport target{.scale = {100.0F, 50.0F, 511.0F},
+                               .translate = {100.0F, 50.0F, 511.0F}};
+    const std::vector<toki::viewport::ClipTriangle> placed =
+        inspection.listClipTriangles(*row, target);
+    REQUIRE(placed.size() == 2);
+    const toki::viewport::ClipPosition& topLeft = placed.front()[0];
+    const toki::viewport::ClipPosition& bottomRight = placed.front()[2];
+    REQUIRE(topLeft[0] == Catch::Approx(-0.92F));
+    REQUIRE(topLeft[1] == Catch::Approx(0.92F));
+    REQUIRE(topLeft[2] == Catch::Approx(-0.99F));
+    REQUIRE(topLeft[3] == 1.0F);
+    REQUIRE(bottomRight[0] == Catch::Approx(-0.59F));
+    REQUIRE(bottomRight[1] == Catch::Approx(0.38F));
 }

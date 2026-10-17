@@ -34,8 +34,8 @@ tested against the frame's depth, never in ImGui's draw list over the image:
 
 - **Flag Links**, the lines the content's owner gives as a `ViewportOverlay`.
 - **Highlight**, what the display list viewer's selected command drew, filled and outlined
-  in the accent colour. It is drawn whether or not the overlays are shown, and always
-  faintly where the frame hides it.
+  in the accent colour. It is drawn whether or not the overlays are shown, always faintly
+  where the frame hides it, and only over the frame it was found in.
 - **Grid**, a floor grid on the XZ plane around the camera's target, a line every 100 units,
   the X axis red and the Z axis blue.
 - **X-Ray** draws what the frame hides of every overlay faintly.

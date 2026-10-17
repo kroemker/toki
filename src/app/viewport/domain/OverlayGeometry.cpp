@@ -1,6 +1,7 @@
 #include "OverlayGeometry.h"
 
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "gfx/Overlay.h"

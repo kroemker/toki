@@ -8,7 +8,7 @@
 #include "app/displayList/Types.h"
 #include "app/displayList/domain/FrameInspection.h"
 #include "app/displayList/domain/RdpStateText.h"
-#include "app/viewport/domain/OverlayGeometry.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -171,7 +171,8 @@ void DisplayListPanel::updateHighlight() {
     viewportPanel.setHighlight(
         row && shownFrame != nullptr
             ? inspection->listClipTriangles(*row, viewport::makeFrameViewport(shownFrame->size))
-            : std::vector<viewport::ClipTriangle>());
+            : std::vector<viewport::ClipTriangle>(),
+        generation);
 }
 
 void DisplayListPanel::inspectSymbol(std::string symbol) {

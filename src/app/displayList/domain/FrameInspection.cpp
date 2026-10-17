@@ -1,7 +1,7 @@
 #include "FrameInspection.h"
 
 #include "app/displayList/Types.h"
-#include "app/viewport/domain/OverlayGeometry.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "n64/CommandDecoder.h"
 #include "n64/Opcode.h"
@@ -28,9 +28,6 @@ namespace {
 
 constexpr u32 PhysicalMask = 0x00FF'FFFF;
 constexpr u32 SegmentIndex = 0x06;
-constexpr f32 NearestW = 1.0e-4F;
-/// Where a rectangle lies in clip space: just past the near plane, in front of
-/// everything, as it has no depth of its own to be tested by.
 constexpr f32 RectangleDepth = -0.99F;
 constexpr std::array<std::string_view, 5> FormatNames{"RGBA", "YUV", "CI", "IA", "I"};
 constexpr std::array<std::string_view, 4> SizeNames{"4", "8", "16", "32"};
@@ -312,17 +309,17 @@ FrameInspection::listClipTriangles(const usize row, const n64::Viewport& viewpor
 std::vector<viewport::ClipTriangle>
 FrameInspection::makeClipTriangles(const n64::RdpPrimitive& primitive,
                                    const n64::Viewport& viewport) const {
-    const auto placeOnScreen = [&viewport](const f32 x, const f32 y, const f32 z, const f32 w) {
-        return viewport::ClipPosition{(x - viewport.translate[0]) / viewport.scale[0] * w,
-                                      -(y - viewport.translate[1]) / viewport.scale[1] * w, z, w};
+    const auto placeOnScreen = [&viewport](const f32 x, const f32 y) {
+        return viewport::ClipPosition{(x - viewport.translate[0]) / viewport.scale[0],
+                                      -(y - viewport.translate[1]) / viewport.scale[1],
+                                      RectangleDepth, 1.0F};
     };
     const auto makeRectangle = [&placeOnScreen](const f32 left, const f32 top, const f32 right,
                                                 const f32 bottom) {
-        const viewport::ClipPosition topLeft = placeOnScreen(left, top, RectangleDepth, 1.0F);
-        const viewport::ClipPosition topRight = placeOnScreen(right, top, RectangleDepth, 1.0F);
-        const viewport::ClipPosition bottomRight =
-            placeOnScreen(right, bottom, RectangleDepth, 1.0F);
-        const viewport::ClipPosition bottomLeft = placeOnScreen(left, bottom, RectangleDepth, 1.0F);
+        const viewport::ClipPosition topLeft = placeOnScreen(left, top);
+        const viewport::ClipPosition topRight = placeOnScreen(right, top);
+        const viewport::ClipPosition bottomRight = placeOnScreen(right, bottom);
+        const viewport::ClipPosition bottomLeft = placeOnScreen(left, bottom);
         return std::vector<viewport::ClipTriangle>{{topLeft, topRight, bottomRight},
                                                    {topLeft, bottomRight, bottomLeft}};
     };
@@ -333,14 +330,13 @@ FrameInspection::makeClipTriangles(const n64::RdpPrimitive& primitive,
         const n64::Viewport& drawn = frame.rspResult.viewports[triangle->viewport];
         viewport::ClipTriangle corners{};
         for (usize i = 0; i < corners.size(); ++i) {
-            const std::array<f32, 4>& position = triangle->vertices[i].position;
-            if (position[3] <= NearestW) {
-                return {};
-            }
-            corners[i] =
-                placeOnScreen((position[0] / position[3] * drawn.scale[0]) + drawn.translate[0],
-                              (-position[1] / position[3] * drawn.scale[1]) + drawn.translate[1],
-                              position[2], position[3]);
+            const auto& [x, y, z, w] = triangle->vertices[i].position;
+            corners[i] = viewport::ClipPosition{
+                ((x * drawn.scale[0]) + ((drawn.translate[0] - viewport.translate[0]) * w)) /
+                    viewport.scale[0],
+                ((y * drawn.scale[1]) - ((drawn.translate[1] - viewport.translate[1]) * w)) /
+                    viewport.scale[1],
+                z, w};
         }
         return {corners};
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "gfx/Overlay.h"
@@ -16,12 +17,6 @@
 #include <vector>
 
 namespace toki::viewport {
-
-/// A point in the N64's clip space, as the RSP leaves its vertices.
-using ClipPosition = std::array<f32, 4>;
-
-/// A triangle's corners in clip space.
-using ClipTriangle = std::array<ClipPosition, 3>;
 
 /// How a kind of line is drawn over the frame.
 struct LineStyle {

@@ -1,5 +1,5 @@
-// Draws lines over the frame, each a quad pushed out sideways on screen from
-// its two ends. Positions go through the viewport as the ubershader's do, so a
+// Draws filled triangles and lines over the frame, each line a quad pushed
+// out sideways on screen from its two ends, each triangle as it is. Positions go through the viewport as the ubershader's do, so a
 // line along a triangle's edge lands on the edge's pixels at the edge's depth.
 
 struct Interpolants

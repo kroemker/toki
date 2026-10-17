@@ -6,6 +6,7 @@
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/FrameStatistics.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/OverlayGeometry.h"
@@ -285,8 +286,10 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing, makeRspOverrides(mode));
     FrameStatistics statistics = makeFrameStatistics(frame, viewportContent);
     const auto started = std::chrono::steady_clock::now();
+    const u64 generation = isTracing ? ++frameGeneration : 0;
     DrawnFrame drawing{.rspResult = isTracing ? frame.rspResult : std::move(frame.rspResult),
-                       .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult)};
+                       .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult),
+                       .generation = generation};
     if (mode != RenderMode{}) {
         drawing.rdpResult = applyRenderMode(std::move(drawing.rdpResult), mode,
                                             makeViewProjection(viewportContent, orbitCamera, size));
@@ -309,7 +312,7 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
         tracedFrame = TracedFrame{.frame = std::move(frame),
                                   .content = viewportContent,
                                   .size = size,
-                                  .generation = ++frameGeneration};
+                                  .generation = generation};
     }
 }
 
@@ -349,6 +352,9 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
         for (gfx::OverlayLine& line : overlay.lines) {
             line.hiddenOpacity = XrayOpacity;
         }
+    }
+    if (highlightGeneration != drawing.generation) {
+        return overlay;
     }
     gfx::Overlay highlighted = makeHighlight(scale);
     overlay.triangles = std::move(highlighted.triangles);

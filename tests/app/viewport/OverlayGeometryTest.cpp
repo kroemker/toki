@@ -1,5 +1,6 @@
 #include "app/viewport/domain/OverlayGeometry.h"
 
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "base/Types.h"
 #include "gfx/Overlay.h"
@@ -20,6 +21,7 @@ using base::f32;
 using base::usize;
 using toki::viewport::clipToNearPlane;
 using toki::viewport::LineStyle;
+using toki::viewport::makeOutlines;
 using toki::viewport::makeTriangleEdges;
 
 namespace {
@@ -153,4 +155,26 @@ TEST_CASE("the grid crosses the cell under the centre, its axes coloured", "[vie
     const auto zAxis = std::ranges::find_if(lines, isZAxis);
     REQUIRE(zAxis != lines.end());
     REQUIRE(zAxis->color[2] > zAxis->color[0]);
+}
+
+TEST_CASE("an outline has each triangle's three edges, cut at the near plane",
+          "[viewport][overlay]") {
+    const toki::viewport::ClipTriangle front{
+        {{0.0F, 0.0F, 0.0F, 1.0F}, {1.0F, 0.0F, 0.0F, 1.0F}, {0.0F, 1.0F, 0.0F, 1.0F}}};
+    const toki::viewport::ClipTriangle crossing{
+        {{0.0F, 0.0F, 0.0F, 1.0F}, {1.0F, 0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, -3.0F, -1.0F}}};
+
+    const std::vector<gfx::OverlayLine> lines = makeOutlines({front, crossing}, Style);
+
+    REQUIRE(lines.size() == 6);
+    REQUIRE(lines[0].from == front[0]);
+    REQUIRE(lines[0].to == front[1]);
+    REQUIRE(lines[2].from == front[2]);
+    REQUIRE(lines[2].to == front[0]);
+    REQUIRE(lines[0].color == Style.color);
+    REQUIRE(lines[0].width == Style.width);
+    for (usize i = 3; i < lines.size(); ++i) {
+        REQUIRE(lines[i].from[2] >= -lines[i].from[3] - 1.0e-3F);
+        REQUIRE(lines[i].to[2] >= -lines[i].to[3] - 1.0e-3F);
+    }
 }

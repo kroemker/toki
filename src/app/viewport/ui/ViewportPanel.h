@@ -3,8 +3,8 @@
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/OrbitCamera.h"
-#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -41,10 +41,12 @@ struct TracedFrame {
     u64 generation = 0;
 };
 
-/// What the RSP and RDP made of a frame, after the render mode changed it.
+/// What the RSP and RDP made of a frame, after the render mode changed it,
+/// and the generation it was traced as, zero when it was not.
 struct DrawnFrame {
     n64::RspResult rspResult;
     n64::RdpResult rdpResult;
+    u64 generation = 0;
 };
 
 class ViewportPanel : public core::Panel {
@@ -118,10 +120,13 @@ public:
     }
 
     /// Triangles to pick out over the image, in the clip space of the frame's
-    /// viewport, as the display list viewer shows what a command drew. They
-    /// are drawn in the overlay pass, hidden by what stands in front of them.
-    void setHighlight(std::vector<ClipTriangle> triangles) {
+    /// viewport, as the display list viewer shows what a command drew in the
+    /// traced frame of `generation`. They are drawn in the overlay pass, faintly
+    /// where the frame hides them, and only over that frame: over any other,
+    /// the camera or the content they were found in may have moved.
+    void setHighlight(std::vector<ClipTriangle> triangles, const u64 generation) {
         highlight = std::move(triangles);
+        highlightGeneration = generation;
         isOverlayStale = true;
     }
 
@@ -176,6 +181,7 @@ private:
     std::function<void(const ViewportChoices&)> chooseHandler;
     ViewportStatusBar statusBar;
     std::vector<ClipTriangle> highlight;
+    u64 highlightGeneration = 0;
     bool isTracing = false;
     std::optional<TracedFrame> tracedFrame;
     /// What the RSP and RDP made of the last frame run, as it is drawn, to
