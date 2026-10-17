@@ -4,6 +4,7 @@
 #include "base/Diagnostic.h"
 #include "n64/FixedMatrix.h"
 #include "n64/Rdp.h"
+#include "n64/Rsp.h"
 #include "n64/RspResult.h"
 #include "z64/MemoryImage.h"
 
@@ -161,13 +162,20 @@ inline constexpr u8 FrameSegment = 0x01;
 /// for row vectors, converted the way `guMtxF2L` converts.
 [[nodiscard]] n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix);
 
+/// The camera's view and projection for a frame of `size`, as the frame
+/// loads them into the RSP: what takes the content's world to clip space.
+[[nodiscard]] glm::mat4 makeViewProjection(const ViewportContent& content,
+                                           const OrbitCamera& camera, FrameSize size);
+
 /// Runs one frame the way the game sets one up: a display list of its own
 /// sets the viewport to `size`, loads the camera's view and projection as the
 /// projection matrix and the identity as the modelview, as the game's `View`
 /// does, then calls each of the content's display lists in turn. With
 /// `recordsTrace`, every command the RSP runs is recorded
-/// (`n64::RspTask::recordsTrace`).
+/// (`n64::RspTask::recordsTrace`). `overrides` are the RSP's departures from
+/// F3DEX2 a render mode asks for.
 [[nodiscard]] Frame runFrame(const ViewportContent& content, const OrbitCamera& camera,
-                             FrameSize size, bool recordsTrace = false);
+                             FrameSize size, bool recordsTrace = false,
+                             const n64::RspOverrides& overrides = {});
 
 } // namespace toki::viewport

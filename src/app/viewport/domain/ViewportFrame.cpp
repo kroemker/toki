@@ -192,7 +192,6 @@ FrameList writeFrameList(const ViewportContent& content, const MappedImages& map
                          const OrbitCamera& camera, const FrameSize size) {
     const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
     const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
-    const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
 
     const glm::mat4 view = camera.makeViewMatrix();
     n64::DisplayListWriter writer(FrameSegment);
@@ -202,9 +201,8 @@ FrameList writeFrameList(const ViewportContent& content, const MappedImages& map
         .scale = {halfWidth, halfHeight, DepthHalfRange},
         .translate = {halfWidth, halfHeight, DepthHalfRange},
     });
-    const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
     const u32 projection =
-        writer.addMatrix(makeFixedMatrix(OrbitCamera::makeProjectionMatrix(aspect, zFar) * view));
+        writer.addMatrix(makeFixedMatrix(makeViewProjection(content, camera, size)));
     const std::optional<LightAddresses> lights =
         content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
     const DrawData data{
@@ -362,8 +360,15 @@ placeFrame(const ViewportContent& content, const OrbitCamera& camera, const Fram
 
 } // namespace
 
+glm::mat4 makeViewProjection(const ViewportContent& content, const OrbitCamera& camera,
+                             const FrameSize size) {
+    const f32 aspect = static_cast<f32>(size.width) / static_cast<f32>(size.height);
+    const f32 zFar = content.lighting ? content.lighting->zFar : OrbitCamera::Far;
+    return OrbitCamera::makeProjectionMatrix(aspect, zFar) * camera.makeViewMatrix();
+}
+
 Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size,
-               const bool recordsTrace) {
+               const bool recordsTrace, const n64::RspOverrides& overrides) {
     Frame frame;
     if (size.width == 0 || size.height == 0) {
         return frame;
@@ -397,7 +402,8 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
     const Clock::time_point placedAt = Clock::now();
     frame.rspResult = n64::runTask(memory, n64::RspTask{.displayList = frameList.start,
                                                         .segments = segments,
-                                                        .recordsTrace = recordsTrace});
+                                                        .recordsTrace = recordsTrace,
+                                                        .overrides = overrides});
     const Clock::time_point ranAt = Clock::now();
     frame.rdpResult = n64::runRdp(frame.rspResult, memory);
     frame.timings = FrameTimings{.place = makeMilliseconds(placedAt - started),

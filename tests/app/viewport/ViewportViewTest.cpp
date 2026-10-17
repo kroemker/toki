@@ -18,3 +18,12 @@ TEST_CASE("hidden overlays are named as a change", "[viewport][view]") {
 
     REQUIRE(listViewChanges(view) == std::vector<std::string>{"Overlays Off"});
 }
+
+TEST_CASE("a render mode names its shading and each stage it turns off", "[viewport][view]") {
+    ViewportView view;
+    view.renderMode.shading = toki::viewport::Shading::Normals;
+    view.renderMode.fog = false;
+    view.renderMode.textureFilter = toki::viewport::TextureFilter::Point;
+
+    REQUIRE(listViewChanges(view) == std::vector<std::string>{"Normals", "No Fog", "Point Filter"});
+}

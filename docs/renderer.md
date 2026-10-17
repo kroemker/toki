@@ -222,6 +222,11 @@ Not reproduced yet:
 - A fill rectangle into the depth buffer is skipped; the target's depth is cleared before
   every frame instead.
 
+A viewer that wants to see past what the game draws asks the RSP for it in the task
+(`RspOverrides`: lights that shade white, no culling) or changes the RDP state the RSP's
+output is drawn under; neither reaches the shader. [viewport.md](viewport.md) describes the
+render modes built on that.
+
 ## Scope
 
 In: one and two cycle combining, blender modes (fog, translucency, decal, alpha compare),

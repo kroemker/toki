@@ -9,6 +9,8 @@
 #include "app/viewport/domain/FrameStatistics.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ReferenceGrid.h"
+#include "app/viewport/domain/RenderMode.h"
+#include "app/viewport/domain/RenderOverride.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -20,6 +22,7 @@
 #include "gfx/DrawBatches.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
+#include "n64/Rdp.h"
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/ext/matrix_float4x4.hpp>
@@ -305,10 +308,16 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     const u32 width = target.getWidth();
     const u32 height = target.getHeight();
     const FrameSize size{.width = width, .height = height};
-    Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing);
+    const RenderMode& mode = viewportView.renderMode;
+    Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing, makeRspOverrides(mode));
     const auto started = std::chrono::steady_clock::now();
+    const std::optional<n64::RdpResult> overridden =
+        mode != RenderMode{}
+            ? std::optional(applyRenderMode(frame.rdpResult, mode,
+                                            makeViewProjection(viewportContent, orbitCamera, size)))
+            : std::nullopt;
     std::vector<base::Diagnostic> drawn =
-        renderer->render(frame.rspResult, frame.rdpResult, target,
+        renderer->render(frame.rspResult, overridden ? *overridden : frame.rdpResult, target,
                          gfx::ScreenSize{.width = width, .height = height});
     statusBar.addFrame(FrameReport{
         .statistics = makeFrameStatistics(frame, viewportContent),

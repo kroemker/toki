@@ -26,7 +26,7 @@ class RspInterpreter {
 public:
     RspInterpreter(const Memory& memory, const RspTask& task)
         : memory(memory), segments(task.segments), pc(resolve(task.displayList) & DmaMask),
-          recordsTrace(task.recordsTrace) {}
+          recordsTrace(task.recordsTrace), overrides(task.overrides) {}
 
     [[nodiscard]] RspResult run();
 
@@ -105,6 +105,7 @@ private:
     std::array<u32, SegmentCount> segments;
     u32 pc;
     bool recordsTrace = false;
+    RspOverrides overrides;
     usize culled = 0;
     u32 commandAddress = 0;
     u64 commandCount = 0;

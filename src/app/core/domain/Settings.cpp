@@ -3,6 +3,7 @@
 #include "app/core/Types.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Utf8.h"
+#include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/ViewportView.h"
 
 #include <toml++/toml.hpp>
@@ -30,6 +31,26 @@ constexpr auto MarkerShapeNames = std::to_array<std::string_view>({"cube", "diam
 
 static_assert(MarkerShapeNames.size() == MarkerShapeCount,
               "a marker shape was added to the enum without a name");
+
+constexpr auto ShadingNames =
+    std::to_array<std::string_view>({"n64", "shade_only", "texture_only", "normals", "depth"});
+constexpr auto TextureFilterNames = std::to_array<std::string_view>({"n64", "point"});
+
+static_assert(ShadingNames.size() == viewport::ShadingCount,
+              "a shading was added to the enum without a name");
+static_assert(TextureFilterNames.size() == viewport::TextureFilterCount,
+              "a texture filter was added to the enum without a name");
+
+template <typename Enum, usize Count>
+[[nodiscard]] Enum readEnum(const toml::node_view<const toml::node> node,
+                            const std::array<std::string_view, Count>& names, const Enum fallback) {
+    const std::optional<std::string_view> name = node.value<std::string_view>();
+    if (!name) {
+        return fallback;
+    }
+    const auto found = std::ranges::find(names, *name);
+    return found == names.end() ? fallback : static_cast<Enum>(found - names.begin());
+}
 
 [[nodiscard]] std::expected<std::string, std::string> readFile(const std::filesystem::path& path) {
     const std::ifstream stream(path, std::ios::binary);
@@ -157,14 +178,32 @@ void readViewport(const toml::table& root, Settings& settings) {
     if (viewport == nullptr) {
         return;
     }
+    viewport::RenderMode& mode = settings.viewport.renderMode;
+    mode.shading = readEnum((*viewport)["shading"], ShadingNames, mode.shading);
+    mode.lighting = (*viewport)["lighting"].value_or(mode.lighting);
+    mode.fog = (*viewport)["fog"].value_or(mode.fog);
+    mode.culling = (*viewport)["culling"].value_or(mode.culling);
+    mode.alphaCutout = (*viewport)["alpha_cutout"].value_or(mode.alphaCutout);
+    mode.translucency = (*viewport)["translucency"].value_or(mode.translucency);
+    mode.textureFilter =
+        readEnum((*viewport)["texture_filter"], TextureFilterNames, mode.textureFilter);
     viewport::ViewportOverlays& overlays = settings.viewport.overlays;
     overlays.isShown = (*viewport)["overlays"].value_or(overlays.isShown);
     overlays.flagLinks = (*viewport)["flag_links"].value_or(overlays.flagLinks);
 }
 
 void writeViewport(toml::table& root, const Settings& settings) {
+    const viewport::RenderMode& mode = settings.viewport.renderMode;
     const viewport::ViewportOverlays& overlays = settings.viewport.overlays;
     toml::table viewport;
+    viewport.insert_or_assign("shading", ShadingNames[static_cast<usize>(mode.shading)]);
+    viewport.insert_or_assign("lighting", mode.lighting);
+    viewport.insert_or_assign("fog", mode.fog);
+    viewport.insert_or_assign("culling", mode.culling);
+    viewport.insert_or_assign("alpha_cutout", mode.alphaCutout);
+    viewport.insert_or_assign("translucency", mode.translucency);
+    viewport.insert_or_assign("texture_filter",
+                              TextureFilterNames[static_cast<usize>(mode.textureFilter)]);
     viewport.insert_or_assign("overlays", overlays.isShown);
     viewport.insert_or_assign("flag_links", overlays.flagLinks);
     root.insert_or_assign("viewport", std::move(viewport));

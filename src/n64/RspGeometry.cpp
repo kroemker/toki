@@ -76,7 +76,9 @@ ShadedVertex RspInterpreter::shadeVertex(const std::span<const u8> bytes,
     const std::array<s8, 3> normal{static_cast<s8>(color[0]), static_cast<s8>(color[1]),
                                    static_cast<s8>(color[2])};
     vertex.color = color;
-    if (lighting) {
+    if (lighting && overrides.lightsWhite) {
+        vertex.color = {0xFF, 0xFF, 0xFF, color[3]};
+    } else if (lighting) {
         const std::array<u8, 3> lit =
             computeLighting(normal, setup.lights, setup.ambient, modelview);
         vertex.color = {lit[0], lit[1], lit[2], color[3]};
@@ -214,7 +216,8 @@ void RspInterpreter::drawTriangle(const u32 indices) {
             return;
         }
     }
-    const u32 cull = geometryMode & (geometry::CullFront | geometry::CullBack);
+    const u32 cull =
+        overrides.ignoresCulling ? 0 : geometryMode & (geometry::CullFront | geometry::CullBack);
     if (cull == (geometry::CullFront | geometry::CullBack)) {
         ++culled;
         return;

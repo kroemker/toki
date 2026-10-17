@@ -1,8 +1,10 @@
 #pragma once
 
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/RenderMode.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace toki::viewport {
@@ -18,10 +20,14 @@ struct ViewportOverlays {
 /// How the viewport draws, whatever it draws: chosen in its bar and kept
 /// between sessions.
 struct ViewportView {
+    RenderMode renderMode;
     ViewportOverlays overlays;
 
     friend bool operator==(const ViewportView&, const ViewportView&) = default;
 };
+
+/// What `shading` is called where it is chosen.
+[[nodiscard]] std::string_view getShadingLabel(Shading shading);
 
 /// What `view` draws differently from the frame the game would draw, each as
 /// a few words, for naming it over the image; empty when nothing does.

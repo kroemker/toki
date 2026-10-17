@@ -9,6 +9,16 @@
 
 namespace n64 {
 
+/// Departures from F3DEX2 a viewer asks of a task, to see past what the game
+/// would draw. None is something the hardware can do.
+struct RspOverrides {
+    /// Lit vertices are shaded white rather than by the lights, so their
+    /// textures show unshaded. Texture generation still uses their normals.
+    bool lightsWhite = false;
+    /// No triangle is culled for the way it faces.
+    bool ignoresCulling = false;
+};
+
 struct RspTask {
     /// Where the display list starts, as a segmented address.
     u32 displayList = 0;
@@ -17,6 +27,7 @@ struct RspTask {
     /// Whether to record every command run (`RspResult::trace`), for looking
     /// into what a frame did.
     bool recordsTrace = false;
+    RspOverrides overrides;
 };
 
 /// Runs one graphics task the way F3DEX2 would: reads the display list out of

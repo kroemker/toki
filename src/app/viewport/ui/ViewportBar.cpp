@@ -4,6 +4,7 @@
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportView.h"
 
@@ -24,6 +25,13 @@ constexpr const char* ShadingPopup = "##shading";
 constexpr const char* OverlaysPopup = "##overlays";
 constexpr float LabelWidth = 9.0F;
 constexpr auto ActorDisplayLabels = std::to_array<const char*>({"Hidden", "Markers", "Models"});
+constexpr auto TextureFilterLabels = std::to_array<const char*>({"N64", "Point"});
+constexpr std::array<const char*, ShadingCount> ShadingIcons{
+    core::icons::ImageSquare, core::icons::Sphere, core::icons::Checkerboard, core::icons::Compass,
+    core::icons::Gradient};
+
+static_assert(TextureFilterLabels.size() == TextureFilterCount,
+              "a texture filter was added to the enum without a label");
 
 [[nodiscard]] float findButtonWidth(const std::string& label) {
     return ImGui::CalcTextSize(label.c_str(), nullptr, true).x +
@@ -98,10 +106,54 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
     return chosen;
 }
 
-[[nodiscard]] ViewportBarEdit drawShadingForm(const std::optional<ViewportChoices>& choices) {
+[[nodiscard]] bool drawSwitchRow(const char* label, const char* help, bool& value) {
+    core::drawPropertyLabel(label, help);
+    ImGui::PushID(label);
+    const bool changed = ImGui::Checkbox("##switch", &value);
+    ImGui::PopID();
+    return changed;
+}
+
+[[nodiscard]] std::optional<RenderMode> drawPipelineRows(const RenderMode& mode) {
+    RenderMode changed = mode;
+    bool isChanged = drawSwitchRow("Lighting",
+                                   "Directional and ambient lights on geometry that enables "
+                                   "G_LIGHTING. Off, it is shaded white.",
+                                   changed.lighting);
+    isChanged |=
+        drawSwitchRow("Fog", "The blender's fog, with the light setting's colour.", changed.fog);
+    isChanged |= drawSwitchRow("Backface Culling",
+                               "Culling as the geometry mode asks. Off, both sides of every "
+                               "triangle are drawn.",
+                               changed.culling);
+    isChanged |= drawSwitchRow("Alpha Cutout",
+                               "The alpha compare. Off, fences and foliage are drawn as solid "
+                               "quads.",
+                               changed.alphaCutout);
+    isChanged |= drawSwitchRow("Translucency",
+                               "Blending with what is already drawn. Off, translucent surfaces "
+                               "are drawn opaque.",
+                               changed.translucency);
+    core::drawPropertyLabel("Texture Filter",
+                            "Point shows each texel as a square, to read the texture itself.");
+    if (const std::optional<TextureFilter> picked =
+            drawEnumCombo("##textureFilter", TextureFilterLabels, mode.textureFilter)) {
+        changed.textureFilter = *picked;
+        isChanged = true;
+    }
+    return isChanged ? std::optional(changed) : std::nullopt;
+}
+
+[[nodiscard]] ViewportBarEdit drawShadingForm(const ViewportView& view,
+                                              const std::optional<ViewportChoices>& choices) {
     ViewportBarEdit edit;
     if (!core::beginProperties("##shadingForm", LabelWidth)) {
         return edit;
+    }
+    if (const std::optional<RenderMode> mode = drawPipelineRows(view.renderMode)) {
+        ViewportView changed = view;
+        changed.renderMode = *mode;
+        edit.view = changed;
     }
     if (choices && !choices->lightSettings.empty()) {
         core::drawPropertyLabel("Light Setting", "The scene's environment light setting: its "
@@ -152,6 +204,26 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
     return count;
 }
 
+[[nodiscard]] std::optional<ViewportView> drawShadingButtons(const ViewportView& view) {
+    std::optional<ViewportView> edit;
+    for (usize i = 0; i < ShadingCount; ++i) {
+        const auto shading = static_cast<Shading>(i);
+        if (i > 0) {
+            ImGui::SameLine(0.0F, 1.0F);
+        }
+        ImGui::PushID(static_cast<int>(i));
+        const std::string tooltip = std::format("{} (Alt+{})", getShadingLabel(shading), i + 1);
+        if (drawToggleButton(ShadingIcons[i], view.renderMode.shading == shading,
+                             tooltip.c_str())) {
+            ViewportView changed = view;
+            changed.renderMode.shading = shading;
+            edit = changed;
+        }
+        ImGui::PopID();
+    }
+    return edit;
+}
+
 } // namespace
 
 ViewportBarEdit drawViewportBar(const ViewportView& view,
@@ -159,9 +231,15 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
     ViewportBarEdit edit;
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const float available = ImGui::GetContentRegionAvail().x;
+    edit.view = drawShadingButtons(view);
+    ImGui::SameLine();
     const std::string shading = std::format("{} Shading", core::icons::SlidersHorizontal);
-    if (choices && !choices->lightSettings.empty() && beginPopover(shading, ShadingPopup, false)) {
-        edit = drawShadingForm(choices);
+    if (beginPopover(shading, ShadingPopup, false)) {
+        const ViewportBarEdit form = drawShadingForm(edit.view.value_or(view), choices);
+        if (form.view) {
+            edit.view = form.view;
+        }
+        edit.choices = form.choices;
         ImGui::EndPopup();
     }
 
@@ -200,6 +278,14 @@ std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
         ViewportView changed = view;
         changed.overlays.isShown = !changed.overlays.isShown;
         return changed;
+    }
+    for (usize i = 0; i < ShadingCount; ++i) {
+        const auto key = static_cast<ImGuiKey>(ImGuiKey_1 + static_cast<int>(i));
+        if (ImGui::IsKeyChordPressed(ImGuiKeyChord{ImGuiMod_Alt} | key)) {
+            ViewportView changed = view;
+            changed.renderMode.shading = static_cast<Shading>(i);
+            return changed;
+        }
     }
     return std::nullopt;
 }

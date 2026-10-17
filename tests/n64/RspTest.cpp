@@ -32,10 +32,11 @@ constexpr u32 Projection = 0x04;
 constexpr u32 Load = 0x02;
 constexpr u32 Push = 0x01;
 
-n64::RspResult runDisplayList(const DisplayListBuilder& builder, const u32 start) {
+n64::RspResult runDisplayList(const DisplayListBuilder& builder, const u32 start,
+                              const n64::RspOverrides& overrides = {}) {
     n64::Memory memory;
     REQUIRE(memory.map(SegmentBase, builder.getBytes()));
-    n64::RspTask task{.displayList = start};
+    n64::RspTask task{.displayList = start, .overrides = overrides};
     task.segments[DisplayListBuilder::Segment] = SegmentBase;
     return n64::runTask(memory, task);
 }
@@ -254,6 +255,40 @@ TEST_CASE("lighting adds each light by its angle to the ambient colour", "[n64][
     REQUIRE(triangles[0].vertices[0].color == std::array<u8, 4>{210, 10, 10, 255});
     REQUIRE(triangles[0].vertices[1].color == std::array<u8, 4>{10, 10, 10, 255});
     REQUIRE(triangles[0].vertices[2].color[0] == 151);
+}
+
+TEST_CASE("lit vertices are white when lights are overridden", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = builder.addVertex({0, 0, 0}, {0, 0}, {0, 0, 127, 40});
+    builder.addVertex({10, 0, 0}, {0, 0}, {0, 0, 0x81, 255});
+    builder.addVertex({0, 10, 0}, {0, 0}, {0, 90, 90, 255});
+    const u32 start = builder.setGeometryMode(0, Lighting | Smooth);
+    builder.loadVertices(vertices, 3, 0);
+    builder.drawTriangle(0, 1, 2);
+    builder.endDisplayList();
+
+    const std::vector<n64::Triangle> triangles =
+        findTriangles(runDisplayList(builder, start, {.lightsWhite = true}));
+
+    REQUIRE(triangles.size() == 1);
+    REQUIRE(triangles[0].vertices[0].color == std::array<u8, 4>{255, 255, 255, 40});
+    REQUIRE(triangles[0].vertices[1].color == std::array<u8, 4>{255, 255, 255, 255});
+}
+
+TEST_CASE("no triangle is culled when culling is overridden", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.setGeometryMode(0, CullBack | CullFront);
+    builder.drawTriangle(0, 1, 2);
+    builder.setGeometryMode(CullFront, 0);
+    builder.drawTriangle(0, 2, 1);
+    builder.endDisplayList();
+
+    const n64::RspResult result = runDisplayList(builder, start, {.ignoresCulling = true});
+
+    REQUIRE(findTriangles(result).size() == 2);
+    REQUIRE(result.statistics.culled == 0);
 }
 
 TEST_CASE("fog replaces alpha by depth", "[n64][rsp]") {

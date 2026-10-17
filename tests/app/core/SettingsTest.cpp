@@ -285,6 +285,15 @@ TEST_CASE("how the viewport draws round-trips, and defaults when it was never wr
     Settings written;
     written.viewport.overlays.isShown = false;
     written.viewport.overlays.flagLinks = false;
+    written.viewport.renderMode = toki::viewport::RenderMode{
+        .shading = toki::viewport::Shading::Normals,
+        .lighting = false,
+        .fog = false,
+        .culling = false,
+        .alphaCutout = false,
+        .translucency = false,
+        .textureFilter = toki::viewport::TextureFilter::Point,
+    };
     REQUIRE(saveSettings(written, dir.getFile()).has_value());
 
     const auto loaded = loadSettings(dir.getFile());
