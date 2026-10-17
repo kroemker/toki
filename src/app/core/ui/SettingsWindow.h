@@ -21,7 +21,8 @@ struct SettingsActions {
 
 /// A modal window over the settings that have no other place: a list of
 /// categories beside the page of the one chosen, and a search across all of
-/// them. A setting that differs from its default is marked, and can be reset.
+/// them. Each setting is one row, its help the tooltip of its label; one that
+/// differs from its default has a button that resets it.
 /// It edits a copy, and hands it back only when applied.
 ///
 /// Every setting is one entry: adding one is adding an entry, which search,
@@ -49,17 +50,13 @@ private:
         std::function<void()> reset;
     };
 
-    struct BuildRow {
-        std::array<char, 64> name{};
-        std::array<char, 256> value{};
-    };
-
     [[nodiscard]] std::vector<const Entry*> findShown(std::string_view category) const;
     [[nodiscard]] std::vector<std::string_view> findCategories() const;
     void drawCategories(const std::vector<std::string_view>& categories);
     void drawPage(const std::vector<std::string_view>& categories);
     static void drawEntry(const Entry& entry, bool showsCategory);
-    void drawBuildRows();
+    void drawHackerootPath();
+    void drawMakeVariables();
     void drawLogLevel();
     void drawLogEntries();
     void drawMarkerShape();
@@ -67,7 +64,7 @@ private:
 
     std::vector<Entry> entries;
     Settings draft;
-    std::vector<BuildRow> buildRows;
+    std::array<char, 1024> buildLine{};
     std::array<char, 128> search{};
     std::string_view category = "General";
     bool isOpening = false;

@@ -19,6 +19,7 @@ add_executable(toki_tests
         app/build/BuildRunnerTest.cpp
         app/build/BuildTextTest.cpp
         app/core/LogTest.cpp
+        app/core/MakeVariablesTest.cpp
         app/displayList/FrameInspectionTest.cpp
         app/displayList/RdpStateTextTest.cpp
         app/core/SettingsSearchTest.cpp

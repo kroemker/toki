@@ -210,7 +210,13 @@ consistent spacing scale are a budgeted requirement, not polish.
 Every form is two columns: the label on the left, its input filling the right
 (`core::beginProperties`, `core::drawPropertyLabel`). Never ImGui's default of the input
 with its label after it. A toggle is a row like any other, its label and then the checkbox
-alone.
+alone. A setting is one row; what explains it is the tooltip of its label, never text under
+it. Labels are in title case and say exactly what is set ("Min. Log Level", not "Shown
+from").
+
+Dropdown options that are words are capitalized ("Cube", not "cube"), whatever the config
+file stores. Options that are identifiers from the checkout (`ACTORCAT_BG`, a symbol name)
+are shown as written.
 
 ---
 

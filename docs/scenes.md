@@ -102,7 +102,7 @@ display list built by hand into segment 15 (`makeActorMarkers`), drawn between t
 and the translucent pass. F3DEX2 draws no lines, so a marker's edges are thin dark boxes;
 each marker is drawn under its own matrix, scaling down vertices written at 1/32 of a world
 unit, so an edge can be thinner than the unit positions are given in. The shape is a setting
-(Viewport › Actor markers): a cube by default, a diamond, or a pin, a pyramid on its tip
+(Viewport › Actor Markers): a cube by default, a diamond, or a pin, a pyramid on its tip
 that points at the exact spot an actor is placed.
 
 The Scene panel is the view's controls: the layer and light pickers, whether actors are
