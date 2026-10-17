@@ -190,17 +190,11 @@ void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
 
 FrameList writeFrameList(const ViewportContent& content, const MappedImages& mapped,
                          const OrbitCamera& camera, const FrameSize size) {
-    const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
-    const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
-
     const glm::mat4 view = camera.makeViewMatrix();
     n64::DisplayListWriter writer(FrameSegment);
     static_cast<void>(
         writer.addMatrix(makeFixedMatrix(makeBillboardMatrix(glm::mat4(1.0F), view))));
-    const u32 viewport = writer.addViewport(n64::Viewport{
-        .scale = {halfWidth, halfHeight, DepthHalfRange},
-        .translate = {halfWidth, halfHeight, DepthHalfRange},
-    });
+    const u32 viewport = writer.addViewport(makeFrameViewport(size));
     const u32 projection =
         writer.addMatrix(makeFixedMatrix(makeViewProjection(content, camera, size)));
     const std::optional<LightAddresses> lights =
@@ -359,6 +353,15 @@ placeFrame(const ViewportContent& content, const OrbitCamera& camera, const Fram
 }
 
 } // namespace
+
+n64::Viewport makeFrameViewport(const FrameSize size) {
+    const f32 halfWidth = static_cast<f32>(size.width) / 2.0F;
+    const f32 halfHeight = static_cast<f32>(size.height) / 2.0F;
+    return n64::Viewport{
+        .scale = {halfWidth, halfHeight, DepthHalfRange},
+        .translate = {halfWidth, halfHeight, DepthHalfRange},
+    };
+}
 
 glm::mat4 makeViewProjection(const ViewportContent& content, const OrbitCamera& camera,
                              const FrameSize size) {

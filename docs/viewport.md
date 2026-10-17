@@ -32,12 +32,16 @@ what the game would (`listViewChanges`), so that a debug view is never taken for
 
 ## Render modes
 
-A `RenderMode` is how a frame is drawn: its shading, five stages of the pipeline that can be
+A `RenderMode` is how a frame is drawn: its shading, its wireframe, five stages of the pipeline that can be
 turned off, and the texture filter. The default is the frame the game would draw. Every other
 choice is made on the CPU, by changing what the RSP is asked to do or the RDP state each
 primitive is drawn under, so the ubershader never learns of it and the GPU tests that pin it to
 `n64/` still hold.
 
+- **Wireframe.** Over Shading draws the edges of every triangle the frame drew over it, in
+  the overlay pass ([renderer.md](renderer.md)), so a wall hides the edges behind it. Only
+  draws the edges alone, none hidden. An edge two triangles share is drawn once. The button
+  beside the shadings cycles through Off, Over Shading and Only (Shift+Z).
 - **Shading.** N64 is the frame as the RDP draws it. Shade Only, Texture Only, Normals and
   Depth each give every triangle a copy of its state whose colour combiner selects one input
   (`applyRenderMode`): its shade; its first texture, or its shade where it has none; or a

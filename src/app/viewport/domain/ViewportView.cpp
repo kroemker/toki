@@ -31,6 +31,11 @@ std::vector<std::string> listViewChanges(const ViewportView& view) {
     if (mode.shading != Shading::N64) {
         changes.emplace_back(getShadingLabel(mode.shading));
     }
+    if (mode.wireframe == Wireframe::OverShading) {
+        changes.emplace_back("Wireframe");
+    } else if (mode.wireframe == Wireframe::Only) {
+        changes.emplace_back("Wireframe Only");
+    }
     const std::array<std::pair<bool, std::string_view>, 5> switches{{
         {mode.lighting, "No Lighting"},
         {mode.fog, "No Fog"},

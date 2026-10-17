@@ -29,8 +29,8 @@ constexpr std::array<FormatChoice, 3> FormatPreference{{
 }};
 
 bool isEmbedded(const ShaderFormat format) {
-    return !findShaderCode(format, ShaderStage::Vertex).empty() &&
-           !findShaderCode(format, ShaderStage::Fragment).empty();
+    return !findShaderCode(Shader::Ubershader, format, ShaderStage::Vertex).empty() &&
+           !findShaderCode(Shader::Ubershader, format, ShaderStage::Fragment).empty();
 }
 
 SDL_GPUTextureFormat findDepthFormat(SDL_GPUDevice* device) {

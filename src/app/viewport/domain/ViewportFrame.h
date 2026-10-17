@@ -6,6 +6,7 @@
 #include "n64/Rdp.h"
 #include "n64/Rsp.h"
 #include "n64/RspResult.h"
+#include "n64/Viewport.h"
 #include "z64/MemoryImage.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
@@ -161,6 +162,9 @@ inline constexpr u8 FrameSegment = 0x01;
 /// A matrix as glm holds it, for column vectors, as the RSP's `Mtx` holds it,
 /// for row vectors, converted the way `guMtxF2L` converts.
 [[nodiscard]] n64::FixedMatrix makeFixedMatrix(const glm::mat4& matrix);
+
+/// The viewport a frame of `size` draws to: the whole of it.
+[[nodiscard]] n64::Viewport makeFrameViewport(FrameSize size);
 
 /// The camera's view and projection for a frame of `size`, as the frame
 /// loads them into the RSP: what takes the content's world to clip space.

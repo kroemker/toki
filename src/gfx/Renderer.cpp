@@ -4,6 +4,9 @@
 #include "gfx/Device.h"
 #include "gfx/DrawBatches.h"
 #include "gfx/GpuHandle.h"
+#include "gfx/Overlay.h"
+#include "gfx/OverlayPipeline.h"
+#include "gfx/OverlayVertices.h"
 #include "gfx/PipelineCache.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/ShaderCode.h"
@@ -32,36 +35,6 @@ namespace {
 
 base::Diagnostic makeSdlError(const char* what) {
     return base::makeError({}, std::format("{}: {}", what, SDL_GetError()));
-}
-
-SDL_GPUShaderFormat findSdlFormat(const ShaderFormat format) {
-    switch (format) {
-    case ShaderFormat::Spirv:
-        return SDL_GPU_SHADERFORMAT_SPIRV;
-    case ShaderFormat::Dxil:
-        return SDL_GPU_SHADERFORMAT_DXIL;
-    case ShaderFormat::Msl:
-        return SDL_GPU_SHADERFORMAT_MSL;
-    }
-    return SDL_GPU_SHADERFORMAT_INVALID;
-}
-
-ShaderHandle loadShader(const Device& device, const ShaderStage stage) {
-    const bool vertex = stage == ShaderStage::Vertex;
-    const std::span<const u8> code = findShaderCode(device.getShaderFormat(), stage);
-    const SDL_GPUShaderCreateInfo info{
-        .code_size = code.size(),
-        .code = code.data(),
-        .entrypoint = vertex ? "VertexMain" : "FragmentMain",
-        .format = findSdlFormat(device.getShaderFormat()),
-        .stage = vertex ? SDL_GPU_SHADERSTAGE_VERTEX : SDL_GPU_SHADERSTAGE_FRAGMENT,
-        .num_samplers = 0,
-        .num_storage_textures = 0,
-        .num_storage_buffers = vertex ? 0U : 1U,
-        .num_uniform_buffers = 1,
-        .props = 0,
-    };
-    return {device.getHandle(), SDL_CreateGPUShader(device.getHandle(), &info)};
 }
 
 SDL_Rect scaleScissor(const std::array<s32, 4>& scissor, const ScreenSize screen,
@@ -110,23 +83,33 @@ SDL_GPURenderPass* beginFrame(SDL_GPUCommandBuffer* commands, const RenderTarget
 
 } // namespace
 
-Renderer::Renderer(const Device& device, ShaderHandle vertexShader, ShaderHandle fragmentShader)
+Renderer::Renderer(const Device& device, ShaderHandle vertexShader, ShaderHandle fragmentShader,
+                   OverlayPipeline overlayPipeline)
     : device(&device), vertexShader(std::move(vertexShader)),
       fragmentShader(std::move(fragmentShader)),
       pipelineCache(std::make_unique<PipelineCache>(device.getHandle(), this->vertexShader.get(),
                                                     this->fragmentShader.get(),
-                                                    device.getDepthFormat())) {}
+                                                    device.getDepthFormat())),
+      overlayPipeline(std::move(overlayPipeline)) {}
 
 std::expected<Renderer, base::Diagnostic> Renderer::create(const Device& device) {
-    ShaderHandle vertexShader = loadShader(device, ShaderStage::Vertex);
+    ShaderHandle vertexShader =
+        loadShader(device, Shader::Ubershader, ShaderStage::Vertex, {.uniformBuffers = 1});
     if (!vertexShader) {
         return std::unexpected(makeSdlError("the ubershader's vertex stage could not be loaded"));
     }
-    ShaderHandle fragmentShader = loadShader(device, ShaderStage::Fragment);
+    ShaderHandle fragmentShader = loadShader(device, Shader::Ubershader, ShaderStage::Fragment,
+                                             {.storageBuffers = 1, .uniformBuffers = 1});
     if (!fragmentShader) {
         return std::unexpected(makeSdlError("the ubershader's fragment stage could not be loaded"));
     }
-    return Renderer(device, std::move(vertexShader), std::move(fragmentShader));
+    std::expected<OverlayPipeline, base::Diagnostic> overlayPipeline =
+        OverlayPipeline::create(device);
+    if (!overlayPipeline) {
+        return std::unexpected(std::move(overlayPipeline.error()));
+    }
+    return Renderer(device, std::move(vertexShader), std::move(fragmentShader),
+                    std::move(*overlayPipeline));
 }
 
 bool Renderer::reserve(GrowableBuffer& buffer, const SDL_GPUBufferUsageFlags usage,
@@ -163,24 +146,29 @@ bool Renderer::reserveUpload(const u32 size) {
 
 std::expected<void, base::Diagnostic>
 Renderer::upload(const std::vector<GpuVertex>& vertices,
+                 const std::vector<GpuOverlayVertex>& overlayVertices,
                  const std::vector<n64::TextureMemoryImage>& textureMemories) {
     SDL_GPUDevice* handle = device->getHandle();
     const auto vertexBytes = static_cast<u32>(vertices.size() * sizeof(GpuVertex));
+    const auto overlayBytes = static_cast<u32>(overlayVertices.size() * sizeof(GpuOverlayVertex));
     const usize memoryCount = std::max<usize>(textureMemories.size(), 1);
     const auto memoryBytes = static_cast<u32>(memoryCount * n64::TextureMemorySize);
     if (!reserve(vertexBuffer, SDL_GPU_BUFFERUSAGE_VERTEX, std::max<u32>(vertexBytes, 4)) ||
+        !reserve(overlayBuffer, SDL_GPU_BUFFERUSAGE_VERTEX, std::max<u32>(overlayBytes, 4)) ||
         !reserve(textureMemoryBuffer, SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, memoryBytes) ||
-        !reserveUpload(vertexBytes + memoryBytes)) {
+        !reserveUpload(vertexBytes + overlayBytes + memoryBytes)) {
         return std::unexpected(makeSdlError("the frame's buffers could not be created"));
     }
+    const u32 memoryOffset = vertexBytes + overlayBytes;
     auto* mapped = static_cast<u8*>(SDL_MapGPUTransferBuffer(handle, uploadBuffer.get(), true));
     if (mapped == nullptr) {
         return std::unexpected(makeSdlError("the frame's upload buffer could not be mapped"));
     }
     std::memcpy(mapped, vertices.data(), vertexBytes);
-    std::memset(mapped + vertexBytes, 0, memoryBytes);
+    std::memcpy(mapped + vertexBytes, overlayVertices.data(), overlayBytes);
+    std::memset(mapped + memoryOffset, 0, memoryBytes);
     for (usize i = 0; i < textureMemories.size(); ++i) {
-        std::memcpy(mapped + vertexBytes + (i * n64::TextureMemorySize), textureMemories[i].data(),
+        std::memcpy(mapped + memoryOffset + (i * n64::TextureMemorySize), textureMemories[i].data(),
                     n64::TextureMemorySize);
     }
     SDL_UnmapGPUTransferBuffer(handle, uploadBuffer.get());
@@ -197,8 +185,15 @@ Renderer::upload(const std::vector<GpuVertex>& vertices,
             .buffer = vertexBuffer.buffer.get(), .offset = 0, .size = vertexBytes};
         SDL_UploadToGPUBuffer(copy, &source, &region, true);
     }
+    if (overlayBytes > 0) {
+        const SDL_GPUTransferBufferLocation source{.transfer_buffer = uploadBuffer.get(),
+                                                   .offset = vertexBytes};
+        const SDL_GPUBufferRegion region{
+            .buffer = overlayBuffer.buffer.get(), .offset = 0, .size = overlayBytes};
+        SDL_UploadToGPUBuffer(copy, &source, &region, true);
+    }
     const SDL_GPUTransferBufferLocation memorySource{.transfer_buffer = uploadBuffer.get(),
-                                                     .offset = vertexBytes};
+                                                     .offset = memoryOffset};
     const SDL_GPUBufferRegion memoryRegion{
         .buffer = textureMemoryBuffer.buffer.get(), .offset = 0, .size = memoryBytes};
     SDL_UploadToGPUBuffer(copy, &memorySource, &memoryRegion, true);
@@ -209,15 +204,36 @@ Renderer::upload(const std::vector<GpuVertex>& vertices,
     return {};
 }
 
+void Renderer::drawOverlay(SDL_GPURenderPass* pass, SDL_GPUCommandBuffer* commands,
+                           const Overlay& overlay, const RenderTarget& target,
+                           const ScreenSize screen, const u32 vertexCount) {
+    if (vertexCount == 0) {
+        return;
+    }
+    const SDL_Rect scissor{.x = 0,
+                           .y = 0,
+                           .w = static_cast<int>(target.getWidth()),
+                           .h = static_cast<int>(target.getHeight())};
+    SDL_SetGPUScissor(pass, &scissor);
+    const SDL_GPUBufferBinding binding{.buffer = overlayBuffer.buffer.get(), .offset = 0};
+    SDL_BindGPUGraphicsPipeline(pass, overlayPipeline.getPipeline(OverlayDepth::Visible));
+    SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
+    const OverlayUniforms uniforms = makeOverlayUniforms(overlay.viewport, screen, 1.0F);
+    SDL_PushGPUVertexUniformData(commands, 0, &uniforms, sizeof(uniforms));
+    SDL_DrawGPUPrimitives(pass, vertexCount, 1, 0, 0);
+    ++drawCalls;
+}
+
 std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
                                                const n64::RdpResult& rdpResult,
-                                               const RenderTarget& target,
-                                               const ScreenSize screen) {
+                                               const RenderTarget& target, const ScreenSize screen,
+                                               const Overlay& overlay) {
     drawCalls = 0;
     DrawBatches drawBatches = makeDrawBatches(rspResult, rdpResult, screen);
     std::vector<base::Diagnostic> diagnostics = std::move(drawBatches.diagnostics);
+    const std::vector<GpuOverlayVertex> overlayVertices = makeOverlayVertices(overlay.lines);
     if (std::expected<void, base::Diagnostic> uploaded =
-            upload(drawBatches.vertices, rdpResult.textureMemories);
+            upload(drawBatches.vertices, overlayVertices, rdpResult.textureMemories);
         !uploaded) {
         diagnostics.push_back(std::move(uploaded.error()));
         return diagnostics;
@@ -248,6 +264,7 @@ std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,
         SDL_DrawGPUPrimitives(pass, batch.vertexCount, 1, batch.firstVertex, 0);
         ++drawCalls;
     }
+    drawOverlay(pass, commands, overlay, target, screen, static_cast<u32>(overlayVertices.size()));
     SDL_EndGPURenderPass(pass);
     if (!SDL_SubmitGPUCommandBuffer(commands)) {
         diagnostics.push_back(makeSdlError("the frame could not be submitted"));

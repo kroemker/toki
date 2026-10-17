@@ -287,6 +287,7 @@ TEST_CASE("how the viewport draws round-trips, and defaults when it was never wr
     written.viewport.overlays.flagLinks = false;
     written.viewport.renderMode = toki::viewport::RenderMode{
         .shading = toki::viewport::Shading::Normals,
+        .wireframe = toki::viewport::Wireframe::Only,
         .lighting = false,
         .fog = false,
         .culling = false,

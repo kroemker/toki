@@ -16,6 +16,16 @@ enum class Shading : u8 {
 
 inline constexpr usize ShadingCount = static_cast<usize>(Shading::Depth) + 1;
 
+/// Whether the edges of every triangle are drawn over the frame, or instead
+/// of it.
+enum class Wireframe : u8 {
+    Off,
+    OverShading,
+    Only,
+};
+
+inline constexpr usize WireframeCount = static_cast<usize>(Wireframe::Only) + 1;
+
 /// How textures are filtered: as the other mode says, or every texel a square.
 enum class TextureFilter : u8 {
     N64,
@@ -29,6 +39,7 @@ inline constexpr usize TextureFilterCount = static_cast<usize>(TextureFilter::Po
 /// CPU, never the shader.
 struct RenderMode {
     Shading shading = Shading::N64;
+    Wireframe wireframe = Wireframe::Off;
     bool lighting = true;
     bool fog = true;
     bool culling = true;

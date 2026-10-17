@@ -1,8 +1,10 @@
 #include "gfx/Renderer.h"
 
+#include "app/viewport/domain/OverlayGeometry.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
 #include "gfx/Device.h"
+#include "gfx/Overlay.h"
 #include "gfx/RenderTarget.h"
 #include "n64/Blender.h"
 #include "n64/Color.h"
@@ -16,6 +18,7 @@
 #include "n64/RspResult.h"
 #include "n64/TexelFetch.h"
 #include "n64/TileDescriptor.h"
+#include "n64/Viewport.h"
 
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
@@ -24,6 +27,7 @@
 #include <array>
 #include <cstdlib>
 #include <expected>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,6 +53,8 @@ constexpr u32 FilterBilinear = 2U << 12;
 constexpr u32 ForceBlend = 0x4000;
 constexpr u32 Smooth = 0x0020'0000;
 constexpr u32 Shade = 0x0000'0004;
+constexpr u32 ZBuffer = 0x0000'0001;
+constexpr u32 DepthCompareAndUpdate = 0x0030;
 
 struct Equation {
     u32 a = 8;
@@ -141,6 +147,14 @@ public:
     };
 
     [[nodiscard]] Frame draw(Scene& scene) {
+        return draw(scene,
+                    [](const n64::RspResult&, const n64::RdpResult&) { return gfx::Overlay{}; });
+    }
+
+    [[nodiscard]] Frame
+    draw(Scene& scene,
+         const std::function<gfx::Overlay(const n64::RspResult&, const n64::RdpResult&)>&
+             makeOverlay) {
         scene.builder.endDisplayList();
         n64::Memory memory;
         REQUIRE(memory.map(SegmentBase, scene.builder.getBytes()));
@@ -154,7 +168,8 @@ public:
         REQUIRE(target.has_value());
         std::expected<gfx::Renderer, base::Diagnostic> renderer = gfx::Renderer::create(device);
         REQUIRE(renderer.has_value());
-        frame.diagnostics = renderer->render(frame.rsp, frame.rdp, *target);
+        frame.diagnostics =
+            renderer->render(frame.rsp, frame.rdp, *target, {}, makeOverlay(frame.rsp, frame.rdp));
         std::expected<std::vector<u8>, base::Diagnostic> pixels = target->readPixels(device);
         REQUIRE(pixels.has_value());
         frame.pixels = std::move(*pixels);
@@ -636,4 +651,61 @@ TEST_CASE("a fill rectangle into a 32-bit image fills with the whole colour", "[
 
     REQUIRE(frame.diagnostics.empty());
     REQUIRE(frame.getPixel(20, 20) == Color{0x12, 0x34, 0x56, 0xFF});
+}
+
+TEST_CASE("a triangle's edge drawn over it wins against the triangle's own depth",
+          "[gpu][overlay]") {
+    Gpu gpu = Gpu::create();
+    Scene scene;
+    const Color green{20, 200, 40, 255};
+    const u32 vertices = scene.builder.addVertex({-200, -200, -60}, {0, 0}, green);
+    scene.builder.addVertex({200, -200, 70}, {0, 0}, green);
+    scene.builder.addVertex({-200, 200, 30}, {0, 0}, green);
+    scene.builder.addVertex({200, 200, -80}, {0, 0}, green);
+    scene.beginCommands();
+    scene.builder.setGeometryMode(0, ZBuffer);
+    scene.setOtherMode(0, DepthCompareAndUpdate);
+    scene.setCombine({.d = 4, .alphaD = 4});
+    scene.drawScreen(vertices);
+
+    const Gpu::Frame frame = gpu.draw(scene, [](const n64::RspResult& rsp,
+                                                const n64::RdpResult& rdp) {
+        const n64::Viewport viewport = rsp.viewports.at(0);
+        return gfx::Overlay{.viewport = viewport,
+                            .lines = toki::viewport::makeTriangleEdges(
+                                rsp, rdp, viewport, {.color = {255, 0, 0, 255}, .width = 3.0F})};
+    });
+
+    REQUIRE(frame.diagnostics.empty());
+    REQUIRE(frame.getPixel(160, 120) == Color{255, 0, 0, 255});
+    REQUIRE(frame.getPixel(80, 60) == Color{255, 0, 0, 255});
+    REQUIRE(frame.getPixel(40, 120) == green);
+}
+
+TEST_CASE("a line behind a triangle is hidden by it and one in front is not", "[gpu][overlay]") {
+    Gpu gpu = Gpu::create();
+    Scene scene;
+    const Color green{20, 200, 40, 255};
+    const u32 vertices = scene.addScreenVertices(green);
+    scene.beginCommands();
+    scene.builder.setGeometryMode(0, ZBuffer);
+    scene.setOtherMode(0, DepthCompareAndUpdate);
+    scene.setCombine({.d = 4, .alphaD = 4});
+    scene.drawScreen(vertices);
+
+    const Gpu::Frame frame = gpu.draw(scene, [](const n64::RspResult& rsp, const n64::RdpResult&) {
+        const std::array<u8, 4> red{255, 0, 0, 255};
+        return gfx::Overlay{.viewport = rsp.viewports.at(0),
+                            .lines = {{.from = {-0.5F, 0.5F, 0.5F, 1},
+                                       .to = {0.5F, 0.5F, 0.5F, 1},
+                                       .color = red,
+                                       .width = 3.0F},
+                                      {.from = {-0.5F, -0.5F, -0.5F, 1},
+                                       .to = {0.5F, -0.5F, -0.5F, 1},
+                                       .color = red,
+                                       .width = 3.0F}}};
+    });
+
+    REQUIRE(frame.getPixel(160, 60) == green);
+    REQUIRE(frame.getPixel(160, 180) == Color{255, 0, 0, 255});
 }

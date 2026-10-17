@@ -100,7 +100,7 @@ src/
   z64/         Zelda64/N64 formats and decomp conventions. No processes, no UI.
   hackeroot/   The user's checkout: discovery, tables, config, build runner.
   n64/         The hardware: F3DEX2 on the RSP, RDP state, texture memory. CPU only.
-  gfx/         The GPU side of the renderer: device, upload, ubershader, render targets.
+  gfx/         The GPU side of the renderer: device, upload, ubershader, overlay, render targets.
   app/
     core/      ui/ = window, docking, theme, log panel   domain/ = settings
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
@@ -171,10 +171,10 @@ shared parser module.
 
 - `toki_core` — OBJECT library: `base/`, `cparser/`, `makeparser/`, `n64/`, `z64/`,
   `hackeroot/`, and every `app/**/domain/**`.
-- `toki_gfx` — static library: `gfx/` and the ubershader, compiled at build time from
-  `gfx/shaders/Ubershader.hlsl` by `shadercross` into the formats the platform's backends
-  read (DXIL and SPIR-V on Windows, MSL and SPIR-V on Apple, SPIR-V elsewhere) and
-  embedded.
+- `toki_gfx` — static library: `gfx/` and its shaders, compiled at build time from
+  `gfx/shaders/*.hlsl` (the ubershader, and the overlay drawn over the frame in the same
+  pass) by `shadercross` into the formats the platform's backends read (DXIL and SPIR-V
+  on Windows, MSL and SPIR-V on Apple, SPIR-V elsewhere) and embedded.
 - `toki` — executable: `Main.cpp` plus every `app/**/ui/**`.
 - `toki_tests` — links `toki_core` only.
 - `toki_gpu_tests` — links `toki_core` and `toki_gfx`, draws on a real GPU, and skips every

@@ -30,6 +30,9 @@ constexpr std::array<const char*, ShadingCount> ShadingIcons{
     core::icons::ImageSquare, core::icons::Sphere, core::icons::Checkerboard, core::icons::Compass,
     core::icons::Gradient};
 
+constexpr std::array<const char*, WireframeCount> WireframeTooltips{
+    "Wireframe over shading (Shift+Z)", "Wireframe only (Shift+Z)", "No wireframe (Shift+Z)"};
+
 static_assert(TextureFilterLabels.size() == TextureFilterCount,
               "a texture filter was added to the enum without a label");
 
@@ -224,6 +227,24 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
     return edit;
 }
 
+[[nodiscard]] Wireframe findNextWireframe(const Wireframe wireframe) {
+    return static_cast<Wireframe>((static_cast<usize>(wireframe) + 1) % WireframeCount);
+}
+
+[[nodiscard]] std::optional<ViewportView> drawWireframeButton(const ViewportView& view) {
+    const Wireframe wireframe = view.renderMode.wireframe;
+    const char* tooltip = WireframeTooltips[static_cast<usize>(wireframe)];
+    const std::string label = wireframe == Wireframe::Only
+                                  ? std::format("{}###wireframe", core::icons::CubeTransparent)
+                                  : std::format("{}###wireframe", core::icons::Cube);
+    if (!drawToggleButton(label, wireframe != Wireframe::Off, tooltip)) {
+        return std::nullopt;
+    }
+    ViewportView changed = view;
+    changed.renderMode.wireframe = findNextWireframe(wireframe);
+    return changed;
+}
+
 } // namespace
 
 ViewportBarEdit drawViewportBar(const ViewportView& view,
@@ -232,6 +253,11 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
     const ImVec2 start = ImGui::GetCursorScreenPos();
     const float available = ImGui::GetContentRegionAvail().x;
     edit.view = drawShadingButtons(view);
+    ImGui::SameLine();
+    if (const std::optional<ViewportView> wireframe =
+            drawWireframeButton(edit.view.value_or(view))) {
+        edit.view = wireframe;
+    }
     ImGui::SameLine();
     const std::string shading = std::format("{} Shading", core::icons::SlidersHorizontal);
     if (beginPopover(shading, ShadingPopup, false)) {
@@ -277,6 +303,11 @@ std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
     if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiMod_Alt | ImGuiKey_Z)) {
         ViewportView changed = view;
         changed.overlays.isShown = !changed.overlays.isShown;
+        return changed;
+    }
+    if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Z)) {
+        ViewportView changed = view;
+        changed.renderMode.wireframe = findNextWireframe(view.renderMode.wireframe);
         return changed;
     }
     for (usize i = 0; i < ShadingCount; ++i) {

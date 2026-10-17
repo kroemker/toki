@@ -8,6 +8,7 @@
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/FrameStatistics.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/OverlayGeometry.h"
 #include "app/viewport/domain/ReferenceGrid.h"
 #include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/RenderOverride.h"
@@ -20,9 +21,11 @@
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/DrawBatches.h"
+#include "gfx/Overlay.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
 #include "n64/Rdp.h"
+#include "n64/RspResult.h"
 
 #include <SDL3/SDL_gpu.h>
 #include <glm/ext/matrix_float4x4.hpp>
@@ -54,6 +57,8 @@ constexpr f32 HighlightFill = 0.35F;
 constexpr float ArrowLength = 11.0F;
 constexpr float ArrowWidth = 5.0F;
 constexpr float ArrowGap = 9.0F;
+constexpr LineStyle WireframeStyle{.color = {16, 16, 16, 200}, .width = 1.0F};
+constexpr LineStyle WireframeOnlyStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
 
 void drawArrowHead(ImDrawList& drawList, const ImVec2 from, const ImVec2 to, const u32 color) {
     const float dx = to.x - from.x;
@@ -76,6 +81,18 @@ constexpr usize ReportedDiagnostics = 8;
 
 [[nodiscard]] u32 makePixels(const f32 points, const f32 scale) {
     return static_cast<u32>(std::max(std::lround(points * scale), 1L));
+}
+
+[[nodiscard]] gfx::Overlay makeOverlay(const n64::RspResult& rspResult,
+                                       const n64::RdpResult& rdpResult, const RenderMode& mode,
+                                       const FrameSize size) {
+    gfx::Overlay overlay{.viewport = makeFrameViewport(size), .lines = {}};
+    if (mode.wireframe != Wireframe::Off) {
+        const LineStyle style =
+            mode.wireframe == Wireframe::Only ? WireframeOnlyStyle : WireframeStyle;
+        overlay.lines = makeTriangleEdges(rspResult, rdpResult, overlay.viewport, style);
+    }
+    return overlay;
 }
 
 } // namespace
@@ -316,9 +333,11 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
             ? std::optional(applyRenderMode(frame.rdpResult, mode,
                                             makeViewProjection(viewportContent, orbitCamera, size)))
             : std::nullopt;
-    std::vector<base::Diagnostic> drawn =
-        renderer->render(frame.rspResult, overridden ? *overridden : frame.rdpResult, target,
-                         gfx::ScreenSize{.width = width, .height = height});
+    const n64::RdpResult& rdpResult = overridden ? *overridden : frame.rdpResult;
+    const gfx::Overlay overlay = makeOverlay(frame.rspResult, rdpResult, mode, size);
+    std::vector<base::Diagnostic> drawn = renderer->render(
+        frame.rspResult, mode.wireframe == Wireframe::Only ? n64::RdpResult{} : rdpResult, target,
+        gfx::ScreenSize{.width = width, .height = height}, overlay);
     statusBar.addFrame(FrameReport{
         .statistics = makeFrameStatistics(frame, viewportContent),
         .drawCalls = renderer->getDrawCalls(),

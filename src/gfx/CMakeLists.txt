@@ -12,47 +12,50 @@ else()
     set(shaderFormats SPIRV)
 endif()
 
-set(ubershader "${CMAKE_CURRENT_SOURCE_DIR}/shaders/Ubershader.hlsl")
 set(shaderDirectory "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 set(compiledShaders "")
 set(embeddedShaders "")
-foreach(stage Vertex Fragment)
-    string(TOUPPER "${stage}" stageDefine)
-    string(TOLOWER "${stage}" stageName)
-    foreach(format SPIRV DXIL MSL)
-        string(TOLOWER "${format}" formatName)
-        string(SUBSTRING "${formatName}" 0 1 first)
-        string(TOUPPER "${first}" first)
-        string(SUBSTRING "${formatName}" 1 -1 rest)
-        if(NOT format IN_LIST shaderFormats)
-            list(APPEND embeddedShaders "${stage}${first}${rest}=")
-            continue()
-        endif()
-        set(output "${shaderDirectory}/${stage}.${format}")
-        add_custom_command(
-            OUTPUT "${output}"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${shaderDirectory}"
-            COMMAND "${TOKI_SHADERCROSS}" "${ubershader}" -s HLSL -d ${format} -t ${stageName}
-                    -e ${stage}Main -D${stageDefine}_STAGE -o "${output}"
-            DEPENDS "${ubershader}"
-            COMMENT "Compiling the ${stageName} ubershader to ${format}"
-            VERBATIM)
-        list(APPEND compiledShaders "${output}")
-        list(APPEND embeddedShaders "${stage}${first}${rest}=${output}")
+foreach(shader Ubershader Overlay)
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}.hlsl")
+    foreach(stage Vertex Fragment)
+        string(TOUPPER "${stage}" stageDefine)
+        string(TOLOWER "${stage}" stageName)
+        foreach(format SPIRV DXIL MSL)
+            string(TOLOWER "${format}" formatName)
+            string(SUBSTRING "${formatName}" 0 1 first)
+            string(TOUPPER "${first}" first)
+            string(SUBSTRING "${formatName}" 1 -1 rest)
+            set(name "${shader}${stage}${first}${rest}")
+            if(NOT format IN_LIST shaderFormats)
+                list(APPEND embeddedShaders "${name}=")
+                continue()
+            endif()
+            set(output "${shaderDirectory}/${shader}${stage}.${format}")
+            add_custom_command(
+                OUTPUT "${output}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${shaderDirectory}"
+                COMMAND "${TOKI_SHADERCROSS}" "${source}" -s HLSL -d ${format} -t ${stageName}
+                        -e ${stage}Main -D${stageDefine}_STAGE -o "${output}"
+                DEPENDS "${source}"
+                COMMENT "Compiling the ${stageName} stage of ${shader}.hlsl to ${format}"
+                VERBATIM)
+            list(APPEND compiledShaders "${output}")
+            list(APPEND embeddedShaders "${name}=${output}")
+        endforeach()
     endforeach()
 endforeach()
 
 list(JOIN embeddedShaders "|" embeddedList)
-set(shaderHeader "${CMAKE_CURRENT_BINARY_DIR}/generated/gfx/UbershaderCode.h")
+set(shaderHeader "${CMAKE_CURRENT_BINARY_DIR}/generated/gfx/EmbeddedShaders.h")
 add_custom_command(
     OUTPUT "${shaderHeader}"
     COMMAND ${CMAKE_COMMAND} -DOUTPUT=${shaderHeader} -DINPUTS=${embeddedList}
             -P "${PROJECT_SOURCE_DIR}/cmake/EmbedShaders.cmake"
     DEPENDS ${compiledShaders} "${PROJECT_SOURCE_DIR}/cmake/EmbedShaders.cmake"
-    COMMENT "Embedding the compiled ubershader"
+    COMMENT "Embedding the compiled shaders"
     VERBATIM)
-add_custom_target(toki_ubershader DEPENDS "${shaderHeader}")
-add_dependencies(toki_gfx toki_ubershader)
+add_custom_target(toki_shaders DEPENDS "${shaderHeader}")
+add_dependencies(toki_gfx toki_shaders)
 
 target_include_directories(toki_gfx PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_sources(toki_gfx PRIVATE
@@ -60,6 +63,8 @@ target_sources(toki_gfx PRIVATE
         Device.cpp
         DrawBatches.cpp
         ImageTexture.cpp
+        OverlayPipeline.cpp
+        OverlayVertices.cpp
         PipelineCache.cpp
         RenderTarget.cpp
         Renderer.cpp
