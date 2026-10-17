@@ -152,6 +152,7 @@ std::expected<void, std::string> App::initialize() {
 void App::registerPanels() {
     auto viewport = std::make_unique<viewport::ViewportPanel>(*device);
     viewportPanel = viewport.get();
+    viewportPanel->setView(settings.viewport);
     auto sceneView = std::make_unique<scene::ScenePanel>(workspaceService, *viewport, databaseStore,
                                                          collectionCatalog);
     scenePanel = sceneView.get();
@@ -579,6 +580,9 @@ void App::saveState() {
     }
 
     settings.window = window->getGeometry();
+    if (viewportPanel != nullptr) {
+        settings.viewport = viewportPanel->getView();
+    }
     settings.openPanels = panels.getOpenIds();
     settings.closedPanels = panels.getClosedIds();
     if (std::optional<SceneSession> session =

@@ -2,6 +2,7 @@
 
 #include "app/core/Types.h"
 #include "app/core/domain/Log.h"
+#include "app/viewport/domain/ViewportView.h"
 
 #include <array>
 #include <expected>
@@ -86,6 +87,8 @@ struct Settings {
     std::optional<SceneSession> session;
 
     MarkerShape markerShape = MarkerShape::Cube;
+
+    viewport::ViewportView viewport;
 
     /// The new actors of the checkout that the person chose not to derive, by
     /// enum name, so they are not asked about again until the set changes.

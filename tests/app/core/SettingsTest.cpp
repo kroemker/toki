@@ -275,3 +275,19 @@ TEST_CASE("a path is the same written with either separator", "[core][settings]"
     REQUIRE(toki::core::isSamePath(R"(D:/a/b/../c)", R"(D:\a\c)"));
     REQUIRE_FALSE(toki::core::isSamePath(R"(D:/a/b)", R"(D:/a/c)"));
 }
+
+TEST_CASE("how the viewport draws round-trips, and defaults when it was never written",
+          "[core][settings]") {
+    const TempDir dir("viewport");
+    writeFile(dir.getFile(), "hackeroot_path = \"/checkout\"\n");
+    REQUIRE(loadSettings(dir.getFile())->viewport == toki::viewport::ViewportView{});
+
+    Settings written;
+    written.viewport.overlays.isShown = false;
+    written.viewport.overlays.flagLinks = false;
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+
+    const auto loaded = loadSettings(dir.getFile());
+    REQUIRE(loaded.has_value());
+    REQUIRE(loaded->viewport == written.viewport);
+}

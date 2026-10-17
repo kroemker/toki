@@ -9,7 +9,10 @@
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ReferenceGrid.h"
 #include "app/viewport/domain/ViewportFrame.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportOverlay.h"
+#include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ViewportBar.h"
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/DrawBatches.h"
@@ -23,12 +26,15 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <expected>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -58,6 +64,7 @@ void drawArrowHead(ImDrawList& drawList, const ImVec2 from, const ImVec2 to, con
 }
 
 constexpr f32 DegreesPerPoint = 0.4F;
+constexpr float ChipOpacity = 0.8F;
 constexpr usize ReportedDiagnostics = 8;
 
 [[nodiscard]] u32 makePixels(const f32 points, const f32 scale) {
@@ -102,7 +109,25 @@ void ViewportPanel::setCameraPose(const core::CameraPose& pose) {
     stale = true;
 }
 
+void ViewportPanel::drawBar() {
+    const ViewportBarEdit edit = drawViewportBar(viewportView, viewportChoices);
+    if (edit.view) {
+        setView(*edit.view);
+    }
+    if (edit.choices && viewportChoices && chooseHandler != nullptr) {
+        viewportChoices = *edit.choices;
+        const std::function<void(const ViewportChoices&)> choose = chooseHandler;
+        choose(*edit.choices);
+    }
+}
+
 void ViewportPanel::draw() {
+    drawBar();
+    if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+        if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
+            setView(*changed);
+        }
+    }
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 size = ImGui::GetContentRegionAvail();
     if (size.x < 1.0F || size.y < 1.0F) {
@@ -152,8 +177,11 @@ void ViewportPanel::draw() {
     drawList->AddImage(texture, origin, end);
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
-    drawOverlay(*drawList, origin, size);
+    if (viewportView.overlays.isShown && viewportView.overlays.flagLinks) {
+        drawOverlay(*drawList, origin, size);
+    }
     drawHighlight(*drawList, origin, size);
+    drawViewChanges(*drawList, origin, size);
     drawList->PopClipRect();
     ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
     if (readingName) {
@@ -213,6 +241,31 @@ void ViewportPanel::drawHighlight(ImDrawList& drawList, const ImVec2 origin,
         drawList.AddTriangleFilled(a, b, c, fill);
         drawList.AddTriangle(a, b, c, edge);
     }
+}
+
+void ViewportPanel::drawViewChanges(ImDrawList& drawList, const ImVec2 origin,
+                                    const ImVec2 size) const {
+    const std::vector<std::string> changes = listViewChanges(viewportView);
+    if (changes.empty()) {
+        return;
+    }
+    std::string text;
+    for (const std::string& change : changes) {
+        text += text.empty() ? change : std::format("  ·  {}", change);
+    }
+    const ImVec2 padding{core::space::Medium, core::space::Small};
+    const ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+    const ImVec2 max{origin.x + size.x - core::space::Medium,
+                     origin.y + core::space::Medium + textSize.y + (padding.y * 2.0F)};
+    const ImVec2 min{max.x - textSize.x - (padding.x * 2.0F), origin.y + core::space::Medium};
+    drawList.AddRectFilled(
+        min, max,
+        ImGui::GetColorU32(ImVec4(core::palette::Background.x, core::palette::Background.y,
+                                  core::palette::Background.z, ChipOpacity)),
+        core::space::Small);
+    drawList.AddRect(min, max, ImGui::GetColorU32(core::palette::Border), core::space::Small);
+    drawList.AddText(ImVec2(min.x + padding.x, min.y + padding.y),
+                     ImGui::GetColorU32(core::palette::Warning), text.c_str());
 }
 
 bool ViewportPanel::handleInput(const ImVec2 size) {

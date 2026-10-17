@@ -15,6 +15,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -54,6 +55,13 @@ constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
         return core::palette::Danger;
     }
     return core::palette::Text;
+}
+
+[[nodiscard]] viewport::ActorDisplay findActorDisplay(const SceneView& view) {
+    if (!view.showsActors) {
+        return viewport::ActorDisplay::Hidden;
+    }
+    return view.drawsModels ? viewport::ActorDisplay::Models : viewport::ActorDisplay::Markers;
 }
 
 [[nodiscard]] glm::vec3 makePoint(const std::array<s16, 3>& position) {
@@ -99,6 +107,7 @@ void ScenePanel::setScene(Scene read) {
         target = makePoint(scene->layers.front().header.playerEntries.front().position);
     }
     viewportPanel.setContent(makeSceneContent(*scene, sceneView, markerShape), target);
+    offerChoices();
     if (isRestored && pendingSession->camera) {
         viewportPanel.setCameraPose(*pendingSession->camera);
     }
@@ -123,7 +132,31 @@ std::optional<core::SceneSession> ScenePanel::makeSession() const {
 void ScenePanel::showScene() {
     if (scene) {
         viewportPanel.setContent(makeSceneContent(*scene, sceneView, markerShape));
+        offerChoices();
     }
+}
+
+void ScenePanel::offerChoices() {
+    if (!scene || sceneView.layer >= scene->layers.size()) {
+        viewportPanel.clearChoices();
+        return;
+    }
+    const SceneHeader& header = scene->layers[sceneView.layer].header;
+    viewport::ViewportChoices choices{.lightSetting = sceneView.lightSetting,
+                                      .actors = findActorDisplay(sceneView)};
+    for (usize i = 0; i < header.lightSettings.size(); ++i) {
+        choices.lightSettings.push_back(makeLightSettingName(header, i));
+    }
+    viewportPanel.setChoices(std::move(choices), [this](const viewport::ViewportChoices& chosen) {
+        sceneView.lightSetting = chosen.lightSetting;
+        const viewport::ActorDisplay actors =
+            chosen.actors.value_or(viewport::ActorDisplay::Models);
+        sceneView.showsActors = actors != viewport::ActorDisplay::Hidden;
+        if (sceneView.showsActors) {
+            sceneView.drawsModels = actors == viewport::ActorDisplay::Models;
+        }
+        showScene();
+    });
 }
 
 void ScenePanel::setActors(SceneActors actors) {
@@ -167,30 +200,6 @@ void ScenePanel::drawPickers(const Scene& shown) {
         ImGui::EndCombo();
     }
 
-    const SceneHeader& header = shown.layers[sceneView.layer].header;
-    const std::string light = sceneView.lightSetting < header.lightSettings.size()
-                                  ? makeLightSettingName(header, sceneView.lightSetting)
-                                  : std::string("none");
-    if (ImGui::BeginCombo("Light", light.c_str())) {
-        for (usize i = 0; i < header.lightSettings.size(); ++i) {
-            const std::string name = makeLightSettingName(header, i);
-            if (ImGui::Selectable(name.c_str(), i == sceneView.lightSetting)) {
-                sceneView.lightSetting = i;
-                showScene();
-            }
-        }
-        ImGui::EndCombo();
-    }
-
-    if (ImGui::Checkbox("Show actors", &sceneView.showsActors)) {
-        showScene();
-    }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!sceneView.showsActors);
-    if (ImGui::Checkbox("Draw models", &sceneView.drawsModels)) {
-        showScene();
-    }
-    ImGui::EndDisabled();
     const auto drawn = std::ranges::count_if(
         shown.actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
     ImGui::TextColored(core::palette::TextMuted, "%d of %d kinds of actor drawn as models",
@@ -378,9 +387,6 @@ void ScenePanel::drawFlags(const std::vector<SceneFlagUse>& flags) {
     if (!ImGui::CollapsingHeader(title.c_str())) {
         return;
     }
-    ImGui::Checkbox("Show links in the viewport", &showsFlagLinks);
-    ImGui::SetItemTooltip("A line from each actor that sets a flag to each that reads it; "
-                          "hover a flag to see only its own");
     if (flags.empty()) {
         ImGui::TextColored(core::palette::TextMuted,
                            "No placed actor's entry names a scene flag in its params.");
@@ -450,7 +456,7 @@ void ScenePanel::drawFlagUser(const FlagUser& user) {
 
 void ScenePanel::drawFlagLinks(const std::vector<SceneFlagUse>& flags) {
     viewport::ViewportOverlay overlay;
-    if (!showsFlagLinks || !sceneView.showsActors) {
+    if (!sceneView.showsActors) {
         viewportPanel.setOverlay(std::move(overlay));
         return;
     }

@@ -4,8 +4,10 @@
 #include "app/core/ui/Panel.h"
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
+#include "app/viewport/domain/ViewportView.h"
 #include "gfx/Device.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
@@ -15,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <optional>
 #include <string>
 #include <utility>
@@ -78,6 +81,29 @@ public:
         viewportOverlay = std::move(overlay);
     }
 
+    [[nodiscard]] const ViewportView& getView() const {
+        return viewportView;
+    }
+
+    void setView(const ViewportView& view) {
+        viewportView = view;
+        stale = true;
+    }
+
+    /// Offers `choices` in the bar, for the content's owner to apply through
+    /// `choose` whenever one is changed there.
+    void setChoices(ViewportChoices choices, std::function<void(const ViewportChoices&)> choose) {
+        viewportChoices = std::move(choices);
+        chooseHandler = std::move(choose);
+    }
+
+    /// Takes back what `setChoices` offered, when the content's owner gives
+    /// up the viewport.
+    void clearChoices() {
+        viewportChoices.reset();
+        chooseHandler = nullptr;
+    }
+
     /// Triangles to pick out over the image, in pixels of a frame of `size`,
     /// as the display list viewer shows what a command drew.
     void setHighlight(std::vector<std::array<glm::vec2, 3>> triangles, const FrameSize size) {
@@ -114,6 +140,8 @@ public:
     void draw() override;
 
 private:
+    void drawBar();
+    void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     void render(const gfx::RenderTarget& target);
     static void reportDiagnostics(const Frame& frame);
@@ -128,6 +156,9 @@ private:
     OrbitCamera orbitCamera;
     ViewportContent viewportContent;
     ViewportOverlay viewportOverlay;
+    ViewportView viewportView;
+    std::optional<ViewportChoices> viewportChoices;
+    std::function<void(const ViewportChoices&)> chooseHandler;
     std::vector<std::array<glm::vec2, 3>> highlight;
     FrameSize highlightSize;
     bool isTracing = false;

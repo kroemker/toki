@@ -3,6 +3,7 @@
 #include "app/core/Types.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Utf8.h"
+#include "app/viewport/domain/ViewportView.h"
 
 #include <toml++/toml.hpp>
 
@@ -149,6 +150,24 @@ void readMarkers(const toml::table& root, const std::filesystem::path& path, Set
 void writeMarkers(toml::table& root, const Settings& settings) {
     ensureSection(root, "markers")
         .insert_or_assign("shape", std::string{getMarkerShapeName(settings.markerShape)});
+}
+
+void readViewport(const toml::table& root, Settings& settings) {
+    const toml::table* viewport = root["viewport"].as_table();
+    if (viewport == nullptr) {
+        return;
+    }
+    viewport::ViewportOverlays& overlays = settings.viewport.overlays;
+    overlays.isShown = (*viewport)["overlays"].value_or(overlays.isShown);
+    overlays.flagLinks = (*viewport)["flag_links"].value_or(overlays.flagLinks);
+}
+
+void writeViewport(toml::table& root, const Settings& settings) {
+    const viewport::ViewportOverlays& overlays = settings.viewport.overlays;
+    toml::table viewport;
+    viewport.insert_or_assign("overlays", overlays.isShown);
+    viewport.insert_or_assign("flag_links", overlays.flagLinks);
+    root.insert_or_assign("viewport", std::move(viewport));
 }
 
 void readActors(const toml::table& root, Settings& settings) {
@@ -372,6 +391,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readSession(*root, settings);
     readActors(*root, settings);
     readMarkers(*root, path, settings);
+    readViewport(*root, settings);
 
     return settings;
 }
@@ -400,7 +420,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
         root.erase("hackeroot_path");
     }
     writeLog(root, settings);
-    root.erase("viewport");
+    writeViewport(root, settings);
     writeWindow(root, settings);
     writePanels(root, settings);
     writeBuild(root, settings);

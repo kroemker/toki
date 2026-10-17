@@ -231,8 +231,8 @@ The Scene panel marks each placed actor with a cube when it is drawn as its mode
 diamond when it is marked, and its tooltip says what it is drawn as and where in the overlay
 each answer was read, and every gap and drawing diagnostic (`describeActor`). An actor whose
 profile names an object that is neither a keep object nor in its room's object list is said
-not to be spawned by the game there. **Show actors** and **Draw models** are saved with the
-session. The overlays and objects read are watched with the scene's own files,
+not to be spawned by the game there. How actors are shown (the viewport bar's **Actors**: hidden,
+markers or models) is saved with the session. The overlays and objects read are watched with the scene's own files,
 so editing an actor's C or re-exporting its object reads the actors again. A scene read
 again keeps the models it had until the new ones arrive. The objects are the workspace's
 shared images, so the scene loader, the actor loader and the Object panel read each once.

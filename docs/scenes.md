@@ -110,9 +110,12 @@ unit, so an edge can be thinner than the unit positions are given in. The shape 
 (Viewport › Actor Markers): a cube by default, a diamond, or a pin, a pyramid on its tip
 that points at the exact spot an actor is placed.
 
-The Scene panel is the view's controls: the layer and light pickers, whether actors are
-shown and drawn as their models, a checkbox for each room, and each room's actors by name
-from the checkout's actor table, with how each is drawn. Choosing an actor
+The Scene panel is the view's controls for what is shown: the layer, a checkbox for each
+room, and each room's actors by name from the checkout's actor table, with how each is drawn.
+How it is drawn is chosen in the viewport's bar: the scene offers its light settings and how
+its actors are shown (hidden, marked, or drawn as their models) there as
+`viewport::ViewportChoices`, and applies what is picked to its view. The viewport knows no
+scene; it only shows the rows it was offered. Choosing an actor
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
@@ -130,7 +133,7 @@ kind and raised a little above the placements. Hovering a flag in the list dims 
 flag's lines. They are drawn over the image with ImGui (`ViewportOverlay`), not through the
 renderer: F3DEX2 has no line, and a link has to be seen through the wall between a switch
 and its door. A line passing behind the camera is cut at it (`projectSegment`). Actors in
-hidden rooms are not linked, and a checkbox hides the lines.
+hidden rooms are not linked, and the viewport bar's Flag Links overlay hides the lines.
 
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
 view and the camera, and opened again once the checkout has been read. The layer is saved as

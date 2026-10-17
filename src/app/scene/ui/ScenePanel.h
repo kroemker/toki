@@ -44,6 +44,7 @@ public:
         sceneView = {};
         pendingSession.reset();
         viewportPanel.setOverlay({});
+        viewportPanel.clearChoices();
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing
@@ -76,6 +77,7 @@ public:
 
 private:
     void showScene();
+    void offerChoices();
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawRoomMenu(usize room, const RoomHeader& header);
@@ -102,7 +104,6 @@ private:
     SceneView sceneView;
     core::MarkerShape markerShape = core::MarkerShape::Cube;
     std::optional<core::SceneSession> pendingSession;
-    bool showsFlagLinks = true;
     std::optional<std::pair<actor::SceneFlag, s64>> hoveredFlag;
     std::function<void(const std::string&)> inspectDisplayList;
 };

@@ -460,3 +460,33 @@ own data, and an actor database for what the C does not say.
 **Message editor** — dialogue text with a live textbox preview.
 
 **Audio** — soundfonts and sequences. Backlog.
+
+**Viewport bar, render modes and frame statistics** — how the viewport draws, chosen on the
+viewport itself, and what a frame cost, under it. Five steps, each committed on its own.
+
+1. *The bar.* A bar above the image: the shading modes as a segmented group, a wireframe
+   button that cycles, a Shading popover (pipeline switches and the light setting) and an
+   Overlays popover (actors, flag links, hover highlight, reference grid, X-ray) with a
+   count of what is on and a switch for all of them. Every button has a hotkey that acts
+   while the cursor is over the viewport. A chip in the image's corner names whatever
+   differs from the N64 default. What it sets is `ViewportView` (`RenderMode` and
+   `ViewportOverlays`), persisted in the settings. Show Actors, Draw Models, the flag links
+   and the light setting leave the Scene panel; the scene reads them from the viewport.
+2. *Statistics.* A status line under the image: triangles and draw calls, the 16 MiB the
+   frame's images fill, and what the last frame cost. Each opens a popover with the
+   breakdown: every count the RSP and RDP kept, the images by kind and by name with any
+   left out, and the time of each stage with a history. The viewport renders only when
+   something changed, so the cost of the last frame is shown, not a frame rate of the scene.
+   The GPU's time is not measured: SDL's GPU API has no timestamp queries.
+3. *Render modes.* Shade Only, Texture Only, Normals and Depth, and switches for lighting,
+   fog, culling, alpha cutout, translucency and point filtering. Each is a rewrite of the
+   RSP's task or the RDP's state on the CPU, so the ubershader does not change and every
+   mode is tested in `toki_tests`.
+4. *The overlay pass.* A second shader draws lines over the frame in the same render pass,
+   depth-tested against it. Triangle edges come from the RSP's own clip-space positions,
+   so an edge on its triangle has the triangle's depth exactly. Wireframe is its first use.
+5. *Overlays in the pass.* Flag links and the reference grid move from ImGui's draw list
+   into the overlay pass, so geometry hides them; X-ray draws what is hidden faintly.
+
+Left for editing: select modes (placement, vertex, edge, face), the source address of every
+vertex, picking through an ID pass, and the game's own budgets (object space, room buffer).
