@@ -216,12 +216,18 @@ void Renderer::drawOverlay(SDL_GPURenderPass* pass, SDL_GPUCommandBuffer* comman
                            .h = static_cast<int>(target.getHeight())};
     SDL_SetGPUScissor(pass, &scissor);
     const SDL_GPUBufferBinding binding{.buffer = overlayBuffer.buffer.get(), .offset = 0};
-    SDL_BindGPUGraphicsPipeline(pass, overlayPipeline.getPipeline(OverlayDepth::Visible));
-    SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
-    const OverlayUniforms uniforms = makeOverlayUniforms(overlay.viewport, screen, 1.0F);
-    SDL_PushGPUVertexUniformData(commands, 0, &uniforms, sizeof(uniforms));
-    SDL_DrawGPUPrimitives(pass, vertexCount, 1, 0, 0);
-    ++drawCalls;
+    const auto drawPart = [&](const OverlayDepth depth, const f32 opacity) {
+        SDL_BindGPUGraphicsPipeline(pass, overlayPipeline.getPipeline(depth));
+        SDL_BindGPUVertexBuffers(pass, 0, &binding, 1);
+        const OverlayUniforms uniforms = makeOverlayUniforms(overlay.viewport, screen, opacity);
+        SDL_PushGPUVertexUniformData(commands, 0, &uniforms, sizeof(uniforms));
+        SDL_DrawGPUPrimitives(pass, vertexCount, 1, 0, 0);
+        ++drawCalls;
+    };
+    if (overlay.hiddenOpacity > 0.0F) {
+        drawPart(OverlayDepth::Hidden, overlay.hiddenOpacity);
+    }
+    drawPart(OverlayDepth::Visible, 1.0F);
 }
 
 std::vector<base::Diagnostic> Renderer::render(const n64::RspResult& rspResult,

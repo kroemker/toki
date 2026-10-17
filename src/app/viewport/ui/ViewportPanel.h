@@ -9,9 +9,13 @@
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportView.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
+#include "base/Diagnostic.h"
 #include "gfx/Device.h"
+#include "gfx/Overlay.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
+#include "n64/Rdp.h"
+#include "n64/RspResult.h"
 
 #include <glm/vec2.hpp>
 #include <imgui.h>
@@ -34,6 +38,12 @@ struct TracedFrame {
     ViewportContent content;
     FrameSize size;
     u64 generation = 0;
+};
+
+/// What the RSP and RDP made of a frame, after the render mode changed it.
+struct DrawnFrame {
+    n64::RspResult rspResult;
+    n64::RdpResult rdpResult;
 };
 
 class ViewportPanel : public core::Panel {
@@ -77,19 +87,20 @@ public:
         stale = true;
     }
 
-    /// Replaces what is drawn over the image, on top of everything.
+    /// Replaces what is drawn over the image, hidden by what stands in front
+    /// of it. The frame is drawn again, not run again.
     void setOverlay(ViewportOverlay overlay) {
         viewportOverlay = std::move(overlay);
+        isOverlayStale = true;
     }
 
     [[nodiscard]] const ViewportView& getView() const {
         return viewportView;
     }
 
-    void setView(const ViewportView& view) {
-        viewportView = view;
-        stale = true;
-    }
+    /// Draws the frame as `view` says: run again when its render mode
+    /// changes what the RSP or RDP produce, drawn again otherwise.
+    void setView(const ViewportView& view);
 
     /// Offers `choices` in the bar, for the content's owner to apply through
     /// `choose` whenever one is changed there.
@@ -145,8 +156,9 @@ private:
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     void render(const gfx::RenderTarget& target);
+    [[nodiscard]] std::vector<base::Diagnostic> drawFrame(const gfx::RenderTarget& target);
+    [[nodiscard]] gfx::Overlay makeOverlay(const DrawnFrame& drawing, FrameSize size) const;
     static void reportDiagnostics(const Frame& frame);
-    void drawOverlay(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     void drawHighlight(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
 
     const gfx::Device& device;
@@ -165,9 +177,13 @@ private:
     FrameSize highlightSize;
     bool isTracing = false;
     std::optional<TracedFrame> tracedFrame;
+    /// What the RSP and RDP made of the last frame run, as it is drawn, to
+    /// draw again when only what is over it changes.
+    std::optional<DrawnFrame> drawnFrame;
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
     bool stale = true;
+    bool isOverlayStale = false;
     bool reported = false;
     usize diagnosticCount = 0;
 };

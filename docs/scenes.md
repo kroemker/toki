@@ -130,10 +130,13 @@ it. Choosing an actor turns the camera to it.
 The viewport links them: a line from each actor that sets a flag to each that reads it,
 headed at the reader, and at both ends when each does both (`listFlagLinks`), coloured by
 kind and raised a little above the placements. Hovering a flag in the list dims every other
-flag's lines. They are drawn over the image with ImGui (`ViewportOverlay`), not through the
-renderer: F3DEX2 has no line, and a link has to be seen through the wall between a switch
-and its door. A line passing behind the camera is cut at it (`projectSegment`). Actors in
-hidden rooms are not linked, and the viewport bar's Flag Links overlay hides the lines.
+flag's lines. They are handed to the viewport as a `ViewportOverlay` and drawn in its overlay
+pass ([renderer.md](renderer.md)), not by F3DEX2, which has no line: tested against the
+frame's depth, so a wall hides the part of a link behind it, and with X-ray on that part
+is drawn faintly, to follow a switch through the wall to its door. A line passing behind
+the camera is cut at the near plane, and an arrowhead lies flat on the screen at the depth
+of the end it points at (`makeArrowLines`). Actors in hidden rooms are not linked, and the
+viewport bar's Flag Links overlay hides the lines.
 
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
 view and the camera, and opened again once the checkout has been read. The layer is saved as

@@ -21,11 +21,25 @@ scene is; an owner that offers nothing gets no rows.
 
 ## The bar
 
-Above the image, from the left: a button for each shading (Alt+1 to Alt+5), the Shading
-popover, and at the right a switch that hides
-every overlay at once (Shift+Alt+Z) and the Overlays popover, whose button counts the overlays
-that are on. Every popover is a form of two-column rows. Hotkeys act only while the cursor is
-over the viewport.
+Above the image, from the left: a button for each shading (Alt+1 to Alt+5), the wireframe
+button (Shift+Z), the Shading popover, and at the right the X-ray switch (Alt+Z), a switch
+that hides every overlay at once (Shift+Alt+Z), and the Overlays popover, whose button
+counts the overlays that are on. Every popover is a form of two-column rows. Hotkeys act
+only while the cursor is over the viewport.
+
+## Overlays
+
+Everything drawn over the frame is drawn in the overlay pass ([renderer.md](renderer.md)),
+tested against the frame's depth, never in ImGui's draw list over the image:
+
+- **Flag Links**, the lines the content's owner gives as a `ViewportOverlay`.
+- **Grid**, a floor grid on the XZ plane around the camera's target, a line every 100 units,
+  the X axis red and the Z axis blue.
+- **X-Ray** draws what the frame hides of every overlay, the wireframe's edges included,
+  faintly.
+
+Changing an overlay draws the last frame again without running it: the RSP's and RDP's
+results are kept (`DrawnFrame`), so hovering a flag costs a draw, not the whole frame.
 
 A chip in the image's top right corner names everything the view draws differently from
 what the game would (`listViewChanges`), so that a debug view is never taken for the game.

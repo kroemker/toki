@@ -42,7 +42,6 @@ add_executable(toki_tests
         app/scene/SceneViewTest.cpp
         app/viewport/FrameStatisticsTest.cpp
         app/viewport/ViewportFrameTest.cpp
-        app/viewport/ViewportOverlayTest.cpp
         app/viewport/OverlayGeometryTest.cpp
         app/viewport/RenderOverrideTest.cpp
         app/viewport/ViewportViewTest.cpp

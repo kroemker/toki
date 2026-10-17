@@ -194,6 +194,8 @@ void readViewport(const toml::table& root, Settings& settings) {
     viewport::ViewportOverlays& overlays = settings.viewport.overlays;
     overlays.isShown = (*viewport)["overlays"].value_or(overlays.isShown);
     overlays.flagLinks = (*viewport)["flag_links"].value_or(overlays.flagLinks);
+    overlays.grid = (*viewport)["grid"].value_or(overlays.grid);
+    overlays.xray = (*viewport)["xray"].value_or(overlays.xray);
 }
 
 void writeViewport(toml::table& root, const Settings& settings) {
@@ -211,6 +213,8 @@ void writeViewport(toml::table& root, const Settings& settings) {
                               TextureFilterNames[static_cast<usize>(mode.textureFilter)]);
     viewport.insert_or_assign("overlays", overlays.isShown);
     viewport.insert_or_assign("flag_links", overlays.flagLinks);
+    viewport.insert_or_assign("grid", overlays.grid);
+    viewport.insert_or_assign("xray", overlays.xray);
     root.insert_or_assign("viewport", std::move(viewport));
 }
 

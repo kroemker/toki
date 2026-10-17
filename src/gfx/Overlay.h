@@ -26,6 +26,9 @@ struct OverlayLine {
 struct Overlay {
     n64::Viewport viewport = n64::makeDefaultViewport();
     std::vector<OverlayLine> lines;
+    /// How opaque the parts of the lines the frame hides are drawn; at zero
+    /// they are not drawn at all.
+    f32 hiddenOpacity = 0.0F;
 };
 
 } // namespace gfx

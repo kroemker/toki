@@ -14,7 +14,6 @@
 #include "app/viewport/domain/RenderOverride.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
-#include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportView.h"
 #include "app/viewport/ui/ViewportBar.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
@@ -52,28 +51,9 @@ namespace toki::viewport {
 
 namespace {
 
-constexpr float OverlayThickness = 2.0F;
 constexpr f32 HighlightFill = 0.35F;
-constexpr float ArrowLength = 11.0F;
-constexpr float ArrowWidth = 5.0F;
-constexpr float ArrowGap = 9.0F;
 constexpr LineStyle WireframeStyle{.color = {16, 16, 16, 200}, .width = 1.0F};
 constexpr LineStyle WireframeOnlyStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
-
-void drawArrowHead(ImDrawList& drawList, const ImVec2 from, const ImVec2 to, const u32 color) {
-    const float dx = to.x - from.x;
-    const float dy = to.y - from.y;
-    const float length = std::sqrt((dx * dx) + (dy * dy));
-    if (length < ArrowLength + ArrowGap) {
-        return;
-    }
-    const ImVec2 direction{dx / length, dy / length};
-    const ImVec2 tip{to.x - (direction.x * ArrowGap), to.y - (direction.y * ArrowGap)};
-    const ImVec2 base{tip.x - (direction.x * ArrowLength), tip.y - (direction.y * ArrowLength)};
-    const ImVec2 side{-direction.y * ArrowWidth, direction.x * ArrowWidth};
-    drawList.AddTriangleFilled(tip, ImVec2(base.x + side.x, base.y + side.y),
-                               ImVec2(base.x - side.x, base.y - side.y), color);
-}
 
 constexpr f32 DegreesPerPoint = 0.4F;
 constexpr float ChipOpacity = 0.8F;
@@ -83,16 +63,14 @@ constexpr usize ReportedDiagnostics = 8;
     return static_cast<u32>(std::max(std::lround(points * scale), 1L));
 }
 
-[[nodiscard]] gfx::Overlay makeOverlay(const n64::RspResult& rspResult,
-                                       const n64::RdpResult& rdpResult, const RenderMode& mode,
-                                       const FrameSize size) {
-    gfx::Overlay overlay{.viewport = makeFrameViewport(size), .lines = {}};
-    if (mode.wireframe != Wireframe::Off) {
-        const LineStyle style =
-            mode.wireframe == Wireframe::Only ? WireframeOnlyStyle : WireframeStyle;
-        overlay.lines = makeTriangleEdges(rspResult, rdpResult, overlay.viewport, style);
-    }
-    return overlay;
+constexpr f32 XrayOpacity = 0.3F;
+
+[[nodiscard]] ArrowStyle scaleArrowStyle(const f32 scale) {
+    const ArrowStyle points;
+    return ArrowStyle{.width = points.width * scale,
+                      .arrowLength = points.arrowLength * scale,
+                      .arrowWidth = points.arrowWidth * scale,
+                      .arrowGap = points.arrowGap * scale};
 }
 
 } // namespace
@@ -131,6 +109,17 @@ void ViewportPanel::setCameraPose(const core::CameraPose& pose) {
     orbitCamera.setAngles(pose.yaw, pose.pitch);
     orbitCamera.setDistance(pose.distance);
     stale = true;
+}
+
+void ViewportPanel::setView(const ViewportView& view) {
+    RenderMode run = viewportView.renderMode;
+    run.wireframe = view.renderMode.wireframe;
+    if (run != view.renderMode) {
+        stale = true;
+    } else {
+        isOverlayStale = true;
+    }
+    viewportView = view;
 }
 
 void ViewportPanel::drawBar() {
@@ -194,6 +183,10 @@ void ViewportPanel::draw() {
     if (stale) {
         render(target);
         stale = false;
+        isOverlayStale = false;
+    } else if (isOverlayStale) {
+        static_cast<void>(drawFrame(target));
+        isOverlayStale = false;
     }
 
     const SDL_GPUTexture* color = target.getColor();
@@ -202,9 +195,6 @@ void ViewportPanel::draw() {
     drawList->AddImage(texture, origin, end);
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
-    if (viewportView.overlays.isShown && viewportView.overlays.flagLinks) {
-        drawOverlay(*drawList, origin, size);
-    }
     drawHighlight(*drawList, origin, size);
     drawViewChanges(*drawList, origin, size);
     drawList->PopClipRect();
@@ -220,32 +210,6 @@ void ViewportPanel::draw() {
     }
     ImGui::SetCursorScreenPos(ImVec2(origin.x, end.y));
     statusBar.draw();
-}
-
-void ViewportPanel::drawOverlay(ImDrawList& drawList, const ImVec2 origin,
-                                const ImVec2 size) const {
-    if (viewportOverlay.lines.empty()) {
-        return;
-    }
-    const f32 zFar = viewportContent.lighting ? viewportContent.lighting->zFar : OrbitCamera::Far;
-    const glm::mat4 viewProjection =
-        OrbitCamera::makeProjectionMatrix(size.x / size.y, zFar) * orbitCamera.makeViewMatrix();
-    for (const OverlayLine& line : viewportOverlay.lines) {
-        const std::optional<ScreenSegment> segment =
-            projectSegment(viewProjection, line.from, line.to, glm::vec2(size.x, size.y));
-        if (!segment) {
-            continue;
-        }
-        const ImVec2 from{origin.x + segment->from.x, origin.y + segment->from.y};
-        const ImVec2 to{origin.x + segment->to.x, origin.y + segment->to.y};
-        drawList.AddLine(from, to, line.color, OverlayThickness);
-        if (line.hasArrowAtTo && segment->isToWhole) {
-            drawArrowHead(drawList, from, to, line.color);
-        }
-        if (line.hasArrowAtFrom && segment->isFromWhole) {
-            drawArrowHead(drawList, to, from, line.color);
-        }
-    }
 }
 
 void ViewportPanel::drawHighlight(ImDrawList& drawList, const ImVec2 origin,
@@ -322,24 +286,21 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     if (!renderer) {
         return;
     }
-    const u32 width = target.getWidth();
-    const u32 height = target.getHeight();
-    const FrameSize size{.width = width, .height = height};
+    const FrameSize size{.width = target.getWidth(), .height = target.getHeight()};
     const RenderMode& mode = viewportView.renderMode;
     Frame frame = runFrame(viewportContent, orbitCamera, size, isTracing, makeRspOverrides(mode));
+    FrameStatistics statistics = makeFrameStatistics(frame, viewportContent);
     const auto started = std::chrono::steady_clock::now();
-    const std::optional<n64::RdpResult> overridden =
-        mode != RenderMode{}
-            ? std::optional(applyRenderMode(frame.rdpResult, mode,
-                                            makeViewProjection(viewportContent, orbitCamera, size)))
-            : std::nullopt;
-    const n64::RdpResult& rdpResult = overridden ? *overridden : frame.rdpResult;
-    const gfx::Overlay overlay = makeOverlay(frame.rspResult, rdpResult, mode, size);
-    std::vector<base::Diagnostic> drawn = renderer->render(
-        frame.rspResult, mode.wireframe == Wireframe::Only ? n64::RdpResult{} : rdpResult, target,
-        gfx::ScreenSize{.width = width, .height = height}, overlay);
+    DrawnFrame drawing{.rspResult = isTracing ? frame.rspResult : std::move(frame.rspResult),
+                       .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult)};
+    if (mode != RenderMode{}) {
+        drawing.rdpResult = applyRenderMode(std::move(drawing.rdpResult), mode,
+                                            makeViewProjection(viewportContent, orbitCamera, size));
+    }
+    drawnFrame = std::move(drawing);
+    std::vector<base::Diagnostic> drawn = drawFrame(target);
     statusBar.addFrame(FrameReport{
-        .statistics = makeFrameStatistics(frame, viewportContent),
+        .statistics = std::move(statistics),
         .drawCalls = renderer->getDrawCalls(),
         .render = std::chrono::duration<f64, std::milli>(std::chrono::steady_clock::now() - started)
                       .count()});
@@ -356,6 +317,46 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
                                   .size = size,
                                   .generation = ++frameGeneration};
     }
+}
+
+std::vector<base::Diagnostic> ViewportPanel::drawFrame(const gfx::RenderTarget& target) {
+    if (!renderer.has_value() || !drawnFrame.has_value()) {
+        return {};
+    }
+    const DrawnFrame& drawing = *drawnFrame;
+    const FrameSize size{.width = target.getWidth(), .height = target.getHeight()};
+    const Wireframe wireframe = viewportView.renderMode.wireframe;
+    return renderer->render(drawing.rspResult,
+                            wireframe == Wireframe::Only ? n64::RdpResult{} : drawing.rdpResult,
+                            target, gfx::ScreenSize{.width = size.width, .height = size.height},
+                            makeOverlay(drawing, size));
+}
+
+gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSize size) const {
+    const ViewportOverlays& overlays = viewportView.overlays;
+    gfx::Overlay overlay{.viewport = makeFrameViewport(size),
+                         .lines = {},
+                         .hiddenOpacity = overlays.xray ? XrayOpacity : 0.0F};
+    const Wireframe wireframe = viewportView.renderMode.wireframe;
+    if (wireframe != Wireframe::Off) {
+        overlay.lines =
+            makeTriangleEdges(drawing.rspResult, drawing.rdpResult, overlay.viewport,
+                              wireframe == Wireframe::Only ? WireframeOnlyStyle : WireframeStyle);
+    }
+    if (!overlays.isShown) {
+        return overlay;
+    }
+    const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
+    if (overlays.grid) {
+        std::ranges::move(makeGridLines(viewProjection, orbitCamera.getTarget()),
+                          std::back_inserter(overlay.lines));
+    }
+    if (overlays.flagLinks) {
+        std::ranges::move(makeArrowLines(viewportOverlay, viewProjection, size,
+                                         scaleArrowStyle(ImGui::GetIO().DisplayFramebufferScale.x)),
+                          std::back_inserter(overlay.lines));
+    }
+    return overlay;
 }
 
 void ViewportPanel::reportDiagnostics(const Frame& frame) {

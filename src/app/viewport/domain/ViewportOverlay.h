@@ -2,11 +2,8 @@
 
 #include "app/viewport/Types.h"
 
-#include <glm/ext/matrix_float4x4.hpp>
-#include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 
-#include <optional>
 #include <vector>
 
 namespace toki::viewport {
@@ -22,25 +19,10 @@ struct OverlayLine {
     bool hasArrowAtTo = true;
 };
 
-/// What is drawn over the viewport's image, on top of everything.
+/// What the content's owner draws over the viewport's image, hidden by what
+/// stands in front of it.
 struct ViewportOverlay {
     std::vector<OverlayLine> lines;
 };
-
-/// A line's two ends on the screen, in pixels from the top left, and whether
-/// each is the line's own end rather than where the near plane cut it.
-struct ScreenSegment {
-    glm::vec2 from{};
-    glm::vec2 to{};
-    bool isFromWhole = true;
-    bool isToWhole = true;
-};
-
-/// Where `from` to `to` falls on a screen of `size` pixels seen through
-/// `viewProjection`, cut where it passes behind the camera, or nothing when all
-/// of it is behind.
-[[nodiscard]] std::optional<ScreenSegment> projectSegment(const glm::mat4& viewProjection,
-                                                          const glm::vec3& from,
-                                                          const glm::vec3& to, glm::vec2 size);
 
 } // namespace toki::viewport

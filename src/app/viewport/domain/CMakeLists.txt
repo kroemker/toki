@@ -5,5 +5,4 @@ target_sources(toki_core PRIVATE
         ReferenceGrid.cpp
         RenderOverride.cpp
         ViewportFrame.cpp
-        ViewportOverlay.cpp
         ViewportView.cpp)

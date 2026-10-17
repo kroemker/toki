@@ -1,5 +1,6 @@
 #include "app/viewport/domain/OverlayGeometry.h"
 
+#include "app/viewport/domain/ViewportOverlay.h"
 #include "base/Types.h"
 #include "gfx/Overlay.h"
 #include "n64/Rdp.h"
@@ -8,7 +9,9 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_float4x4.hpp>
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <vector>
@@ -90,4 +93,64 @@ TEST_CASE("a line past the near plane is left whole", "[viewport][overlay]") {
     const gfx::OverlayLine line{.from = {0, 0, 0, 1}, .to = {1, 1, 0.5F, 2}};
 
     REQUIRE(clipToNearPlane(line) == line);
+}
+
+TEST_CASE("an arrowhead points at a line's end, short of it, at the end's depth",
+          "[viewport][overlay]") {
+    toki::viewport::ViewportOverlay overlay;
+    overlay.lines.push_back(
+        {.from = {-0.5F, 0.0F, 0.2F}, .to = {0.5F, 0.0F, 0.4F}, .color = 0xFF332211U});
+
+    const std::vector<gfx::OverlayLine> lines = toki::viewport::makeArrowLines(
+        overlay, glm::mat4(1.0F), {.width = 200, .height = 100}, toki::viewport::ArrowStyle{});
+
+    REQUIRE(lines.size() == 3);
+    REQUIRE(lines[0].color == std::array<base::u8, 4>{0x11, 0x22, 0x33, 0xFF});
+    for (usize i = 1; i < 3; ++i) {
+        REQUIRE(lines[i].to[0] == Catch::Approx(0.41F));
+        REQUIRE(lines[i].to[2] == Catch::Approx(0.4F));
+        REQUIRE(lines[i].from[0] == Catch::Approx(0.3F));
+    }
+    REQUIRE(lines[1].from[1] == Catch::Approx(-lines[2].from[1]));
+}
+
+TEST_CASE("an arrowhead is left off a short line and off an end the near plane cut",
+          "[viewport][overlay]") {
+    toki::viewport::ViewportOverlay overlay;
+    overlay.lines.push_back({.from = {0.0F, 0.0F, 0.0F}, .to = {0.1F, 0.0F, 0.0F}});
+    overlay.lines.push_back({.from = {0.0F, 0.0F, 0.0F}, .to = {0.0F, 0.5F, -3.0F}});
+
+    const std::vector<gfx::OverlayLine> lines = toki::viewport::makeArrowLines(
+        overlay, glm::mat4(1.0F), {.width = 200, .height = 100}, toki::viewport::ArrowStyle{});
+
+    REQUIRE(lines.size() == 2);
+}
+
+TEST_CASE("a mutual link has an arrowhead at both ends", "[viewport][overlay]") {
+    toki::viewport::ViewportOverlay overlay;
+    overlay.lines.push_back({.from = {-0.5F, 0.0F, 0.0F},
+                             .to = {0.5F, 0.0F, 0.0F},
+                             .hasArrowAtFrom = true,
+                             .hasArrowAtTo = true});
+
+    REQUIRE(toki::viewport::makeArrowLines(overlay, glm::mat4(1.0F), {.width = 200, .height = 100},
+                                           toki::viewport::ArrowStyle{})
+                .size() == 5);
+}
+
+TEST_CASE("the grid crosses the cell under the centre, its axes coloured", "[viewport][overlay]") {
+    glm::mat4 flat(1.0F);
+    flat[2][2] = 0.0F;
+
+    const std::vector<gfx::OverlayLine> lines =
+        toki::viewport::makeGridLines(flat, {40.0F, 0.0F, -30.0F});
+
+    const usize count = (static_cast<usize>(toki::viewport::GridCells) * 2) + 1;
+    REQUIRE(lines.size() == count * 2);
+    const auto isZAxis = [](const gfx::OverlayLine& line) {
+        return line.from[0] == 0.0F && line.to[0] == 0.0F;
+    };
+    const auto zAxis = std::ranges::find_if(lines, isZAxis);
+    REQUIRE(zAxis != lines.end());
+    REQUIRE(zAxis->color[2] > zAxis->color[0]);
 }

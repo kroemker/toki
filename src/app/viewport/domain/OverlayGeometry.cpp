@@ -1,13 +1,22 @@
 #include "OverlayGeometry.h"
 
 #include "app/viewport/Types.h"
+#include "app/viewport/domain/ViewportFrame.h"
+#include "app/viewport/domain/ViewportOverlay.h"
 #include "gfx/Overlay.h"
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
 #include "n64/Viewport.h"
 
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float2.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <glm/geometric.hpp>
+
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -38,7 +47,116 @@ constexpr f32 NearMargin = 1.0e-4F;
     return std::ranges::lexicographical_compare(a, b) ? std::array{a, b} : std::array{b, a};
 }
 
+constexpr std::array<u8, 4> GridColor{190, 194, 204, 56};
+constexpr std::array<u8, 4> XAxisColor{226, 84, 84, 170};
+constexpr std::array<u8, 4> ZAxisColor{84, 132, 236, 170};
+
+[[nodiscard]] std::array<u8, 4> unpackColor(const u32 color) {
+    return {static_cast<u8>(color & 0xFFU), static_cast<u8>((color >> 8) & 0xFFU),
+            static_cast<u8>((color >> 16) & 0xFFU), static_cast<u8>(color >> 24)};
+}
+
+[[nodiscard]] Position makeClip(const glm::mat4& viewProjection, const glm::vec3& point) {
+    const glm::vec4 clip = viewProjection * glm::vec4(point, 1.0F);
+    return {clip.x, clip.y, clip.z, clip.w};
+}
+
+/// A point on the screen in pixels from its centre, y up, as `clip` falls on
+/// one of `size`.
+[[nodiscard]] glm::vec2 findScreenPoint(const Position& clip, const glm::vec2& halfSize) {
+    return glm::vec2(clip[0] / clip[3], clip[1] / clip[3]) * halfSize;
+}
+
+[[nodiscard]] Position placeAtDepth(const glm::vec2& screen, const glm::vec2& halfSize,
+                                    const Position& depth) {
+    const glm::vec2 device = screen / halfSize;
+    return {device.x * depth[3], device.y * depth[3], depth[2], depth[3]};
+}
+
+void addArrowHead(std::vector<gfx::OverlayLine>& lines, const gfx::OverlayLine& line,
+                  const glm::vec2& halfSize, const ArrowStyle& style) {
+    const glm::vec2 tail = findScreenPoint(line.from, halfSize);
+    const glm::vec2 head = findScreenPoint(line.to, halfSize);
+    const f32 length = glm::length(head - tail);
+    if (length < style.arrowLength + style.arrowGap) {
+        return;
+    }
+    const glm::vec2 direction = (head - tail) / length;
+    const glm::vec2 tip = head - (direction * style.arrowGap);
+    const glm::vec2 base = tip - (direction * style.arrowLength);
+    const glm::vec2 side = glm::vec2(-direction.y, direction.x) * style.arrowWidth;
+    const Position tipClip = placeAtDepth(tip, halfSize, line.to);
+    for (const glm::vec2& wing : {base + side, base - side}) {
+        lines.push_back({.from = placeAtDepth(wing, halfSize, line.to),
+                         .to = tipClip,
+                         .color = line.color,
+                         .width = line.width});
+    }
+}
+
+[[nodiscard]] std::array<u8, 4> findGridColor(const f32 coordinate, const std::array<u8, 4>& axis) {
+    return coordinate == 0.0F ? axis : GridColor;
+}
+
 } // namespace
+
+std::vector<gfx::OverlayLine> makeArrowLines(const ViewportOverlay& overlay,
+                                             const glm::mat4& viewProjection, const FrameSize size,
+                                             const ArrowStyle& style) {
+    const glm::vec2 halfSize(static_cast<f32>(size.width) / 2.0F,
+                             static_cast<f32>(size.height) / 2.0F);
+    std::vector<gfx::OverlayLine> lines;
+    for (const OverlayLine& line : overlay.lines) {
+        const gfx::OverlayLine whole{.from = makeClip(viewProjection, line.from),
+                                     .to = makeClip(viewProjection, line.to),
+                                     .color = unpackColor(line.color),
+                                     .width = style.width};
+        const std::optional<gfx::OverlayLine> clipped = clipToNearPlane(whole);
+        if (!clipped) {
+            continue;
+        }
+        lines.push_back(*clipped);
+        if (line.hasArrowAtTo && clipped->to == whole.to) {
+            addArrowHead(lines, *clipped, halfSize, style);
+        }
+        if (line.hasArrowAtFrom && clipped->from == whole.from) {
+            addArrowHead(lines,
+                         {.from = clipped->to,
+                          .to = clipped->from,
+                          .color = clipped->color,
+                          .width = clipped->width},
+                         halfSize, style);
+        }
+    }
+    return lines;
+}
+
+std::vector<gfx::OverlayLine> makeGridLines(const glm::mat4& viewProjection,
+                                            const glm::vec3& center) {
+    const f32 extent = GridSpacing * static_cast<f32>(GridCells);
+    const glm::vec2 middle(std::round(center.x / GridSpacing) * GridSpacing,
+                           std::round(center.z / GridSpacing) * GridSpacing);
+    std::vector<gfx::OverlayLine> lines;
+    for (s32 cell = -GridCells; cell <= GridCells; ++cell) {
+        const f32 offset = static_cast<f32>(cell) * GridSpacing;
+        const f32 x = middle.x + offset;
+        const f32 z = middle.y + offset;
+        const std::array<gfx::OverlayLine, 2> pair{{
+            {.from = makeClip(viewProjection, {x, 0.0F, middle.y - extent}),
+             .to = makeClip(viewProjection, {x, 0.0F, middle.y + extent}),
+             .color = findGridColor(x, ZAxisColor)},
+            {.from = makeClip(viewProjection, {middle.x - extent, 0.0F, z}),
+             .to = makeClip(viewProjection, {middle.x + extent, 0.0F, z}),
+             .color = findGridColor(z, XAxisColor)},
+        }};
+        for (const gfx::OverlayLine& line : pair) {
+            if (const std::optional<gfx::OverlayLine> clipped = clipToNearPlane(line)) {
+                lines.push_back(*clipped);
+            }
+        }
+    }
+    return lines;
+}
 
 std::vector<gfx::OverlayLine> makeTriangleEdges(const n64::RspResult& rspResult,
                                                 const n64::RdpResult& rdpResult,

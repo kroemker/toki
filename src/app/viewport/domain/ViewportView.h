@@ -13,6 +13,9 @@ namespace toki::viewport {
 struct ViewportOverlays {
     bool isShown = true;
     bool flagLinks = true;
+    bool grid = false;
+    /// Whether what the frame hides of an overlay is drawn, faintly.
+    bool xray = false;
 
     friend bool operator==(const ViewportOverlays&, const ViewportOverlays&) = default;
 };

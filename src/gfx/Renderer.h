@@ -30,7 +30,8 @@ public:
     [[nodiscard]] static std::expected<Renderer, base::Diagnostic> create(const Device& device);
 
     /// Clears `target`, draws every primitive into it, and then `overlay`
-    /// where the primitives do not hide it. The work is submitted, not waited
+    /// where the primitives do not hide it, and faintly where they do if it
+    /// asks. The work is submitted, not waited
     /// for: reading the target back waits for it. Returns what could not be
     /// drawn faithfully.
     [[nodiscard]] std::vector<base::Diagnostic>

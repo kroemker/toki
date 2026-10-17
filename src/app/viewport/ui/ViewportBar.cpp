@@ -189,9 +189,19 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
         }
     }
     ViewportView changed = view;
-    core::drawPropertyLabel("Flag Links", "A line from each actor that sets a flag to each that "
-                                          "reads it; hover a flag to see only its own.");
-    if (ImGui::Checkbox("##flagLinks", &changed.overlays.flagLinks)) {
+    bool isChanged = drawSwitchRow("Flag Links",
+                                   "A line from each actor that sets a flag to each that reads "
+                                   "it; hover a flag to see only its own.",
+                                   changed.overlays.flagLinks);
+    isChanged |= drawSwitchRow("Grid",
+                               "A floor grid on the XZ plane around the camera's target, "
+                               "a line every 100 units.",
+                               changed.overlays.grid);
+    isChanged |= drawSwitchRow("X-Ray",
+                               "What walls hide of the overlays, drawn faintly through them "
+                               "(Alt+Z).",
+                               changed.overlays.xray);
+    if (isChanged) {
         edit.view = changed;
     }
     core::endProperties();
@@ -200,7 +210,7 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
 
 [[nodiscard]] usize countShownOverlays(const ViewportView& view,
                                        const std::optional<ViewportChoices>& choices) {
-    usize count = view.overlays.flagLinks ? 1 : 0;
+    usize count = (view.overlays.flagLinks ? 1 : 0) + (view.overlays.grid ? 1 : 0);
     if (choices && choices->actors && *choices->actors != ActorDisplay::Hidden) {
         ++count;
     }
@@ -269,16 +279,27 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
         ImGui::EndPopup();
     }
 
-    const std::string toggle = view.overlays.isShown ? core::icons::Eye : core::icons::EyeSlash;
+    const ViewportView& current = edit.view ? *edit.view : view;
+    const std::string xray = std::format("{}###xray", core::icons::Intersect);
+    const std::string toggle = current.overlays.isShown ? core::icons::Eye : core::icons::EyeSlash;
     const std::string overlays =
-        std::format("Overlays {}###overlaysButton", countShownOverlays(view, choices));
-    const float width =
-        findButtonWidth(toggle) + ImGui::GetStyle().ItemSpacing.x + findButtonWidth(overlays);
+        std::format("Overlays {}###overlaysButton", countShownOverlays(current, choices));
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float width = findButtonWidth(xray) + spacing + findButtonWidth(toggle) + spacing +
+                        findButtonWidth(overlays);
     ImGui::SetCursorScreenPos(ImVec2(start.x + available - width, start.y));
-    if (drawToggleButton(toggle, !view.overlays.isShown,
-                         view.overlays.isShown ? "Hide all overlays (Shift+Alt+Z)"
-                                               : "Show all overlays (Shift+Alt+Z)")) {
-        ViewportView changed = view;
+    if (drawToggleButton(xray, current.overlays.xray,
+                         current.overlays.xray ? "Hide what walls hide (Alt+Z)"
+                                               : "Show overlays through walls (Alt+Z)")) {
+        ViewportView changed = current;
+        changed.overlays.xray = !changed.overlays.xray;
+        edit.view = changed;
+    }
+    ImGui::SameLine();
+    if (drawToggleButton(toggle, !current.overlays.isShown,
+                         current.overlays.isShown ? "Hide all overlays (Shift+Alt+Z)"
+                                                  : "Show all overlays (Shift+Alt+Z)")) {
+        ViewportView changed = edit.view.value_or(view);
         changed.overlays.isShown = !changed.overlays.isShown;
         edit.view = changed;
     }
@@ -303,6 +324,11 @@ std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
     if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiMod_Alt | ImGuiKey_Z)) {
         ViewportView changed = view;
         changed.overlays.isShown = !changed.overlays.isShown;
+        return changed;
+    }
+    if (ImGui::IsKeyChordPressed(ImGuiMod_Alt | ImGuiKey_Z)) {
+        ViewportView changed = view;
+        changed.overlays.xray = !changed.overlays.xray;
         return changed;
     }
     if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Z)) {
