@@ -76,8 +76,13 @@ The viewport sets up the same, from the checkout's own code where the game has i
 - **The draw config.** `sDefaultDisplayList` from `z_scene_table.c` points segments 8 to 13
   at `gEmptyDL` and sets the primitive and environment colours. Scenes with a draw config
   of their own (texture scrolls, Deku Tree's day and night entrance) run code to set those
-  segments, which the viewport does not run: they are drawn with the default, and a texture
-  read through one of those segments is a diagnostic.
+  segments, which the viewport does not run. After the default, segments 8 to 13 are pointed
+  at one stand-in (`scene::makeRuntimeSegments`): an identity matrix followed by
+  `gsSPEndDisplayList`. An identity `Mtx` reads as `G_NOOP`s, so a room that calls one of
+  those segments returns at once, as with `gEmptyDL`, and one that multiplies by a matrix
+  in one is drawn unmoved. Jabu-Jabu's rooms multiply by the matrix its draw config scales
+  them with every frame, in segment 13; `gEmptyDL` read as that matrix threw their vertices
+  across the screen. A texture read through one of those segments is a diagnostic.
 - **The setup display list.** Each pass starts with `sSetupDL[SETUPDL_25]` from `z_rcp.c`,
   as `Gfx_SetupDL_25Opa` and `Gfx_SetupDL_25Xlu` call it: two-cycle mode, bilinear
   filtering, the fog render mode, lighting on. Rooms change only what differs from it.

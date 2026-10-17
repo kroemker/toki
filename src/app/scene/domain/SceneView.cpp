@@ -5,6 +5,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDraws.h"
 #include "app/scene/domain/ActorMarkers.h"
+#include "app/scene/domain/RuntimeSegments.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -138,7 +139,18 @@ struct PassSource {
     const SceneView& view;
     const hackeroot::GameSetup& setup;
     usize imageCount = 0;
+    usize standInImage = 0;
+    u32 standIn = 0;
 };
+
+[[nodiscard]] viewport::ViewportDraw makeRuntimeSegmentsDraw(const PassSource& source) {
+    viewport::ViewportDraw draw{.image = source.standInImage, .displayList = source.standIn};
+    for (u8 segment = FirstRuntimeSegment; segment <= LastRuntimeSegment; ++segment) {
+        draw.pointedSegments.push_back(viewport::SegmentPointer{
+            .segment = segment, .image = source.standInImage, .address = source.standIn});
+    }
+    return draw;
+}
 
 [[nodiscard]] std::vector<viewport::ViewportDraw> makePass(const PassSource& source,
                                                            const bool opaque) {
@@ -147,6 +159,7 @@ struct PassSource {
         draws.push_back(
             viewport::ViewportDraw{.image = 0, .displayList = *source.setup.drawConfig});
     }
+    draws.push_back(makeRuntimeSegmentsDraw(source));
     if (source.setup.setupDisplayList) {
         draws.push_back(
             viewport::ViewportDraw{.image = 0, .displayList = *source.setup.setupDisplayList});
@@ -240,8 +253,14 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     }
     const SceneLayer& layer = scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
-    const PassSource source{
-        .layer = layer, .view = view, .setup = setup, .imageCount = scene.images.size()};
+    const RuntimeSegments runtime = makeRuntimeSegments();
+    const PassSource source{.layer = layer,
+                            .view = view,
+                            .setup = setup,
+                            .imageCount = scene.images.size(),
+                            .standInImage = content.images.size(),
+                            .standIn = runtime.standIn};
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
 
     content.draws = makePass(source, true);
     std::vector<viewport::ViewportDraw> translucentActors;
