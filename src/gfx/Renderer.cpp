@@ -25,7 +25,6 @@
 #include <expected>
 #include <format>
 #include <memory>
-#include <span>
 #include <utility>
 #include <vector>
 
