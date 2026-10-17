@@ -6,6 +6,7 @@
 #include "cparser/Scrape.h"
 #include "cparser/TableReader.h"
 #include "cparser/Token.h"
+#include "hackeroot/AssetSource.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/BuildDefines.h"
 #include "hackeroot/Configuration.h"
@@ -78,10 +79,7 @@ void requireImagesLinked(const cparser::MacroTable& macros,
 
     const std::expected<cparser::TranslationUnit, base::Diagnostic> unit = cparser::preprocess(
         macros, extracted / scene,
-        cparser::PreprocessOptions{.searchPaths = {repository, extracted},
-                                   .allowedRoots = {repository / "assets", extracted / "assets"},
-                                   .resolveMissingInclude = z64::resolveTextureInclude,
-                                   .dialect = &z64::getDecompDialect()});
+        hackeroot::makeAssetPreprocessOptions(repository, extracted.filename().string()));
     REQUIRE(unit.has_value());
     REQUIRE_FALSE(unit->embedded.empty());
 

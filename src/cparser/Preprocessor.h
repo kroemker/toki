@@ -61,8 +61,10 @@ struct PreprocessOptions {
     /// their includes from the repository root, so that root belongs here.
     std::vector<std::filesystem::path> searchPaths;
 
-    /// An include is followed only when it resolves inside one of these. Empty
-    /// means no restriction.
+    /// An include is followed only when it resolves inside one of these. One
+    /// that names a file only outside them is not reported, since the caller
+    /// reads it another way, and is listed in `unresolvedIncludes`. Empty means
+    /// no restriction.
     std::vector<std::filesystem::path> allowedRoots;
 
     usize maxDepth = 32;

@@ -252,10 +252,13 @@ void Preprocessor::doInclude(const Token& directive, std::span<const Token> line
     }
 
     const std::string spelling(unquote(target.text));
-    const std::expected<ResolvedInclude, std::string> resolved =
+    const std::expected<ResolvedInclude, IncludeFailure> resolved =
         resolver.resolve(spelling, target.file->path.parent_path());
     if (!resolved) {
-        unit.diagnostics.push_back(base::makeNote(location, resolved.error()));
+        if (resolved.error() == IncludeFailure::Missing) {
+            unit.diagnostics.push_back(base::makeWarning(
+                location, std::format("cannot find '{}' in any include path", spelling)));
+        }
         if (std::ranges::find(unit.unresolvedIncludes, spelling) == unit.unresolvedIncludes.end()) {
             unit.unresolvedIncludes.push_back(spelling);
         }

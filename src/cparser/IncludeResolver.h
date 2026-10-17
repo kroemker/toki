@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cparser/DirectoryCache.h"
+#include "cparser/Types.h"
 
 #include <expected>
 #include <filesystem>
@@ -22,6 +23,15 @@ struct ResolvedInclude {
     std::string tag;
 };
 
+/// Why an include is not followed.
+enum class IncludeFailure : u8 {
+    /// It names no file in any search path, and nothing stands in for one.
+    Missing,
+    /// It names a file, but outside every allowed root: one the caller reads
+    /// another way, as a scene's `z64.h` is read by the header scrape.
+    OutsideRoots,
+};
+
 /// Asked about an include that names no file on disk, once for each path it
 /// could have meant. It may answer with what the build would have made in that
 /// file's place; nothing means the include is missing.
@@ -37,7 +47,10 @@ public:
     IncludeResolver(std::vector<std::filesystem::path> searchPaths,
                     std::vector<std::filesystem::path> allowedRoots, MissingInclude resolveMissing);
 
-    [[nodiscard]] std::expected<ResolvedInclude, std::string>
+    /// A file inside the allowed roots wins over a stand-in for a missing one,
+    /// and a stand-in over a file outside them, so a texture include the build
+    /// generated into `build/` still resolves to the image it came from.
+    [[nodiscard]] std::expected<ResolvedInclude, IncludeFailure>
     resolve(std::string_view spelling, const std::filesystem::path& includingDirectory);
 
 private:

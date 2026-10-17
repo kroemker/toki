@@ -100,11 +100,18 @@ scrape and every unit.
 
 ## Include resolution
 
-Two roots, tried in order: the including file's own directory, then each configured search
-path — for HackerOoT the repository root and `extracted/<version>`, which is what the
-Makefile passes to `cpp`. An include is followed only when it resolves *inside* an allowed
-root, so a scene reaches its rooms and never descends into `z64.h`. A missing include is a
-diagnostic naming it, never a failure. Cycles are broken on the active include stack, not
+The including file's own directory is tried first, then each configured search path — for
+HackerOoT every `-I` the Makefile passes to `cpp`, in its order (`hackeroot::makeBuildIncludePaths`).
+An include is followed only when it resolves *inside* an allowed root, so a scene reaches
+its rooms and never descends into `z64.h`. A file inside the roots wins over a stand-in for
+a missing one (below), and a stand-in over a file outside the roots, so a texture include
+the build has generated into `build/` still reads as the image it came from.
+
+An include that names a file outside the roots is not followed and not reported: what a
+unit needs from `ultra64.h` or `scene.h` the header scrape or a prelude supplies, and every
+asset includes them, so a note for each would bury everything else. It is listed in
+`TranslationUnit::unresolvedIncludes` for a caller that reads it another way. An include
+that names no file in any search path is a warning naming it, never a failure. Cycles are broken on the active include stack, not
 on a visited set: the same `.inc.c` is legitimately included by two different arrays.
 
 **A `.inc.c` that does not exist is a texture.** `X.rgba16.inc.c` resolves to the

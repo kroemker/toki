@@ -14,8 +14,10 @@
 #include <chrono>
 #include <expected>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 namespace toki::assets {
@@ -62,8 +64,13 @@ AssetReport readAssetReport(const hackeroot::Workspace& workspace,
                             const hackeroot::AssetDirectory& asset) {
     const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
     AssetReport report{.name = asset.name, .directory = asset.directory};
+    std::set<std::string> reported;
     for (const std::filesystem::path& source : listAssetSources(asset.directory)) {
-        report.files.push_back(readFile(workspace, source));
+        FileReport file = readFile(workspace, source);
+        std::erase_if(file.diagnostics, [&reported](const base::Diagnostic& diagnostic) {
+            return !reported.insert(base::describe(diagnostic)).second;
+        });
+        report.files.push_back(std::move(file));
     }
     report.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);

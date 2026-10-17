@@ -45,7 +45,8 @@ struct ReportCounts {
 listAssetSources(const std::filesystem::path& directory);
 
 /// Preprocesses and parses every source of `asset` against the workspace's
-/// build configuration.
+/// build configuration. A diagnostic in a header several sources include is
+/// reported with the first of them only.
 [[nodiscard]] AssetReport readAssetReport(const hackeroot::Workspace& workspace,
                                           const hackeroot::AssetDirectory& asset);
 

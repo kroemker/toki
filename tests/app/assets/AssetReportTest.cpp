@@ -5,6 +5,7 @@
 #include "app/assets/domain/ObjectNames.h"
 #include "app/assets/domain/SceneNames.h"
 #include "base/Diagnostic.h"
+#include "base/Types.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -73,6 +74,22 @@ TEST_CASE("opening a scene reports its files, declarations, images and diagnosti
             return diagnostic.message.contains("missing.h");
         }));
     REQUIRE(report.files[1].diagnostics.empty());
+}
+
+TEST_CASE("a diagnostic in a header several files include is reported once", "[assets]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+
+    const toki::assets::AssetReport report =
+        toki::assets::readAssetReport(*workspace, findScene(*workspace, "spot00"));
+
+    base::usize count = 0;
+    for (const toki::assets::FileReport& file : report.files) {
+        count += static_cast<base::usize>(
+            std::ranges::count_if(file.diagnostics, [](const base::Diagnostic& diagnostic) {
+                return diagnostic.message.contains("missing_shared.h");
+            }));
+    }
+    REQUIRE(count == 1);
 }
 
 TEST_CASE("an asset is read off the calling thread", "[assets]") {

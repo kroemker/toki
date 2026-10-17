@@ -84,17 +84,24 @@ TEST_CASE("includes are followed only inside the allowed roots", "[cparser][prep
         REQUIRE(reports(unit, "<ultra64.h>"));
     }
 
-    SECTION("an include escaping the roots is reported and skipped") {
+    SECTION("an include escaping the roots is skipped and listed for the caller") {
         REQUIRE_FALSE(hasIdentifier(unit, "sOutsideMarker"));
-        REQUIRE(reports(unit, "outside the asset tree"));
+        REQUIRE_FALSE(reports(unit, "elsewhere.h"));
+        REQUIRE(std::ranges::contains(unit.unresolvedIncludes, "../outside/elsewhere.h"));
     }
 
     SECTION("a cycle stops at the file that is already open") {
         REQUIRE(reports(unit, "already open"));
     }
 
-    SECTION("an include that does not exist is a diagnostic, not a failure") {
-        REQUIRE(reports(unit, "missing.c"));
+    SECTION("an include that does not exist is a warning, not a failure") {
+        const auto missing =
+            std::ranges::find_if(unit.diagnostics, [](const base::Diagnostic& diagnostic) {
+                return diagnostic.message.contains("missing.c");
+            });
+        REQUIRE(missing != unit.diagnostics.end());
+        REQUIRE(missing->severity == base::Severity::Warning);
+        REQUIRE(std::ranges::contains(unit.unresolvedIncludes, "missing.c"));
     }
 
     SECTION("every token points into a file the unit owns") {
@@ -108,6 +115,28 @@ TEST_CASE("includes are followed only inside the allowed roots", "[cparser][prep
             REQUIRE(token.text.data() >= contents.data());
             REQUIRE(token.text.data() + token.text.size() <= contents.data() + contents.size());
         }
+    }
+}
+
+TEST_CASE("a search path outside the roots is searched but never followed",
+          "[cparser][preprocessor]") {
+    const Harness harness;
+    const cparser::TranslationUnit unit =
+        harness.read(getFixtures() / "searched/scene.c",
+                     cparser::PreprocessOptions{.searchPaths = {getFixtures() / "outside"},
+                                                .allowedRoots = {getFixtures() / "searched"},
+                                                .resolveMissingInclude = embedGenerated});
+
+    SECTION("a header found there is listed for the caller and not reported") {
+        REQUIRE_FALSE(hasIdentifier(unit, "sOutsideMarker"));
+        REQUIRE(std::ranges::contains(unit.unresolvedIncludes, "elsewhere.h"));
+        REQUIRE(unit.diagnostics.empty());
+    }
+
+    SECTION("a stand-in inside the roots wins over a file found there") {
+        REQUIRE_FALSE(hasIdentifier(unit, "sBuiltMarker"));
+        REQUIRE(unit.embedded.size() == 1);
+        REQUIRE(unit.embedded[0].path.parent_path().filename() == "searched");
     }
 }
 

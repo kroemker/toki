@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <expected>
 #include <filesystem>
-#include <format>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -33,7 +32,7 @@ bool IncludeResolver::isAllowed(const std::filesystem::path& path) const {
         allowedRoots, [&path](const std::filesystem::path& root) { return isInside(path, root); });
 }
 
-std::expected<ResolvedInclude, std::string>
+std::expected<ResolvedInclude, IncludeFailure>
 IncludeResolver::resolve(std::string_view spelling,
                          const std::filesystem::path& includingDirectory) {
     std::vector<std::filesystem::path> candidates;
@@ -42,14 +41,15 @@ IncludeResolver::resolve(std::string_view spelling,
         candidates.push_back(canonicalize(root / std::filesystem::path(spelling)));
     }
 
+    bool isOutside = false;
     for (const std::filesystem::path& candidate : candidates) {
         if (!directories.holds(candidate)) {
             continue;
         }
-        if (!isAllowed(candidate)) {
-            return std::unexpected(std::format("'{}' is outside the asset tree", spelling));
+        if (isAllowed(candidate)) {
+            return ResolvedInclude{.path = candidate};
         }
-        return ResolvedInclude{.path = candidate};
+        isOutside = true;
     }
 
     if (resolveMissing) {
@@ -58,13 +58,13 @@ IncludeResolver::resolve(std::string_view spelling,
             if (!stand) {
                 continue;
             }
-            if (!isAllowed(stand->path)) {
-                return std::unexpected(std::format("'{}' is outside the asset tree", spelling));
+            if (isAllowed(stand->path)) {
+                return std::move(*stand);
             }
-            return std::move(*stand);
+            isOutside = true;
         }
     }
-    return std::unexpected(std::format("cannot find '{}'", spelling));
+    return std::unexpected(isOutside ? IncludeFailure::OutsideRoots : IncludeFailure::Missing);
 }
 
 } // namespace cparser

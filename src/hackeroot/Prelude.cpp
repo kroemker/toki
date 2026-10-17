@@ -8,6 +8,7 @@
 #include "cparser/SourceFile.h"
 #include "cparser/SourceSet.h"
 #include "cparser/TypeParser.h"
+#include "hackeroot/AssetSource.h"
 #include "hackeroot/Workspace.h"
 #include "z64/DecompDialect.h"
 
@@ -33,13 +34,6 @@ void hideOtherArms(cparser::MacroTable& layer, const cparser::MacroTable& read,
     }
 }
 
-std::vector<std::filesystem::path> makeIncludePaths(const Workspace& workspace) {
-    const std::filesystem::path& root = workspace.getRoot();
-    const std::string& version = workspace.getBuildDefines().version;
-    return {root / "include", root / "src", root / "build" / version, root,
-            root / "extracted" / version};
-}
-
 } // namespace
 
 Prelude readPrelude(const Workspace& workspace, const std::span<const std::string> includes) {
@@ -56,7 +50,8 @@ Prelude readPrelude(const Workspace& workspace, const std::span<const std::strin
     configuration.defineFrom(workspace.getMacros());
     cparser::TranslationUnit unit = cparser::preprocessText(
         configuration, workspace.getRoot() / "<prelude>", std::move(source),
-        cparser::PreprocessOptions{.searchPaths = makeIncludePaths(workspace),
+        cparser::PreprocessOptions{.searchPaths = makeBuildIncludePaths(
+                                       workspace.getRoot(), workspace.getBuildDefines().version),
                                    .dialect = &z64::getDecompDialect(),
                                    .expandMacros = true});
 

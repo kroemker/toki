@@ -9,14 +9,22 @@
 #include <expected>
 #include <filesystem>
 #include <string_view>
+#include <vector>
 
 namespace hackeroot {
+
+std::vector<std::filesystem::path> makeBuildIncludePaths(const std::filesystem::path& repository,
+                                                        const std::string_view version) {
+    return {repository / "include",         repository / "include" / "libc",
+            repository / "src",             repository / "build" / version,
+            repository,                     repository / "extracted" / version};
+}
 
 cparser::PreprocessOptions makeAssetPreprocessOptions(const std::filesystem::path& repository,
                                                       const std::string_view version) {
     const std::filesystem::path extracted = repository / "extracted" / version;
     return cparser::PreprocessOptions{
-        .searchPaths = {repository, extracted},
+        .searchPaths = makeBuildIncludePaths(repository, version),
         .allowedRoots = {repository / "assets", extracted / "assets"},
         .resolveMissingInclude = z64::resolveTextureInclude,
         .dialect = &z64::getDecompDialect(),
