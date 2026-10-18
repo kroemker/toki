@@ -2,6 +2,7 @@ target_sources(toki_core PRIVATE
         ActorDescription.cpp
         ActorDrawingReader.cpp
         ActorDraws.cpp
+        ActorEntryWriter.cpp
         ActorObjects.cpp
         ActorMarkers.cpp
         RuntimeSegments.cpp
