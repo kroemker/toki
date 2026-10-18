@@ -67,7 +67,8 @@ std::vector<ImageDifference> compareSymbols(const MemoryImage& expected, const M
     }
     std::vector<ImageDifference> differences;
     const auto report = [&differences](const std::string_view name, std::string message) {
-        differences.push_back(ImageDifference{.symbol = std::string(name), .message = std::move(message)});
+        differences.push_back(
+            ImageDifference{.symbol = std::string(name), .message = std::move(message)});
     };
     for (const auto& [name, symbol] : left) {
         const auto found = right.find(name);
@@ -77,7 +78,8 @@ std::vector<ImageDifference> compareSymbols(const MemoryImage& expected, const M
         }
         const SymbolData& other = found->second;
         if (symbol.type != other.type || symbol.isArray != other.isArray) {
-            report(name, std::format("is a {}, not a {}", makeTypeText(other), makeTypeText(symbol)));
+            report(name,
+                   std::format("is a {}, not a {}", makeTypeText(other), makeTypeText(symbol)));
             continue;
         }
         if (std::string bytes = compareBytes(symbol, other); !bytes.empty()) {

@@ -14,7 +14,8 @@ using base::u8;
 namespace {
 
 z64::ImageObject makeObject(const std::string& name, std::vector<u8> bytes,
-                            std::vector<z64::Relocation> relocations = {}, bool startsFile = false) {
+                            std::vector<z64::Relocation> relocations = {},
+                            bool startsFile = false) {
     return z64::ImageObject{
         .segment = 2,
         .name = name,
@@ -46,8 +47,7 @@ TEST_CASE("the same symbols laid out elsewhere do not differ", "[z64][image]") {
     REQUIRE(z64::compareSymbols(expected, actual, 2).empty());
 }
 
-TEST_CASE("symbols differ by bytes, by what they point at, and by being there",
-          "[z64][image]") {
+TEST_CASE("symbols differ by bytes, by what they point at, and by being there", "[z64][image]") {
     const z64::MemoryImage expected = makeImage(false);
     std::vector<z64::ImageObject> objects;
     objects.push_back(makeObject("a", {0, 0, 0, 2}));
@@ -55,8 +55,7 @@ TEST_CASE("symbols differ by bytes, by what they point at, and by being there",
     objects.push_back(makeObject("c", {0, 0, 0, 0}));
     const z64::MemoryImage actual = z64::layOutImage(std::move(objects), {});
 
-    const std::vector<z64::ImageDifference> differences =
-        z64::compareSymbols(expected, actual, 2);
+    const std::vector<z64::ImageDifference> differences = z64::compareSymbols(expected, actual, 2);
 
     REQUIRE(differences.size() == 3);
     REQUIRE(differences[0].symbol == "a");

@@ -31,8 +31,9 @@ z64::ImageObject makeObject(const std::string& name, std::vector<u8> bytes,
 std::vector<z64::ImageObject> makeObjects() {
     std::vector<z64::ImageObject> objects;
     objects.push_back(makeObject("first", {0, 0, 0, 1}));
-    objects.push_back(makeObject("list", {0, 0, 0, 0, 0, 0, 0, 8},
-                                 {{.offset = 0, .symbol = "first"}, {.offset = 4, .symbol = "first"}}));
+    objects.push_back(
+        makeObject("list", {0, 0, 0, 0, 0, 0, 0, 8},
+                   {{.offset = 0, .symbol = "first"}, {.offset = 4, .symbol = "first"}}));
     objects.push_back(makeObject("outside", {0, 0, 0, 4}, {{.offset = 0, .symbol = "elsewhere"}}));
     return objects;
 }

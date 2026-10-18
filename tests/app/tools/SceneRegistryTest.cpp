@@ -109,7 +109,8 @@ TEST_CASE("registering a scene writes every place the build learns of it, then n
                           "    include \"$(BUILD_DIR)/assets/scenes/ocean_test/"
                           "ocean_test_scene_main.o\"\n"));
     REQUIRE(spec.contains("name \"ocean_test_room_0\""));
-    REQUIRE(spec.ends_with("// toki: custom scenes end\n\n#if TESTSUITE_MODE\n#include \"t\"\n#endif\n"));
+    REQUIRE(spec.ends_with(
+        "// toki: custom scenes end\n\n#if TESTSUITE_MODE\n#include \"t\"\n#endif\n"));
     REQUIRE(
         readText(root / "include/tables/scene_table.h")
             .contains("DEFINE_SCENE(ocean_test_scene, none, SCENE_OCEAN_TEST, SDC_DEFAULT, 0, 0)"));

@@ -75,10 +75,10 @@ TEST_CASE("a header's documented defines are listed with their comments", "[tool
 
 TEST_CASE("a new actor's files follow the decomp's template", "[tools][actor]") {
     const toki::createActor::ActorDraft draft{.name = "En_Foo",
-                                        .description = "A foo",
-                                        .flags = {"ACTOR_FLAG_A", "ACTOR_FLAG_B"},
-                                        .isDynaPoly = true,
-                                        .turnsCollision = true};
+                                              .description = "A foo",
+                                              .flags = {"ACTOR_FLAG_A", "ACTOR_FLAG_B"},
+                                              .isDynaPoly = true,
+                                              .turnsCollision = true};
 
     const std::string header = toki::createActor::makeActorHeader(draft);
     REQUIRE(header.starts_with("#ifndef Z_EN_FOO_H\n#define Z_EN_FOO_H\n"));
@@ -127,11 +127,13 @@ TEST_CASE("creating an actor registers it and writes its overlay, once", "[tools
     registered.actors.push_back({.name = "En_Foo", .enumName = "ACTOR_EN_FOO"});
     REQUIRE(toki::createActor::findDraftProblem({.name = "En_Foo"}, registered).has_value());
     REQUIRE(toki::createActor::findDraftProblem({.name = "en foo"}, registered).has_value());
-    REQUIRE(toki::createActor::findDraftProblem({.name = "En_Bar", .object = "object_none"}, registered)
-                .has_value());
+    REQUIRE(
+        toki::createActor::findDraftProblem({.name = "En_Bar", .object = "object_none"}, registered)
+            .has_value());
     REQUIRE_FALSE(toki::createActor::findDraftProblem({.name = "En_Bar"}, registered).has_value());
-    REQUIRE(toki::createActor::findDraftProblem({.name = "En_Bar", .description = "a */ b"}, registered)
-                .has_value());
+    REQUIRE(
+        toki::createActor::findDraftProblem({.name = "En_Bar", .description = "a */ b"}, registered)
+            .has_value());
     std::error_code ignored;
     std::filesystem::remove_all(root, ignored);
 }

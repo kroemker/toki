@@ -276,11 +276,10 @@ void Preprocessor::doInclude(const Token& directive, std::span<const Token> line
             .line = target.line,
             .column = target.column,
         });
-        unit.embedded.push_back(
-            EmbeddedFile{.path = resolved->path,
-                         .tag = resolved->tag,
-                         .spelling = spelling,
-                         .location = location});
+        unit.embedded.push_back(EmbeddedFile{.path = resolved->path,
+                                             .tag = resolved->tag,
+                                             .spelling = spelling,
+                                             .location = location});
         return;
     }
 

@@ -20,7 +20,7 @@ struct ImageDifference {
 /// symbols, the constant added to each being in the bytes. Where a symbol sits
 /// is not compared, so two images of the same symbols laid out in another order
 /// or split into other files do not differ. Empty when nothing does.
-[[nodiscard]] std::vector<ImageDifference>
-compareSymbols(const MemoryImage& expected, const MemoryImage& actual, u8 segment);
+[[nodiscard]] std::vector<ImageDifference> compareSymbols(const MemoryImage& expected,
+                                                          const MemoryImage& actual, u8 segment);
 
 } // namespace z64

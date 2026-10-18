@@ -44,8 +44,8 @@ SymbolData makeSymbolData(const ImageSegment& segment, const std::string_view na
         data.bytes.assign(segment.bytes.begin() + static_cast<std::ptrdiff_t>(symbol.offset),
                           segment.bytes.begin() + static_cast<std::ptrdiff_t>(end));
     }
-    const auto first = std::ranges::lower_bound(segment.relocations, symbol.offset, {},
-                                                &Relocation::offset);
+    const auto first =
+        std::ranges::lower_bound(segment.relocations, symbol.offset, {}, &Relocation::offset);
     for (auto relocation = first;
          relocation != segment.relocations.end() && relocation->offset < end; ++relocation) {
         const usize at = relocation->offset - symbol.offset;
