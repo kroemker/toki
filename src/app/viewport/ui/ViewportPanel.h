@@ -18,6 +18,8 @@
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
 
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float3.hpp>
 #include <glm/vec2.hpp>
 #include <imgui.h>
 
@@ -150,6 +152,23 @@ public:
         return imageOrigin;
     }
 
+    /// The points a click in the viewport picks, and what picking the one at
+    /// an index does.
+    void setPickables(std::vector<glm::vec3> points, std::function<void(usize)> pick) {
+        pickables = std::move(points);
+        pickHandler = std::move(pick);
+    }
+
+    /// A point a gizmo moves, and what is done with where it is moved to:
+    /// `isDone` once it is let go. Nothing hides the gizmo.
+    void setHandle(std::optional<glm::vec3> position,
+                   std::function<void(const glm::vec3&, bool isDone)> move) {
+        if (!isHandleHeld) {
+            handle = position;
+        }
+        moveHandler = std::move(move);
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -162,6 +181,9 @@ private:
     void drawBar();
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
+    void drawHandle(ImDrawList& drawList, ImVec2 origin, ImVec2 size);
+    void pick(ImVec2 origin, ImVec2 size) const;
+    [[nodiscard]] glm::mat4 makeProjection(ImVec2 size) const;
     void render(const gfx::RenderTarget& target);
     [[nodiscard]] std::vector<base::Diagnostic> drawFrame(const gfx::RenderTarget& target);
     [[nodiscard]] gfx::Overlay makeOverlay(const DrawnFrame& drawing, FrameSize size) const;
@@ -189,6 +211,11 @@ private:
     std::optional<DrawnFrame> drawnFrame;
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
+    std::vector<glm::vec3> pickables;
+    std::function<void(usize)> pickHandler;
+    std::optional<glm::vec3> handle;
+    std::function<void(const glm::vec3&, bool)> moveHandler;
+    bool isHandleHeld = false;
     bool stale = true;
     bool isOverlayStale = false;
     bool reported = false;

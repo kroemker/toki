@@ -16,6 +16,7 @@
         "sdlgpu3-binding"
       ]
     },
+    "imguizmo",
     "catch2",
     "libspng",
     "tomlplusplus"

@@ -76,6 +76,8 @@ public:
         pendingSession.reset();
         viewportPanel.setOverlay({});
         viewportPanel.clearChoices();
+        viewportPanel.setPickables({}, {});
+        viewportPanel.setHandle(std::nullopt, {});
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing
@@ -113,6 +115,9 @@ private:
     void drawRooms(const SceneLayer& layer);
     void drawRoomMenu(usize room, const RoomHeader& header);
     void drawHeldScene();
+    /// Offers the viewport the placements it shows to pick, and the selected
+    /// one to move.
+    void offerPlacements(const SceneLayer& layer);
     void drawPlacements(const SceneLayer& layer);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
     void drawFlagLinks(const std::vector<SceneFlagUse>& flags);

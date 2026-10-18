@@ -290,6 +290,42 @@ void PlacementEditor::drawRoomMenu(const usize layer, const usize room,
     }
 }
 
+std::optional<std::array<s16, 3>> PlacementEditor::findSelectedPosition(const Scene& scene) const {
+    if (!selected) {
+        return std::nullopt;
+    }
+    const std::optional<Placement> placement = draft ? draft : findPlacement(scene, *selected);
+    if (!placement) {
+        return std::nullopt;
+    }
+    return std::visit([](const auto& held) { return held.position; }, *placement);
+}
+
+void PlacementEditor::moveSelected(const Scene& scene, const std::array<s16, 3>& position,
+                                   const bool isDone) {
+    if (!selected) {
+        return;
+    }
+    if (!draft) {
+        draft = findPlacement(scene, *selected);
+    }
+    if (!draft) {
+        return;
+    }
+    std::visit([&position](auto& held) { held.position = position; }, *draft);
+    if (!isDone) {
+        return;
+    }
+    picked = [this, where = *selected, moved = *draft](Scene& edited) {
+        apply(edited, where, [&moved, &where](SceneModel& model, const PlacementList& list) {
+            if (const auto* transition = std::get_if<TransitionActorPlacement>(&moved)) {
+                return setTransitionActor(model, list.layer, where.index, *transition);
+            }
+            return setPlacement(model, list, where.index, std::get<ActorPlacement>(moved));
+        });
+    };
+}
+
 void PlacementEditor::applyPicked(Scene& scene) {
     if (picked) {
         std::exchange(picked, nullptr)(scene);

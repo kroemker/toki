@@ -1,0 +1,27 @@
+#pragma once
+
+#include "app/viewport/Types.h"
+
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float2.hpp>
+#include <glm/ext/vector_float3.hpp>
+
+#include <optional>
+#include <span>
+
+namespace toki::viewport {
+
+/// Where `point` falls on an image of `size` that `viewProjection` draws, from
+/// its top left, y down, as the mouse is; nothing when it is behind the
+/// camera.
+[[nodiscard]] std::optional<glm::vec2> findScreenPosition(const glm::mat4& viewProjection,
+                                                          glm::vec2 size, const glm::vec3& point);
+
+/// The index of the point of `points` that falls nearest `mouse` on the image,
+/// if one falls within `radius` of it; of two as near, the one nearer the
+/// camera.
+[[nodiscard]] std::optional<usize> findPickedPoint(const glm::mat4& viewProjection, glm::vec2 size,
+                                                   glm::vec2 mouse,
+                                                   std::span<const glm::vec3> points, f32 radius);
+
+} // namespace toki::viewport

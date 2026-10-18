@@ -13,6 +13,7 @@
 #include "app/viewport/domain/ReferenceGrid.h"
 #include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/RenderOverride.h"
+#include "app/viewport/domain/ScreenPick.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportView.h"
@@ -27,9 +28,12 @@
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
 
+#include <ImGuizmo.h>
 #include <SDL3/SDL_gpu.h>
 #include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 
 #include <algorithm>
@@ -56,6 +60,10 @@ constexpr LineStyle WireframeStyle{.color = {210, 214, 222, 255}, .width = 1.0F}
 constexpr f32 HighlightEdgeWidth = 1.0F;
 
 constexpr f32 DegreesPerPoint = 0.4F;
+/// How far, in points, the mouse may move between press and release for a
+/// click to pick, and how near a point it must be.
+constexpr f32 ClickDistance = 4.0F;
+constexpr f32 PickRadius = 12.0F;
 constexpr float ChipOpacity = 0.8F;
 constexpr usize ReportedDiagnostics = 8;
 
@@ -148,8 +156,17 @@ void ViewportPanel::draw() {
     ImGui::InvisibleButton("##viewport", size,
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight |
                                ImGuiButtonFlags_MouseButtonMiddle);
-    if (handleInput(size)) {
+    const bool isOverHandle = handle && ImGuizmo::IsOver();
+    if (ImGui::IsItemActivated() && isOverHandle) {
+        isHandleHeld = true;
+    }
+    if (!isHandleHeld && handleInput(size)) {
         stale = true;
+    }
+    if (ImGui::IsItemDeactivated() && !isHandleHeld &&
+        ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <
+            ClickDistance * ClickDistance) {
+        pick(origin, size);
     }
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -194,6 +211,7 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
+    drawHandle(*drawList, origin, size);
     drawList->PopClipRect();
     ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
     if (readingName) {
@@ -252,6 +270,50 @@ void ViewportPanel::drawViewChanges(ImDrawList& drawList, const ImVec2 origin,
     drawList.AddRect(min, max, ImGui::GetColorU32(core::palette::Border), core::space::Small);
     drawList.AddText(ImVec2(min.x + padding.x, min.y + padding.y),
                      ImGui::GetColorU32(core::palette::Warning), text.c_str());
+}
+
+glm::mat4 ViewportPanel::makeProjection(const ImVec2 size) const {
+    const f32 zFar = viewportContent.lighting ? viewportContent.lighting->zFar : OrbitCamera::Far;
+    return OrbitCamera::makeProjectionMatrix(size.x / size.y, zFar);
+}
+
+void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
+    if (!pickHandler || !ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        return;
+    }
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    if (const std::optional<usize> picked =
+            findPickedPoint(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
+                            {mouse.x - origin.x, mouse.y - origin.y}, pickables, PickRadius)) {
+        pickHandler(*picked);
+    }
+}
+
+void ViewportPanel::drawHandle(ImDrawList& drawList, const ImVec2 origin, const ImVec2 size) {
+    if (!handle) {
+        isHandleHeld = false;
+        return;
+    }
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetOrthographic(false);
+    ImGuizmo::SetDrawlist(&drawList);
+    ImGuizmo::SetRect(origin.x, origin.y, size.x, size.y);
+    const glm::mat4 view = orbitCamera.makeViewMatrix();
+    const glm::mat4 projection = makeProjection(size);
+    glm::mat4 matrix = glm::translate(glm::mat4(1.0F), *handle);
+    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::TRANSLATE,
+                             ImGuizmo::WORLD, glm::value_ptr(matrix))) {
+        handle = glm::vec3(matrix[3]);
+        if (moveHandler) {
+            moveHandler(*handle, false);
+        }
+    }
+    if (isHandleHeld && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        isHandleHeld = false;
+        if (moveHandler) {
+            moveHandler(*handle, true);
+        }
+    }
 }
 
 bool ViewportPanel::handleInput(const ImVec2 size) {

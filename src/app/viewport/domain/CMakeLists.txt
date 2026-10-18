@@ -4,5 +4,6 @@ target_sources(toki_core PRIVATE
         OverlayGeometry.cpp
         ReferenceGrid.cpp
         RenderOverride.cpp
+        ScreenPick.cpp
         ViewportFrame.cpp
         ViewportView.cpp)

@@ -58,6 +58,13 @@ public:
     /// Makes the edit picked from a menu this frame, if one was.
     void applyPicked(Scene& scene);
 
+    /// Where the selected placement is, as it is being edited.
+    [[nodiscard]] std::optional<std::array<s16, 3>> findSelectedPosition(const Scene& scene) const;
+
+    /// Moves the selected placement to `position`, as a gizmo drags it; once
+    /// `isDone`, the move is made by `applyPicked`.
+    void moveSelected(const Scene& scene, const std::array<s16, 3>& position, bool isDone);
+
     /// Why the last edit was not made, or empty.
     [[nodiscard]] const std::string& getFailure() const {
         return failure;

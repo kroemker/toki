@@ -28,6 +28,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
 #include <format>
 #include <iterator>
 #include <optional>
@@ -66,6 +68,14 @@ constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
 
 [[nodiscard]] glm::vec3 makePoint(const std::array<s16, 3>& position) {
     return {position[0], position[1], position[2]};
+}
+
+[[nodiscard]] s16 roundToS16(const f32 value) {
+    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
+}
+
+[[nodiscard]] std::array<s16, 3> makePosition(const glm::vec3& point) {
+    return {roundToS16(point.x), roundToS16(point.y), roundToS16(point.z)};
 }
 
 [[nodiscard]] std::optional<std::string> findSymbolName(const z64::MemoryImage& image,
@@ -206,7 +216,52 @@ void ScenePanel::draw() {
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
     drawFlags(flags);
     drawFlagLinks(flags);
+    offerPlacements(layer);
     placementEditor.applyPicked(*scene);
+}
+
+void ScenePanel::offerPlacements(const SceneLayer& layer) {
+    std::vector<glm::vec3> points;
+    std::vector<PlacementRef> placements;
+    const auto offer = [&points, &placements](const PlacementRef& where,
+                                              const std::array<s16, 3>& position) {
+        points.push_back(makePoint(position));
+        placements.push_back(where);
+    };
+    if (sceneView.showsActors) {
+        for (usize room = 0; room < layer.rooms.size(); ++room) {
+            if (room < sceneView.hiddenRooms.size() && sceneView.hiddenRooms[room]) {
+                continue;
+            }
+            for (usize i = 0; i < layer.rooms[room].actors.size(); ++i) {
+                offer({.kind = PlacementKind::Actor,
+                       .layer = sceneView.layer,
+                       .room = room,
+                       .index = i},
+                      layer.rooms[room].actors[i].position);
+            }
+        }
+        for (usize i = 0; i < layer.header.transitionActors.size(); ++i) {
+            offer({.kind = PlacementKind::TransitionActor, .layer = sceneView.layer, .index = i},
+                  layer.header.transitionActors[i].position);
+        }
+        for (usize i = 0; i < layer.header.playerEntries.size(); ++i) {
+            offer({.kind = PlacementKind::PlayerEntry, .layer = sceneView.layer, .index = i},
+                  layer.header.playerEntries[i].position);
+        }
+    }
+    viewportPanel.setPickables(std::move(points),
+                               [this, placements = std::move(placements)](const usize index) {
+                                   placementEditor.select(placements[index]);
+                               });
+    const std::optional<std::array<s16, 3>> selected = placementEditor.findSelectedPosition(*scene);
+    viewportPanel.setHandle(selected ? std::optional(makePoint(*selected)) : std::nullopt,
+                            [this](const glm::vec3& moved, const bool isDone) {
+                                if (scene) {
+                                    placementEditor.moveSelected(*scene, makePosition(moved),
+                                                                 isDone);
+                                }
+                            });
 }
 
 void ScenePanel::drawHeldScene() {

@@ -33,6 +33,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(glm CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(imguizmo CONFIG REQUIRED)
 find_package(tomlplusplus CONFIG REQUIRED)
 find_package(SPNG CONFIG REQUIRED)
 
@@ -59,7 +60,8 @@ target_link_libraries(toki_gfx PUBLIC SDL3::SDL3 PRIVATE toki_warnings)
 # Console subsystem while the tool is in early development, so startup failures
 # and diagnostics are visible without a log panel to put them in.
 add_executable(toki)
-target_link_libraries(toki PRIVATE toki_core toki_gfx SDL3::SDL3 imgui::imgui toki_warnings)
+target_link_libraries(toki PRIVATE toki_core toki_gfx SDL3::SDL3 imgui::imgui imguizmo::imguizmo
+        toki_warnings)
 
 # Fonts and the shipped actor database are the only files the executable reads
 # from beside itself; everything else comes from the user's decomp checkout.
