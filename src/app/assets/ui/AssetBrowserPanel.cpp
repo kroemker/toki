@@ -31,6 +31,13 @@ namespace toki::assets {
 
 namespace {
 
+[[nodiscard]] std::string capitalize(std::string word) {
+    if (!word.empty() && word.front() >= 'a' && word.front() <= 'z') {
+        word.front() = static_cast<char>(word.front() - 'a' + 'A');
+    }
+    return word;
+}
+
 constexpr float DetailsLines = 8.5F;
 constexpr ImGuiTableFlags TableFlags = ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg |
                                        ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
@@ -191,7 +198,8 @@ void AssetBrowserPanel::drawScenes(const hackeroot::Workspace& workspace, const 
         }
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        const std::string header = std::format("{} ({})", rows[start].category, end - start);
+        const std::string header =
+            std::format("{} ({})", capitalize(rows[start].category), end - start);
         const bool expanded =
             ImGui::TreeNodeEx(rows[start].category.c_str(),
                               ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns,
