@@ -1,15 +1,20 @@
 #include "SceneEditor.h"
 
+#include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "base/Diagnostic.h"
+#include "hackeroot/Tables.h"
 
 #include <algorithm>
 #include <expected>
 #include <format>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 namespace toki::scene {
 
@@ -53,6 +58,24 @@ bool hasUnreadActors(const Scene& scene) {
         }
     }
     return false;
+}
+
+std::optional<s16> findMissingObject(const Scene& scene, const PlacementRef& where,
+                                     const std::string_view object,
+                                     const hackeroot::Tables& tables) {
+    if (where.kind != PlacementKind::Actor || where.layer >= scene.layers.size()) {
+        return std::nullopt;
+    }
+    const std::vector<std::string> loaded =
+        listLoadedObjects(scene.layers[where.layer], where.room, tables);
+    if (std::ranges::contains(loaded, object)) {
+        return std::nullopt;
+    }
+    const auto found = std::ranges::find(tables.objects, object, &hackeroot::ObjectEntry::name);
+    if (found == tables.objects.end()) {
+        return std::nullopt;
+    }
+    return static_cast<s16>(found->id);
 }
 
 std::optional<PlacementList> findPlacementList(const Scene& scene, const PlacementRef& where) {

@@ -1,5 +1,6 @@
 #include "App.h"
 
+#include "app/actor/domain/ActorDatabase.h"
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/Derivation.h"
@@ -165,6 +166,17 @@ void App::registerPanels() {
                                                        symbolCatalog, collectionCatalog, fonts);
     actorsPanel = actors.get();
     scenePanel->setActorEditor([this](const std::string& actor) { actorsPanel->openActor(actor); });
+    scenePanel->setActorObjectFinder([this](const s16 actorId) -> std::optional<std::string> {
+        const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+        const auto index = static_cast<usize>(static_cast<u16>(actorId));
+        if (workspace == nullptr || !actorDatabase ||
+            index >= workspace->getTables().actors.size()) {
+            return std::nullopt;
+        }
+        const actor::ActorEntry* entry = actor::findEntry(
+            actorDatabase->database, workspace->getTables().actors[index].enumName);
+        return entry != nullptr ? entry->object : std::nullopt;
+    });
     scenePanel->setActorReader([this](const scene::Scene& edited) {
         sceneActorLoader.open(workspaceService.getSharedWorkspace(),
                               scene::ActorRequest{.name = std::format("{}'s actors", edited.name),

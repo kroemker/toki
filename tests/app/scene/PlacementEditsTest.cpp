@@ -5,6 +5,7 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
 #include "base/Types.h"
+#include "hackeroot/Tables.h"
 #include "z64/MemoryImage.h"
 #include "z64/Relocation.h"
 #include "z64/SymbolData.h"
@@ -187,4 +188,44 @@ TEST_CASE("an edit of the open scene shows in its layers, and one that fails cha
         }));
     REQUIRE(scene.images == images);
     REQUIRE(editor.findModel()->findSymbol("actors")->bytes.size() == 32);
+}
+
+TEST_CASE("objects are added to the end of a room's object list", "[scene][edit]") {
+    toki::scene::Scene scene;
+    scene.images.push_back(std::make_shared<const z64::MemoryImage>(
+        z64::layOutImage({makeObject(0, "sSetupDL", "u8", {0, 0, 0, 0, 0, 0, 0, 0})}, {})));
+    scene.images.push_back(std::make_shared<const z64::MemoryImage>(
+        z64::layOutImage({makeObject(2, "scene", "SceneCmd", {0x14, 0, 0, 0, 0, 0, 0, 0})}, {})));
+    scene.images.push_back(std::make_shared<const z64::MemoryImage>(z64::layOutImage(
+        {makeObject(3, "room", "SceneCmd", {0x0B, 1, 0, 0, 0, 0, 0, 0, 0x14, 0, 0, 0, 0, 0, 0, 0},
+                    {{.offset = 4, .symbol = "objects"}}),
+         makeObject(3, "objects", "s16", {0x00, 0x05})},
+        {})));
+    toki::scene::SceneModel model(scene);
+    const std::array<base::s16, 2> added{0x0102, 0x0003};
+
+    REQUIRE(toki::scene::addRoomObjects(model, 0, 0, added));
+
+    REQUIRE(readRoom(model, "room").objects == std::vector<base::s16>{5, 0x0102, 3});
+}
+
+TEST_CASE("an actor's object is missing when no keep and no object list of its room loads it",
+          "[scene][edit]") {
+    toki::scene::Scene scene;
+    toki::scene::SceneLayer layer;
+    layer.header.keepObjectId = 2;
+    layer.rooms.push_back(toki::scene::RoomHeader{.objects = {3}});
+    scene.layers.push_back(std::move(layer));
+    hackeroot::Tables tables;
+    tables.objects = {{.id = 1, .name = "gameplay_keep"},
+                      {.id = 2, .name = "gameplay_field_keep"},
+                      {.id = 3, .name = "object_kanban"},
+                      {.id = 4, .name = "object_box"}};
+    const toki::scene::PlacementRef actor{.kind = toki::scene::PlacementKind::Actor};
+
+    REQUIRE(toki::scene::findMissingObject(scene, actor, "object_box", tables) == base::s16{4});
+    REQUIRE_FALSE(toki::scene::findMissingObject(scene, actor, "object_kanban", tables));
+    REQUIRE_FALSE(toki::scene::findMissingObject(scene, actor, "gameplay_keep", tables));
+    REQUIRE_FALSE(toki::scene::findMissingObject(scene, actor, "gameplay_field_keep", tables));
+    REQUIRE_FALSE(toki::scene::findMissingObject(scene, actor, "object_unknown", tables));
 }

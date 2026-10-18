@@ -26,6 +26,12 @@ public:
 
     PlacementEditor(const workspace::WorkspaceService& workspaceService, Show show);
 
+    /// What finds the object the actor database says an actor needs, by its
+    /// ID, so that the room it is placed in loads it.
+    void setObjectFinder(std::function<std::optional<std::string>(s16 actorId)> finder) {
+        findActorObject = std::move(finder);
+    }
+
     void select(const PlacementRef& where) {
         selected = where;
         draft.reset();
@@ -73,7 +79,8 @@ public:
     }
 
 private:
-    void apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit);
+    bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit);
+    void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
     void add(Scene& scene, const PlacementRef& where, const Placement& placement);
     [[nodiscard]] bool editActor(ActorPlacement& placement) const;
     [[nodiscard]] bool editTransitionActor(TransitionActorPlacement& placement) const;
@@ -82,6 +89,7 @@ private:
 
     const workspace::WorkspaceService& workspaceService;
     Show show;
+    std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;
     std::optional<PlacementRef> selected;
     std::optional<Placement> draft;

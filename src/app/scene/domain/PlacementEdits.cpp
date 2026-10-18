@@ -11,6 +11,7 @@
 #include <expected>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -22,6 +23,7 @@ namespace {
 
 constexpr usize CommandSize = 8;
 constexpr usize EntrySize = 0x10;
+constexpr usize ObjectIdSize = 2;
 constexpr usize PointerSize = 4;
 constexpr usize MaximumCommands = 64;
 constexpr usize MaximumEntries = 0xFF;
@@ -29,46 +31,49 @@ constexpr usize MaximumEntries = 0xFF;
 enum class CommandCode : u8 {
     PlayerEntryList = 0x00,
     ActorList = 0x01,
+    ObjectList = 0x0B,
     TransitionActorList = 0x0E,
     End = 0x14,
     AlternateHeaderList = 0x18,
 };
 
-[[nodiscard]] CommandCode getCode(const PlacementKind kind) {
-    switch (kind) {
-    case PlacementKind::Actor:
-        return CommandCode::ActorList;
-    case PlacementKind::TransitionActor:
-        return CommandCode::TransitionActorList;
-    case PlacementKind::PlayerEntry:
-        return CommandCode::PlayerEntryList;
-    }
-    return CommandCode::ActorList;
-}
+/// A list a header command points at and counts.
+struct ListShape {
+    CommandCode code = CommandCode::ActorList;
+    usize entrySize = 0;
+    std::string_view noun;
+    /// The suffix fast64 names a header's list with.
+    std::string_view suffix;
+    /// Whether a room's header holds it, rather than the scene's.
+    bool isRoom = false;
+};
 
-[[nodiscard]] std::string_view getNoun(const PlacementKind kind) {
-    switch (kind) {
-    case PlacementKind::Actor:
-        return "actor list";
-    case PlacementKind::TransitionActor:
-        return "transition actor list";
-    case PlacementKind::PlayerEntry:
-        return "player entry list";
-    }
-    return "";
-}
+constexpr ListShape ObjectListShape{.code = CommandCode::ObjectList,
+                                    .entrySize = ObjectIdSize,
+                                    .noun = "object list",
+                                    .suffix = "objectList",
+                                    .isRoom = true};
 
-/// The suffix fast64 names a header's list with.
-[[nodiscard]] std::string_view getSuffix(const PlacementKind kind) {
+[[nodiscard]] ListShape getShape(const PlacementKind kind) {
     switch (kind) {
     case PlacementKind::Actor:
-        return "actorList";
+        return {.code = CommandCode::ActorList,
+                .entrySize = EntrySize,
+                .noun = "actor list",
+                .suffix = "actorList",
+                .isRoom = true};
     case PlacementKind::TransitionActor:
-        return "transitionActors";
+        return {.code = CommandCode::TransitionActorList,
+                .entrySize = EntrySize,
+                .noun = "transition actor list",
+                .suffix = "transitionActors"};
     case PlacementKind::PlayerEntry:
-        return "playerEntryList";
+        return {.code = CommandCode::PlayerEntryList,
+                .entrySize = EntrySize,
+                .noun = "player entry list",
+                .suffix = "playerEntryList"};
     }
-    return "";
+    return {};
 }
 
 [[nodiscard]] base::Diagnostic makeEditError(std::string message) {
@@ -140,7 +145,11 @@ struct ListSite {
 class ListEditor {
 public:
     ListEditor(SceneModel& model, const PlacementList& list)
-        : model(model), list(list), image(list.kind == PlacementKind::Actor ? list.room + 1 : 0) {}
+        : ListEditor(model, getShape(list.kind), list.layer, list.room) {}
+
+    ListEditor(SceneModel& model, const ListShape& shape, const usize layer, const usize room)
+        : model(model), shape(shape), layer(layer), room(room), image(shape.isRoom ? room + 1 : 0) {
+    }
 
     /// The list the header points at, as it is.
     [[nodiscard]] std::expected<ListSite, base::Diagnostic> find() const;
@@ -167,7 +176,7 @@ public:
                 "'{}' has {} entries, so there is none at {}", site->list, site->count, index)));
         }
         z64::SymbolData entries = *model.findSymbol(site->list);
-        write(entries.bytes, index * EntrySize);
+        write(entries.bytes, index * shape.entrySize);
         return model.setSymbol(std::move(entries));
     }
 
@@ -179,33 +188,34 @@ private:
                                                                  usize count) const;
 
     SceneModel& model;
-    PlacementList list;
+    ListShape shape;
+    usize layer;
+    usize room;
     usize image;
 };
 
 std::expected<std::string, base::Diagnostic> ListEditor::findHeader() const {
     if (image >= model.getImages().size() || model.getImages()[image].empty()) {
-        return std::unexpected(makeEditError(std::format("the scene has no room {}", list.room)));
+        return std::unexpected(makeEditError(std::format("the scene has no room {}", room)));
     }
     const z64::SymbolData& main = model.getImages()[image].front();
-    if (list.layer == 0) {
+    if (layer == 0) {
         return main.name;
     }
-    const bool isRoom = list.kind == PlacementKind::Actor;
     const std::optional<usize> command = findCommand(main, CommandCode::AlternateHeaderList);
     const std::optional<std::string> alternates =
         command ? findPointee(main, *command + PointerSize) : std::nullopt;
     const z64::SymbolData* headers = alternates ? model.findSymbol(*alternates) : nullptr;
     const std::optional<std::string> header =
-        headers != nullptr ? findPointee(*headers, (list.layer - 1) * PointerSize) : std::nullopt;
+        headers != nullptr ? findPointee(*headers, (layer - 1) * PointerSize) : std::nullopt;
     if (header) {
         return *header;
     }
-    if (isRoom) {
+    if (shape.isRoom) {
         return main.name;
     }
     return std::unexpected(
-        makeEditError(std::format("the scene has no header for layer {}", list.layer)));
+        makeEditError(std::format("the scene has no header for layer {}", layer)));
 }
 
 std::expected<ListSite, base::Diagnostic> ListEditor::find() const {
@@ -217,12 +227,12 @@ std::expected<ListSite, base::Diagnostic> ListEditor::find() const {
     if (commands == nullptr) {
         return std::unexpected(makeEditError(std::format("no header '{}' was read", *header)));
     }
-    const std::optional<usize> command = findCommand(*commands, getCode(list.kind));
+    const std::optional<usize> command = findCommand(*commands, shape.code);
     const std::optional<std::string> pointee =
         command ? findPointee(*commands, *command + PointerSize) : std::nullopt;
     if (!pointee || model.findSymbol(*pointee) == nullptr) {
         return std::unexpected(makeEditError(std::format(
-            "'{}' has no {}, and adding one is not supported yet", *header, getNoun(list.kind))));
+            "'{}' has no {}, and adding one is not supported yet", *header, shape.noun)));
     }
     return ListSite{.header = std::move(*header),
                     .command = *command,
@@ -243,7 +253,7 @@ usize ListEditor::countPointers(const std::string_view name) const {
 
 std::string ListEditor::makeCopyName() const {
     const std::string base = std::format("{}_header{:02}_{}", model.getImages()[image].front().name,
-                                         list.layer, getSuffix(list.kind));
+                                         layer, shape.suffix);
     std::string name = base;
     for (usize suffix = 1; model.findSymbol(name) != nullptr; ++suffix) {
         name = std::format("{}_{}", base, suffix);
@@ -290,7 +300,7 @@ std::expected<usize, base::Diagnostic> ListEditor::addEntry() const {
             "'{}' holds {} entries, as many as its command can count", site->list, site->count)));
     }
     z64::SymbolData entries = *model.findSymbol(site->list);
-    insertBytes(entries, site->count * EntrySize, EntrySize);
+    insertBytes(entries, site->count * shape.entrySize, shape.entrySize);
     if (std::expected<void, base::Diagnostic> set = model.setSymbol(std::move(entries)); !set) {
         return std::unexpected(set.error());
     }
@@ -301,7 +311,7 @@ std::expected<usize, base::Diagnostic> ListEditor::addEntry() const {
 }
 
 std::expected<void, base::Diagnostic> ListEditor::removeEntry(const usize index) const {
-    if (list.kind == PlacementKind::PlayerEntry) {
+    if (shape.code == CommandCode::PlayerEntryList) {
         return std::unexpected(makeEditError(
             "a player entry is not removed: the spawn list names the entries by index"));
     }
@@ -319,7 +329,7 @@ std::expected<void, base::Diagnostic> ListEditor::removeEntry(const usize index)
             return std::unexpected(site.error());
         }
         z64::SymbolData entries = *model.findSymbol(site->list);
-        eraseBytes(entries, index * EntrySize, EntrySize);
+        eraseBytes(entries, index * shape.entrySize, shape.entrySize);
         if (std::expected<void, base::Diagnostic> set = model.setSymbol(std::move(entries)); !set) {
             return std::unexpected(set.error());
         }
@@ -340,7 +350,7 @@ std::expected<void, base::Diagnostic> ListEditor::removeEntry(const usize index)
                                                                 const bool isTransition) {
     if ((list.kind == PlacementKind::TransitionActor) != isTransition) {
         return std::unexpected(makeEditError(
-            std::format("a {} does not hold this kind of placement", getNoun(list.kind))));
+            std::format("a {} does not hold this kind of placement", getShape(list.kind).noun)));
     }
     return {};
 }
@@ -421,6 +431,25 @@ addTransitionActor(SceneModel& model, const usize layer,
         return std::unexpected(set.error());
     }
     return index;
+}
+
+std::expected<void, base::Diagnostic> addRoomObjects(SceneModel& model, const usize layer,
+                                                     const usize room,
+                                                     const std::span<const s16> objects) {
+    const ListEditor editor(model, ObjectListShape, layer, room);
+    for (const s16 object : objects) {
+        const std::expected<usize, base::Diagnostic> index = editor.addEntry();
+        if (!index) {
+            return std::unexpected(index.error());
+        }
+        if (std::expected<void, base::Diagnostic> set =
+                editor.setEntry(*index, [object](std::vector<u8>& bytes,
+                                                 const usize at) { writeS16(bytes, at, object); });
+            !set) {
+            return set;
+        }
+    }
+    return {};
 }
 
 std::expected<void, base::Diagnostic> removePlacement(SceneModel& model, const PlacementList& list,

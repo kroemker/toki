@@ -53,6 +53,12 @@ public:
         placementEditor.reset();
     }
 
+    /// What finds the object an actor needs, by its ID, as the actor database
+    /// says, so that a room an actor is placed in loads it.
+    void setActorObjectFinder(std::function<std::optional<std::string>(s16 actorId)> finder) {
+        placementEditor.setObjectFinder(std::move(finder));
+    }
+
     /// What reads the actors an edit placed that were not read yet.
     void setActorReader(std::function<void(const Scene&)> reader) {
         readActors = std::move(reader);

@@ -5,6 +5,7 @@
 #include "base/Diagnostic.h"
 
 #include <expected>
+#include <span>
 
 namespace toki::scene {
 
@@ -54,6 +55,11 @@ addPlacement(SceneModel& model, const PlacementList& list, const ActorPlacement&
 /// Adds a transition actor to the end of a layer's list, and returns its index.
 [[nodiscard]] std::expected<usize, base::Diagnostic>
 addTransitionActor(SceneModel& model, usize layer, const TransitionActorPlacement& placement);
+
+/// Adds `objects`, by ID, to the end of the object list of `room`'s header for
+/// `layer`, the game's scene layer, as for its actors.
+[[nodiscard]] std::expected<void, base::Diagnostic>
+addRoomObjects(SceneModel& model, usize layer, usize room, std::span<const s16> objects);
 
 /// Removes the placement at `index`. Removing the last one removes the list's
 /// command from the header, and the list itself once nothing points at it.

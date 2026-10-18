@@ -19,6 +19,7 @@
 #include <expected>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -95,17 +96,39 @@ void PlacementEditor::refresh(const Scene& scene) {
     }
 }
 
-void PlacementEditor::apply(Scene& scene, const PlacementRef& where,
+bool PlacementEditor::apply(Scene& scene, const PlacementRef& where,
                             const SceneEditor::Edit& edit) {
     const std::expected<void, base::Diagnostic> applied = sceneEditor.apply(scene, where, edit);
     draft.reset();
     if (!applied) {
         failure = applied.error().message;
-        return;
+        return false;
     }
     failure.clear();
     refresh(scene);
     show(hasUnreadActors(scene));
+    return true;
+}
+
+void PlacementEditor::addObjectFor(Scene& scene, const PlacementRef& where, const s16 actorId) {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (where.kind != PlacementKind::Actor || workspace == nullptr || !findActorObject) {
+        return;
+    }
+    const std::optional<std::string> object = findActorObject(actorId);
+    const std::optional<s16> missing =
+        object ? findMissingObject(scene, where, *object, workspace->getTables()) : std::nullopt;
+    if (!missing) {
+        return;
+    }
+    const bool isAdded =
+        apply(scene, where, [missing](SceneModel& model, const PlacementList& list) {
+            return addRoomObjects(model, list.layer, list.room, std::span(&*missing, 1));
+        });
+    if (!isAdded) {
+        failure = std::format("{} is not in the room's object list, and was not added: {}", *object,
+                              failure);
+    }
 }
 
 bool PlacementEditor::editActorId(s16& id) const {
@@ -217,12 +240,16 @@ void PlacementEditor::drawInspector(Scene& scene) {
         return;
     }
     const Placement edited = *draft;
-    apply(scene, where, [&edited, &where](SceneModel& model, const PlacementList& list) {
-        if (const auto* transition = std::get_if<TransitionActorPlacement>(&edited)) {
-            return setTransitionActor(model, list.layer, where.index, *transition);
-        }
-        return setPlacement(model, list, where.index, std::get<ActorPlacement>(edited));
-    });
+    const bool isSet =
+        apply(scene, where, [&edited, &where](SceneModel& model, const PlacementList& list) {
+            if (const auto* transition = std::get_if<TransitionActorPlacement>(&edited)) {
+                return setTransitionActor(model, list.layer, where.index, *transition);
+            }
+            return setPlacement(model, list, where.index, std::get<ActorPlacement>(edited));
+        });
+    if (const auto* actor = std::get_if<ActorPlacement>(&edited); isSet && actor != nullptr) {
+        addObjectFor(scene, where, actor->id);
+    }
 }
 
 void PlacementEditor::drawPlacementMenu(const Scene& scene, const PlacementRef& where) {
@@ -287,6 +314,9 @@ void PlacementEditor::add(Scene& scene, const PlacementRef& where, const Placeme
         PlacementRef chosen = where;
         chosen.index = *added;
         select(chosen);
+        if (const auto* actor = std::get_if<ActorPlacement>(&placement)) {
+            addObjectFor(scene, chosen, actor->id);
+        }
     }
 }
 

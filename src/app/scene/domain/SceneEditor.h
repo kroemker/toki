@@ -9,7 +9,12 @@
 #include <expected>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <variant>
+
+namespace hackeroot {
+struct Tables;
+} // namespace hackeroot
 
 namespace toki::scene {
 
@@ -66,6 +71,13 @@ using Placement = std::variant<ActorPlacement, TransitionActorPlacement>;
 
 /// Whether `scene` places an actor its actors were not read for.
 [[nodiscard]] bool hasUnreadActors(const Scene& scene);
+
+/// The ID of the object named `object`, when the room of the actor `where`
+/// loads no object of that name in its layer: neither a keep object nor one of
+/// its object list. The game spawns no actor whose object is not loaded.
+[[nodiscard]] std::optional<s16> findMissingObject(const Scene& scene, const PlacementRef& where,
+                                                   std::string_view object,
+                                                   const hackeroot::Tables& tables);
 
 /// The list of the scene's placements `where` is in, as the edits name it.
 [[nodiscard]] std::optional<PlacementList> findPlacementList(const Scene& scene,
