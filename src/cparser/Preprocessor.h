@@ -24,6 +24,8 @@ namespace cparser {
 struct EmbeddedFile {
     std::filesystem::path path;
     std::string tag;
+    /// The include as it was written, `assets/objects/gameplay_keep/gEyeTex.ia8.inc.c`.
+    std::string spelling;
     base::SourceLocation location;
 };
 

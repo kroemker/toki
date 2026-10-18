@@ -23,6 +23,8 @@ struct ImageTexture {
     /// the one it is: a shared palette's name, or else the image's prefix.
     std::string paletteName;
     PaletteHalf paletteHalf = PaletteHalf::Whole;
+
+    [[nodiscard]] bool operator==(const ImageTexture&) const = default;
 };
 
 /// The texture an embedded file tagged `tag` makes, `fileName` being the file

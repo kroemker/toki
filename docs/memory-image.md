@@ -55,6 +55,13 @@ the symbol's segmented address.
 That is also why the bytes can be checked: unpatched, a segment is exactly the `.data` of
 the object file the build made from the same C.
 
+Each relocation keeps the address it was patched with (`Relocation::address`), so a laid-out
+image gives every symbol back as its C said it (`z64::listSymbolData`): its type, its bytes
+before patching and its relocations, with an include it was built from whole, a texture's
+or a binary's (`z64::EmbeddedSource`). That is what a scene is written again from
+([scene-writing.md](scene-writing.md)), and what two images are compared by
+(`z64::compareSymbols`): symbol by symbol, wherever each was laid out.
+
 Symbols nothing in the image defines:
 
 - **The linker's ROM symbols** (`_spot00_room_0SegmentRomStart`) read as zero. Toki64 reads

@@ -92,8 +92,10 @@ add_executable(toki_tests
         z64/DataEncoderTest.cpp
         z64/DecompDialectTest.cpp
         z64/GbiNamesTest.cpp
+        z64/ImageDifferenceTest.cpp
         z64/MemoryImageTest.cpp
         z64/PngImageTest.cpp
+        z64/SymbolDataTest.cpp
         z64/TextureCheckoutTest.cpp
         z64/ImageTextureTest.cpp
         z64/TextureEncoderTest.cpp

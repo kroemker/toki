@@ -341,6 +341,13 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
         const cparser::CType& type = *file.types[i];
         texture.reset();
         z64::EncodedData data = encoder.encode(type, declaration.initializer, declaration.isBraced);
+        std::optional<z64::EmbeddedSource> embedded;
+        if (declaration.initializer.size() == 1 &&
+            declaration.initializer.front().kind == cparser::TokenKind::Embedded) {
+            const cparser::EmbeddedFile& source =
+                file.unit.embedded[declaration.initializer.front().embedded];
+            embedded = z64::EmbeddedSource{.spelling = source.spelling, .path = source.path};
+        }
         objects.push_back(z64::ImageObject{
             .segment = file.segment,
             .name = std::string(declaration.name),
@@ -349,6 +356,7 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
             .alignment = findAlignment(type),
             .startsFile = i == 0,
             .texture = std::move(texture),
+            .embedded = std::move(embedded),
             .data = std::move(data),
             .location = declaration.location,
         });

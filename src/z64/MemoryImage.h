@@ -4,6 +4,7 @@
 #include "n64/Memory.h"
 #include "n64/Segment.h"
 #include "z64/DataEncoder.h"
+#include "z64/EmbeddedSource.h"
 #include "z64/ImageTexture.h"
 #include "z64/Relocation.h"
 #include "z64/Types.h"
@@ -35,6 +36,8 @@ struct ImageObject {
     bool startsFile = false;
     /// The texture an embedded image or palette made of the object.
     std::optional<ImageTexture> texture;
+    /// The file the object's whole initializer is the include of, if it is.
+    std::optional<EmbeddedSource> embedded;
     EncodedData data;
     base::SourceLocation location;
 };
@@ -49,6 +52,7 @@ struct ImageSymbol {
     std::string type;
     bool isArray = false;
     std::optional<ImageTexture> texture;
+    std::optional<EmbeddedSource> embedded;
 };
 
 /// One segment's bytes with every address patched in, and the relocations

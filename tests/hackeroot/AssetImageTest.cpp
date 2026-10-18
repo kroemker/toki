@@ -79,6 +79,26 @@ TEST_CASE("a fast64 room becomes a segment with its addresses patched", "[hacker
     REQUIRE(image.findAddress("custom_room_0DL") == std::optional<u32>(0x03000010));
 }
 
+TEST_CASE("a texture keeps the include it was built from", "[hackeroot][image]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(getCheckout(), {});
+    REQUIRE(workspace.has_value());
+    const std::filesystem::path folder =
+        getCheckout() / "extracted/ntsc-1.2/assets/scenes/overworld/spot00";
+    const std::array segments = {
+        hackeroot::SegmentFiles{.segment = 3, .files = {folder / "spot00_room_0.c"}}};
+
+    const z64::MemoryImage image = hackeroot::readAssetImage(*workspace, segments);
+
+    const std::optional<z64::ImageSymbol> texture = image.findSymbol("spot00_room_0Tex");
+    REQUIRE(texture.has_value());
+    REQUIRE(texture->embedded.has_value());
+    REQUIRE(texture->embedded->spelling ==
+            "assets/scenes/overworld/spot00/spot00_room_0Tex.rgba16.inc.c");
+    REQUIRE(texture->embedded->path.filename() == "spot00_room_0Tex.rgba16.png");
+    REQUIRE_FALSE(image.findSymbol("spot00_room_0_data")->embedded.has_value());
+}
+
 TEST_CASE("a memory image maps where the segment table says", "[hackeroot][image]") {
     const z64::MemoryImage image = readRoom();
     n64::Memory memory;

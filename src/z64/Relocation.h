@@ -13,6 +13,11 @@ namespace z64 {
 struct Relocation {
     usize offset = 0;
     std::string symbol;
+    /// Once laid out, the address patched in, which is zero for a symbol that
+    /// resolved to nothing: the word less this is the constant added to it.
+    u32 address = 0;
+
+    [[nodiscard]] bool operator==(const Relocation&) const = default;
 };
 
 } // namespace z64

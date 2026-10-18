@@ -111,7 +111,8 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
                                                                .size = object.data.bytes.size(),
                                                                .type = object.type,
                                                                .isArray = object.isArray,
-                                                               .texture = object.texture});
+                                                               .texture = object.texture,
+                                                               .embedded = object.embedded});
         if (!isNew) {
             image.diagnostics.push_back(base::makeError(
                 object.location, std::format("'{}' is defined twice", object.name)));
@@ -136,6 +137,7 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
                                                 owner.name, relocation.symbol)));
                 continue;
             }
+            segment.relocations[i].address = *address;
             writeWord(segment.bytes, relocation.offset,
                       readWord(segment.bytes, relocation.offset) + *address);
         }

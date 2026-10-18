@@ -4,8 +4,10 @@ target_sources(toki_core PRIVATE
         DecompDialect.cpp
         DisplayListEncoder.cpp
         GbiNames.cpp
+        ImageDifference.cpp
         MemoryImage.cpp
         PngImage.cpp
+        SymbolData.cpp
         ImageTexture.cpp
         TextureEncoder.cpp
         TextureIncludes.cpp
