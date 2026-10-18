@@ -10,6 +10,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/ui/PlacementEditor.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
@@ -32,20 +33,39 @@ public:
 
     /// Shows `scene` in the viewport. A scene read again keeps how it was
     /// shown and where the camera is; another one starts afresh at its first
-    /// entrance.
+    /// entrance. While the open scene has edits no save wrote, the person is
+    /// asked first whether to throw them away.
     void setScene(Scene read);
-
-    /// Draws the open scene's actors as `actors` says, when they have been read.
-    void setActors(SceneActors actors);
 
     /// The open scene, if there is one.
     [[nodiscard]] const Scene* findScene() const {
         return scene ? &*scene : nullptr;
     }
 
+    /// The open scene's edits no save has written yet, if it has any.
+    [[nodiscard]] const SceneModel* findEditedModel() const {
+        return placementEditor.isEdited() ? placementEditor.findModel() : nullptr;
+    }
+
+    /// Takes the open scene's edits as written, so its files read again
+    /// replace it without asking.
+    void markSaved() {
+        placementEditor.reset();
+    }
+
+    /// What reads the actors an edit placed that were not read yet.
+    void setActorReader(std::function<void(const Scene&)> reader) {
+        readActors = std::move(reader);
+    }
+
+    /// Draws the open scene's actors as `actors` says, when they have been read.
+    void setActors(SceneActors actors);
+
     /// Forgets the open scene, when something else takes the viewport.
     void clearScene() {
         scene.reset();
+        heldScene.reset();
+        placementEditor.reset();
         sceneView = {};
         pendingSession.reset();
         viewportPanel.setOverlay({});
@@ -86,12 +106,13 @@ private:
     void drawPickers(const Scene& shown);
     void drawRooms(const SceneLayer& layer);
     void drawRoomMenu(usize room, const RoomHeader& header);
+    void drawHeldScene();
     void drawPlacements(const SceneLayer& layer);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
     void drawFlagLinks(const std::vector<SceneFlagUse>& flags);
     void drawFlagUser(const FlagUser& user);
     /// One placed actor's row; true when it was clicked.
-    bool drawActor(s16 actorId, const std::array<s16, 3>& position,
+    bool drawActor(const PlacementRef& where, s16 actorId, const std::array<s16, 3>& position,
                    const actor::PlacementValues& placement, const char* label,
                    std::optional<std::span<const std::string>> loadedObjects);
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
@@ -111,6 +132,11 @@ private:
     std::optional<core::SceneSession> pendingSession;
     std::optional<std::pair<actor::SceneFlag, s64>> hoveredFlag;
     std::function<void(const std::string&)> inspectDisplayList;
+    std::function<void(const Scene&)> readActors;
+    PlacementEditor placementEditor;
+    /// A scene read while the open one had edits no save wrote, until the
+    /// person says whether to throw them away for it.
+    std::optional<Scene> heldScene;
 };
 
 } // namespace toki::scene

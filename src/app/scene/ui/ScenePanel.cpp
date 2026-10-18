@@ -85,9 +85,19 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
                        actor::CollectionCatalog& collectionCatalog)
     : Panel("scene", "Scene", core::icons::MapTrifold, core::DockSlot::Right),
       workspaceService(workspaceService), viewportPanel(viewportPanel),
-      databaseStore(databaseStore), collectionCatalog(collectionCatalog) {}
+      databaseStore(databaseStore), collectionCatalog(collectionCatalog),
+      placementEditor(workspaceService, [this](const bool hasNewActors) {
+          showScene();
+          if (hasNewActors && readActors && scene) {
+              readActors(*scene);
+          }
+      }) {}
 
 void ScenePanel::setScene(Scene read) {
+    if (scene && placementEditor.isEdited()) {
+        heldScene = std::move(read);
+        return;
+    }
     const bool isNew = !scene || !core::isSamePath(scene->directory, read.directory);
     const bool isRestored =
         isNew && pendingSession && core::isSamePath(pendingSession->directory, read.directory);
@@ -100,6 +110,7 @@ void ScenePanel::setScene(Scene read) {
         read.actors = std::move(scene->actors);
     }
     scene = std::move(read);
+    placementEditor.refresh(*scene);
 
     std::optional<glm::vec3> target;
     if (isNew && !isRestored && !scene->layers.empty() &&
@@ -171,19 +182,70 @@ void ScenePanel::draw() {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
     }
+    drawHeldScene();
     const Scene& shown = *scene;
     ImGui::TextUnformatted(shown.name.c_str());
     ImGui::SameLine();
     ImGui::TextColored(core::palette::TextMuted, "%zu rooms, %zu layers",
                        shown.layers.front().rooms.size(), shown.layers.size());
+    if (placementEditor.isEdited()) {
+        ImGui::SameLine();
+        ImGui::TextColored(core::palette::Warning, "%s unsaved", core::icons::Circle);
+        ImGui::SetItemTooltip("Edited since it was read. File > Save Scene writes it.");
+    }
+    if (!placementEditor.getFailure().empty()) {
+        ImGui::TextColored(core::palette::Danger, "%s %s", core::icons::Warning,
+                           placementEditor.getFailure().c_str());
+    }
     ImGui::Separator();
     drawPickers(shown);
-    const SceneLayer& layer = shown.layers[sceneView.layer];
+    placementEditor.drawInspector(*scene);
+    const SceneLayer& layer = scene->layers[sceneView.layer];
     drawRooms(layer);
     drawPlacements(layer);
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
     drawFlags(flags);
     drawFlagLinks(flags);
+    placementEditor.applyPicked(*scene);
+}
+
+void ScenePanel::drawHeldScene() {
+    constexpr const char* Title = "Unsaved Edits###heldScene";
+    if (heldScene && !ImGui::IsPopupOpen(Title)) {
+        ImGui::OpenPopup(Title);
+    }
+    if (!ImGui::BeginPopupModal(Title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    if (!heldScene) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    const bool isSame = core::isSamePath(heldScene->directory, scene->directory);
+    ImGui::TextUnformatted(
+        isSame ? std::format("{}'s files changed on disk while it has edits no save wrote.",
+                             scene->name)
+                     .c_str()
+               : std::format("{} has edits no save wrote, and {} is to be opened.", scene->name,
+                             heldScene->name)
+                     .c_str());
+    ImGui::TextColored(core::palette::TextMuted, "%s",
+                       isSame ? "Reading it again throws the edits away."
+                              : "Opening it throws the edits away.");
+    if (ImGui::Button(isSame ? "Read It Again" : "Open It")) {
+        placementEditor.reset();
+        Scene read = std::move(*heldScene);
+        heldScene.reset();
+        ImGui::CloseCurrentPopup();
+        setScene(std::move(read));
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Keep the Edits")) {
+        heldScene.reset();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 void ScenePanel::drawPickers(const Scene& shown) {
@@ -228,14 +290,21 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
             const std::vector<std::string> loaded =
                 workspace != nullptr ? listLoadedObjects(layer, room, workspace->getTables())
                                      : std::vector<std::string>{};
-            for (const ActorPlacement& actor : header.actors) {
+            for (usize i = 0; i < header.actors.size(); ++i) {
+                const ActorPlacement& actor = header.actors[i];
                 const actor::PlacementValues placement =
                     makePlacementValues(scene->actors, static_cast<u16>(actor.params),
                                         actor.rotation, findLayerAge(layer.index));
+                ImGui::PushID(static_cast<int>(i));
                 static_cast<void>(drawActor(
+                    PlacementRef{.kind = PlacementKind::Actor,
+                                 .layer = sceneView.layer,
+                                 .room = room,
+                                 .index = i},
                     actor.id, actor.position, placement, nullptr,
                     workspace != nullptr ? std::optional<std::span<const std::string>>(loaded)
                                          : std::nullopt));
+                ImGui::PopID();
             }
             ImGui::TreePop();
         }
@@ -244,9 +313,19 @@ void ScenePanel::drawRooms(const SceneLayer& layer) {
 }
 
 void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
-    if (inspectDisplayList == nullptr || !scene || !ImGui::BeginPopupContextItem()) {
+    if (!scene || !ImGui::BeginPopupContextItem()) {
         return;
     }
+    const core::CameraPose camera = viewportPanel.getCameraPose();
+    placementEditor.drawRoomMenu(sceneView.layer, room,
+                                 {static_cast<s16>(camera.target[0]),
+                                  static_cast<s16>(camera.target[1]),
+                                  static_cast<s16>(camera.target[2])});
+    if (inspectDisplayList == nullptr) {
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::Separator();
     const usize image = FirstRoomImage + room;
     for (const RoomDisplayLists& mesh : header.displayLists) {
         for (const u32 address : {mesh.opaque, mesh.translucent}) {
@@ -271,26 +350,38 @@ void ScenePanel::drawPlacements(const SceneLayer& layer) {
             const actor::PlacementValues placement =
                 makePlacementValues(scene->actors, static_cast<u16>(entry.params), entry.rotation,
                                     findLayerAge(layer.index));
-            if (drawActor(entry.id, entry.position, placement, label.c_str(), std::nullopt)) {
+            ImGui::PushID(static_cast<int>(i));
+            const bool isClicked = drawActor(
+                PlacementRef{
+                    .kind = PlacementKind::PlayerEntry, .layer = sceneView.layer, .index = i},
+                entry.id, entry.position, placement, label.c_str(), std::nullopt);
+            ImGui::PopID();
+            if (isClicked) {
                 sceneView.shownEntrance = i;
                 showScene();
             }
         }
     }
     if (ImGui::CollapsingHeader("Transition actors")) {
-        for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
+        for (usize i = 0; i < layer.header.transitionActors.size(); ++i) {
+            const TransitionActorPlacement& actor = layer.header.transitionActors[i];
             const std::string label = std::format("{}  ·  rooms {} and {}", findActorName(actor.id),
                                                   actor.rooms[0], actor.rooms[1]);
             const actor::PlacementValues placement =
                 makePlacementValues(scene->actors, static_cast<u16>(actor.params),
                                     {0, actor.rotationY, 0}, findLayerAge(layer.index));
-            static_cast<void>(
-                drawActor(actor.id, actor.position, placement, label.c_str(), std::nullopt));
+            ImGui::PushID(static_cast<int>(i));
+            static_cast<void>(drawActor(
+                PlacementRef{
+                    .kind = PlacementKind::TransitionActor, .layer = sceneView.layer, .index = i},
+                actor.id, actor.position, placement, label.c_str(), std::nullopt));
+            ImGui::PopID();
         }
     }
 }
 
-bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position,
+bool ScenePanel::drawActor(const PlacementRef& where, const s16 actorId,
+                           const std::array<s16, 3>& position,
                            const actor::PlacementValues& placement, const char* label,
                            const std::optional<std::span<const std::string>> loadedObjects) {
     const auto model = scene->actors.models.find(actorId);
@@ -312,21 +403,20 @@ bool ScenePanel::drawActor(const s16 actorId, const std::array<s16, 3>& position
     } else if (description && !description->name.empty()) {
         name = description->name;
     }
-    const std::string text =
-        std::format("{}##{}_{}_{}_{}", name, actorId, position[0], position[1], position[2]);
-    const bool isClicked = ImGui::Selectable(text.c_str());
+    const bool isClicked = ImGui::Selectable(name.c_str(), placementEditor.isSelected(where));
     if (isClicked) {
+        placementEditor.select(where);
         viewportPanel.focus(makePoint(position));
     }
-    if (!description) {
-        return isClicked;
-    }
-    if (ImGui::BeginItemTooltip()) {
+    if (description && ImGui::BeginItemTooltip()) {
         drawActorTooltip(actorId, position, *description);
         ImGui::EndTooltip();
     }
     if (ImGui::BeginPopupContextItem()) {
-        drawActorMenu(model->second, placement, *description);
+        if (description) {
+            drawActorMenu(model->second, placement, *description);
+        }
+        placementEditor.drawPlacementMenu(*scene, where);
         ImGui::EndPopup();
     }
     return isClicked;

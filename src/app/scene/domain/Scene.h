@@ -57,6 +57,10 @@ inline constexpr usize FirstRoomImage = 2;
 [[nodiscard]] Scene readScene(hackeroot::AssetImageReader& reader,
                               const hackeroot::AssetDirectory& asset);
 
+/// Reads `scene`'s layers again out of its images, as `readScene` read them,
+/// once the images were laid out again after an edit.
+void readSceneLayers(Scene& scene);
+
 /// What a scene layer is called: the four the game plays in, then its
 /// cutscenes.
 [[nodiscard]] std::string makeLayerName(usize index);

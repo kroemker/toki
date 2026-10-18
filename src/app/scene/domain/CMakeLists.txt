@@ -8,6 +8,7 @@ target_sources(toki_core PRIVATE
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp
+        SceneEditor.cpp
         SceneActorLoader.cpp
         SceneActors.cpp
         SceneFlags.cpp

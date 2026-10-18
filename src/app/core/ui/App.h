@@ -53,6 +53,9 @@ public:
 private:
     void registerPanels();
     void registerDialogs();
+    /// Takes the open scene's edits as written to `directory`, and opens the
+    /// scene from there when it was a vanilla scene copied out.
+    void openSavedScene(const std::filesystem::path& directory);
     void restoreLayout();
     void drawFrame();
     void setHackerootPath(const std::filesystem::path& path);
@@ -90,7 +93,8 @@ private:
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;
     workspace::WorkspaceService workspaceService;
-    scene::SaveSceneDialog saveSceneDialog{workspaceService};
+    scene::SaveSceneDialog saveSceneDialog{
+        workspaceService, [this](const std::filesystem::path& saved) { openSavedScene(saved); }};
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;

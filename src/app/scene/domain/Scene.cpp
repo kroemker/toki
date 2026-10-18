@@ -35,10 +35,15 @@ namespace {
     return found;
 }
 
+/// The files a scene's headers are read from, to place what is wrong with them.
+struct HeaderFiles {
+    std::filesystem::path scene;
+    std::vector<std::filesystem::path> rooms;
+};
+
 class LayerReader {
 public:
-    LayerReader(const Scene& scene, const hackeroot::SceneFiles& files)
-        : scene(scene), files(files) {}
+    LayerReader(const Scene& scene, const HeaderFiles& files) : scene(scene), files(files) {}
 
     [[nodiscard]] SceneLayer readMainLayer();
     [[nodiscard]] SceneLayer readLayer(usize index, u32 sceneHeader,
@@ -54,16 +59,16 @@ private:
     }
 
     const Scene& scene;
-    const hackeroot::SceneFiles& files;
+    const HeaderFiles& files;
     std::vector<base::Diagnostic> diagnostics;
 };
 
 SceneLayer LayerReader::readMainLayer() {
     SceneLayer layer{.index = 0, .header = readSceneHeader(*scene.images[SceneImage])};
-    keep(std::exchange(layer.header.diagnostics, {}), files.scene.front());
+    keep(std::exchange(layer.header.diagnostics, {}), files.scene);
     for (usize room = 0; room < files.rooms.size(); ++room) {
         RoomHeader header = readRoomHeader(*scene.images[FirstRoomImage + room]);
-        keep(std::exchange(header.diagnostics, {}), files.rooms[room].front());
+        keep(std::exchange(header.diagnostics, {}), files.rooms[room]);
         layer.rooms.push_back(std::move(header));
     }
     return layer;
@@ -73,7 +78,7 @@ SceneLayer LayerReader::readLayer(const usize index, const u32 sceneHeader,
                                   const std::vector<RoomHeader>& mainRooms) {
     SceneLayer layer{.index = index,
                      .header = readSceneHeader(*scene.images[SceneImage], sceneHeader)};
-    keep(std::exchange(layer.header.diagnostics, {}), files.scene.front());
+    keep(std::exchange(layer.header.diagnostics, {}), files.scene);
     for (usize room = 0; room < mainRooms.size(); ++room) {
         const std::vector<u32>& alternates = mainRooms[room].alternateHeaders;
         const u32 roomHeader = index <= alternates.size() ? alternates[index - 1] : 0;
@@ -82,13 +87,36 @@ SceneLayer LayerReader::readLayer(const usize index, const u32 sceneHeader,
             continue;
         }
         RoomHeader header = readRoomHeader(*scene.images[FirstRoomImage + room], roomHeader);
-        keep(std::exchange(header.diagnostics, {}), files.rooms[room].front());
+        keep(std::exchange(header.diagnostics, {}), files.rooms[room]);
         layer.rooms.push_back(std::move(header));
     }
     return layer;
 }
 
+void readLayers(Scene& scene, const HeaderFiles& files) {
+    scene.layers.clear();
+    LayerReader layers(scene, files);
+    scene.layers.push_back(layers.readMainLayer());
+    const std::vector<u32> alternates = scene.layers.front().header.alternateHeaders;
+    const std::vector<RoomHeader> mainRooms = scene.layers.front().rooms;
+    for (usize index = 1; index <= alternates.size(); ++index) {
+        if (alternates[index - 1] != 0) {
+            scene.layers.push_back(layers.readLayer(index, alternates[index - 1], mainRooms));
+        }
+    }
+    std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
+}
+
 } // namespace
+
+void readSceneLayers(Scene& scene) {
+    if (scene.images.size() <= SceneImage) {
+        return;
+    }
+    readLayers(scene, HeaderFiles{.scene = scene.directory,
+                                  .rooms = std::vector<std::filesystem::path>(
+                                      scene.images.size() - FirstRoomImage, scene.directory)});
+}
 
 std::string makeLayerName(const usize index) {
     constexpr std::array<const char*, 4> Names{"Child day", "Child night", "Adult day",
@@ -128,16 +156,11 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         scene.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(image)));
     }
 
-    LayerReader layers(scene, files);
-    scene.layers.push_back(layers.readMainLayer());
-    const std::vector<u32> alternates = scene.layers.front().header.alternateHeaders;
-    const std::vector<RoomHeader> mainRooms = scene.layers.front().rooms;
-    for (usize index = 1; index <= alternates.size(); ++index) {
-        if (alternates[index - 1] != 0) {
-            scene.layers.push_back(layers.readLayer(index, alternates[index - 1], mainRooms));
-        }
+    HeaderFiles headerFiles{.scene = files.scene.front()};
+    for (const std::vector<std::filesystem::path>& room : files.rooms) {
+        headerFiles.rooms.push_back(room.front());
     }
-    std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
+    readLayers(scene, headerFiles);
 
     if (scene.layers.front().header.roomCount != files.rooms.size()) {
         scene.diagnostics.push_back(base::makeWarning(

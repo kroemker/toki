@@ -112,21 +112,8 @@ private:
         return folder.begin() != folder.end() && *folder.begin() == "extracted";
     }
 
-    /// Where the scene is written: where it was read, or for a vanilla scene
-    /// the same folder under `assets/`, which the build compiles in place of
-    /// the extracted one.
     [[nodiscard]] std::filesystem::path getFolder() const {
-        if (!isVanilla()) {
-            return getReadFolder();
-        }
-        std::filesystem::path folder;
-        usize index = 0;
-        for (const std::filesystem::path& part : getReadFolder()) {
-            if (index++ >= 2) {
-                folder /= part;
-            }
-        }
-        return folder;
+        return findSavedDirectory(root, input.directory).lexically_relative(root);
     }
 
     void planCopies(hackeroot::EditPlan& plan) const;
@@ -442,6 +429,22 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
 }
 
 } // namespace
+
+std::filesystem::path findSavedDirectory(const std::filesystem::path& root,
+                                         const std::filesystem::path& directory) {
+    const std::filesystem::path folder = directory.lexically_relative(root);
+    if (folder.begin() == folder.end() || *folder.begin() != "extracted") {
+        return directory;
+    }
+    std::filesystem::path saved = root;
+    usize index = 0;
+    for (const std::filesystem::path& part : folder) {
+        if (index++ >= 2) {
+            saved /= part;
+        }
+    }
+    return saved;
+}
 
 const std::vector<std::string>& getSceneIncludes() {
     static const std::vector<std::string> Includes{

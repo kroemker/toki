@@ -165,6 +165,12 @@ void App::registerPanels() {
                                                        symbolCatalog, collectionCatalog, fonts);
     actorsPanel = actors.get();
     scenePanel->setActorEditor([this](const std::string& actor) { actorsPanel->openActor(actor); });
+    scenePanel->setActorReader([this](const scene::Scene& edited) {
+        sceneActorLoader.open(workspaceService.getSharedWorkspace(),
+                              scene::ActorRequest{.name = std::format("{}'s actors", edited.name),
+                                                  .scene = edited.name,
+                                                  .layers = edited.layers});
+    });
     panels.add(std::move(viewport));
     panels.add(std::move(sceneView));
     panels.add(std::move(objectView));
@@ -205,6 +211,27 @@ void App::registerDialogs() {
         std::make_unique<registerScene::RegisterSceneDialog>(workspaceService, collectionCatalog));
     dialogs.push_back(std::make_unique<createActor::CreateActorDialog>(workspaceService,
                                                                        collectionCatalog, fonts));
+}
+
+void App::openSavedScene(const std::filesystem::path& directory) {
+    if (scenePanel == nullptr || scenePanel->findScene() == nullptr) {
+        return;
+    }
+    scenePanel->markSaved();
+    const scene::Scene& saved = *scenePanel->findScene();
+    if (core::isSamePath(saved.directory, directory)) {
+        return;
+    }
+    if (std::optional<core::SceneSession> session = scenePanel->makeSession()) {
+        session->directory = directory;
+        scenePanel->restoreSession(std::move(*session));
+    }
+    sceneActorLoader.close();
+    sceneLoader.open(
+        workspaceService.getSharedWorkspace(),
+        hackeroot::AssetDirectory{.name = saved.name,
+                                  .directory = directory,
+                                  .roomCount = saved.images.size() - scene::FirstRoomImage});
 }
 
 void App::restoreLayout() {
@@ -260,7 +287,7 @@ void App::drawFrame() {
     if (openScene != nullptr &&
         (actions.saveScene ||
          ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))) {
-        saveSceneDialog.open(*openScene);
+        saveSceneDialog.open(*openScene, scenePanel->findEditedModel());
     }
     saveSceneDialog.drawWindow();
     drawNewActorsPrompt();

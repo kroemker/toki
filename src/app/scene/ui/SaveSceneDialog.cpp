@@ -13,7 +13,10 @@
 #include <imgui.h>
 
 #include <expected>
+#include <filesystem>
+#include <functional>
 #include <string>
+#include <utility>
 
 namespace toki::scene {
 
@@ -24,16 +27,18 @@ constexpr float Height = 30.0F;
 
 } // namespace
 
-SaveSceneDialog::SaveSceneDialog(const workspace::WorkspaceService& workspaceService)
+SaveSceneDialog::SaveSceneDialog(const workspace::WorkspaceService& workspaceService,
+                                 std::function<void(const std::filesystem::path&)> saved)
     : core::Dialog("saveScene", "Save Scene", core::icons::FloppyDisk, core::DialogMode::Modal,
                    Width, Height),
-      workspaceService(workspaceService) {}
+      workspaceService(workspaceService), saved(std::move(saved)) {}
 
-void SaveSceneDialog::open(const Scene& opened) {
+void SaveSceneDialog::open(const Scene& opened, const SceneModel* edited) {
     scene = Scene{.name = opened.name,
                   .directory = opened.directory,
                   .images = opened.images,
                   .files = opened.files};
+    sceneModel = edited != nullptr ? std::optional(*edited) : std::nullopt;
     show();
     requestPlan();
 }
@@ -43,18 +48,19 @@ void SaveSceneDialog::requestPlan() {
     if (workspace == nullptr || !scene) {
         return;
     }
-    editFlow.requestPlan(workspace->getRoot(),
-                         [shared = workspaceService.getSharedWorkspace(),
-                          saved = *scene]() -> std::expected<hackeroot::EditPlan, std::string> {
-                             if (shared == nullptr) {
-                                 return std::unexpected(std::string("no checkout is open"));
-                             }
-                             return planSceneSave(shared,
-                                                  SceneSaveInput{.name = saved.name,
-                                                                 .directory = saved.directory,
-                                                                 .files = saved.files,
-                                                                 .model = SceneModel(saved)});
-                         });
+    editFlow.requestPlan(
+        workspace->getRoot(),
+        [shared = workspaceService.getSharedWorkspace(), opened = *scene,
+         edited = sceneModel]() -> std::expected<hackeroot::EditPlan, std::string> {
+            if (shared == nullptr) {
+                return std::unexpected(std::string("no checkout is open"));
+            }
+            return planSceneSave(shared,
+                                 SceneSaveInput{.name = opened.name,
+                                                .directory = opened.directory,
+                                                .files = opened.files,
+                                                .model = edited ? *edited : SceneModel(opened)});
+        });
 }
 
 void SaveSceneDialog::draw() {
@@ -76,7 +82,9 @@ void SaveSceneDialog::draw() {
         }
         ImGui::EndDisabled();
     }
-    static_cast<void>(editFlow.draw(workspace->getRoot()));
+    if (editFlow.draw(workspace->getRoot()) && saved) {
+        saved(findSavedDirectory(workspace->getRoot(), scene->directory));
+    }
 }
 
 } // namespace toki::scene

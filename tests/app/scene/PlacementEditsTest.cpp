@@ -1,6 +1,7 @@
 #include "app/scene/domain/PlacementEdits.h"
 
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
 #include "base/Types.h"
@@ -162,4 +163,28 @@ TEST_CASE("a player entry is set but not removed", "[scene][edit]") {
     REQUIRE(model.findSymbol("entries")->bytes[1] == 0x22);
     REQUIRE_FALSE(toki::scene::removePlacement(model, entries, 0));
     REQUIRE_FALSE(toki::scene::setPlacement(model, entries, 1, Moved));
+}
+
+TEST_CASE("an edit of the open scene shows in its layers, and one that fails changes nothing",
+          "[scene][edit]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::readSceneLayers(scene);
+    toki::scene::SceneEditor editor;
+    const toki::scene::PlacementRef first{.kind = toki::scene::PlacementKind::Actor};
+
+    REQUIRE(editor.apply(
+        scene, first, [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+            return toki::scene::setPlacement(model, list, 0, Moved);
+        }));
+    REQUIRE(scene.layers.front().rooms.front().actors.front().id == 0x22);
+    REQUIRE(editor.isEdited());
+
+    const auto images = scene.images;
+    REQUIRE_FALSE(editor.apply(
+        scene, first, [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+            static_cast<void>(toki::scene::addPlacement(model, list, Moved));
+            return toki::scene::setPlacement(model, list, 9, Moved);
+        }));
+    REQUIRE(scene.images == images);
+    REQUIRE(editor.findModel()->findSymbol("actors")->bytes.size() == 32);
 }

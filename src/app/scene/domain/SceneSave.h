@@ -29,6 +29,12 @@ struct SceneSaveInput {
 /// beyond them.
 [[nodiscard]] const std::vector<std::string>& getSceneIncludes();
 
+/// Where a scene read from `directory` is saved: in the same folder, or for a
+/// vanilla scene, read from `extracted/<version>/`, the same path under the
+/// checkout's root, which the build compiles in place of the extracted one.
+[[nodiscard]] std::filesystem::path findSavedDirectory(const std::filesystem::path& root,
+                                                       const std::filesystem::path& directory);
+
 /// Plans writing a scene in fast64's layout over its folder: every file
 /// written again from the model's symbols (`writeSceneFiles`), the files of
 /// its old layout removed, and the spec's segments of the scene and its rooms
