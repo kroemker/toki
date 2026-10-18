@@ -17,6 +17,7 @@
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ToolStrip.h"
 #include "app/viewport/ui/ViewportBar.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
 #include "base/Diagnostic.h"
@@ -64,6 +65,10 @@ constexpr f32 DegreesPerPoint = 0.4F;
 /// click to pick, and how near a point it must be.
 constexpr f32 ClickDistance = 4.0F;
 constexpr f32 PickRadius = 12.0F;
+constexpr float ToolStripMargin = 8.0F;
+/// The gap between the selection modes and the rest of the bar, in item
+/// spacings.
+constexpr float ModeGap = 3.0F;
 constexpr float ChipOpacity = 0.8F;
 constexpr usize ReportedDiagnostics = 8;
 
@@ -129,6 +134,8 @@ void ViewportPanel::setView(const ViewportView& view) {
 }
 
 void ViewportPanel::drawBar() {
+    drawSelectionModes(viewportTools);
+    ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     const ViewportBarEdit edit = drawViewportBar(viewportView, viewportChoices);
     if (edit.view) {
         setView(*edit.view);
@@ -146,6 +153,7 @@ void ViewportPanel::draw() {
         if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
             setView(*changed);
         }
+        applyToolHotkeys(viewportTools);
     }
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 available = ImGui::GetContentRegionAvail();
@@ -155,7 +163,7 @@ void ViewportPanel::draw() {
     }
     // ImGuizmo takes the mouse only while no item is hovered, so over its
     // gizmo the viewport's own button gives way to a dummy of the same size.
-    if (handle && (isHandleHeld || ImGuizmo::IsOver())) {
+    if (isHandleShown() && (isHandleHeld || ImGuizmo::IsOver())) {
         ImGui::Dummy(size);
     } else {
         ImGui::InvisibleButton("##viewport", size,
@@ -216,7 +224,8 @@ void ViewportPanel::draw() {
     drawViewChanges(*drawList, origin, size);
     drawHandle(*drawList, origin, size);
     drawList->PopClipRect();
-    ImVec2 notePosition{origin.x + 8.0F, origin.y + 6.0F};
+    drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin));
+    ImVec2 notePosition{ImGui::GetItemRectMax().x + ToolStripMargin, origin.y + 6.0F};
     if (readingName) {
         const std::string note = std::format("Reading {}…", *readingName);
         drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::TextMuted), note.c_str());
@@ -292,8 +301,13 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
     }
 }
 
+bool ViewportPanel::isHandleShown() const {
+    return handle && viewportTools.mode == SelectionMode::Object &&
+           viewportTools.tool == EditTool::Move;
+}
+
 void ViewportPanel::drawHandle(ImDrawList& drawList, const ImVec2 origin, const ImVec2 size) {
-    if (!handle) {
+    if (!isHandleShown()) {
         isHandleHeld = false;
         return;
     }

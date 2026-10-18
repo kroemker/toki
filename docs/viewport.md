@@ -28,6 +28,13 @@ of it (`findPickedPoint`). The point to move gets a translation gizmo (ImGuizmo)
 moves no camera, and its owner is told where it is as it is dragged and once it is let go.
 The Scene panel offers the placements it shows, and the selected one to move.
 
+What a click selects and what dragging does are the viewport's own (`ViewportTools`). The
+selection mode is a group of icon buttons at the start of the bar: Object, Face, Edge and
+Vertex, keys 1 to 4. The tool is a vertical group floating over the image's top left:
+Select, Move, Rotate and Scale, keys Q, W, E and R. Only Object, Select and Move are built;
+the rest are shown disabled, saying so. The gizmo is drawn only for Move, so Select picks
+without anything to drag.
+
 ## The bar
 
 Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading

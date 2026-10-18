@@ -8,6 +8,7 @@
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
+#include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/domain/ViewportView.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
 #include "base/Diagnostic.h"
@@ -182,6 +183,7 @@ private:
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     void drawHandle(ImDrawList& drawList, ImVec2 origin, ImVec2 size);
+    [[nodiscard]] bool isHandleShown() const;
     void pick(ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] glm::mat4 makeProjection(ImVec2 size) const;
     void render(const gfx::RenderTarget& target);
@@ -216,6 +218,7 @@ private:
     std::optional<glm::vec3> handle;
     std::function<void(const glm::vec3&, bool)> moveHandler;
     bool isHandleHeld = false;
+    ViewportTools viewportTools;
     bool stale = true;
     bool isOverlayStale = false;
     bool reported = false;
