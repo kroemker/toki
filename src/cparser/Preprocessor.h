@@ -99,6 +99,10 @@ struct PreprocessOptions {
     /// directive it was read at, as it is defined. An editor of configuration
     /// headers finds by it which of a name's lines the build reads.
     std::function<void(const Macro& macro, const Token& directive)> onDefine;
+
+    /// Read in place of the files on disk at their paths, the entry included,
+    /// and found by includes as if they were there.
+    const PendingFiles* pendingFiles = nullptr;
 };
 
 /// Reads `entry` and everything it reaches, evaluating conditionals against

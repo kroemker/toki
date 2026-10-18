@@ -6,6 +6,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -60,6 +61,11 @@ private:
 
     std::vector<Indexed> byPath;
 };
+
+/// Files that exist only in memory, by canonical path (`canonicalize`), read in
+/// place of whatever is on disk there: files about to be written, read back as
+/// they will be before they are.
+using PendingFiles = std::map<std::filesystem::path, std::string>;
 
 [[nodiscard]] std::filesystem::path canonicalize(const std::filesystem::path& path);
 

@@ -99,6 +99,33 @@ TEST_CASE("a texture keeps the include it was built from", "[hackeroot][image]")
     REQUIRE_FALSE(image.findSymbol("spot00_room_0_data")->embedded.has_value());
 }
 
+TEST_CASE("files not yet written are read as they will be, and found by includes",
+          "[hackeroot][image]") {
+    std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+        hackeroot::Workspace::load(getCheckout(), {});
+    REQUIRE(loaded.has_value());
+    hackeroot::AssetImageReader reader(
+        std::make_shared<const hackeroot::Workspace>(std::move(*loaded)));
+    const std::filesystem::path folder = getCheckout() / "assets/scenes/custom";
+    const cparser::PendingFiles pending{
+        {cparser::canonicalize(folder / "custom_room_0.c"),
+         "#include \"ultra64.h\"\n#include \"custom_room_0.h\"\nu8 custom_room_0Data[] = { 1, "
+         "LENGTH };\n"},
+        {cparser::canonicalize(folder / "custom_room_0.h"), "#define LENGTH 2\n"},
+    };
+    const std::array images{
+        std::vector{hackeroot::SegmentFiles{.segment = 3, .files = {folder / "custom_room_0.c"}}}};
+
+    const hackeroot::ImageSet set = reader.read({}, images, &pending);
+
+    REQUIRE(set.images.size() == 1);
+    REQUIRE_FALSE(set.images.front().findSymbol("custom_room_0DL").has_value());
+    const std::optional<z64::ImageSymbol> data = set.images.front().findSymbol("custom_room_0Data");
+    REQUIRE(data.has_value());
+    const std::vector<u8>& bytes = set.images.front().findSegment(3)->bytes;
+    REQUIRE(std::vector<u8>(bytes.begin(), bytes.begin() + 2) == std::vector<u8>{1, 2});
+}
+
 TEST_CASE("a memory image maps where the segment table says", "[hackeroot][image]") {
     const z64::MemoryImage image = readRoom();
     n64::Memory memory;

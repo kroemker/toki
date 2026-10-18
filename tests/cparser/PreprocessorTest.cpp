@@ -118,6 +118,26 @@ TEST_CASE("includes are followed only inside the allowed roots", "[cparser][prep
     }
 }
 
+TEST_CASE("files held in memory are read in place of the disk's, and found by includes",
+          "[cparser][preprocessor]") {
+    const Harness harness;
+    const std::filesystem::path folder = getFixtures() / "include";
+    const cparser::PendingFiles pending{
+        {cparser::canonicalize(folder / "written.c"),
+         "#include \"written.h\"\n#include \"room_0.c\"\ns32 sWrittenMarker;\n"},
+        {cparser::canonicalize(folder / "written.h"), "s32 sWrittenHeaderMarker;\n"},
+        {cparser::canonicalize(folder / "room_0.c"), "s32 sReplacedRoomMarker;\n"},
+    };
+
+    const cparser::TranslationUnit unit =
+        harness.read(folder / "written.c", cparser::PreprocessOptions{.allowedRoots = {folder},
+                                                                      .pendingFiles = &pending});
+
+    REQUIRE(findIndex(unit, "sWrittenHeaderMarker") < findIndex(unit, "sReplacedRoomMarker"));
+    REQUIRE(findIndex(unit, "sReplacedRoomMarker") < findIndex(unit, "sWrittenMarker"));
+    REQUIRE_FALSE(hasIdentifier(unit, "sRoomMarker"));
+}
+
 TEST_CASE("a search path outside the roots is searched but never followed",
           "[cparser][preprocessor]") {
     const Harness harness;

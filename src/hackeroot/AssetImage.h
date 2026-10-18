@@ -1,6 +1,8 @@
 #pragma once
 
 #include "base/Diagnostic.h"
+#include "cparser/SourceSet.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/Types.h"
 #include "z64/MemoryImage.h"
 
@@ -8,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -94,9 +97,17 @@ public:
     /// Reads `images` after `shared`, as `read` reads them after the images
     /// before them. A shared image is read again only when one of its watched
     /// files changed or an image before it was read again; otherwise the one an
-    /// earlier read made is returned, with its diagnostics.
+    /// earlier read made is returned, with its diagnostics. `pendingFiles` are
+    /// read in place of the files on disk at their paths, so files can be read
+    /// back as they will be written before they are.
     [[nodiscard]] ImageSet read(std::span<const SharedImageFiles> shared,
-                                std::span<const std::vector<SegmentFiles>> images);
+                                std::span<const std::vector<SegmentFiles>> images,
+                                const cparser::PendingFiles* pendingFiles = nullptr);
+
+    /// The system headers `includes` names read as an asset file that includes
+    /// them is read against: their types and macros. Kept for as long as the
+    /// reader is.
+    [[nodiscard]] const Prelude& getPrelude(const std::vector<std::string>& includes);
 
     /// The value of `expression`, a constant expression of `gbi.h`'s names as
     /// the build reads them (`readGbi`), as a render mode's cycle

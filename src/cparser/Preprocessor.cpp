@@ -28,6 +28,19 @@ namespace cparser {
 
 namespace {
 
+const SourceFile* openPending(SourceSet& sources, const PreprocessOptions& options,
+                              const std::filesystem::path& path) {
+    if (options.pendingFiles == nullptr) {
+        return nullptr;
+    }
+    const std::filesystem::path canonical = canonicalize(path);
+    if (const SourceFile* held = sources.find(canonical)) {
+        return held;
+    }
+    const auto found = options.pendingFiles->find(canonical);
+    return found == options.pendingFiles->end() ? nullptr : sources.add(canonical, found->second);
+}
+
 struct Conditional {
     bool parentActive = true;
     bool taken = false;
@@ -46,7 +59,8 @@ class Preprocessor {
 public:
     Preprocessor(TranslationUnit& unit, const PreprocessOptions& options)
         : unit(unit), options(options),
-          resolver(options.searchPaths, options.allowedRoots, options.resolveMissingInclude) {}
+          resolver(options.searchPaths, options.allowedRoots, options.resolveMissingInclude,
+                   options.pendingFiles) {}
 
     void run(const SourceFile& file, usize depth);
 
@@ -283,8 +297,9 @@ void Preprocessor::doInclude(const Token& directive, std::span<const Token> line
         return;
     }
 
+    const SourceFile* held = openPending(unit.sources, options, resolved->path);
     const std::expected<const SourceFile*, base::Diagnostic> file =
-        unit.sources.open(resolved->path);
+        held != nullptr ? held : unit.sources.open(resolved->path);
     if (!file) {
         unit.diagnostics.push_back(
             base::makeWarning(location, std::format("cannot read {}: {}", resolved->path.string(),
@@ -386,6 +401,10 @@ std::expected<TranslationUnit, base::Diagnostic> preprocess(const MacroTable& ba
                                                             const PreprocessOptions& options) {
     TranslationUnit unit;
     unit.macros = MacroTable(&base);
+    if (const SourceFile* pending = openPending(unit.sources, options, entry)) {
+        preprocessInto(unit, *pending, options);
+        return unit;
+    }
     const std::expected<const SourceFile*, base::Diagnostic> file = unit.sources.open(entry);
     if (!file) {
         return std::unexpected(file.error());

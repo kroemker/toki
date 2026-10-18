@@ -16,9 +16,9 @@ namespace cparser {
 
 IncludeResolver::IncludeResolver(std::vector<std::filesystem::path> searchPaths,
                                  std::vector<std::filesystem::path> allowedRoots,
-                                 MissingInclude resolveMissing)
+                                 MissingInclude resolveMissing, const PendingFiles* pendingFiles)
     : searchPaths(std::move(searchPaths)), allowedRoots(std::move(allowedRoots)),
-      resolveMissing(std::move(resolveMissing)) {
+      resolveMissing(std::move(resolveMissing)), pendingFiles(pendingFiles) {
     for (std::filesystem::path& root : this->allowedRoots) {
         root = canonicalize(root);
     }
@@ -43,7 +43,8 @@ IncludeResolver::resolve(std::string_view spelling,
 
     bool isOutside = false;
     for (const std::filesystem::path& candidate : candidates) {
-        if (!directories.holds(candidate)) {
+        const bool isPending = pendingFiles != nullptr && pendingFiles->contains(candidate);
+        if (!isPending && !directories.holds(candidate)) {
             continue;
         }
         if (isAllowed(candidate)) {

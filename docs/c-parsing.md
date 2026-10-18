@@ -142,6 +142,13 @@ answering them one at a time cost 3 s per scene, a listing per directory (`Direc
 costs 0.6 s cold and 0.09 s warm. Nothing in the parsing layer may call `exists` in a
 loop.
 
+**Files not yet written can be read as if they were.** `PreprocessOptions::pendingFiles`
+maps canonical paths to contents that are read in place of the disk's, the entry file
+included, and an include finds a pending file whether or not one is on disk there. This is
+how a scene is checked before it is saved ([scene-writing.md](scene-writing.md)): the files
+about to be written are read back from memory, against the same headers, and compared with
+what was meant.
+
 ## Unknown macros
 
 HackerOoT adds its own `gs*` macros and users will add more. An unknown macro must

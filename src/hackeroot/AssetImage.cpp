@@ -141,10 +141,12 @@ using PreludeCache = std::map<std::vector<std::string>, std::unique_ptr<Prelude>
 
 class ImageReader {
 public:
-    ImageReader(const Workspace& workspace, PreludeCache& preludes)
+    ImageReader(const Workspace& workspace, PreludeCache& preludes,
+                const cparser::PendingFiles* pendingFiles = nullptr)
         : workspace(workspace), options(makeAssetPreprocessOptions(
                                     workspace.getRoot(), workspace.getBuildDefines().version)),
           textures(directories, options.allowedRoots), preludes(preludes) {
+        options.pendingFiles = pendingFiles;
         for (const z64::CodeSymbol& symbol : z64::getCodeSymbols()) {
             elementSizes.emplace(std::string(symbol.name), symbol.elementSize);
         }
@@ -453,18 +455,14 @@ AssetImageReader::evaluateGbi(const std::string_view expression) {
     if (std::optional<base::Diagnostic> unsupported = findUnsupportedMicrocode(*workspace)) {
         return std::unexpected(std::move(*unsupported));
     }
-    const std::vector<std::string> includes{std::string(GbiHeader)};
-    std::unique_ptr<Prelude>& gbi = caches->preludes[includes];
-    if (!gbi) {
-        gbi = std::make_unique<Prelude>(readPrelude(*workspace, includes, AlsoHidden));
-    }
+    const Prelude& gbi = getPrelude({std::string(GbiHeader)});
     const cparser::SourceFile file{.path = "gbi.h", .contents = std::string(expression)};
     const cparser::ScanResult scanned = cparser::scan(file);
     std::vector<base::Diagnostic> found;
     const std::expected<cparser::Value, base::Diagnostic> value = cparser::evaluate(
         scanned.tokens,
         cparser::EvalContext{
-            .macros = &gbi->macros, .dialect = &z64::getDecompDialect(), .unknownIsZero = false},
+            .macros = &gbi.macros, .dialect = &z64::getDecompDialect(), .unknownIsZero = false},
         found);
     if (!value) {
         return std::unexpected(value.error());
@@ -475,8 +473,17 @@ AssetImageReader::evaluateGbi(const std::string_view expression) {
     return static_cast<u32>(cparser::getInteger(*value));
 }
 
+const Prelude& AssetImageReader::getPrelude(const std::vector<std::string>& includes) {
+    std::unique_ptr<Prelude>& prelude = caches->preludes[includes];
+    if (!prelude) {
+        prelude = std::make_unique<Prelude>(readPrelude(*workspace, includes, AlsoHidden));
+    }
+    return *prelude;
+}
+
 ImageSet AssetImageReader::read(const std::span<const SharedImageFiles> shared,
-                                const std::span<const std::vector<SegmentFiles>> images) {
+                                const std::span<const std::vector<SegmentFiles>> images,
+                                const cparser::PendingFiles* pendingFiles) {
     ImageSet set;
     std::vector<const z64::MemoryImage*> earlier;
     for (const SharedImageFiles& files : shared) {
@@ -489,7 +496,7 @@ ImageSet AssetImageReader::read(const std::span<const SharedImageFiles> shared,
         earlier.push_back(image.get());
         set.shared.push_back(std::move(image));
     }
-    set.images = ImageReader(*workspace, caches->preludes).read(images, earlier);
+    set.images = ImageReader(*workspace, caches->preludes, pendingFiles).read(images, earlier);
     return set;
 }
 

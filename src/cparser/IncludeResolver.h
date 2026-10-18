@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cparser/DirectoryCache.h"
+#include "cparser/SourceSet.h"
 #include "cparser/Types.h"
 
 #include <expected>
@@ -45,7 +46,8 @@ using MissingInclude = std::function<std::optional<ResolvedInclude>(
 class IncludeResolver {
 public:
     IncludeResolver(std::vector<std::filesystem::path> searchPaths,
-                    std::vector<std::filesystem::path> allowedRoots, MissingInclude resolveMissing);
+                    std::vector<std::filesystem::path> allowedRoots, MissingInclude resolveMissing,
+                    const PendingFiles* pendingFiles = nullptr);
 
     /// A file inside the allowed roots wins over a stand-in for a missing one,
     /// and a stand-in over a file outside them, so a texture include the build
@@ -59,6 +61,7 @@ private:
     std::vector<std::filesystem::path> searchPaths;
     std::vector<std::filesystem::path> allowedRoots;
     MissingInclude resolveMissing;
+    const PendingFiles* pendingFiles = nullptr;
     DirectoryCache directories;
 };
 
