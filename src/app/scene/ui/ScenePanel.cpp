@@ -110,6 +110,11 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
                                  const RoomHeader& header) { drawRoomMenu(room, header); },
           .findName = [this](const s16 actorId) { return findOutlinerName(actorId); },
           .findSelected = [this] { return placementEditor.findSelected(); },
+          .isSelected = [this](const SceneNode& node) { return placementEditor.isSelected(node); },
+          .pickRoom =
+              [this](const usize room) {
+                  static_cast<void>(pickInTree(RoomRef{.layer = sceneView.layer, .room = room}));
+              },
           .showScene = [this] { showScene(); },
       }) {}
 
@@ -268,15 +273,21 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
                   layer.header.playerEntries[i].position);
         }
     }
-    viewportPanel.setPickables(std::move(points), [this, placements = std::move(placements)](
-                                                      const std::span<const usize> indices,
-                                                      const viewport::PickMode mode) {
-        std::vector<SceneNode> nodes;
-        for (const usize index : indices) {
-            nodes.emplace_back(placements[index]);
-        }
-        placementEditor.pick(nodes, mode);
-    });
+    viewportPanel.setPickables(
+        std::move(points),
+        [this, placements = std::move(placements)](const viewport::ViewportPanel::ViewportPick& hit,
+                                                   const viewport::PickMode mode) {
+            std::vector<SceneNode> nodes;
+            for (const usize index : hit.points) {
+                nodes.emplace_back(placements[index]);
+            }
+            if (scene && hit.image && *hit.image >= FirstRoomImage &&
+                *hit.image < scene->images.size()) {
+                nodes.emplace_back(
+                    RoomRef{.layer = sceneView.layer, .room = *hit.image - FirstRoomImage});
+            }
+            placementEditor.pick(nodes, mode);
+        });
     std::vector<glm::vec3> selectedPoints;
     std::optional<usize> activePoint;
     const std::optional<PlacementRef> active = placementEditor.findSelected();
@@ -388,6 +399,20 @@ void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     ImGui::EndPopup();
 }
 
+bool ScenePanel::pickInTree(const SceneNode& node) {
+    const ImGuiIO& io = ImGui::GetIO();
+    if (io.KeyCtrl) {
+        placementEditor.pick(std::span(&node, 1), viewport::PickMode::Toggle);
+        return false;
+    }
+    if (io.KeyShift) {
+        placementEditor.pick(std::span(&node, 1), viewport::PickMode::Add);
+        return false;
+    }
+    placementEditor.pick(std::span(&node, 1), viewport::PickMode::Replace);
+    return true;
+}
+
 void ScenePanel::drawActor(const PlacementRow& row) {
     const PlacementRef& where = row.where;
     const s16 actorId = row.actorId;
@@ -415,14 +440,7 @@ void ScenePanel::drawActor(const PlacementRow& row) {
     }
     ImGui::TreeNodeEx("##placement", flags, "%s", "");
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        const ImGuiIO& io = ImGui::GetIO();
-        const SceneNode node = where;
-        if (io.KeyCtrl) {
-            placementEditor.pick(std::span(&node, 1), viewport::PickMode::Toggle);
-        } else if (io.KeyShift) {
-            placementEditor.pick(std::span(&node, 1), viewport::PickMode::Add);
-        } else {
-            placementEditor.select(where);
+        if (pickInTree(where)) {
             viewportPanel.focus(makePoint(row.position));
         }
         if (where.kind == PlacementKind::PlayerEntry && where.index != sceneView.shownEntrance) {

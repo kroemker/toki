@@ -181,10 +181,15 @@ void PlacementEditor::addObject(Scene& scene, const PlacementRef& where, const s
 }
 
 void PlacementEditor::drawInspector(Scene& scene) {
+    const SceneNode* node = selection.findActive();
+    if (const auto* room = node != nullptr ? std::get_if<RoomRef>(node) : nullptr) {
+        drawRoom(scene, *room);
+        return;
+    }
     const std::optional<PlacementRef> active = findSelected();
     if (!active) {
         ImGui::TextColored(core::palette::TextMuted,
-                           "Select a placement in the Scene panel or the viewport.");
+                           "Select a room or a placement in the Scene panel or the viewport.");
         return;
     }
     if (!draft) {
@@ -318,6 +323,51 @@ void PlacementEditor::drawObject(const Scene& scene, const PlacementRef& where,
         }
     }
     core::endProperties();
+}
+
+void PlacementEditor::drawRoom(const Scene& scene, const RoomRef& where) {
+    if (where.layer >= scene.layers.size() ||
+        where.room >= scene.layers[where.layer].rooms.size()) {
+        return;
+    }
+    const RoomHeader& header = scene.layers[where.layer].rooms[where.room];
+    ImGui::TextUnformatted(std::format("Room {}", where.room).c_str());
+    ImGui::TextColored(core::palette::TextMuted, "%s",
+                       std::format("Layer {}", where.layer).c_str());
+    if (const usize count = selection.getNodes().size(); count > 1) {
+        ImGui::TextColored(core::palette::Accent, "%zu selected; shown is the one picked last.",
+                           count);
+    }
+    ImGui::Spacing();
+    if (ImGui::CollapsingHeader("Room", ImGuiTreeNodeFlags_DefaultOpen) &&
+        core::beginProperties("##room", LabelWidth)) {
+        constexpr std::array<const char*, 3> ShapeNames{"Normal", "Image", "Cullable"};
+        core::drawPropertyLabel("Shape", "How the room's mesh is drawn, from its "
+                                         "SCENE_CMD_ROOM_SHAPE: every part, a prerendered "
+                                         "image, or the parts the camera sees.");
+        ImGui::TextUnformatted(ShapeNames[static_cast<usize>(header.shapeType)]);
+        core::drawPropertyLabel("Parts", "The display list pairs of the room's mesh.");
+        ImGui::Text("%zu", header.displayLists.size());
+        core::drawPropertyLabel("Actors", "The actors the room places in this layer.");
+        ImGui::Text("%zu", header.actors.size());
+        core::endProperties();
+    }
+    if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+        const hackeroot::Tables* tables = workspace != nullptr ? &workspace->getTables() : nullptr;
+        if (header.objects.empty()) {
+            ImGui::TextColored(core::palette::TextMuted, "The room loads no objects of its own.");
+        }
+        for (const s16 id : header.objects) {
+            const auto index = static_cast<usize>(id);
+            ImGui::BulletText("%s", tables != nullptr && id >= 0 && index < tables->objects.size()
+                                        ? tables->objects[index].enumName.c_str()
+                                        : std::format("0x{:04X}", static_cast<u16>(id)).c_str());
+        }
+    }
+    ImGui::Spacing();
+    ImGui::TextColored(core::palette::TextMuted,
+                       "Rooms are read-only here; their mesh is authored in fast64.");
 }
 
 void PlacementEditor::drawActions(const PlacementRef& where) {

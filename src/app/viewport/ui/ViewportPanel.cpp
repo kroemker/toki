@@ -14,6 +14,7 @@
 #include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/RenderOverride.h"
 #include "app/viewport/domain/ScreenPick.h"
+#include "app/viewport/domain/TrianglePick.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportView.h"
@@ -316,7 +317,19 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
     const std::optional<usize> picked =
         findPickedPoint(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
                         {mouse.x - origin.x, mouse.y - origin.y}, pickables, PickRadius);
-    pickHandler(picked ? std::span(&*picked, 1) : std::span<const usize>(), findPickMode());
+    if (picked) {
+        pickHandler({.points = std::span(&*picked, 1)}, findPickMode());
+        return;
+    }
+    std::optional<usize> image;
+    if (drawnFrame) {
+        const glm::vec2 point{(mouse.x - origin.x) / size.x * 2.0F - 1.0F,
+                              1.0F - (mouse.y - origin.y) / size.y * 2.0F};
+        if (const std::optional<u32> address = findPickedTriangle(drawnFrame->rspResult, point)) {
+            image = findImageAt(mappedImages, *address);
+        }
+    }
+    pickHandler({.image = image}, findPickMode());
 }
 
 void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
@@ -328,7 +341,7 @@ void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
         findPointsInRect(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
                          {boxStart->x - origin.x, boxStart->y - origin.y},
                          {mouse.x - origin.x, mouse.y - origin.y}, pickables);
-    pickHandler(picked, findPickMode());
+    pickHandler({.points = picked}, findPickMode());
 }
 
 PickMode ViewportPanel::findPickMode() const {
@@ -428,6 +441,7 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
                                             makeViewProjection(viewportContent, orbitCamera, size));
     }
     drawnFrame = std::move(drawing);
+    mappedImages = frame.mappedImages;
     std::vector<base::Diagnostic> drawn = drawFrame(target);
     statusBar.addFrame(FrameReport{
         .statistics = std::move(statistics),

@@ -152,6 +152,7 @@ private:
                                   const actor::ActorEntry* entry, s16 actorId);
     void drawObject(const Scene& scene, const PlacementRef& where, const actor::ActorEntry& entry);
     void drawActions(const PlacementRef& where);
+    void drawRoom(const Scene& scene, const RoomRef& where);
     void commitDraft(Scene& scene, const PlacementRef& where);
     [[nodiscard]] s16 findDefaultActor() const;
 

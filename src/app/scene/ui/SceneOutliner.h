@@ -4,6 +4,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "hackeroot/Tables.h"
 
 #include <array>
@@ -45,6 +46,9 @@ public:
         /// What a placed actor is called, for the filter.
         std::function<std::string(s16 actorId)> findName;
         std::function<std::optional<PlacementRef>()> findSelected;
+        std::function<bool(const SceneNode&)> isSelected;
+        /// Selects the room of the layer shown when its row is clicked.
+        std::function<void(usize room)> pickRoom;
         /// Shows the scene again once the view changed.
         std::function<void()> showScene;
     };

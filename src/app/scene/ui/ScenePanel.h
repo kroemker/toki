@@ -155,6 +155,9 @@ private:
     void drawFlagUser(const FlagUser& user);
     /// The name cell of one placement's row of the outliner.
     void drawActor(const PlacementRow& row);
+    /// Selects `node` as a click in the tree does: Ctrl toggles it and Shift
+    /// adds it. True when it alone is selected now.
+    [[nodiscard]] bool pickInTree(const SceneNode& node);
     [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
                           const ActorDescription& description) const;

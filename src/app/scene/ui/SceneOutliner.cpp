@@ -137,8 +137,14 @@ void SceneOutliner::drawRoom(const Scene& scene, const SceneLayer& layer, SceneV
     if (!filter.empty() || isRevealing(PlacementKind::Actor, room)) {
         ImGui::SetNextItemOpen(true);
     }
-    const bool isOpen =
-        beginNode("##room", GroupFlags | (room == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0));
+    ImGuiTreeNodeFlags flags = GroupFlags | (room == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0);
+    if (hooks.isSelected && hooks.isSelected(RoomRef{.layer = view.layer, .room = room})) {
+        flags |= ImGuiTreeNodeFlags_Selected;
+    }
+    const bool isOpen = beginNode("##room", flags);
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickRoom) {
+        hooks.pickRoom(room);
+    }
     if (hooks.drawRoomMenu) {
         hooks.drawRoomMenu(room, header);
     }

@@ -18,6 +18,7 @@
 #include "gfx/Renderer.h"
 #include "n64/Rdp.h"
 #include "n64/RspResult.h"
+#include "z64/MemoryImage.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -154,10 +155,17 @@ public:
         return imageOrigin;
     }
 
+    /// What a click or a box in the viewport hit: the indices of the points
+    /// it picked, and, for a click that picked none, the image of the
+    /// content that drew what is under it, if anything is.
+    struct ViewportPick {
+        std::span<const usize> points;
+        std::optional<usize> image;
+    };
+
     /// The points a click or a box in the viewport picks, and what picking
-    /// those at some indices does, as the pick changes the selection: none
-    /// when nothing was hit.
-    using PickHandler = std::function<void(std::span<const usize>, PickMode)>;
+    /// does, as the pick changes the selection.
+    using PickHandler = std::function<void(const ViewportPick&, PickMode)>;
 
     void setPickables(std::vector<glm::vec3> points, PickHandler pick) {
         pickables = std::move(points);
@@ -226,6 +234,8 @@ private:
     /// What the RSP and RDP made of the last frame run, as it is drawn, to
     /// draw again when only what is over it changes.
     std::optional<DrawnFrame> drawnFrame;
+    /// Where the last frame run mapped each of the content's images.
+    std::vector<std::optional<z64::MappedImage>> mappedImages;
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
     std::vector<glm::vec3> pickables;
