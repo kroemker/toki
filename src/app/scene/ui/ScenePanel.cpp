@@ -96,7 +96,7 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
     : Panel("scene", "Scene", core::icons::MapTrifold, core::DockSlot::Right),
       workspaceService(workspaceService), viewportPanel(viewportPanel),
       databaseStore(databaseStore), collectionCatalog(collectionCatalog),
-      placementEditor(workspaceService, [this](const bool hasNewActors) {
+      placementEditor(workspaceService, collectionCatalog, [this](const bool hasNewActors) {
           showScene();
           if (hasNewActors && readActors && scene) {
               readActors(*scene);
@@ -209,7 +209,6 @@ void ScenePanel::draw() {
     }
     ImGui::Separator();
     drawPickers(shown);
-    placementEditor.drawInspector(*scene);
     const SceneLayer& layer = scene->layers[sceneView.layer];
     drawRooms(layer);
     drawPlacements(layer);
@@ -217,6 +216,15 @@ void ScenePanel::draw() {
     drawFlags(flags);
     drawFlagLinks(flags);
     offerPlacements(layer);
+    placementEditor.applyPicked(*scene);
+}
+
+void ScenePanel::drawProperties() {
+    if (!scene || scene->layers.empty()) {
+        ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
+        return;
+    }
+    placementEditor.drawInspector(*scene);
     placementEditor.applyPicked(*scene);
 }
 

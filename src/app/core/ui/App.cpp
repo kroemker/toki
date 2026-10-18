@@ -28,6 +28,7 @@
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneLoader.h"
+#include "app/scene/ui/PropertiesPanel.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
 #include "app/tools/configure/ui/ConfigureDialog.h"
@@ -186,6 +187,7 @@ void App::registerPanels() {
     });
     panels.add(std::move(viewport));
     panels.add(std::move(sceneView));
+    panels.add(std::make_unique<scene::PropertiesPanel>(*scenePanel));
     panels.add(std::move(objectView));
     panels.add(std::move(textures));
     panels.add(std::move(actors));

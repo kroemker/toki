@@ -18,6 +18,7 @@ namespace {
 constexpr float LeftFraction = 0.22F;
 constexpr float RightFraction = 0.24F;
 constexpr float BottomFraction = 0.28F;
+constexpr float RightBottomFraction = 0.5F;
 
 } // namespace
 
@@ -117,13 +118,19 @@ void PanelManager::buildDefaultLayout(ImGuiID dockspaceId) const {
     ImGuiID centre = dockspaceId;
     ImGuiID left = centre;
     ImGuiID right = centre;
+    ImGuiID rightBottom = centre;
     ImGuiID bottom = centre;
     if (wants(DockSlot::Left)) {
         left = ImGui::DockBuilderSplitNode(centre, ImGuiDir_Left, LeftFraction, nullptr, &centre);
     }
-    if (wants(DockSlot::Right)) {
+    if (wants(DockSlot::Right) || wants(DockSlot::RightBottom)) {
         right =
             ImGui::DockBuilderSplitNode(centre, ImGuiDir_Right, RightFraction, nullptr, &centre);
+        rightBottom = right;
+    }
+    if (wants(DockSlot::Right) && wants(DockSlot::RightBottom)) {
+        rightBottom =
+            ImGui::DockBuilderSplitNode(right, ImGuiDir_Down, RightBottomFraction, nullptr, &right);
     }
     if (wants(DockSlot::Bottom)) {
         bottom =
@@ -138,6 +145,9 @@ void PanelManager::buildDefaultLayout(ImGuiID dockspaceId) const {
             break;
         case DockSlot::Right:
             node = right;
+            break;
+        case DockSlot::RightBottom:
+            node = rightBottom;
             break;
         case DockSlot::Bottom:
             node = bottom;

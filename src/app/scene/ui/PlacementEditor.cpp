@@ -1,10 +1,12 @@
 #include "PlacementEditor.h"
 
+#include "app/actor/domain/ActorDatabase.h"
+#include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
-#include "app/scene/domain/BinaryAngle.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
@@ -13,7 +15,6 @@
 #include "hackeroot/Workspace.h"
 
 #include <imgui.h>
-#include <imgui_stdlib.h>
 
 #include <array>
 #include <cfloat>
@@ -31,50 +32,55 @@ namespace toki::scene {
 namespace {
 
 constexpr float LabelWidth = 7.0F;
-constexpr float DragSpeed = 1.0F;
-/// The width of the button that switches how rotations are shown, in frame
-/// heights.
-constexpr float AngleButtonWidth = 1.4F;
 /// What a new actor is until it is picked: a green rupee, at params 0, which
 /// any room can hold.
 constexpr std::string_view DefaultActor = "ACTOR_EN_ITEM00";
 
-[[nodiscard]] std::string makeActorLabel(const hackeroot::ActorEntry& actor) {
-    return actor.enumName.empty() ? std::format("0x{:04X}", actor.id) : actor.enumName;
+[[nodiscard]] actor::PlacementValues makeValues(const Scene& scene, const PlacementRef& where,
+                                                const Placement& placement) {
+    const std::optional<actor::Age> age = findLayerAge(scene.layers[where.layer].index);
+    if (const auto* transition = std::get_if<TransitionActorPlacement>(&placement)) {
+        return makePlacementValues(scene.actors, static_cast<u16>(transition->params),
+                                   {0, transition->rotationY, 0}, age);
+    }
+    const auto& actor = std::get<ActorPlacement>(placement);
+    return makePlacementValues(scene.actors, static_cast<u16>(actor.params), actor.rotation, age);
 }
 
-[[nodiscard]] bool isFilteredIn(const std::string& label, const std::string& filter) {
-    if (filter.empty()) {
-        return true;
+void setValues(Placement& placement, const actor::PlacementValues& values) {
+    if (auto* transition = std::get_if<TransitionActorPlacement>(&placement)) {
+        transition->params = static_cast<s16>(values.params);
+        transition->rotationY = values.rotation[1];
+        return;
     }
-    const auto lower = [](const char c) {
-        return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-    };
-    std::string text;
-    std::string wanted;
-    for (const char c : label) {
-        text += lower(c);
-    }
-    for (const char c : filter) {
-        wanted += lower(c);
-    }
-    return text.contains(wanted);
+    auto& actor = std::get<ActorPlacement>(placement);
+    actor.params = static_cast<s16>(values.params);
+    actor.rotation = values.rotation;
 }
 
-[[nodiscard]] bool editHex(const char* id, s16& value) {
-    auto word = static_cast<u16>(value);
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    ImGui::InputScalar(id, ImGuiDataType_U16, &word, nullptr, nullptr, "%04X",
-                       ImGuiInputTextFlags_CharsHexadecimal);
-    value = static_cast<s16>(word);
-    return ImGui::IsItemDeactivatedAfterEdit();
+[[nodiscard]] std::array<bool, 3> findParamAxes(const actor::ActorEntry* entry) {
+    std::array<bool, 3> axes{};
+    if (entry == nullptr) {
+        return axes;
+    }
+    for (const actor::ActorParam& param : entry->params) {
+        if (param.source != actor::ParamSource::Params) {
+            axes[static_cast<usize>(param.source) - 1] = true;
+        }
+    }
+    return axes;
 }
 
-[[nodiscard]] bool editPosition(std::array<s16, 3>& position) {
-    core::drawPropertyLabel("Position", "In world units, as the game places the actor.");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    ImGui::DragScalarN("##position", ImGuiDataType_S16, position.data(), 3, DragSpeed);
-    return ImGui::IsItemDeactivatedAfterEdit();
+[[nodiscard]] std::string makeWhere(const PlacementRef& where) {
+    switch (where.kind) {
+    case PlacementKind::Actor:
+        return std::format("Room {} · #{}", where.room, where.index);
+    case PlacementKind::TransitionActor:
+        return std::format("Transition actor #{}", where.index);
+    case PlacementKind::PlayerEntry:
+        return std::format("Player entry #{}", where.index);
+    }
+    return {};
 }
 
 } // namespace
@@ -90,8 +96,10 @@ s16 PlacementEditor::findDefaultActor() const {
     return 1;
 }
 
-PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceService, Show show)
-    : workspaceService(workspaceService), show(std::move(show)) {}
+PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceService,
+                                 actor::CollectionCatalog& collectionCatalog, Show show)
+    : workspaceService(workspaceService), collectionCatalog(collectionCatalog),
+      show(std::move(show)), actorForm(workspaceService) {}
 
 void PlacementEditor::refresh(const Scene& scene) {
     draft.reset();
@@ -115,13 +123,21 @@ bool PlacementEditor::apply(Scene& scene, const PlacementRef& where,
 }
 
 void PlacementEditor::addObjectFor(Scene& scene, const PlacementRef& where, const s16 actorId) {
+    if (findActorObject) {
+        if (const std::optional<std::string> object = findActorObject(actorId)) {
+            addObject(scene, where, *object);
+        }
+    }
+}
+
+void PlacementEditor::addObject(Scene& scene, const PlacementRef& where,
+                                const std::string& object) {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (where.kind != PlacementKind::Actor || workspace == nullptr || !findActorObject) {
+    if (where.kind != PlacementKind::Actor || workspace == nullptr) {
         return;
     }
-    const std::optional<std::string> object = findActorObject(actorId);
     const std::optional<s16> missing =
-        object ? findMissingObject(scene, where, *object, workspace->getTables()) : std::nullopt;
+        findMissingObject(scene, where, object, workspace->getTables());
     if (!missing) {
         return;
     }
@@ -130,122 +146,15 @@ void PlacementEditor::addObjectFor(Scene& scene, const PlacementRef& where, cons
             return addRoomObjects(model, list.layer, list.room, std::span(&*missing, 1));
         });
     if (!isAdded) {
-        failure = std::format("{} is not in the room's object list, and was not added: {}", *object,
+        failure = std::format("{} is not in the room's object list, and was not added: {}", object,
                               failure);
     }
 }
 
-bool PlacementEditor::editActorId(s16& id) const {
-    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    core::drawPropertyLabel("Actor", "The actor's ID, from the actor table.");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    if (workspace == nullptr) {
-        return editHex("##actor", id);
-    }
-    const std::vector<hackeroot::ActorEntry>& actors = workspace->getTables().actors;
-    const auto index = static_cast<usize>(static_cast<u16>(id));
-    const std::string current =
-        index < actors.size() ? makeActorLabel(actors[index]) : std::format("0x{:04X}", index);
-    if (!ImGui::BeginCombo("##actor", current.c_str(), ImGuiComboFlags_HeightLarge)) {
-        return false;
-    }
-    if (ImGui::IsWindowAppearing()) {
-        actorFilter.clear();
-        ImGui::SetKeyboardFocusHere();
-    }
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    ImGui::InputTextWithHint("##filter", "Filter", &actorFilter);
-    bool isChanged = false;
-    for (const hackeroot::ActorEntry& actor : actors) {
-        const std::string label = makeActorLabel(actor);
-        if (actor.isUnset || !isFilteredIn(label, actorFilter)) {
-            continue;
-        }
-        if (ImGui::Selectable(label.c_str(), actor.id == index)) {
-            id = static_cast<s16>(actor.id);
-            isChanged = true;
-        }
-    }
-    ImGui::EndCombo();
-    return isChanged;
-}
-
-bool PlacementEditor::editRotation(const std::span<s16> angles) {
-    const ImGuiStyle& style = ImGui::GetStyle();
-    const float button = ImGui::GetFrameHeight() * AngleButtonWidth;
-    const auto count = static_cast<float>(angles.size());
-    const float width =
-        (ImGui::GetContentRegionAvail().x - button - count * style.ItemSpacing.x) / count;
-    bool isDone = false;
-    for (usize axis = 0; axis < angles.size(); ++axis) {
-        ImGui::PushID(static_cast<int>(axis));
-        ImGui::SetNextItemWidth(width);
-        if (angleFormat == core::AngleFormat::Degrees) {
-            f32 degrees = convertToDegrees(angles[axis]);
-            if (ImGui::InputFloat("##rotation", &degrees, 0.0F, 0.0F, "%.2f°")) {
-                angles[axis] = convertToBinaryAngle(degrees);
-            }
-        } else {
-            auto word = static_cast<u16>(angles[axis]);
-            ImGui::InputScalar("##rotation", ImGuiDataType_U16, &word, nullptr, nullptr, "%04X",
-                               ImGuiInputTextFlags_CharsHexadecimal);
-            angles[axis] = static_cast<s16>(word);
-        }
-        isDone = ImGui::IsItemDeactivatedAfterEdit() || isDone;
-        ImGui::PopID();
-        ImGui::SameLine();
-    }
-    drawAngleFormatButton();
-    return isDone;
-}
-
-void PlacementEditor::drawAngleFormatButton() {
-    const bool isDegrees = angleFormat == core::AngleFormat::Degrees;
-    if (ImGui::Button(isDegrees ? "°##angles" : "0x##angles",
-                      ImVec2(ImGui::GetFrameHeight() * AngleButtonWidth, 0.0F))) {
-        angleFormat = isDegrees ? core::AngleFormat::Binary : core::AngleFormat::Degrees;
-        if (changeAngleFormat) {
-            changeAngleFormat(angleFormat);
-        }
-    }
-    ImGui::SetItemTooltip(isDegrees ? "In degrees. Click for binary angles."
-                                    : "In binary angles. Click for degrees.");
-}
-
-bool PlacementEditor::editActor(ActorPlacement& placement) {
-    bool isDone = editActorId(placement.id);
-    isDone = editPosition(placement.position) || isDone;
-    core::drawPropertyLabel("Rotation",
-                            "The actor's rotation about X, Y and Z, which the game applies in the "
-                            "order Y, X, Z. Stored as binary angles, 0x4000 a quarter turn. Many "
-                            "actors read parts of the X and Z rotation as params instead.");
-    isDone = editRotation(placement.rotation) || isDone;
-    core::drawPropertyLabel("Params", "The actor's params, which its Init reads.");
-    isDone = editHex("##params", placement.params) || isDone;
-    return isDone;
-}
-
-bool PlacementEditor::editTransitionActor(TransitionActorPlacement& placement) {
-    bool isDone = editActorId(placement.id);
-    for (usize side = 0; side < 2; ++side) {
-        core::drawPropertyLabel(side == 0 ? "Front Room" : "Back Room",
-                                "The room on this side, or -1 for none.");
-        ImGui::SetNextItemWidth(-FLT_MIN);
-        ImGui::PushID(static_cast<int>(side));
-        ImGui::InputScalar("##room", ImGuiDataType_S8, &placement.rooms[side]);
-        isDone = ImGui::IsItemDeactivatedAfterEdit() || isDone;
-        ImGui::PopID();
-    }
-    isDone = editPosition(placement.position) || isDone;
-    core::drawPropertyLabel("Rotation Y", "Stored as a binary angle, 0x4000 a quarter turn.");
-    isDone = editRotation(std::span(&placement.rotationY, 1)) || isDone;
-    core::drawPropertyLabel("Params", "The actor's params, which its Init reads.");
-    isDone = editHex("##params", placement.params) || isDone;
-    return isDone;
-}
-
 void PlacementEditor::drawInspector(Scene& scene) {
     if (!selected) {
+        ImGui::TextColored(core::palette::TextMuted,
+                           "Select a placement in the Scene panel or the viewport.");
         return;
     }
     if (!draft) {
@@ -255,23 +164,148 @@ void PlacementEditor::drawInspector(Scene& scene) {
             return;
         }
     }
-    if (!ImGui::CollapsingHeader("Selected", ImGuiTreeNodeFlags_DefaultOpen)) {
-        return;
-    }
-    if (!core::beginProperties("##placement", LabelWidth)) {
-        return;
-    }
     const PlacementRef where = *selected;
+    const s16 actorId = std::visit([](const auto& held) { return held.id; }, *draft);
+    const auto model = scene.actors.models.find(actorId);
+    const actor::ActorEntry* entry =
+        model != scene.actors.models.end() && model->second.entry ? &*model->second.entry : nullptr;
+    drawHeader(where, actorId, entry);
     bool isDone = false;
-    if (auto* actor = std::get_if<ActorPlacement>(&*draft)) {
-        isDone = editActor(*actor);
-    } else if (auto* transition = std::get_if<TransitionActorPlacement>(&*draft)) {
-        isDone = editTransitionActor(*transition);
+    if (ImGui::CollapsingHeader("Actor", ImGuiTreeNodeFlags_DefaultOpen) &&
+        core::beginProperties("##actor", LabelWidth)) {
+        const std::array<bool, 3> axes = findParamAxes(entry);
+        if (auto* actor = std::get_if<ActorPlacement>(&*draft)) {
+            isDone = actorForm.drawActor(*actor, axes);
+        } else if (auto* transition = std::get_if<TransitionActorPlacement>(&*draft)) {
+            isDone = actorForm.drawTransitionActor(*transition, axes[1]);
+        }
+        core::endProperties();
+    }
+    isDone = drawParams(scene, where, entry, actorId) || isDone;
+    if (entry != nullptr) {
+        drawObject(scene, where, *entry);
+    }
+    drawActions(where);
+    if (isDone) {
+        commitDraft(scene, where);
+    }
+}
+
+void PlacementEditor::drawHeader(const PlacementRef& where, const s16 actorId,
+                                 const actor::ActorEntry* entry) const {
+    std::string enumName = std::format("0x{:04X}", static_cast<u16>(actorId));
+    if (const hackeroot::Workspace* workspace = workspaceService.getWorkspace()) {
+        const std::vector<hackeroot::ActorEntry>& actors = workspace->getTables().actors;
+        const auto index = static_cast<usize>(static_cast<u16>(actorId));
+        if (index < actors.size() && !actors[index].enumName.empty()) {
+            enumName = actors[index].enumName;
+        }
+    }
+    const std::string name = entry != nullptr && !entry->name.empty() ? entry->name : enumName;
+    ImGui::TextColored(core::palette::Accent, "%s", core::icons::Cube);
+    ImGui::SameLine();
+    ImGui::TextUnformatted(name.c_str());
+    const std::string details =
+        name == enumName ? makeWhere(where) : std::format("{} · {}", enumName, makeWhere(where));
+    ImGui::TextColored(core::palette::TextMuted, "%s", details.c_str());
+    ImGui::Spacing();
+}
+
+bool PlacementEditor::drawParams(const Scene& scene, const PlacementRef& where,
+                                 const actor::ActorEntry* entry, const s16 actorId) {
+    if (!ImGui::CollapsingHeader("Params", ImGuiTreeNodeFlags_DefaultOpen)) {
+        return false;
+    }
+    if (entry == nullptr || entry->params.empty()) {
+        ImGui::TextColored(core::palette::TextMuted, "%s",
+                           entry == nullptr ? "The actor database has no entry for this actor."
+                                            : "Its entry in the actor database names no params.");
+        ImGui::TextColored(core::palette::TextMuted, "The Actor section's Params field sets them.");
+        if (const auto model = scene.actors.models.find(actorId);
+            openActorEditor && model != scene.actors.models.end() &&
+            ImGui::Button("Edit in the Actor Database")) {
+            openActorEditor(model->second.enumName);
+        }
+        return false;
+    }
+    if (!core::beginProperties("##params", LabelWidth)) {
+        return false;
+    }
+    actor::PlacementValues values = makeValues(scene, where, *draft);
+    const bool isDone =
+        paramsForm.draw(*entry, values, [this, &entry](const std::string_view name) {
+            return collectionCatalog.findCollection(entry->actor, name);
+        });
+    setValues(*draft, values);
+    if (!entry->variants.empty()) {
+        core::drawPropertyLabel("Variant", "The first variant of the actor's entry whose match "
+                                           "these params hold for, which is what is drawn.");
+        const actor::ActorVariant* variant = actor::findVariant(*entry, values);
+        const std::string text =
+            variant != nullptr ? std::format("{} of {}", variant - entry->variants.data() + 1,
+                                             entry->variants.size())
+                               : std::format("None of {} matches: marked", entry->variants.size());
+        ImGui::TextColored(variant != nullptr ? core::palette::Text : core::palette::Warning, "%s",
+                           text.c_str());
     }
     core::endProperties();
-    if (!isDone) {
+    if (openActorEditor && ImGui::SmallButton("Edit in the Actor Database")) {
+        openActorEditor(entry->actor);
+    }
+    return isDone;
+}
+
+void PlacementEditor::drawObject(const Scene& scene, const PlacementRef& where,
+                                 const actor::ActorEntry& entry) {
+    const actor::ActorVariant* variant =
+        actor::findVariant(entry, makeValues(scene, where, *draft));
+    const std::optional<std::string> object =
+        variant != nullptr && variant->object ? variant->object : entry.object;
+    if (!object || !ImGui::CollapsingHeader("Object", ImGuiTreeNodeFlags_DefaultOpen) ||
+        !core::beginProperties("##object", LabelWidth)) {
         return;
     }
+    core::drawPropertyLabel("Needs", "The object the actor database says the actor is drawn "
+                                     "from, which the game must have loaded to spawn it.");
+    ImGui::TextUnformatted(object->c_str());
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (where.kind == PlacementKind::Actor && workspace != nullptr) {
+        core::drawPropertyLabel("Loaded", "Whether a keep object or the room's object list in "
+                                          "this layer loads it.");
+        if (!findMissingObject(scene, where, *object, workspace->getTables())) {
+            ImGui::TextColored(core::palette::Success, "%s Yes", core::icons::Check);
+        } else {
+            ImGui::TextColored(core::palette::Warning, "%s No", core::icons::Warning);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Add to the Object List")) {
+                picked = [this, where, name = *object](Scene& edited) {
+                    addObject(edited, where, name);
+                };
+            }
+        }
+    }
+    core::endProperties();
+}
+
+void PlacementEditor::drawActions(const PlacementRef& where) {
+    ImGui::Spacing();
+    ImGui::BeginDisabled(where.kind == PlacementKind::PlayerEntry);
+    if (ImGui::Button("Duplicate")) {
+        pickDuplicate(where, *draft);
+    }
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Text, core::palette::Danger);
+    if (ImGui::Button("Delete")) {
+        pickDelete(where);
+    }
+    ImGui::PopStyleColor();
+    ImGui::EndDisabled();
+    if (where.kind == PlacementKind::PlayerEntry) {
+        ImGui::SetItemTooltip("The spawn list names the player entries by index.");
+    }
+}
+
+void PlacementEditor::commitDraft(Scene& scene, const PlacementRef& where) {
     const Placement edited = *draft;
     const bool isSet =
         apply(scene, where, [&edited, &where](SceneModel& model, const PlacementList& list) {
@@ -285,6 +319,21 @@ void PlacementEditor::drawInspector(Scene& scene) {
     }
 }
 
+void PlacementEditor::pickDuplicate(const PlacementRef& where, const Placement& placement) {
+    picked = [this, where, copied = placement](Scene& edited) { add(edited, where, copied); };
+}
+
+void PlacementEditor::pickDelete(const PlacementRef& where) {
+    picked = [this, where](Scene& edited) {
+        if (selected == where) {
+            selected.reset();
+        }
+        apply(edited, where, [where](SceneModel& model, const PlacementList& list) {
+            return removePlacement(model, list, where.index);
+        });
+    };
+}
+
 void PlacementEditor::drawPlacementMenu(const Scene& scene, const PlacementRef& where) {
     const std::optional<Placement> placement = findPlacement(scene, where);
     if (!placement) {
@@ -293,17 +342,10 @@ void PlacementEditor::drawPlacementMenu(const Scene& scene, const PlacementRef& 
     ImGui::Separator();
     const bool isPlayerEntry = where.kind == PlacementKind::PlayerEntry;
     if (ImGui::MenuItem("Duplicate", nullptr, false, !isPlayerEntry)) {
-        picked = [this, where, copied = *placement](Scene& edited) { add(edited, where, copied); };
+        pickDuplicate(where, *placement);
     }
     if (ImGui::MenuItem("Delete", nullptr, false, !isPlayerEntry)) {
-        picked = [this, where](Scene& edited) {
-            if (selected == where) {
-                selected.reset();
-            }
-            apply(edited, where, [where](SceneModel& model, const PlacementList& list) {
-                return removePlacement(model, list, where.index);
-            });
-        };
+        pickDelete(where);
     }
     if (isPlayerEntry) {
         ImGui::SetItemTooltip("The spawn list names the player entries by index.");

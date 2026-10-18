@@ -224,6 +224,41 @@ TEST_CASE("a placement picks the first variant its params match", "[actor][datab
                 bridge, {.rotation = {0, 0, 1}, .age = toki::actor::Age::Child}) == nullptr);
 }
 
+TEST_CASE("a param is written into its own bits only, a signed one as the game reads it",
+          "[actor][database]") {
+    const toki::actor::ActorParam drop{.name = "Drop", .mask = 0x0F00};
+    const toki::actor::PlacementValues written =
+        toki::actor::writeParamValue(drop, {.params = 0xF0FF}, 0x5);
+    REQUIRE(written.params == 0xF5FF);
+    REQUIRE(toki::actor::readParamValue(drop, written) == 5);
+    REQUIRE(toki::actor::writeParamValue(drop, {.params = 0x0000}, 0x15).params == 0x0500);
+
+    const toki::actor::ActorParam chain{.name = "Chain",
+                                        .source = toki::actor::ParamSource::RotationX,
+                                        .mask = 0x00FF,
+                                        .isSigned = true};
+    const toki::actor::PlacementValues turned =
+        toki::actor::writeParamValue(chain, {.rotation = {0x1200, 7, 9}}, -2);
+    REQUIRE(turned.rotation[0] == 0x12FE);
+    REQUIRE(turned.rotation[1] == 7);
+    REQUIRE(toki::actor::readParamValue(chain, turned) == -2);
+
+    REQUIRE(toki::actor::findParamRange(drop).highest == 15);
+    REQUIRE(toki::actor::findParamRange(chain).lowest == -128);
+    REQUIRE(toki::actor::findParamRange(chain).highest == 127);
+}
+
+TEST_CASE("the bits no param names are what an entry leaves unnamed", "[actor][database]") {
+    toki::actor::ActorEntry entry;
+    entry.params.push_back({.name = "Type", .mask = 0xF000});
+    entry.params.push_back({.name = "Flag", .mask = 0x003F});
+    entry.params.push_back(
+        {.name = "Switch", .source = toki::actor::ParamSource::RotationZ, .mask = 0x00FF});
+    REQUIRE(toki::actor::findUnnamedBits(entry, toki::actor::ParamSource::Params) == 0x0FC0);
+    REQUIRE(toki::actor::findUnnamedBits(entry, toki::actor::ParamSource::RotationZ) == 0xFF00);
+    REQUIRE(toki::actor::findUnnamedBits(entry, toki::actor::ParamSource::RotationX) == 0xFFFF);
+}
+
 TEST_CASE("a mask gives a param's shift and width, and must have its bits together",
           "[actor][database]") {
     REQUIRE(toki::actor::findMaskShift(0x0F00) == 8);

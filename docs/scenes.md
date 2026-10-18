@@ -119,6 +119,22 @@ scene; it only shows the rows it was offered. Choosing an actor
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
+The Properties panel, below it, shows the placement selected in the panel or picked in the
+viewport, in three sections:
+
+- **Actor** is the placement as the game stores it: its type, position, rotation and params,
+  raw. A rotation is shown in binary angles or degrees (Scenes › Rotations In, or the button
+  beside it), except an axis the actor reads params from, which is always shown raw.
+- **Params** is the same bits as the actor's database entry names them: a flag as a
+  checkbox, a number as a field, a choice as a dropdown of its values or its collection's
+  (`ParamsForm`). Each control writes only its own bits (`writeParamValue`), and the raw
+  params above are always what is stored, so they override whatever the entry says. Bits no
+  param names are shown as Other Bits when the placement sets any, and the variant the params
+  match is named. An actor without an entry, or an entry without params, has only the raw
+  field.
+- **Object** is the object the variant is drawn from, and whether the room loads it in this
+  layer, with a button to add it to the room's object list when it does not.
+
 Its Flags section lists every scene flag the layer's placed actors use, by the params their
 entries mark as one ([actor-database.md](actor-database.md)), in the rooms and between them
 (`listSceneFlags`): each flag by kind and number, whether it is saved or reset when the

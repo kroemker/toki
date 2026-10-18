@@ -52,6 +52,23 @@ struct PlacementValues {
 /// it is signed.
 [[nodiscard]] s64 readParamValue(const ActorParam& param, const PlacementValues& placement);
 
+/// The lowest and highest value a param can hold.
+struct ParamRange {
+    s64 lowest = 0;
+    s64 highest = 0;
+};
+
+[[nodiscard]] ParamRange findParamRange(const ActorParam& param);
+
+/// `placement` with `param` set to `value`: its bits replaced by the low bits
+/// of the value, so a negative value of a signed param is stored as the game
+/// reads it back. Every other bit is kept.
+[[nodiscard]] PlacementValues writeParamValue(const ActorParam& param,
+                                              const PlacementValues& placement, s64 value);
+
+/// The bits of `source` no param of `entry` names.
+[[nodiscard]] u16 findUnnamedBits(const ActorEntry& entry, ParamSource source);
+
 /// Whether every param of `variant`'s match is one of its values for
 /// `placement`. A match on `age` or `scene` fails where the placement has none.
 [[nodiscard]] bool isMatching(const ActorEntry& entry, const ActorVariant& variant,

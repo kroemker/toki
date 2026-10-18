@@ -92,6 +92,7 @@ public:
 
     /// What "Edit actor" opens an actor's entry with, by its enum name.
     void setActorEditor(std::function<void(const std::string&)> editor) {
+        placementEditor.setActorEditor(editor);
         openActorEditor = std::move(editor);
     }
 
@@ -113,6 +114,9 @@ public:
     }
 
     void draw() override;
+
+    /// Draws the properties of what is selected, for the Properties panel.
+    void drawProperties();
 
 private:
     void showScene();

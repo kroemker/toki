@@ -1,9 +1,13 @@
 #pragma once
 
+#include "app/actor/domain/ActorEntry.h"
+#include "app/actor/domain/CollectionCatalog.h"
 #include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/ui/ActorForm.h"
+#include "app/scene/ui/ParamsForm.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
 #include <array>
@@ -26,7 +30,8 @@ public:
     /// model was not read yet.
     using Show = std::function<void(bool hasNewActors)>;
 
-    PlacementEditor(const workspace::WorkspaceService& workspaceService, Show show);
+    PlacementEditor(const workspace::WorkspaceService& workspaceService,
+                    actor::CollectionCatalog& collectionCatalog, Show show);
 
     /// What finds the object the actor database says an actor needs, by its
     /// ID, so that the room it is placed in loads it.
@@ -37,8 +42,13 @@ public:
     /// Shows rotations as `format`; `changed` is told when the form's own
     /// button switches it.
     void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
-        angleFormat = format;
-        changeAngleFormat = std::move(changed);
+        actorForm.setAngleFormat(format, std::move(changed));
+    }
+
+    /// What "Edit in the Actor Database" opens an actor's entry with, by its
+    /// enum name.
+    void setActorEditor(std::function<void(const std::string&)> editor) {
+        openActorEditor = std::move(editor);
     }
 
     void select(const PlacementRef& where) {
@@ -54,7 +64,8 @@ public:
     /// again or another layer is shown.
     void refresh(const Scene& scene);
 
-    /// Draws the selected placement as a form, if one is selected.
+    /// Draws the selected placement's properties: the actor as stored, its
+    /// params as the actor database names them, and the object it needs.
     void drawInspector(Scene& scene);
 
     /// The items of a placement's context menu that edit it. What is picked is
@@ -97,25 +108,30 @@ public:
 private:
     bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit);
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
+    void addObject(Scene& scene, const PlacementRef& where, const std::string& object);
     void add(Scene& scene, const PlacementRef& where, const Placement& placement);
-    [[nodiscard]] bool editActor(ActorPlacement& placement);
-    [[nodiscard]] bool editTransitionActor(TransitionActorPlacement& placement);
-    [[nodiscard]] bool editActorId(s16& id) const;
-    [[nodiscard]] bool editRotation(std::span<s16> angles);
-    void drawAngleFormatButton();
+    void pickDuplicate(const PlacementRef& where, const Placement& placement);
+    void pickDelete(const PlacementRef& where);
+    void drawHeader(const PlacementRef& where, s16 actorId, const actor::ActorEntry* entry) const;
+    [[nodiscard]] bool drawParams(const Scene& scene, const PlacementRef& where,
+                                  const actor::ActorEntry* entry, s16 actorId);
+    void drawObject(const Scene& scene, const PlacementRef& where, const actor::ActorEntry& entry);
+    void drawActions(const PlacementRef& where);
+    void commitDraft(Scene& scene, const PlacementRef& where);
     [[nodiscard]] s16 findDefaultActor() const;
 
     const workspace::WorkspaceService& workspaceService;
+    actor::CollectionCatalog& collectionCatalog;
     Show show;
+    ActorForm actorForm;
+    ParamsForm paramsForm;
+    std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;
     std::optional<PlacementRef> selected;
     std::optional<Placement> draft;
     std::string failure;
     std::function<void(Scene&)> picked;
-    mutable std::string actorFilter;
-    core::AngleFormat angleFormat = core::AngleFormat::Binary;
-    std::function<void(core::AngleFormat)> changeAngleFormat;
 };
 
 } // namespace toki::scene

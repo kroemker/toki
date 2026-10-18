@@ -12,6 +12,8 @@ enum class DockSlot : u8 {
     Centre,
     Left,
     Right,
+    /// Below the panels on the right.
+    RightBottom,
     Bottom,
 };
 

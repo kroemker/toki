@@ -124,6 +124,50 @@ s64 readParamValue(const ActorParam& param, const PlacementValues& placement) {
     return raw;
 }
 
+ParamRange findParamRange(const ActorParam& param) {
+    const u8 width = findMaskWidth(param.mask);
+    if (width == 0) {
+        return {};
+    }
+    if (param.isSigned) {
+        return {.lowest = -(s64{1} << (width - 1U)), .highest = (s64{1} << (width - 1U)) - 1};
+    }
+    return {.lowest = 0, .highest = (s64{1} << width) - 1};
+}
+
+PlacementValues writeParamValue(const ActorParam& param, const PlacementValues& placement,
+                                const s64 value) {
+    const u16 bits = readSource(param.source, placement);
+    const auto shifted = static_cast<u16>(static_cast<u64>(value) << findMaskShift(param.mask));
+    const auto written = static_cast<u16>((bits & ~param.mask) | (shifted & param.mask));
+    PlacementValues changed = placement;
+    switch (param.source) {
+    case ParamSource::Params:
+        changed.params = written;
+        break;
+    case ParamSource::RotationX:
+        changed.rotation[0] = static_cast<s16>(written);
+        break;
+    case ParamSource::RotationY:
+        changed.rotation[1] = static_cast<s16>(written);
+        break;
+    case ParamSource::RotationZ:
+        changed.rotation[2] = static_cast<s16>(written);
+        break;
+    }
+    return changed;
+}
+
+u16 findUnnamedBits(const ActorEntry& entry, const ParamSource source) {
+    u16 named = 0;
+    for (const ActorParam& param : entry.params) {
+        if (param.source == source) {
+            named |= param.mask;
+        }
+    }
+    return static_cast<u16>(~named);
+}
+
 bool isMatching(const ActorEntry& entry, const ActorVariant& variant,
                 const PlacementValues& placement) {
     return isMatching(entry, variant.match, placement);
