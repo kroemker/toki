@@ -94,6 +94,27 @@ pointing at it), and the model lays its images out again against the game's code
 viewport, the display list viewer and the header readers see an edited scene the way they
 see one read from the checkout. Addresses move as symbols grow; relocations follow them.
 
+What the Scene panel edits are the placements of a layer: a room's actors, the scene's
+transition actors, and where the player enters (`PlacementEdits`). An edit changes the
+bytes of the list that layer's header points at, and the count in the header's command:
+
+- A list another header also points at is copied for the edited one first, named as fast64
+  names one (`<room>_header02_actorList`), so an edit of one layer never shows in another.
+  A room with no header of its own for a layer is edited in its main header, since that is
+  what the game reads for it.
+- An actor whose database entry names an object no keep object and no object list of its
+  room loads has that object added to the room's object list in the same layer, since the
+  game spawns no actor whose object is not loaded. Objects are only added, never removed:
+  actors spawn others whose objects the list holds for them.
+- Removing a list's last placement removes the command, and the list once nothing points
+  at it. A header with no list for a kind cannot be added to yet. Player entries are set,
+  never added or removed: the spawn list and the entrance table name them by index.
+
+An edit that fails changes nothing. While a scene has edits no save wrote, its files read
+again, or another scene opened, do not replace it: the panel asks whether to throw the
+edits away first. A save takes the edits as written, and a vanilla scene is opened again
+from its copy under `assets/`.
+
 ## Where it is written
 
 A scene from the checkout's `assets/` is written over its own folder: the new files in

@@ -19,6 +19,15 @@ handler, the bar shows a row for each choice it was offered, and the owner appli
 picked to its own state and gives the viewport new content. The viewport never knows what a
 scene is; an owner that offers nothing gets no rows.
 
+## Picking and moving
+
+The same way, the owner gives the viewport points to pick (`setPickables`) and one point to
+move (`setHandle`), each with what to do about it. A click, a press and release that moved
+less than a few points, picks the point drawn nearest the mouse, if one is within 12 points
+of it (`findPickedPoint`). The point to move gets a translation gizmo (ImGuizmo); dragging it
+moves no camera, and its owner is told where it is as it is dragged and once it is let go.
+The Scene panel offers the placements it shows, and the selected one to move.
+
 ## The bar
 
 Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading

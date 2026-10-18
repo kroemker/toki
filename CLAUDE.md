@@ -266,6 +266,8 @@ listed below is only what no change may break.
   whole, from the memory image, in fast64's layout.
   - A save writes declarations from their bytes, never edits the C it read.
   - Nothing is written that does not read back as the same symbols, bytes and relocations.
+  - An edit of one layer never shows in another: a list two headers share is copied first.
+  - Unsaved edits are never thrown away without asking.
 - **[Objects](docs/objects.md)** — how an object folder becomes a catalog of assets, and how
   a skeleton is posed and drawn.
   - An object is a catalog, not a model. What is drawn is picked from it; nothing assumes
