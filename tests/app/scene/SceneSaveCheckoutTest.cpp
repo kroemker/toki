@@ -136,6 +136,8 @@ TEST_CASE("a vanilla scene with its actors edited reads back as edited",
     REQUIRE(toki::scene::setPlacement(model, adult, 0, moved));
     REQUIRE(toki::scene::addPlacement(model, adult, moved));
     REQUIRE(toki::scene::removePlacement(model, {.kind = toki::scene::PlacementKind::Actor}, 0));
+    const std::vector<base::s16> crowded(20, base::s16{0x0003});
+    REQUIRE(toki::scene::addRoomObjects(model, 0, 1, crowded));
     const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
         workspace, toki::scene::SceneSaveInput{.name = scene.name,
                                                .directory = scene.directory,
@@ -144,4 +146,7 @@ TEST_CASE("a vanilla scene with its actors edited reads back as edited",
 
     INFO((plan ? std::string() : plan.error()));
     REQUIRE(plan.has_value());
+    REQUIRE(std::ranges::any_of(plan->warnings, [](const std::string& warning) {
+        return warning.starts_with("Room 1 lists") && warning.contains("slots");
+    }));
 }

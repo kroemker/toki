@@ -1,7 +1,9 @@
 #include "SceneSave.h"
 
 #include "app/scene/domain/ActorEntryWriter.h"
+#include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneCommandWriter.h"
+#include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneLayout.h"
 #include "app/scene/domain/SceneSourceScan.h"
 #include "base/Diagnostic.h"
@@ -24,6 +26,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <ranges>
@@ -85,6 +88,7 @@ private:
     [[nodiscard]] bool isSwitchOn(std::string_view name) const;
     [[nodiscard]] z64::DeclarationWriter makeWriter() const;
     [[nodiscard]] std::vector<std::string> listLiteralAddresses() const;
+    [[nodiscard]] std::vector<std::string> listObjectOverflows() const;
 
     /// The symbol whose name `name` starts with, followed by `_`, if one does.
     [[nodiscard]] std::optional<std::string> findDefinedSymbol(std::string_view name) const {
@@ -228,6 +232,36 @@ std::vector<std::string> SceneSaver::listLiteralAddresses() const {
                     found.push_back(
                         std::format("{}[{}] 0x{:08X}", symbol.name, at / CommandSize, address));
                 }
+            }
+        }
+    }
+    return found;
+}
+
+std::vector<std::string> SceneSaver::listObjectOverflows() const {
+    const cparser::CType* context = findType("ObjectContext");
+    const auto slots =
+        context != nullptr
+            ? std::ranges::find(context->fields, std::string_view("slots"), &cparser::Field::name)
+            : std::vector<cparser::Field>::const_iterator{};
+    if (context == nullptr || slots == context->fields.end() || !slots->type->count) {
+        return {};
+    }
+    Scene laidOut{.name = input.name, .directory = input.directory, .images = input.model.layOut()};
+    readSceneLayers(laidOut);
+    std::vector<std::string> found;
+    std::set<std::pair<usize, std::vector<s16>>> named;
+    for (const SceneLayer& layer : laidOut.layers) {
+        const usize persistent = layer.header.keepObjectId != 0 ? 2 : 1;
+        for (usize room = 0; room < layer.rooms.size(); ++room) {
+            const std::vector<s16>& objects = layer.rooms[room].objects;
+            if (objects.size() + persistent > *slots->type->count &&
+                named.emplace(room, objects).second) {
+                found.push_back(std::format(
+                    "Room {} lists {} objects in the {} layer: with the {} keep objects that is "
+                    "more than the {} slots the game loads objects into.",
+                    room, objects.size(), makeLayerName(layer.index), persistent,
+                    *slots->type->count));
             }
         }
     }
@@ -419,6 +453,7 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
             "This scene was exported by fast64. Once Toki writes it, its .blend and its C go "
             "separate ways: exporting from Blender again replaces what Toki wrote.");
     }
+    std::ranges::move(listObjectOverflows(), std::back_inserter(plan.warnings));
     if (const std::vector<std::string> literal = listLiteralAddresses(); !literal.empty()) {
         plan.warnings.push_back(std::format(
             "{} display list commands point at an address written as a number, not a symbol, and "
