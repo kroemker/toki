@@ -31,11 +31,16 @@ Every tool works the same way, in `hackeroot/CheckoutEdits`:
   since nothing on the UI thread reads the checkout. The workspace sees the change by its
   own polling and reads the checkout again.
 - **In Toki's blocks.** What a tool adds to a table or to the spec goes into a block of its
-  own, between `// Toki64 <what> — managed block` and `// Toki64 end`, so what was written
-  by a tool shows at a glance. A block is made once, before a file's last lines that must
-  stay last (`#if TESTSUITE_MODE`), or at its end. The markers are the Rust prototype's, so
-  blocks it made are found and added to. An actor or object may instead take an unused slot
-  of its table (`DEFINE_ACTOR_UNSET`), which keeps every ID after it.
+  own, between `// toki: <what> begin` and `// toki: <what> end`, so what was written by a
+  tool shows at a glance. A block is made once, before a file's last lines that must stay
+  last (`#if TESTSUITE_MODE`), or at its end. An actor or object may instead take an unused
+  slot of its table (`DEFINE_ACTOR_UNSET`), which keeps every ID after it.
+- **One marker.** Everything Toki manages in a checkout's code is marked by a
+  `// toki: <what>` comment (`hackeroot::makeTokiMarker`): the blocks above, and a scene
+  Toki writes whole, `// toki: scene` ([scene-writing.md](scene-writing.md)). The Rust
+  prototype's `// Toki64 … managed block` markers are not read. A tool run on a checkout
+  the prototype changed still finds the entries it made, since an entry is found anywhere
+  in its table, and adds what is new to a block of its own.
 
 The text edits it offers are each a function of a file's text and so tested on strings:
 setting a `#define` on a given line, keeping its indent and comment; adding to a block;
@@ -117,7 +122,7 @@ the room list come from its header's bytes. It warns of a name that is not a C i
 a room list that names another number of rooms than the folder has, a full scene table, a
 scene enum another scene has, and booting into the scene without `DEBUG_FEATURES`, which the
 safeguards answer by booting to the title screen. A scene the Rust prototype registered
-reads as registered: its segments, entries and markers are the ones this writes.
+reads as registered: its segments and entries are the ones this writes.
 
 ## Create Actor
 

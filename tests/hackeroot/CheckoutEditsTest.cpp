@@ -85,13 +85,13 @@ TEST_CASE("Toki's entries go into its block, made once before the lines that sta
     hackeroot::addToManagedBlock(text, "custom scenes", "DEFINE_SCENE(c)", "#if TESTSUITE_MODE");
 
     REQUIRE(text == "DEFINE_SCENE(a)\n\n"
-                    "// Toki64 custom scenes — managed block\n"
+                    "// toki: custom scenes begin\n"
                     "DEFINE_SCENE(b)\n\nDEFINE_SCENE(c)\n\n"
-                    "// Toki64 end\n\n"
+                    "// toki: custom scenes end\n\n"
                     "#if TESTSUITE_MODE\n#include \"t.h\"\n#endif\n");
     hackeroot::addToManagedBlock(text, "custom actors", "DEFINE_ACTOR(d)", "");
-    REQUIRE(text.ends_with("// Toki64 custom actors — managed block\n"
-                           "DEFINE_ACTOR(d)\n\n// Toki64 end\n\n"));
+    REQUIRE(text.ends_with("// toki: custom actors begin\n"
+                           "DEFINE_ACTOR(d)\n\n// toki: custom actors end\n\n"));
     REQUIRE(hackeroot::findManagedBlock(text, "custom scenes")->end <
             hackeroot::findManagedBlock(text, "custom actors")->begin);
 }

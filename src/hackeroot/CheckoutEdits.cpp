@@ -21,11 +21,14 @@ namespace hackeroot {
 
 namespace {
 
-constexpr std::string_view ManagedEnd = "// Toki64 end";
 constexpr std::string_view DefineDirective = "#define ";
 
 [[nodiscard]] std::string makeManagedBegin(const std::string_view title) {
-    return std::format("// Toki64 {} — managed block", title);
+    return makeTokiMarker(std::format("{} begin", title));
+}
+
+[[nodiscard]] std::string makeManagedEnd(const std::string_view title) {
+    return makeTokiMarker(std::format("{} end", title));
 }
 
 [[nodiscard]] std::string normalizeLineEndings(const std::string_view text) {
@@ -168,6 +171,10 @@ void undoWrites(const std::filesystem::path& repository, const EditPlan& plan,
 
 } // namespace
 
+std::string makeTokiMarker(const std::string_view what) {
+    return std::format("// toki: {}", what);
+}
+
 bool EditPlan::hasWork() const {
     return std::ranges::any_of(files, isChanged);
 }
@@ -283,21 +290,23 @@ EditStatus setDefine(std::string& text, const usize line, const std::string_view
 std::optional<TextRange> findManagedBlock(const std::string_view text,
                                           const std::string_view title) {
     const std::string begin = makeManagedBegin(title);
+    const std::string end = makeManagedEnd(title);
     const usize start = text.find(begin);
     if (start == std::string_view::npos) {
         return std::nullopt;
     }
-    const usize end = text.find(ManagedEnd, start + begin.size());
-    if (end == std::string_view::npos) {
+    const usize last = text.find(end, start + begin.size());
+    if (last == std::string_view::npos) {
         return std::nullopt;
     }
-    return TextRange{.begin = start, .end = end + ManagedEnd.size()};
+    return TextRange{.begin = start, .end = last + end.size()};
 }
 
 void addToManagedBlock(std::string& text, const std::string_view title,
                        const std::string_view entry, const std::string_view anchor) {
     if (!findManagedBlock(text, title)) {
-        const std::string block = std::format("{}\n{}\n\n", makeManagedBegin(title), ManagedEnd);
+        const std::string block =
+            std::format("{}\n{}\n\n", makeManagedBegin(title), makeManagedEnd(title));
         const usize at = findLineStart(text, anchor);
         if (at != std::string::npos) {
             text.insert(at, block);
@@ -310,7 +319,7 @@ void addToManagedBlock(std::string& text, const std::string_view title,
         }
     }
     const std::optional<TextRange> block = findManagedBlock(text, title);
-    text.insert(block->end - ManagedEnd.size(), std::format("{}\n\n", entry));
+    text.insert(block->end - makeManagedEnd(title).size(), std::format("{}\n\n", entry));
 }
 
 std::optional<TextRange> findSpecSegment(const std::string_view spec, const std::string_view name) {

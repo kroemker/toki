@@ -78,9 +78,15 @@ struct TextRange {
     usize end = 0;
 };
 
+/// The comment that marks what Toki manages in a checkout's code: `// toki: <what>`.
+/// A block Toki adds entries to is marked `// toki: <title> begin` and
+/// `// toki: <title> end`, and a file Toki writes whole, such as a scene's, is
+/// marked `// toki: scene`.
+[[nodiscard]] std::string makeTokiMarker(std::string_view what);
+
 /// The block of `text` Toki adds `title`'s entries to, between
-/// `// Toki64 <title> — managed block` and `// Toki64 end`, its first line to
-/// one past its last, if it has one.
+/// `// toki: <title> begin` and `// toki: <title> end`, its first line to one
+/// past its last, if it has one.
 [[nodiscard]] std::optional<TextRange> findManagedBlock(std::string_view text,
                                                         std::string_view title);
 

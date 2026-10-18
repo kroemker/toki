@@ -112,7 +112,7 @@ TEST_CASE("creating an actor registers it and writes its overlay, once", "[tools
         actors.contains("/* 0x0001 */ DEFINE_ACTOR(En_Foo, ACTOR_EN_FOO, ACTOROVL_ALLOC_NORMAL, "
                         "\"En_Foo\")\n"));
     REQUIRE(readText(root / "include/tables/object_table.h")
-                .contains("// Toki64 custom objects — managed block\n"
+                .contains("// toki: custom objects begin\n"
                           "DEFINE_OBJECT(object_foo, OBJECT_FOO)\n"));
     const std::string spec = readText(root / "spec/spec");
     REQUIRE(spec.contains("name \"ovl_En_Foo\""));
