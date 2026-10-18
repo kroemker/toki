@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <expected>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -103,6 +104,24 @@ TEST_CASE("asset folders come from the checkout and from its extracted version",
             std::vector<std::string>{"custom", "spot00 (extracted)"});
     REQUIRE(collectNames(workspace.getAssets().objects) ==
             std::vector<std::string>{"gameplay_keep (extracted)", "object_custom"});
+}
+
+TEST_CASE("a vanilla scene copied to the checkout's assets is listed once, as the copy",
+          "[hackeroot][workspace]") {
+    const std::filesystem::path checkout =
+        std::filesystem::temp_directory_path() / "toki-shadowed-checkout";
+    std::filesystem::remove_all(checkout);
+    std::filesystem::create_directories(checkout / "assets/scenes/overworld/spot00");
+    std::filesystem::create_directories(checkout /
+                                        "extracted/ntsc-1.2/assets/scenes/overworld/spot00");
+    std::ofstream(checkout / "assets/scenes/overworld/spot00/spot00_scene_main.c") << "";
+    std::ofstream(checkout / "extracted/ntsc-1.2/assets/scenes/overworld/spot00/spot00_scene.c")
+        << "";
+
+    const hackeroot::Assets assets = hackeroot::listAssets(checkout, "ntsc-1.2");
+    std::filesystem::remove_all(checkout);
+
+    REQUIRE(collectNames(assets.scenes) == std::vector<std::string>{"spot00"});
 }
 
 TEST_CASE("a scene folder counts its rooms, not their files", "[hackeroot][workspace]") {

@@ -109,6 +109,19 @@ collectScenes(const std::vector<std::filesystem::directory_entry>& entries, usiz
     return first;
 }
 
+/// Drops each extracted scene the checkout's `assets/` holds a scene of the
+/// same name for: a vanilla scene Toki saved is copied there, and the spec
+/// links the copy from then on.
+[[nodiscard]] std::vector<AssetDirectory> dropShadowed(std::vector<AssetDirectory> merged) {
+    std::erase_if(merged, [&merged](const AssetDirectory& asset) {
+        return asset.isExtracted &&
+               std::ranges::any_of(merged, [&asset](const AssetDirectory& other) {
+                   return !other.isExtracted && other.name == asset.name;
+               });
+    });
+    return merged;
+}
+
 } // namespace
 
 Assets listAssets(const std::filesystem::path& repository, std::string_view version) {
@@ -127,9 +140,9 @@ Assets listAssets(const std::filesystem::path& repository, std::string_view vers
         extractedObjects = collectObjects(extracted / "objects", true);
     }
 
-    assets.scenes =
+    assets.scenes = dropShadowed(
         mergeByName(collectScenes(listDirectory(repository / "assets/scenes"), 0, false),
-                    std::move(extractedScenes));
+                    std::move(extractedScenes)));
     assets.objects = mergeByName(collectObjects(repository / "assets/objects", false),
                                  std::move(extractedObjects));
     return assets;
