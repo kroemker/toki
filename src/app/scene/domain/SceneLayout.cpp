@@ -211,6 +211,12 @@ std::string SceneWriter::writeDeclarations(const usize image) {
     const std::vector<z64::SymbolData>& symbols = model.getImages()[image];
     for (usize index = 0; index < symbols.size(); ++index) {
         std::string declaration;
+        if (const auto kept = writing.symbolDefines.find(symbols[index].name);
+            kept != writing.symbolDefines.end()) {
+            for (const std::string& line : kept->second) {
+                declaration += line + "\n";
+            }
+        }
         if (writing.lengthDefines.contains(symbols[index].name)) {
             declaration += std::format("#define LENGTH_{} {}\n", symbols[index].name,
                                        writing.writer->countElements(symbols[index]));

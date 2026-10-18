@@ -5,6 +5,7 @@
 #include "z64/DeclarationWriter.h"
 
 #include <functional>
+#include <map>
 #include <optional>
 #include <set>
 #include <span>
@@ -78,6 +79,10 @@ struct SceneWriting {
     /// Symbols the files that were read gave a `LENGTH_` define, which is
     /// written again with the symbol's length.
     std::set<std::string, std::less<>> lengthDefines;
+    /// Other `#define` lines of the files that were read, by the symbol whose
+    /// name theirs starts with, as `<texture>_WIDTH`: written again as they
+    /// were, before the symbol's declaration, since game code may use them.
+    std::map<std::string, std::vector<std::string>, std::less<>> symbolDefines;
     /// What a symbol no image of the scene holds is, so it can be declared.
     std::function<std::optional<z64::SymbolShape>(std::string_view)> findExternal;
 };

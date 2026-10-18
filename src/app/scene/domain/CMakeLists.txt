@@ -14,5 +14,7 @@ target_sources(toki_core PRIVATE
         SceneHeader.cpp
         SceneLayout.cpp
         SceneLoader.cpp
+        SceneSourceScan.cpp
         SceneModel.cpp
+        SceneSave.cpp
         SceneView.cpp)

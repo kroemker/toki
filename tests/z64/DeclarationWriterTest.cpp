@@ -25,6 +25,8 @@ constexpr std::string_view Types =
     "typedef union { struct { u32 w0, w1; } words; long long int force; } Gfx;\n"
     "typedef struct { uintptr_t start; uintptr_t end; } RomFile;\n"
     "typedef struct { Entry* first; f32 scale; } Holder;\n"
+    "typedef long int Mtx_t[4][4];\n"
+    "typedef union { Mtx_t m; long long int force; } Mtx;\n"
     "#define NULL ((void*)0)\n";
 
 /// Types, and symbols the data may point at: a display list, one entry, and a
@@ -107,7 +109,16 @@ TEST_CASE("an address the constant does not land on an element is cast through i
             "    { (uintptr_t)_roomSegmentRomStart, (uintptr_t)&_roomSegmentRomStart[4] },\n"
             "};\n");
     REQUIRE(harness.writeAgain("void* odd[] = { (void*)((uintptr_t)sDL + 3), sDL };\n") ==
-            "void* odd[2] = {\n    (void*)((uintptr_t)sDL + 0x3), sDL,\n};\n");
+            "void* odd[2] = {\n    (void*)((uintptr_t)sDL + 0x3),\n    sDL,\n};\n");
+}
+
+TEST_CASE("a union whose first member nests keeps that member's braces", "[z64][writer]") {
+    Harness harness;
+
+    REQUIRE(
+        harness.writeAgain("Mtx m = { { { 65536, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, -1, 0 }, "
+                           "{ 0, 0, 0, 7 } } };\n") ==
+        "Mtx m = { { { 65536, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, -1, 0 }, { 0, 0, 0, 7 } } };\n");
 }
 
 TEST_CASE("an extern names the type and length a definition has", "[z64][writer]") {

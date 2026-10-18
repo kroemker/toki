@@ -39,6 +39,20 @@ bool isAggregate(const cparser::CType& type) {
            type.kind == cparser::TypeKind::Union;
 }
 
+/// Whether `type` is an aggregate of scalars alone, so that as a union's first
+/// member its braces can stand for the union's: C fills it from the union's
+/// initializer, eliding its braces, element by element.
+bool isFlat(const cparser::CType& type) {
+    if (type.kind == cparser::TypeKind::Array) {
+        return type.element != nullptr && !isAggregate(*type.element);
+    }
+    if (type.kind != cparser::TypeKind::Struct) {
+        return false;
+    }
+    return std::ranges::none_of(
+        type.fields, [](const cparser::Field& field) { return isAggregate(*field.type); });
+}
+
 std::string writeReal(const double value, const bool isSingle) {
     std::string text =
         isSingle ? std::format("{}", static_cast<f32>(value)) : std::format("{}", value);
@@ -138,7 +152,7 @@ std::string ValueWriter::writeRecord(const ElementData& element, const bool isTo
             members.push_back(writeScalar(element, field.offset, *field.type));
         }
         if (record.kind == cparser::TypeKind::Union) {
-            if (!members.empty() && isAggregate(*record.fields.front().type)) {
+            if (!members.empty() && isFlat(*record.fields.front().type)) {
                 return members.front();
             }
             break;
@@ -361,7 +375,8 @@ WrittenText DeclarationWriter::writeDefinition(const SymbolData& symbol) const {
         items.push_back(writeOne(makeSlice(whole, *element, i * stride), writerName, false));
     }
     written.text += "{\n";
-    if (isAggregate(*element) || context.elementWriters.contains(writerName)) {
+    if (isAggregate(*element) || element->kind == cparser::TypeKind::Pointer ||
+        context.elementWriters.contains(writerName)) {
         const auto condition = context.elementConditions.find(writerName);
         for (usize i = 0; i < count; ++i) {
             const std::optional<std::string> guard =

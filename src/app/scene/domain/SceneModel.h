@@ -33,6 +33,11 @@ public:
         return images;
     }
 
+    /// The game's code the scene's images are laid out against.
+    [[nodiscard]] const std::shared_ptr<const z64::MemoryImage>& getGameCode() const {
+        return gameCode;
+    }
+
     [[nodiscard]] const z64::SymbolData* findSymbol(std::string_view name) const;
 
     /// Which image holds `name`.

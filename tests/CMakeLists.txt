@@ -43,6 +43,8 @@ add_executable(toki_tests
         app/scene/SceneLayoutTest.cpp
         app/scene/SceneLoaderTest.cpp
         app/scene/SceneModelTest.cpp
+        app/scene/SceneSaveCheckoutTest.cpp
+        app/scene/SceneSourceScanTest.cpp
         app/scene/SceneViewTest.cpp
         app/viewport/FrameStatisticsTest.cpp
         app/viewport/ViewportFrameTest.cpp
