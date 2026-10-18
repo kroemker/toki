@@ -38,6 +38,11 @@ public:
     /// Draws the open scene's actors as `actors` says, when they have been read.
     void setActors(SceneActors actors);
 
+    /// The open scene, if there is one.
+    [[nodiscard]] const Scene* findScene() const {
+        return scene ? &*scene : nullptr;
+    }
+
     /// Forgets the open scene, when something else takes the viewport.
     void clearScene() {
         scene.reset();

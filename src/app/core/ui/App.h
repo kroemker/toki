@@ -19,6 +19,7 @@
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneActorLoader.h"
 #include "app/scene/domain/SceneLoader.h"
+#include "app/scene/ui/SaveSceneDialog.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -89,6 +90,7 @@ private:
     SetupWizard setupWizard{fonts};
     SettingsWindow settingsWindow;
     workspace::WorkspaceService workspaceService;
+    scene::SaveSceneDialog saveSceneDialog{workspaceService};
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;

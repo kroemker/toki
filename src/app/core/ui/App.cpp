@@ -250,11 +250,19 @@ void App::drawFrame() {
         }
         viewportPanel->setReadingName(std::move(reading));
     }
-    const MenuActions actions = drawMenuBar(panels, dialogs, settings, buildRunner.isRunning());
+    const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
+    const MenuActions actions =
+        drawMenuBar(panels, dialogs, settings, buildRunner.isRunning(), openScene != nullptr);
     panels.draw();
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }
+    if (openScene != nullptr &&
+        (actions.saveScene ||
+         ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))) {
+        saveSceneDialog.open(*openScene);
+    }
+    saveSceneDialog.drawWindow();
     drawNewActorsPrompt();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {

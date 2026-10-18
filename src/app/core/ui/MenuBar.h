@@ -12,6 +12,7 @@ namespace toki::core {
 struct MenuActions {
     bool changeHackerootPath = false;
     bool openSettings = false;
+    bool saveScene = false;
     bool build = false;
     bool run = false;
     bool stopBuild = false;
@@ -20,6 +21,6 @@ struct MenuActions {
 
 [[nodiscard]] MenuActions drawMenuBar(PanelManager& panels,
                                       const std::vector<std::unique_ptr<Dialog>>& dialogs,
-                                      const Settings& settings, bool buildRunning);
+                                      const Settings& settings, bool buildRunning, bool sceneOpen);
 
 } // namespace toki::core

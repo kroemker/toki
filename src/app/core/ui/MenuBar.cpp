@@ -16,7 +16,7 @@ namespace toki::core {
 
 namespace {
 
-void drawFileMenu(const Settings& settings, MenuActions& actions) {
+void drawFileMenu(const Settings& settings, const bool sceneOpen, MenuActions& actions) {
     if (!ImGui::BeginMenu("File")) {
         return;
     }
@@ -29,6 +29,11 @@ void drawFileMenu(const Settings& settings, MenuActions& actions) {
     ImGui::TextUnformatted(settings.hackerootPath ? encodeUtf8(*settings.hackerootPath).c_str()
                                                   : "No folder set");
     ImGui::EndDisabled();
+
+    ImGui::Separator();
+    if (ImGui::MenuItem("Save Scene…", "Ctrl+S", false, sceneOpen)) {
+        actions.saveScene = true;
+    }
 
     ImGui::Separator();
     if (ImGui::MenuItem("Settings…", "Ctrl+,")) {
@@ -93,7 +98,7 @@ void drawToolsMenu(const std::vector<std::unique_ptr<Dialog>>& dialogs) {
 } // namespace
 
 MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<Dialog>>& dialogs,
-                        const Settings& settings, const bool buildRunning) {
+                        const Settings& settings, const bool buildRunning, const bool sceneOpen) {
     MenuActions actions;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(space::Medium, space::Medium));
@@ -103,7 +108,7 @@ MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<
         return actions;
     }
 
-    drawFileMenu(settings, actions);
+    drawFileMenu(settings, sceneOpen, actions);
     drawBuildMenu(buildRunning, actions);
     drawToolsMenu(dialogs);
     drawViewMenu(panels);

@@ -14,8 +14,10 @@ sees, so nothing about how the old file was written has to be kept or understood
 
 What is lost is what the bytes do not hold: comments, formatting, `#define`s and the
 branches an `#if` did not take. A save says so when the files it replaces had any, except
-an include guard, `#pragma once`, and the `LENGTH_<symbol>` defines vanilla headers give
-array bounds, which are written again. HackerOoT's feature switches are the exception to
+an include guard, `#pragma once`, the `LENGTH_<symbol>` defines vanilla headers give
+array bounds, and a define whose name starts with a symbol's (`<texture>_WIDTH`), which game
+code may use: those are written again, the last kind as its line read, before the symbol's
+`extern`. HackerOoT's feature switches are the exception to
 the exception: data under `ENABLE_ANIMATED_MATERIALS`, `ENABLE_CUTSCENE_IMPROVEMENTS` or
 `ENABLE_MM_TITLE_CARDS` is written under its `#if` again, and a scene whose files hold
 data under a switch that is off is not saved, because that data is in no image and would be
@@ -92,6 +94,22 @@ pointing at it), and the model lays its images out again against the game's code
 viewport, the display list viewer and the header readers see an edited scene the way they
 see one read from the checkout. Addresses move as symbols grow; relocations follow them.
 
+## Where it is written
+
+A scene from the checkout's `assets/` is written over its own folder: the new files in
+place, the files of its old layout removed, and the spec's segments of the scene and each
+room made to include the new objects, keeping their other lines. A vanilla scene, read from
+`extracted/<version>/`, is never written there. It is saved to the same path under
+`assets/`, its PNGs copied beside it as they are, and the spec segments in
+`spec/scenes_*.inc` are pointed at the copy, so the build links it from then on. The asset
+list shows the copy in place of the extracted scene.
+
+A save warns, in the plan, about what it cannot keep: the `#define`s and `#if`s it drops, a
+display list command that holds an address as a number rather than a symbol (it is written
+as the same number, and points elsewhere once what was there moves), and, for a scene
+fast64 exported, that its `.blend` no longer matches. A scene Toki wrote carries
+`// toki: scene` at the top of its main file and is not warned about.
+
 ## Checked before it is written
 
 A save writes the new files into memory, reads them back as the build would, and compares
@@ -99,4 +117,5 @@ the images symbol by symbol with the ones it wrote them from: every symbol there
 same type, the same bytes before patching, and relocations to the same symbols with the
 same constants. Only then is anything written. Layout is not compared, since a file split
 differently pads differently, so a vanilla scene saved in fast64's layout passes, and a
-scene Toki wrote, saved again, comes out byte for byte the same.
+scene Toki wrote, saved again, comes out byte for byte the same. Every vanilla scene of the
+checkout passes (`SceneSaveCheckoutTest`).
