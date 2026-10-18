@@ -15,6 +15,7 @@ target_sources(toki_core PRIVATE
         SceneLayout.cpp
         SceneLoader.cpp
         SceneSourceScan.cpp
+        PlacementEdits.cpp
         SceneModel.cpp
         SceneSave.cpp
         SceneView.cpp)

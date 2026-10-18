@@ -1,3 +1,4 @@
+#include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/scene/domain/SceneSave.h"
@@ -112,4 +113,35 @@ TEST_CASE("every vanilla scene saved without an edit reads back the same",
                << " s");
     INFO(listed);
     CHECK(failures.empty());
+}
+
+TEST_CASE("a vanilla scene with its actors edited reads back as edited",
+          "[scene][save][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("spot04"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(workspace);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    REQUIRE(scene.layers.size() > 2);
+    toki::scene::SceneModel model(scene);
+    const toki::scene::PlacementList adult{.kind = toki::scene::PlacementKind::Actor, .layer = 2};
+    toki::scene::ActorPlacement moved = scene.layers[2].rooms[0].actors.front();
+    moved.position[1] = static_cast<base::s16>(moved.position[1] + 100);
+
+    REQUIRE(toki::scene::setPlacement(model, adult, 0, moved));
+    REQUIRE(toki::scene::addPlacement(model, adult, moved));
+    REQUIRE(toki::scene::removePlacement(model, {.kind = toki::scene::PlacementKind::Actor}, 0));
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+        workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                               .directory = scene.directory,
+                                               .files = scene.files,
+                                               .model = std::move(model)});
+
+    INFO((plan ? std::string() : plan.error()));
+    REQUIRE(plan.has_value());
 }
