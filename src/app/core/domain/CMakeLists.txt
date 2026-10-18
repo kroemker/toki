@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        KeyBindings.cpp
         Log.cpp
         MakeVariables.cpp
         Settings.cpp

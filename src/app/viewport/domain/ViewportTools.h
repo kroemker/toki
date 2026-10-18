@@ -4,10 +4,11 @@
 
 namespace toki::viewport {
 
-/// What a click in the viewport selects: whole placements, or the faces,
-/// edges or vertices of what is drawn. Only placements can be selected yet.
+/// What a click in the viewport selects: the nodes of the scene's tree, such
+/// as rooms and placed actors, or the faces, edges or vertices of what is
+/// drawn. Only nodes can be selected yet.
 enum class SelectionMode : u8 {
-    Object,
+    Node,
     Face,
     Edge,
     Vertex,
@@ -24,8 +25,8 @@ enum class EditTool : u8 {
 
 /// How the viewport selects and edits.
 struct ViewportTools {
-    SelectionMode mode = SelectionMode::Object;
-    EditTool tool = EditTool::Move;
+    SelectionMode mode = SelectionMode::Node;
+    EditTool tool = EditTool::Select;
 };
 
 } // namespace toki::viewport

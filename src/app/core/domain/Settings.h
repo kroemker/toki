@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/core/Types.h"
+#include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/Log.h"
 #include "app/viewport/domain/ViewportView.h"
 
@@ -107,6 +108,8 @@ struct Settings {
     bool reviewsSceneSaves = true;
 
     AngleFormat angleFormat = AngleFormat::Binary;
+
+    KeyBindings keyBindings;
 
     viewport::ViewportView viewport;
 

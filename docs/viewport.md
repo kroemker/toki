@@ -35,6 +35,12 @@ Select, Move, Rotate and Scale, keys Q, W, E and R. Only Object, Select and Move
 the rest are shown disabled, saying so. The gizmo is drawn only for Move, so Select picks
 without anything to drag.
 
+Every key is bound through `core::KeyBindings`: each action has a name, a scope (the whole
+window, or the viewport while the cursor is over it) and a default chord, and `config.toml`
+binds another under `[keys]`, `move_tool = "G"`, writing only those changed from their
+default. Menus and tooltips name the key from the same bindings (`makeShortcutText`), so
+what they say is what is bound, and nothing is reached only by a key.
+
 ## The bar
 
 Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading

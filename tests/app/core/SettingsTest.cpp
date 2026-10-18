@@ -237,6 +237,19 @@ TEST_CASE("scene saves are reviewed unless the config turned it off", "[core][se
     REQUIRE_FALSE(loadSettings(dir.getFile())->reviewsSceneSaves);
 }
 
+TEST_CASE("only keys bound away from their defaults are written, and read back",
+          "[core][settings]") {
+    const TempDir dir("keys");
+    Settings written;
+    written.keyBindings.setChord(toki::core::Action::MoveTool, toki::core::KeyChord{.key = "G"});
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    const auto loaded = loadSettings(dir.getFile());
+    REQUIRE(loaded->keyBindings == written.keyBindings);
+
+    writeFile(dir.getFile(), "[keys]\nmove_tool = \"Ctrl+\"\nteleport = \"T\"\n");
+    REQUIRE(loadSettings(dir.getFile())->keyBindings == toki::core::KeyBindings{});
+}
+
 TEST_CASE("rotations are shown as binary angles unless the config says degrees",
           "[core][settings]") {
     const TempDir dir("angles");

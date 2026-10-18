@@ -15,6 +15,7 @@
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Dialog.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/LogPanel.h"
 #include "app/core/ui/MenuBar.h"
 #include "app/core/ui/Panel.h"
@@ -108,6 +109,7 @@ std::expected<void, std::string> App::initialize() {
         }
     }
     log().setMaxEntries(settings.log.maxEntries);
+    setKeyBindings(settings.keyBindings);
 
     std::expected<gfx::Device, base::Diagnostic> createdDevice = gfx::Device::create();
     if (!createdDevice) {
@@ -299,9 +301,7 @@ void App::drawFrame() {
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }
-    if (openScene != nullptr &&
-        (actions.saveScene ||
-         ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))) {
+    if (openScene != nullptr && (actions.saveScene || isActionPressed(Action::SaveScene))) {
         saveSceneDialog.open(*openScene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
     }
     saveSceneDialog.update();
@@ -312,8 +312,7 @@ void App::drawFrame() {
         setHackerootPath(*chosen);
     }
 
-    if (actions.openSettings ||
-        ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_Comma, ImGuiInputFlags_RouteGlobal)) {
+    if (actions.openSettings || isActionPressed(Action::OpenSettings)) {
         settingsWindow.open(settings);
     }
     const SettingsActions edited = settingsWindow.draw();
@@ -324,10 +323,10 @@ void App::drawFrame() {
     if ((actions.changeHackerootPath || edited.changeHackerootPath) && !setupWizard.isActive()) {
         setupWizard.beginChangePath(settings.hackerootPath);
     }
-    if (actions.build || ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_B, ImGuiInputFlags_RouteGlobal)) {
+    if (actions.build || isActionPressed(Action::Build)) {
         startBuild(hackeroot::BuildTarget::Build);
     }
-    if (actions.run || ImGui::Shortcut(ImGuiKey_F5, ImGuiInputFlags_RouteGlobal)) {
+    if (actions.run || isActionPressed(Action::Run)) {
         startBuild(hackeroot::BuildTarget::Run);
     }
     if (actions.stopBuild) {
@@ -583,6 +582,8 @@ void App::applySettings(const Settings& applied) {
     settings.markerShape = applied.markerShape;
     settings.reviewsSceneSaves = applied.reviewsSceneSaves;
     settings.angleFormat = applied.angleFormat;
+    settings.keyBindings = applied.keyBindings;
+    setKeyBindings(settings.keyBindings);
     log().setMaxEntries(settings.log.maxEntries);
     if (scenePanel != nullptr) {
         scenePanel->setMarkerShape(settings.markerShape);

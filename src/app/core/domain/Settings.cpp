@@ -194,6 +194,41 @@ void writeScenes(toml::table& root, const Settings& settings) {
     scenes.insert_or_assign("angles", std::string{getAngleFormatName(settings.angleFormat)});
 }
 
+void readKeys(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
+    const toml::table* keys = root["keys"].as_table();
+    if (keys == nullptr) {
+        return;
+    }
+    for (const auto& [id, value] : *keys) {
+        const std::optional<Action> action = findAction(id.str());
+        const std::optional<std::string> text = value.value<std::string>();
+        const std::optional<KeyChord> chord =
+            text ? parseKeyChord(*text) : std::optional<KeyChord>();
+        if (!action) {
+            logWarn("{}: keys.{} binds no action Toki has", encodeUtf8(path), id.str());
+        } else if (!chord) {
+            logWarn("{}: keys.{} is not a key such as \"Ctrl+S\"", encodeUtf8(path), id.str());
+        } else {
+            settings.keyBindings.setChord(*action, *chord);
+        }
+    }
+}
+
+void writeKeys(toml::table& root, const Settings& settings) {
+    toml::table& keys = ensureSection(root, "keys");
+    for (const ActionInfo& info : getActions()) {
+        if (settings.keyBindings.isDefault(info.action)) {
+            keys.erase(info.id);
+        } else {
+            keys.insert_or_assign(info.id,
+                                  formatKeyChord(settings.keyBindings.getChord(info.action)));
+        }
+    }
+    if (keys.empty()) {
+        root.erase("keys");
+    }
+}
+
 void writeMarkers(toml::table& root, const Settings& settings) {
     ensureSection(root, "markers")
         .insert_or_assign("shape", std::string{getMarkerShapeName(settings.markerShape)});
@@ -475,6 +510,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readActors(*root, settings);
     readMarkers(*root, path, settings);
     readScenes(*root, path, settings);
+    readKeys(*root, path, settings);
     readViewport(*root, settings);
 
     return settings;
@@ -512,6 +548,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeActors(root, settings);
     writeMarkers(root, settings);
     writeScenes(root, settings);
+    writeKeys(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

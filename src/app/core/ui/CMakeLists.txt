@@ -3,6 +3,7 @@ target_sources(toki PRIVATE
         Dialog.cpp
         FolderDialog.cpp
         Fonts.cpp
+        Hotkeys.cpp
         LogPanel.cpp
         MenuBar.cpp
         Panel.cpp

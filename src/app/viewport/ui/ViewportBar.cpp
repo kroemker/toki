@@ -1,5 +1,6 @@
 #include "ViewportBar.h"
 
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
@@ -194,10 +195,12 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
                                "A floor grid on the XZ plane around the camera's target, "
                                "a line every 100 units.",
                                changed.overlays.grid);
-    isChanged |= drawSwitchRow("X-Ray",
-                               "What walls hide of the overlays, drawn faintly through them "
-                               "(Alt+Z).",
-                               changed.overlays.xray);
+    isChanged |= drawSwitchRow(
+        "X-Ray",
+        core::makeShortcutText("What walls hide of the overlays, drawn faintly through them",
+                               core::Action::ToggleXray)
+            .c_str(),
+        changed.overlays.xray);
     if (isChanged) {
         edit.view = changed;
     }
@@ -222,7 +225,9 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
             ImGui::SameLine(0.0F, 1.0F);
         }
         ImGui::PushID(static_cast<int>(i));
-        const std::string tooltip = std::format("{} (Alt+{})", getShadingLabel(shading), i + 1);
+        const std::string tooltip = core::makeShortcutText(
+            getShadingLabel(shading),
+            static_cast<core::Action>(static_cast<usize>(core::Action::ShadingN64) + i));
         if (drawToggleButton(ShadingIcons[i], view.renderMode.shading == shading,
                              tooltip.c_str())) {
             ViewportView changed = view;
@@ -263,16 +268,21 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
                         findButtonWidth(overlays);
     ImGui::SetCursorScreenPos(ImVec2(start.x + available - width, start.y));
     if (drawToggleButton(xray, current.overlays.xray,
-                         current.overlays.xray ? "Hide what walls hide (Alt+Z)"
-                                               : "Show overlays through walls (Alt+Z)")) {
+                         core::makeShortcutText(current.overlays.xray
+                                                    ? "Hide what walls hide"
+                                                    : "Show overlays through walls",
+                                                core::Action::ToggleXray)
+                             .c_str())) {
         ViewportView changed = current;
         changed.overlays.xray = !changed.overlays.xray;
         edit.view = changed;
     }
     ImGui::SameLine();
     if (drawToggleButton(toggle, !current.overlays.isShown,
-                         current.overlays.isShown ? "Hide all overlays (Shift+Alt+Z)"
-                                                  : "Show all overlays (Shift+Alt+Z)")) {
+                         core::makeShortcutText(current.overlays.isShown ? "Hide all overlays"
+                                                                         : "Show all overlays",
+                                                core::Action::ToggleOverlays)
+                             .c_str())) {
         ViewportView changed = edit.view.value_or(view);
         changed.overlays.isShown = !changed.overlays.isShown;
         edit.view = changed;
@@ -292,22 +302,19 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
 }
 
 std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
-    if (ImGui::GetIO().WantTextInput) {
-        return std::nullopt;
-    }
-    if (ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiMod_Alt | ImGuiKey_Z)) {
+    if (core::isActionPressed(core::Action::ToggleOverlays)) {
         ViewportView changed = view;
         changed.overlays.isShown = !changed.overlays.isShown;
         return changed;
     }
-    if (ImGui::IsKeyChordPressed(ImGuiMod_Alt | ImGuiKey_Z)) {
+    if (core::isActionPressed(core::Action::ToggleXray)) {
         ViewportView changed = view;
         changed.overlays.xray = !changed.overlays.xray;
         return changed;
     }
     for (usize i = 0; i < ShadingCount; ++i) {
-        const auto key = static_cast<ImGuiKey>(ImGuiKey_1 + static_cast<int>(i));
-        if (ImGui::IsKeyChordPressed(ImGuiKeyChord{ImGuiMod_Alt} | key)) {
+        if (core::isActionPressed(
+                static_cast<core::Action>(static_cast<usize>(core::Action::ShadingN64) + i))) {
             ViewportView changed = view;
             changed.renderMode.shading = static_cast<Shading>(i);
             return changed;

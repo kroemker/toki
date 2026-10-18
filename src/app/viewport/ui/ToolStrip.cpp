@@ -1,5 +1,7 @@
 #include "ToolStrip.h"
 
+#include "app/core/domain/KeyBindings.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 
@@ -16,22 +18,22 @@ namespace {
 struct ToolButton {
     const char* icon;
     const char* name;
-    const char* key;
+    core::Action action;
     bool isBuilt;
 };
 
 constexpr std::array<ToolButton, 4> ModeButtons{{
-    {core::icons::Cube, "Object", "1", true},
-    {core::icons::Polygon, "Face", "2", false},
-    {core::icons::LineSegment, "Edge", "3", false},
-    {core::icons::DotOutline, "Vertex", "4", false},
+    {core::icons::Cube, "Node", core::Action::NodeMode, true},
+    {core::icons::Polygon, "Face", core::Action::FaceMode, false},
+    {core::icons::LineSegment, "Edge", core::Action::EdgeMode, false},
+    {core::icons::DotOutline, "Vertex", core::Action::VertexMode, false},
 }};
 
 constexpr std::array<ToolButton, 4> ToolButtons{{
-    {core::icons::Cursor, "Select", "Q", true},
-    {core::icons::ArrowsOutCardinal, "Move", "W", true},
-    {core::icons::ArrowClockwise, "Rotate", "E", false},
-    {core::icons::Resize, "Scale", "R", false},
+    {core::icons::Cursor, "Select", core::Action::SelectTool, true},
+    {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true},
+    {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, false},
+    {core::icons::Resize, "Scale", core::Action::ScaleTool, false},
 }};
 
 constexpr float StripPadding = 3.0F;
@@ -51,9 +53,9 @@ bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
+        const std::string named = core::makeShortcutText(button.name, button.action);
         const std::string tooltip =
-            button.isBuilt ? std::format("{} ({})", button.name, button.key)
-                           : std::format("{} ({}), not built yet", button.name, button.key);
+            button.isBuilt ? named : std::format("{}, not built yet", named);
         ImGui::SetTooltip("%s", tooltip.c_str());
     }
     return isClicked && button.isBuilt;
@@ -105,17 +107,11 @@ void drawToolStrip(ViewportTools& tools, const ImVec2 position) {
 }
 
 void applyToolHotkeys(ViewportTools& tools) {
-    const ImGuiIO& io = ImGui::GetIO();
-    if (io.WantTextInput || io.KeyCtrl || io.KeyAlt) {
-        return;
-    }
-    constexpr std::array<ImGuiKey, 4> ModeKeys{ImGuiKey_1, ImGuiKey_2, ImGuiKey_3, ImGuiKey_4};
-    constexpr std::array<ImGuiKey, 4> ToolKeys{ImGuiKey_Q, ImGuiKey_W, ImGuiKey_E, ImGuiKey_R};
-    for (usize i = 0; i < ModeKeys.size(); ++i) {
-        if (ModeButtons[i].isBuilt && ImGui::IsKeyPressed(ModeKeys[i], false)) {
+    for (usize i = 0; i < ModeButtons.size(); ++i) {
+        if (ModeButtons[i].isBuilt && core::isActionPressed(ModeButtons[i].action)) {
             tools.mode = static_cast<SelectionMode>(i);
         }
-        if (ToolButtons[i].isBuilt && ImGui::IsKeyPressed(ToolKeys[i], false)) {
+        if (ToolButtons[i].isBuilt && core::isActionPressed(ToolButtons[i].action)) {
             tools.tool = static_cast<EditTool>(i);
         }
     }

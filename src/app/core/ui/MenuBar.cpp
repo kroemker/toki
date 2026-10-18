@@ -1,8 +1,10 @@
 #include "MenuBar.h"
 
+#include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Dialog.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/Theme.h"
@@ -31,12 +33,13 @@ void drawFileMenu(const Settings& settings, const bool sceneOpen, MenuActions& a
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    if (ImGui::MenuItem("Save Scene…", "Ctrl+S", false, sceneOpen)) {
+    if (ImGui::MenuItem("Save Scene…", getShortcutLabel(Action::SaveScene).c_str(), false,
+                        sceneOpen)) {
         actions.saveScene = true;
     }
 
     ImGui::Separator();
-    if (ImGui::MenuItem("Settings…", "Ctrl+,")) {
+    if (ImGui::MenuItem("Settings…", getShortcutLabel(Action::OpenSettings).c_str())) {
         actions.openSettings = true;
     }
 
@@ -51,10 +54,11 @@ void drawBuildMenu(const bool buildRunning, MenuActions& actions) {
     if (!ImGui::BeginMenu("Build")) {
         return;
     }
-    if (ImGui::MenuItem("Build", "Ctrl+B", false, !buildRunning)) {
+    if (ImGui::MenuItem("Build", getShortcutLabel(Action::Build).c_str(), false, !buildRunning)) {
         actions.build = true;
     }
-    if (ImGui::MenuItem("Build and run", "F5", false, !buildRunning)) {
+    if (ImGui::MenuItem("Build and run", getShortcutLabel(Action::Run).c_str(), false,
+                        !buildRunning)) {
         actions.run = true;
     }
     if (ImGui::MenuItem("Stop", nullptr, false, buildRunning)) {

@@ -302,7 +302,7 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
 }
 
 bool ViewportPanel::isHandleShown() const {
-    return handle && viewportTools.mode == SelectionMode::Object &&
+    return handle && viewportTools.mode == SelectionMode::Node &&
            viewportTools.tool == EditTool::Move;
 }
 
