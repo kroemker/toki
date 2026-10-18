@@ -88,6 +88,9 @@ struct Settings {
 
     MarkerShape markerShape = MarkerShape::Cube;
 
+    /// Whether a save of a scene is shown for review before it is written.
+    bool reviewsSceneSaves = true;
+
     viewport::ViewportView viewport;
 
     /// The new actors of the checkout that the person chose not to derive, by

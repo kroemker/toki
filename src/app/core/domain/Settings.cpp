@@ -168,6 +168,16 @@ void readMarkers(const toml::table& root, const std::filesystem::path& path, Set
     }
 }
 
+void readScenes(const toml::table& root, Settings& settings) {
+    if (const std::optional<bool> reviews = root["scenes"]["review_saves"].value<bool>()) {
+        settings.reviewsSceneSaves = *reviews;
+    }
+}
+
+void writeScenes(toml::table& root, const Settings& settings) {
+    ensureSection(root, "scenes").insert_or_assign("review_saves", settings.reviewsSceneSaves);
+}
+
 void writeMarkers(toml::table& root, const Settings& settings) {
     ensureSection(root, "markers")
         .insert_or_assign("shape", std::string{getMarkerShapeName(settings.markerShape)});
@@ -434,6 +444,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readSession(*root, settings);
     readActors(*root, settings);
     readMarkers(*root, path, settings);
+    readScenes(*root, settings);
     readViewport(*root, settings);
 
     return settings;
@@ -470,6 +481,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeSession(root, settings);
     writeActors(root, settings);
     writeMarkers(root, settings);
+    writeScenes(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) {

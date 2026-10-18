@@ -1,5 +1,6 @@
 #include "EditFlow.h"
 
+#include "app/core/domain/Log.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/tools/Types.h"
@@ -49,8 +50,10 @@ namespace {
 
 } // namespace
 
-void EditFlow::requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan) {
+void EditFlow::requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan,
+                           const bool isReviewed) {
     plannedRepository = std::move(repository);
+    isReviewedPlan = isReviewed;
     reviewed.reset();
     status = "Looking at the checkout…";
     isFailure = false;
@@ -68,6 +71,13 @@ bool EditFlow::takeResult() {
             isFailure = true;
         } else if (!(*result->plan)->hasWork()) {
             status = "Nothing to change: the checkout has it all already.";
+            isFailure = false;
+        } else if (!isReviewedPlan) {
+            for (const std::string& warning : (*result->plan)->warnings) {
+                core::logWarn("{}", warning);
+            }
+            editWorker.apply(plannedRepository, std::move(**result->plan));
+            status = "Writing…";
             isFailure = false;
         } else {
             reviewed = std::move(**result->plan);
@@ -91,13 +101,18 @@ bool EditFlow::takeResult() {
     return false;
 }
 
-bool EditFlow::draw(const std::filesystem::path& repository) {
+bool EditFlow::update(const std::filesystem::path& repository) {
     const bool isWritten = takeResult();
     if (reviewed && repository != plannedRepository) {
         reviewed.reset();
         status = "Another checkout was opened, so the plan was dropped; review again.";
         isFailure = false;
     }
+    return isWritten;
+}
+
+bool EditFlow::draw(const std::filesystem::path& repository) {
+    const bool isWritten = update(repository);
     if (reviewed) {
         drawReview();
     }

@@ -16,7 +16,14 @@ class EditFlow {
 public:
     /// Makes the plan `makePlan` reads of the checkout at `repository`, to be
     /// reviewed and written there.
-    void requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan);
+    /// Unless `isReviewed`, a plan is written as soon as it is made, and what
+    /// it warns of goes to the log.
+    void requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan,
+                     bool isReviewed = true);
+
+    /// Takes what the worker finished, without drawing it. True on the frame
+    /// the plan's files were written.
+    [[nodiscard]] bool update(const std::filesystem::path& repository);
 
     /// Draws the plan under review, or how the last one went, while
     /// `repository` is the checkout open; a plan of another is dropped. True
@@ -31,6 +38,16 @@ public:
         return reviewed.has_value();
     }
 
+    /// Whether the last plan or write failed.
+    [[nodiscard]] bool hasFailed() const {
+        return isFailure;
+    }
+
+    /// How the last plan or write went.
+    [[nodiscard]] const std::string& getStatus() const {
+        return status;
+    }
+
 private:
     [[nodiscard]] bool takeResult();
     void drawReview();
@@ -40,6 +57,7 @@ private:
     std::optional<hackeroot::EditPlan> reviewed;
     std::string status;
     bool isFailure = false;
+    bool isReviewedPlan = true;
 };
 
 } // namespace toki::tools

@@ -94,7 +94,11 @@ private:
     SettingsWindow settingsWindow;
     workspace::WorkspaceService workspaceService;
     scene::SaveSceneDialog saveSceneDialog{
-        workspaceService, [this](const std::filesystem::path& saved) { openSavedScene(saved); }};
+        workspaceService, [this](const std::filesystem::path& saved) { openSavedScene(saved); },
+        [this] {
+            settings.reviewsSceneSaves = false;
+            saveState();
+        }};
     build::BuildRunner buildRunner;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;

@@ -227,6 +227,16 @@ TEST_CASE("actors are marked by cubes unless the config names another shape", "[
     REQUIRE(loadSettings(dir.getFile())->markerShape == toki::core::MarkerShape::Cube);
 }
 
+TEST_CASE("scene saves are reviewed unless the config turned it off", "[core][settings]") {
+    const TempDir dir("reviews");
+    REQUIRE(Settings{}.reviewsSceneSaves);
+
+    Settings written;
+    written.reviewsSceneSaves = false;
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    REQUIRE_FALSE(loadSettings(dir.getFile())->reviewsSceneSaves);
+}
+
 TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
     const TempDir dir("session");
     Settings written;

@@ -92,6 +92,16 @@ SettingsWindow::SettingsWindow() {
         .reset = [this, defaults] { draft.markerShape = defaults.markerShape; },
     });
     entries.push_back(Entry{
+        .category = "Scenes",
+        .label = "Review Saves",
+        .help = "Shows what saving a scene writes, and waits for Write Files. Off, a save is "
+                "written at once, and what it warns of goes to the log.",
+        .drawControl = [this] { drawSceneSaveReview(); },
+        .isChanged = [this,
+                      defaults] { return draft.reviewsSceneSaves != defaults.reviewsSceneSaves; },
+        .reset = [this, defaults] { draft.reviewsSceneSaves = defaults.reviewsSceneSaves; },
+    });
+    entries.push_back(Entry{
         .category = "Log",
         .label = "Min. Log Level",
         .help = "The least important level the Log panel shows.",
@@ -295,6 +305,10 @@ void SettingsWindow::drawMarkerShape() {
     if (drawLabelCombo("##markerShape", MarkerShapeLabels, picked)) {
         draft.markerShape = static_cast<MarkerShape>(picked);
     }
+}
+
+void SettingsWindow::drawSceneSaveReview() {
+    ImGui::Checkbox("##reviewsSceneSaves", &draft.reviewsSceneSaves);
 }
 
 Settings SettingsWindow::makeApplied() const {

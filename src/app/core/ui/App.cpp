@@ -299,8 +299,9 @@ void App::drawFrame() {
     if (openScene != nullptr &&
         (actions.saveScene ||
          ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, ImGuiInputFlags_RouteGlobal))) {
-        saveSceneDialog.open(*openScene, scenePanel->findEditedModel());
+        saveSceneDialog.open(*openScene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
     }
+    saveSceneDialog.update();
     saveSceneDialog.drawWindow();
     drawNewActorsPrompt();
 
@@ -570,6 +571,7 @@ void App::applySettings(const Settings& applied) {
     settings.build = applied.build;
     settings.log = applied.log;
     settings.markerShape = applied.markerShape;
+    settings.reviewsSceneSaves = applied.reviewsSceneSaves;
     log().setMaxEntries(settings.log.maxEntries);
     if (scenePanel != nullptr) {
         scenePanel->setMarkerShape(settings.markerShape);

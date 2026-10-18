@@ -18,21 +18,31 @@ namespace toki::scene {
 class SaveSceneDialog : public core::Dialog {
 public:
     /// `saved` is called once the files are written, with the folder the
-    /// scene was written to.
+    /// scene was written to, and `stopReviewing` when the person asks not to
+    /// be shown a save again.
     SaveSceneDialog(const workspace::WorkspaceService& workspaceService,
-                    std::function<void(const std::filesystem::path&)> saved);
+                    std::function<void(const std::filesystem::path&)> saved,
+                    std::function<void()> stopReviewing);
 
     /// Plans saving `opened` with its edits `edited`, or as it was read when
-    /// it has none.
-    void open(const Scene& opened, const SceneModel* edited);
+    /// it has none. Unless `isReviewed`, the plan is written without being
+    /// shown, and the dialog opens only when it fails.
+    void open(const Scene& opened, const SceneModel* edited, bool isReviewed);
+
+    /// Takes how a save that is not shown went; called every frame.
+    void update();
 
     void draw() override;
 
 private:
-    void requestPlan();
+    void requestPlan(bool isReviewed);
+    void finishSave(const std::filesystem::path& root);
 
     const workspace::WorkspaceService& workspaceService;
     std::function<void(const std::filesystem::path&)> saved;
+    std::function<void()> stopReviewing;
+    bool isDoNotShowAgain = false;
+    bool isSavingUnshown = false;
     std::optional<Scene> scene;
     std::optional<SceneModel> sceneModel;
     tools::EditFlow editFlow;
