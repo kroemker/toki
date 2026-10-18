@@ -40,6 +40,7 @@ add_executable(toki_tests
         app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp
         app/scene/SceneHeaderTest.cpp
+        app/scene/SceneLayoutTest.cpp
         app/scene/SceneLoaderTest.cpp
         app/scene/SceneModelTest.cpp
         app/scene/SceneViewTest.cpp

@@ -248,12 +248,9 @@ const cparser::CType* DeclarationWriter::findDeclaredType(const SymbolData& symb
     return findType(symbol.type);
 }
 
-std::string DeclarationWriter::writeDeclarator(const SymbolData& symbol) const {
-    std::string declarator(symbol.pointerDepth, '*');
-    declarator += ' ';
-    declarator += symbol.name;
+usize DeclarationWriter::countElements(const SymbolData& symbol) const {
     if (!symbol.isArray) {
-        return declarator;
+        return 1;
     }
     usize elementSize = AddressSize;
     if (symbol.pointerDepth == 0) {
@@ -263,7 +260,17 @@ std::string DeclarationWriter::writeDeclarator(const SymbolData& symbol) const {
     for (const usize inner : symbol.innerLengths) {
         elementSize *= std::max<usize>(inner, 1);
     }
-    declarator += std::format("[{}]", symbol.bytes.size() / elementSize);
+    return symbol.bytes.size() / elementSize;
+}
+
+std::string DeclarationWriter::writeDeclarator(const SymbolData& symbol) const {
+    std::string declarator(symbol.pointerDepth, '*');
+    declarator += ' ';
+    declarator += symbol.name;
+    if (!symbol.isArray) {
+        return declarator;
+    }
+    declarator += std::format("[{}]", countElements(symbol));
     for (const usize inner : symbol.innerLengths) {
         declarator += std::format("[{}]", inner);
     }

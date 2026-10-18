@@ -103,6 +103,10 @@ public:
     /// `extern Type name[count];` and a newline.
     [[nodiscard]] std::string writeExtern(const SymbolData& symbol) const;
 
+    /// How many elements of its first dimension an array symbol has, and one
+    /// for a symbol that is not an array.
+    [[nodiscard]] usize countElements(const SymbolData& symbol) const;
+
     /// The declarator after the base type: `* name[3][2]`.
     [[nodiscard]] std::string writeDeclarator(const SymbolData& symbol) const;
 
