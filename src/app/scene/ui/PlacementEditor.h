@@ -9,6 +9,7 @@
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/ui/ActorForm.h"
 #include "app/scene/ui/ParamsForm.h"
+#include "app/viewport/ui/ViewportTransform.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
 #include <array>
@@ -93,14 +94,18 @@ public:
     /// Makes the edit picked from a menu this frame, if one was.
     void applyPicked(Scene& scene);
 
-    /// Where the selected placements are, as they are being moved: the middle
-    /// of them.
-    [[nodiscard]] std::optional<std::array<s16, 3>> findSelectedPosition(const Scene& scene) const;
+    /// The selected placements as the viewport transforms them, and which
+    /// they are, in the order of the target's points.
+    struct SelectionTransform {
+        viewport::TransformTarget target;
+        std::vector<PlacementRef> placements;
+    };
 
-    /// Moves the selected placements so their middle is at `position`, as a
-    /// gizmo drags it; once `isDone`, the move is made by `applyPicked`, as
-    /// one step.
-    void moveSelected(const Scene& scene, const std::array<s16, 3>& position, bool isDone);
+    [[nodiscard]] std::optional<SelectionTransform> makeTransformTarget(const Scene& scene) const;
+
+    /// Moves and turns `placements` as a confirmed transform says, by
+    /// `applyPicked`, as one step.
+    void applyTransform(std::vector<PlacementRef> placements, const viewport::TransformEdit& edit);
 
     /// Why the last edit was not made, or empty.
     [[nodiscard]] const std::string& getFailure() const {
@@ -165,10 +170,6 @@ private:
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;
     SceneSelection selection;
-    /// Where each selected placement was when a move began, by its place in
-    /// the selection's placements, and their middle.
-    std::vector<std::array<s16, 3>> moveStarts;
-    std::array<s16, 3> moveMiddle{};
     std::optional<Placement> draft;
     std::string failure;
     std::function<void(Scene&)> picked;

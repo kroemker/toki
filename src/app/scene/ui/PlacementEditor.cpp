@@ -4,6 +4,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/BinaryAngle.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -20,6 +21,7 @@
 #include <array>
 #include <cfloat>
 #include <climits>
+#include <cmath>
 #include <expected>
 #include <format>
 #include <optional>
@@ -73,6 +75,10 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
     return axes;
 }
 
+[[nodiscard]] s16 roundToS16(const f32 value) {
+    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
+}
+
 [[nodiscard]] std::string makeWhere(const PlacementRef& where) {
     switch (where.kind) {
     case PlacementKind::Actor:
@@ -105,7 +111,6 @@ PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceSer
 
 void PlacementEditor::refresh(const Scene& scene) {
     draft.reset();
-    moveStarts.clear();
     selection.removeIf([&scene](const SceneNode& node) {
         if (const auto* placement = std::get_if<PlacementRef>(&node)) {
             return !findPlacement(scene, *placement);
@@ -484,87 +489,81 @@ void PlacementEditor::drawRoomMenu(const usize layer, const usize room,
     }
 }
 
-std::optional<std::array<s16, 3>> PlacementEditor::findSelectedPosition(const Scene& scene) const {
-    if (!moveStarts.empty()) {
-        return moveMiddle;
-    }
-    std::array<s32, 3> sum{};
-    usize count = 0;
+std::optional<PlacementEditor::SelectionTransform>
+PlacementEditor::makeTransformTarget(const Scene& scene) const {
+    SelectionTransform made;
+    viewport::TransformTarget& target = made.target;
+    target.scaleNote = "Actors set their own scale.";
+    const std::optional<PlacementRef> active = findSelected();
+    glm::vec3 sum(0.0F);
     for (const PlacementRef& where : selection.listPlacements()) {
-        if (const std::optional<Placement> placement = findPlacement(scene, where)) {
-            const std::array<s16, 3> position =
-                std::visit([](const auto& held) { return held.position; }, *placement);
-            for (usize axis = 0; axis < 3; ++axis) {
-                sum[axis] += position[axis];
-            }
-            ++count;
+        const std::optional<Placement> placement = findPlacement(scene, where);
+        if (!placement) {
+            continue;
+        }
+        if (where == active) {
+            target.activePoint = target.points.size();
+        }
+        const std::array<s16, 3> position =
+            std::visit([](const auto& held) { return held.position; }, *placement);
+        target.points.emplace_back(position[0], position[1], position[2]);
+        sum += target.points.back();
+        made.placements.push_back(where);
+        if (std::holds_alternative<TransitionActorPlacement>(*placement)) {
+            target.isTurnable[0] = false;
+            target.isTurnable[2] = false;
+            target.turnNote = "a transition actor turns only about Y";
+            continue;
+        }
+        const s16 actorId = std::get<ActorPlacement>(*placement).id;
+        const auto model = scene.actors.models.find(actorId);
+        const std::array<bool, 3> axes = findParamAxes(
+            model != scene.actors.models.end() && model->second.entry ? &*model->second.entry
+                                                                      : nullptr);
+        if (axes[1]) {
+            target.isTurnable[1] = false;
+        }
+        if (axes[0] || axes[1] || axes[2]) {
+            target.isTurnable[0] = false;
+            target.isTurnable[2] = false;
+            target.turnNote = "a selected actor reads params from its rotation, which a turn "
+                              "about X or Z would change on every axis";
         }
     }
-    if (count == 0) {
+    if (made.placements.empty()) {
         return std::nullopt;
     }
-    std::array<s16, 3> middle{};
-    for (usize axis = 0; axis < 3; ++axis) {
-        middle[axis] = static_cast<s16>(sum[axis] / static_cast<s32>(count));
-    }
-    return middle;
+    target.pivot = sum / static_cast<f32>(made.placements.size());
+    return made;
 }
 
-void PlacementEditor::moveSelected(const Scene& scene, const std::array<s16, 3>& position,
-                                   const bool isDone) {
-    const std::vector<PlacementRef> placements = selection.listPlacements();
-    if (placements.empty()) {
-        return;
-    }
-    if (moveStarts.empty()) {
-        const std::optional<std::array<s16, 3>> middle = findSelectedPosition(scene);
-        if (!middle) {
-            return;
-        }
-        moveMiddle = *middle;
-        for (const PlacementRef& where : placements) {
-            const std::optional<Placement> placement = findPlacement(scene, where);
-            moveStarts.push_back(
-                placement ? std::visit([](const auto& held) { return held.position; }, *placement)
-                          : std::array<s16, 3>{});
-        }
-    }
-    std::array<s32, 3> offset{};
-    for (usize axis = 0; axis < 3; ++axis) {
-        offset[axis] = position[axis] - moveMiddle[axis];
-    }
-    const auto makeMoved = [&offset](const std::array<s16, 3>& start) {
-        std::array<s16, 3> moved{};
-        for (usize axis = 0; axis < 3; ++axis) {
-            moved[axis] = static_cast<s16>(
-                std::clamp(start[axis] + offset[axis], s32{INT16_MIN}, s32{INT16_MAX}));
-        }
-        return moved;
-    };
-    if (draft) {
-        if (const auto active = std::ranges::find(placements, findSelected());
-            active != placements.end()) {
-            const std::array<s16, 3> moved =
-                makeMoved(moveStarts[static_cast<usize>(active - placements.begin())]);
-            std::visit([&moved](auto& held) { held.position = moved; }, *draft);
-        }
-    }
-    if (!isDone) {
-        return;
-    }
-    std::vector<std::pair<PlacementRef, std::array<s16, 3>>> moves;
-    for (usize i = 0; i < placements.size(); ++i) {
-        moves.emplace_back(placements[i], makeMoved(moveStarts[i]));
-    }
-    moveStarts.clear();
-    picked = [this, moves = std::move(moves)](Scene& edited) {
+void PlacementEditor::applyTransform(std::vector<PlacementRef> placements,
+                                     const viewport::TransformEdit& edit) {
+    picked = [this, placements = std::move(placements), edit](Scene& edited) {
         bool isJoined = false;
-        for (const auto& [where, moved] : moves) {
+        for (usize i = 0; i < placements.size() && i < edit.points.size(); ++i) {
+            const PlacementRef& where = placements[i];
             std::optional<Placement> placement = findPlacement(edited, where);
             if (!placement) {
                 continue;
             }
-            std::visit([&moved](auto& held) { held.position = moved; }, *placement);
+            const glm::vec3& point = edit.points[i];
+            const std::array<s16, 3> position{roundToS16(point.x), roundToS16(point.y),
+                                              roundToS16(point.z)};
+            const bool isTurned = edit.result.kind == viewport::TransformKind::Rotate;
+            if (auto* actor = std::get_if<ActorPlacement>(&*placement)) {
+                actor->position = position;
+                if (isTurned) {
+                    actor->rotation =
+                        rotateBinaryAngles(actor->rotation, edit.result.axis, edit.result.degrees);
+                }
+            } else if (auto* transition = std::get_if<TransitionActorPlacement>(&*placement)) {
+                transition->position = position;
+                if (isTurned && edit.result.axis == 1) {
+                    transition->rotationY = rotateBinaryAngles({0, transition->rotationY, 0}, 1,
+                                                               edit.result.degrees)[1];
+                }
+            }
             isJoined =
                 apply(
                     edited, where,

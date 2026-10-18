@@ -21,14 +21,11 @@ scene is; an owner that offers nothing gets no rows.
 
 ## Picking and moving
 
-The same way, the owner gives the viewport points to pick (`setPickables`), the points of
-what is selected (`setSelectedPoints`) and one point to move (`setHandle`), each with what to
-do about it. A click, a press and release that moved less than a few points, picks the point
+The same way, the owner gives the viewport points to pick (`setPickables`) and what is
+selected to transform (`setTransformTarget`), each with what to do about it. A click, a press and release that moved less than a few points, picks the point
 drawn nearest the mouse, if one is within 12 points of it (`findPickedPoint`); a left drag
 draws a box and picks every point in it (`findPointsInRect`). A click that hits nothing picks
 nothing, which clears the selection. Selected points are ringed, the active one brighter.
-The point to move gets a translation gizmo (ImGuizmo); dragging it moves no camera, and its
-owner is told where it is as it is dragged and once it is let go.
 
 The mouse is split as Blender splits it: the left button picks, the middle or right button
 orbits, and either with Shift pans; the wheel zooms.
@@ -39,16 +36,43 @@ as long as it is held, so the bar always shows what the next pick will do. In th
 panel's tree, Shift+click adds and Ctrl+click toggles, as lists do.
 
 The Scene panel keeps the selection as a `SceneSelection` of nodes, rooms or placements, the
-one picked last the active one the Properties panel shows. The gizmo stands at the middle of
-the selected placements, and a move moves them all by the same amount, as one step to undo.
+one picked last the active one the Properties panel shows. A transform of several moves or
+turns them all together, as one step to undo.
+
+## Transforms
+
+Every way of moving or turning what is selected runs one `TransformSession`: the Move and
+Rotate tools' gizmo (ImGuizmo), and G and R, which move or turn it with the mouse alone, as
+in Blender. A session knows only points, an offset and an angle, so the same one will move
+vertices. While it runs the rings show where it puts each point and a line over the image
+says what it does, `Move  X 120  Y 0  Z -30`; nothing changes the scene until it is
+confirmed, with Enter or a click, and Esc or a right-click cancels it. Typing a number takes
+the mouse's place, field by field, Tab moving to the next axis, Backspace and `-` as
+expected.
+
+The options of the Move and Rotate tools are in the bar, as buttons: the axes held, X, Y and
+Z, and snapping. X holds to X alone or frees it again, Shift+X holds to the other two, and
+the buttons light as the keys press them; the gizmo shows only the axes held. The grid
+snaps a drag, not what is typed, to 10 units or 15°; holding Ctrl lights it while
+transforming, and a click keeps it on. The ground button, or Alt held, sets each moved point
+down on the highest surface within 100 units above it and below: a ray straight down against
+the room triangles the frame drew, taken back to the world by the inverse of the frame's
+view and projection, so only what is on screen is ground until collision is read.
+
+A turn is about one axis, Y unless another is held. A turn about Y adds to an actor's Y
+angle exactly, since the game applies Y first; a turn about X or Z is applied to the actor's
+whole Y·X·Z rotation and read back into three angles (`rotateBinaryAngles`), which changes
+every angle, so it is offered only when no selected actor reads params from its rotation,
+and never for a transition actor, which has Y alone. A blocked axis says why on its button.
+Scale is not built, and says that actors set their own scale.
 
 What a click selects and what dragging does are the viewport's own (`ViewportTools`). The
 selection mode is a group of icon buttons at the start of the bar: Node, Face, Edge and
 Vertex, keys 1 to 4. Node mode selects what the scene's tree holds, rooms and placements,
 and is not called Object, because an object is what the decomp loads data from. The tool is
 a vertical group floating over the image's top left: Select, Move, Rotate and Scale, keys Q,
-W and E, Scale unbound. Only Node, Select and Move are built; the rest are shown disabled,
-saying so. Select is the tool the viewport starts with. The gizmo is drawn only for Move.
+W and E, Scale unbound. Only Node, Select, Move and Rotate are built; the rest are shown
+disabled, saying so. Select is the tool the viewport starts with and draws no gizmo.
 
 Every key is bound through `core::KeyBindings`: each action has a name, a scope (the whole
 window, or the viewport while the cursor is over it) and a default chord, and `config.toml`

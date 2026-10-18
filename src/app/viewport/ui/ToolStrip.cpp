@@ -32,8 +32,9 @@ constexpr std::array<ToolButton, 4> ModeButtons{{
 constexpr std::array<ToolButton, 4> ToolButtons{{
     {core::icons::Cursor, "Select: click, or drag a box", core::Action::SelectTool, true},
     {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true},
-    {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, false},
-    {core::icons::Resize, "Scale", core::Action::ScaleTool, false},
+    {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, true},
+    {core::icons::Resize, "Scale, for geometry; actors set their own scale",
+     core::Action::ScaleTool, false},
 }};
 
 struct PickModeButton {

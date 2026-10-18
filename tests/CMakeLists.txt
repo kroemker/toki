@@ -55,6 +55,7 @@ add_executable(toki_tests
         app/viewport/OverlayGeometryTest.cpp
         app/viewport/RenderOverrideTest.cpp
         app/viewport/ScreenPickTest.cpp
+        app/viewport/TransformSessionTest.cpp
         app/viewport/TrianglePickTest.cpp
         app/viewport/ViewportViewTest.cpp
         app/workspace/WorkspaceServiceTest.cpp

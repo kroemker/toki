@@ -36,9 +36,17 @@ enum class Action : u8 {
     MoveTool,
     RotateTool,
     ScaleTool,
+    Grab,
+    Turn,
+    ConstrainX,
+    ConstrainY,
+    ConstrainZ,
+    ConstrainPlaneX,
+    ConstrainPlaneY,
+    ConstrainPlaneZ,
 };
 
-inline constexpr usize ActionCount = static_cast<usize>(Action::ScaleTool) + 1;
+inline constexpr usize ActionCount = static_cast<usize>(Action::ConstrainPlaneZ) + 1;
 
 /// Where an action's key is heard: anywhere in the window, or only while the
 /// cursor is over the viewport.

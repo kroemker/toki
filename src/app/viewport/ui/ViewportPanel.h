@@ -11,6 +11,7 @@
 #include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/domain/ViewportView.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
+#include "app/viewport/ui/ViewportTransform.h"
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/Overlay.h"
@@ -172,22 +173,11 @@ public:
         pickHandler = std::move(pick);
     }
 
-    /// A point a gizmo moves, and what is done with where it is moved to:
-    /// `isDone` once it is let go. Nothing hides the gizmo.
-    void setHandle(std::optional<glm::vec3> position,
-                   std::function<void(const glm::vec3&, bool isDone)> move) {
-        if (!isHandleHeld) {
-            handle = position;
-        }
-        handleStart = position;
-        moveHandler = std::move(move);
-    }
-
-    /// The points of what is selected, ringed over the image, the active one
-    /// brighter; while the gizmo is dragged they move with it.
-    void setSelectedPoints(std::vector<glm::vec3> points, std::optional<usize> active) {
-        selectedPoints = std::move(points);
-        activePoint = active;
+    /// What is selected, ringed over the image, and what is done with it once
+    /// a transform of it is confirmed.
+    void setTransformTarget(std::optional<TransformTarget> target,
+                            ViewportTransform::Handler handler) {
+        viewportTransform.setTarget(std::move(target), std::move(handler));
     }
 
     /// The scene being read for the panel, shown over what is drawn until it
@@ -202,9 +192,9 @@ private:
     void drawBar();
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
-    void drawHandle(ImDrawList& drawList, ImVec2 origin, ImVec2 size);
-    void drawSelection(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
-    [[nodiscard]] bool isHandleShown() const;
+    [[nodiscard]] TransformView makeTransformView(ImVec2 origin, ImVec2 size) const;
+    [[nodiscard]] bool isTransforming() const;
+    [[nodiscard]] std::vector<glm::vec3> listGroundTriangles() const;
     void pick(ImVec2 origin, ImVec2 size) const;
     void pickInBox(ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] PickMode findPickMode() const;
@@ -242,12 +232,13 @@ private:
     PickHandler pickHandler;
     /// Where a box being dragged to select began, on the screen.
     std::optional<ImVec2> boxStart;
-    std::optional<glm::vec3> handle;
-    std::optional<glm::vec3> handleStart;
-    std::vector<glm::vec3> selectedPoints;
-    std::optional<usize> activePoint;
-    std::function<void(const glm::vec3&, bool)> moveHandler;
-    bool isHandleHeld = false;
+    /// The view and projection the last frame was run with, to take what it
+    /// drew back to the world.
+    glm::mat4 frameViewProjection{1.0F};
+    ViewportTransform viewportTransform;
+    /// Whether the press the mouse is in ended a transform, so its release
+    /// picks nothing.
+    bool isPressSwallowed = false;
     ViewportTools viewportTools;
     bool stale = true;
     bool isOverlayStale = false;

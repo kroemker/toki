@@ -78,7 +78,7 @@ public:
         viewportPanel.setOverlay({});
         viewportPanel.clearChoices();
         viewportPanel.setPickables({}, {});
-        viewportPanel.setHandle(std::nullopt, {});
+        viewportPanel.setTransformTarget(std::nullopt, {});
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing

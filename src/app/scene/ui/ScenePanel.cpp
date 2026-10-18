@@ -288,27 +288,17 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
             }
             placementEditor.pick(nodes, mode);
         });
-    std::vector<glm::vec3> selectedPoints;
-    std::optional<usize> activePoint;
-    const std::optional<PlacementRef> active = placementEditor.findSelected();
-    for (const PlacementRef& where : placementEditor.getSelection().listPlacements()) {
-        if (const std::optional<Placement> placement = findPlacement(*scene, where)) {
-            if (where == active) {
-                activePoint = selectedPoints.size();
-            }
-            selectedPoints.push_back(
-                makePoint(std::visit([](const auto& held) { return held.position; }, *placement)));
-        }
+    std::optional<PlacementEditor::SelectionTransform> transform =
+        placementEditor.makeTransformTarget(*scene);
+    if (!transform) {
+        viewportPanel.setTransformTarget(std::nullopt, nullptr);
+        return;
     }
-    viewportPanel.setSelectedPoints(std::move(selectedPoints), activePoint);
-    const std::optional<std::array<s16, 3>> selected = placementEditor.findSelectedPosition(*scene);
-    viewportPanel.setHandle(selected ? std::optional(makePoint(*selected)) : std::nullopt,
-                            [this](const glm::vec3& moved, const bool isDone) {
-                                if (scene) {
-                                    placementEditor.moveSelected(*scene, makePosition(moved),
-                                                                 isDone);
-                                }
-                            });
+    viewportPanel.setTransformTarget(
+        std::move(transform->target),
+        [this, placements = std::move(transform->placements)](const viewport::TransformEdit& edit) {
+            placementEditor.applyTransform(placements, edit);
+        });
 }
 
 void ScenePanel::drawHeldScene() {

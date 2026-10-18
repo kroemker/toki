@@ -38,6 +38,17 @@ constexpr auto Actions = std::to_array<ActionInfo>({
     {Action::MoveTool, "move_tool", "Move Tool", ActionScope::Viewport, "W"},
     {Action::RotateTool, "rotate_tool", "Rotate Tool", ActionScope::Viewport, "E"},
     {Action::ScaleTool, "scale_tool", "Scale Tool", ActionScope::Viewport, ""},
+    {Action::Grab, "grab", "Move with the Mouse", ActionScope::Viewport, "G"},
+    {Action::Turn, "turn", "Rotate with the Mouse", ActionScope::Viewport, "R"},
+    {Action::ConstrainX, "constrain_x", "Hold to X", ActionScope::Viewport, "X"},
+    {Action::ConstrainY, "constrain_y", "Hold to Y", ActionScope::Viewport, "Y"},
+    {Action::ConstrainZ, "constrain_z", "Hold to Z", ActionScope::Viewport, "Z"},
+    {Action::ConstrainPlaneX, "constrain_plane_x", "Hold to Y and Z", ActionScope::Viewport,
+     "Shift+X"},
+    {Action::ConstrainPlaneY, "constrain_plane_y", "Hold to X and Z", ActionScope::Viewport,
+     "Shift+Y"},
+    {Action::ConstrainPlaneZ, "constrain_plane_z", "Hold to X and Y", ActionScope::Viewport,
+     "Shift+Z"},
 });
 
 static_assert(Actions.size() == ActionCount, "every action needs its info");

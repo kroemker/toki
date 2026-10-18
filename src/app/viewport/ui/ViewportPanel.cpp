@@ -94,6 +94,7 @@ constexpr f32 XrayOpacity = 0.3F;
 ViewportPanel::ViewportPanel(const gfx::Device& device)
     : Panel("viewport", "Viewport", core::icons::Cube, core::DockSlot::Centre), device(device),
       viewportContent(makeReferenceGrid()) {
+    viewportTransform.setGroundSource([this] { return listGroundTriangles(); });
     std::expected<gfx::Renderer, base::Diagnostic> created = gfx::Renderer::create(device);
     if (created) {
         renderer.emplace(std::move(*created));
@@ -141,6 +142,10 @@ void ViewportPanel::drawBar() {
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     drawPickModes(viewportTools, findPickMode());
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    if (viewportTools.mode == SelectionMode::Node &&
+        viewportTransform.drawOptions(viewportTools.tool)) {
+        ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    }
     const ViewportBarEdit edit = drawViewportBar(viewportView, viewportChoices);
     if (edit.view) {
         setView(*edit.view);
@@ -154,21 +159,31 @@ void ViewportPanel::drawBar() {
 
 void ViewportPanel::draw() {
     drawBar();
-    if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
-        if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
-            setView(*changed);
-        }
-        applyToolHotkeys(viewportTools);
-    }
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 size{available.x, available.y - ViewportStatusBar::getHeight()};
     if (size.x < 1.0F || size.y < 1.0F) {
         return;
     }
+    const TransformView transformView = makeTransformView(origin, size);
+    const bool isModal = viewportTransform.updateModal(transformView);
+    if (isModal && (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+                    ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
+        isPressSwallowed = true;
+    }
+    if (!isModal && !viewportTransform.isModal() &&
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+        if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
+            setView(*changed);
+        }
+        applyToolHotkeys(viewportTools);
+        if (viewportTools.mode == SelectionMode::Node) {
+            viewportTransform.applyHotkeys(viewportTools.tool, transformView);
+        }
+    }
     // ImGuizmo takes the mouse only while no item is hovered, so over its
     // gizmo the viewport's own button gives way to a dummy of the same size.
-    if (isHandleShown() && (isHandleHeld || ImGuizmo::IsOver())) {
+    if (isTransforming()) {
         ImGui::Dummy(size);
     } else {
         ImGui::InvisibleButton("##viewport", size,
@@ -179,11 +194,14 @@ void ViewportPanel::draw() {
     if (handleInput(size)) {
         stale = true;
     }
-    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, ClickDistance)) {
+    if (ImGui::IsItemActive() && !isPressSwallowed &&
+        ImGui::IsMouseDragging(ImGuiMouseButton_Left, ClickDistance)) {
         boxStart = ImGui::GetIO().MouseClickedPos[ImGuiMouseButton_Left];
     }
     if (ImGui::IsItemDeactivated()) {
-        if (boxStart) {
+        if (isPressSwallowed) {
+            isPressSwallowed = false;
+        } else if (boxStart) {
             pickInBox(origin, size);
         } else if (ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <
                    ClickDistance * ClickDistance) {
@@ -234,8 +252,10 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
-    drawSelection(*drawList, origin, size);
-    drawHandle(*drawList, origin, size);
+    viewportTransform.drawOverlay(*drawList, transformView);
+    if (viewportTools.mode == SelectionMode::Node) {
+        viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
+    }
     if (boxStart) {
         const ImVec2 mouse = ImGui::GetIO().MousePos;
         ImVec4 fill = core::palette::Accent;
@@ -348,55 +368,42 @@ PickMode ViewportPanel::findPickMode() const {
     return findHeldPickMode().value_or(viewportTools.pickMode);
 }
 
-bool ViewportPanel::isHandleShown() const {
-    return handle && viewportTools.mode == SelectionMode::Node &&
-           viewportTools.tool == EditTool::Move;
+TransformView ViewportPanel::makeTransformView(const ImVec2 origin, const ImVec2 size) const {
+    return {.view = orbitCamera.makeViewMatrix(),
+            .projection = makeProjection(size),
+            .eye = orbitCamera.getEye(),
+            .origin = origin,
+            .size = size};
 }
 
-void ViewportPanel::drawSelection(ImDrawList& drawList, const ImVec2 origin,
-                                  const ImVec2 size) const {
-    const glm::mat4 viewProjection = makeProjection(size) * orbitCamera.makeViewMatrix();
-    const glm::vec3 offset =
-        isHandleHeld && handle && handleStart ? *handle - *handleStart : glm::vec3(0.0F);
-    for (usize i = 0; i < selectedPoints.size(); ++i) {
-        const std::optional<glm::vec2> position =
-            findScreenPosition(viewProjection, {size.x, size.y}, selectedPoints[i] + offset);
-        if (!position) {
+bool ViewportPanel::isTransforming() const {
+    return viewportTools.mode == SelectionMode::Node &&
+           viewportTransform.isGizmoActive(viewportTools.tool);
+}
+
+std::vector<glm::vec3> ViewportPanel::listGroundTriangles() const {
+    std::vector<glm::vec3> triangles;
+    if (!drawnFrame) {
+        return triangles;
+    }
+    const glm::mat4 inverse = glm::inverse(frameViewProjection);
+    for (const n64::RspOutput& output : drawnFrame->rspResult.outputs) {
+        const auto* triangle = std::get_if<n64::Triangle>(&output);
+        if (triangle == nullptr) {
             continue;
         }
-        const ImVec4 color = i == activePoint ? core::palette::Accent : core::palette::AccentMuted;
-        drawList.AddCircle(ImVec2(origin.x + position->x, origin.y + position->y), PickRadius,
-                           ImGui::GetColorU32(color), 0, SelectionRingWidth);
-    }
-}
-
-void ViewportPanel::drawHandle(ImDrawList& drawList, const ImVec2 origin, const ImVec2 size) {
-    if (!isHandleShown()) {
-        isHandleHeld = false;
-        return;
-    }
-    ImGuizmo::BeginFrame();
-    ImGuizmo::SetOrthographic(false);
-    ImGuizmo::SetDrawlist(&drawList);
-    ImGuizmo::SetRect(origin.x, origin.y, size.x, size.y);
-    const glm::mat4 view = orbitCamera.makeViewMatrix();
-    const glm::mat4 projection = makeProjection(size);
-    glm::mat4 matrix = glm::translate(glm::mat4(1.0F), *handle);
-    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), ImGuizmo::TRANSLATE,
-                             ImGuizmo::WORLD, glm::value_ptr(matrix))) {
-        handle = glm::vec3(matrix[3]);
-        if (moveHandler) {
-            moveHandler(*handle, false);
+        const std::optional<usize> image = findImageAt(mappedImages, triangle->address);
+        if (!image || *image >= viewportContent.labels.size() ||
+            viewportContent.labels[*image].kind != ImageKind::Room) {
+            continue;
+        }
+        for (const n64::ShadedVertex& vertex : triangle->vertices) {
+            const glm::vec4 world = inverse * glm::vec4(vertex.position[0], vertex.position[1],
+                                                        vertex.position[2], vertex.position[3]);
+            triangles.emplace_back(glm::vec3(world) / world.w);
         }
     }
-    if (ImGuizmo::IsUsing()) {
-        isHandleHeld = true;
-    } else if (isHandleHeld) {
-        isHandleHeld = false;
-        if (moveHandler) {
-            moveHandler(*handle, true);
-        }
-    }
+    return triangles;
 }
 
 bool ViewportPanel::handleInput(const ImVec2 size) {
@@ -442,6 +449,7 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     }
     drawnFrame = std::move(drawing);
     mappedImages = frame.mappedImages;
+    frameViewProjection = makeViewProjection(viewportContent, orbitCamera, size);
     std::vector<base::Diagnostic> drawn = drawFrame(target);
     statusBar.addFrame(FrameReport{
         .statistics = std::move(statistics),
