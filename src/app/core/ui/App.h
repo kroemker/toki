@@ -71,6 +71,7 @@ private:
     void drawNewActorsPrompt();
     void openRestoredScene();
     void applySettings(const Settings& applied);
+    void setSceneAngleFormat();
     void saveState();
 
     std::unique_ptr<gfx::Device> device;

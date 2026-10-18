@@ -237,6 +237,20 @@ TEST_CASE("scene saves are reviewed unless the config turned it off", "[core][se
     REQUIRE_FALSE(loadSettings(dir.getFile())->reviewsSceneSaves);
 }
 
+TEST_CASE("rotations are shown as binary angles unless the config says degrees",
+          "[core][settings]") {
+    const TempDir dir("angles");
+    REQUIRE(Settings{}.angleFormat == toki::core::AngleFormat::Binary);
+
+    Settings written;
+    written.angleFormat = toki::core::AngleFormat::Degrees;
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+    REQUIRE(loadSettings(dir.getFile())->angleFormat == toki::core::AngleFormat::Degrees);
+
+    writeFile(dir.getFile(), "[scenes]\nangles = \"radians\"\n");
+    REQUIRE(loadSettings(dir.getFile())->angleFormat == toki::core::AngleFormat::Binary);
+}
+
 TEST_CASE("the scene last open round-trips with how it was shown", "[core][settings]") {
     const TempDir dir("session");
     Settings written;

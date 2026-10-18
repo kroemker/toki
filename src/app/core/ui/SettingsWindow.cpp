@@ -29,6 +29,10 @@ constexpr s64 SmallestLog = 100;
 constexpr s64 LargestLog = 1'000'000;
 constexpr float LabelWidth = 11.0F;
 constexpr auto MarkerShapeLabels = std::to_array<const char*>({"Cube", "Diamond", "Pin"});
+constexpr auto AngleFormatLabels = std::to_array<const char*>({"Binary Angles", "Degrees"});
+
+static_assert(AngleFormatLabels.size() == AngleFormatCount,
+              "every angle format needs a label in the settings window");
 constexpr auto LogLevelLabels =
     std::to_array<const char*>({"Debug", "Info", "OK", "Warning", "Error"});
 
@@ -100,6 +104,16 @@ SettingsWindow::SettingsWindow() {
         .isChanged = [this,
                       defaults] { return draft.reviewsSceneSaves != defaults.reviewsSceneSaves; },
         .reset = [this, defaults] { draft.reviewsSceneSaves = defaults.reviewsSceneSaves; },
+    });
+    entries.push_back(Entry{
+        .category = "Scenes",
+        .label = "Rotations In",
+        .help = "How a placement's rotation is shown and typed: as the binary angles the game "
+                "stores, 0x4000 a quarter turn, or in degrees. The button beside a rotation in "
+                "the Properties panel switches it too.",
+        .drawControl = [this] { drawAngleFormat(); },
+        .isChanged = [this, defaults] { return draft.angleFormat != defaults.angleFormat; },
+        .reset = [this, defaults] { draft.angleFormat = defaults.angleFormat; },
     });
     entries.push_back(Entry{
         .category = "Log",
@@ -304,6 +318,13 @@ void SettingsWindow::drawMarkerShape() {
     auto picked = static_cast<usize>(draft.markerShape);
     if (drawLabelCombo("##markerShape", MarkerShapeLabels, picked)) {
         draft.markerShape = static_cast<MarkerShape>(picked);
+    }
+}
+
+void SettingsWindow::drawAngleFormat() {
+    auto picked = static_cast<usize>(draft.angleFormat);
+    if (drawLabelCombo("##angleFormat", AngleFormatLabels, picked)) {
+        draft.angleFormat = static_cast<AngleFormat>(picked);
     }
 }
 

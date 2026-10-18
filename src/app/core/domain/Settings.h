@@ -39,6 +39,21 @@ inline constexpr usize MarkerShapeCount = static_cast<usize>(MarkerShape::Pin) +
 /// The shape `name` calls, if any.
 [[nodiscard]] std::optional<MarkerShape> parseMarkerShape(std::string_view name);
 
+/// How a placement's rotation is shown: as the binary angles the game stores,
+/// or in degrees.
+enum class AngleFormat : u8 {
+    Binary,
+    Degrees,
+};
+
+inline constexpr usize AngleFormatCount = static_cast<usize>(AngleFormat::Degrees) + 1;
+
+/// What `format` is called in the config.
+[[nodiscard]] std::string_view getAngleFormatName(AngleFormat format);
+
+/// The format `name` calls, if any.
+[[nodiscard]] std::optional<AngleFormat> parseAngleFormat(std::string_view name);
+
 struct LogSettings {
     LogLevel minLevel = LogLevel::Debug;
     usize maxEntries = Log::DefaultMaxEntries;
@@ -90,6 +105,8 @@ struct Settings {
 
     /// Whether a save of a scene is shown for review before it is written.
     bool reviewsSceneSaves = true;
+
+    AngleFormat angleFormat = AngleFormat::Binary;
 
     viewport::ViewportView viewport;
 

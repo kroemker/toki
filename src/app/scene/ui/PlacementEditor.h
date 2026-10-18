@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -8,6 +9,7 @@
 #include <array>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <variant>
 
@@ -30,6 +32,13 @@ public:
     /// ID, so that the room it is placed in loads it.
     void setObjectFinder(std::function<std::optional<std::string>(s16 actorId)> finder) {
         findActorObject = std::move(finder);
+    }
+
+    /// Shows rotations as `format`; `changed` is told when the form's own
+    /// button switches it.
+    void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
+        angleFormat = format;
+        changeAngleFormat = std::move(changed);
     }
 
     void select(const PlacementRef& where) {
@@ -89,9 +98,11 @@ private:
     bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit);
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
     void add(Scene& scene, const PlacementRef& where, const Placement& placement);
-    [[nodiscard]] bool editActor(ActorPlacement& placement) const;
-    [[nodiscard]] bool editTransitionActor(TransitionActorPlacement& placement) const;
+    [[nodiscard]] bool editActor(ActorPlacement& placement);
+    [[nodiscard]] bool editTransitionActor(TransitionActorPlacement& placement);
     [[nodiscard]] bool editActorId(s16& id) const;
+    [[nodiscard]] bool editRotation(std::span<s16> angles);
+    void drawAngleFormatButton();
     [[nodiscard]] s16 findDefaultActor() const;
 
     const workspace::WorkspaceService& workspaceService;
@@ -103,6 +114,8 @@ private:
     std::string failure;
     std::function<void(Scene&)> picked;
     mutable std::string actorFilter;
+    core::AngleFormat angleFormat = core::AngleFormat::Binary;
+    std::function<void(core::AngleFormat)> changeAngleFormat;
 };
 
 } // namespace toki::scene

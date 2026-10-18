@@ -2,6 +2,7 @@
 
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/BinaryAngle.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
@@ -31,6 +32,9 @@ namespace {
 
 constexpr float LabelWidth = 7.0F;
 constexpr float DragSpeed = 1.0F;
+/// The width of the button that switches how rotations are shown, in frame
+/// heights.
+constexpr float AngleButtonWidth = 1.4F;
 /// What a new actor is until it is picked: a green rupee, at params 0, which
 /// any room can hold.
 constexpr std::string_view DefaultActor = "ACTOR_EN_ITEM00";
@@ -166,33 +170,62 @@ bool PlacementEditor::editActorId(s16& id) const {
     return isChanged;
 }
 
-bool PlacementEditor::editActor(ActorPlacement& placement) const {
+bool PlacementEditor::editRotation(const std::span<s16> angles) {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const float button = ImGui::GetFrameHeight() * AngleButtonWidth;
+    const auto count = static_cast<float>(angles.size());
+    const float width =
+        (ImGui::GetContentRegionAvail().x - button - count * style.ItemSpacing.x) / count;
+    bool isDone = false;
+    for (usize axis = 0; axis < angles.size(); ++axis) {
+        ImGui::PushID(static_cast<int>(axis));
+        ImGui::SetNextItemWidth(width);
+        if (angleFormat == core::AngleFormat::Degrees) {
+            f32 degrees = convertToDegrees(angles[axis]);
+            if (ImGui::InputFloat("##rotation", &degrees, 0.0F, 0.0F, "%.2f°")) {
+                angles[axis] = convertToBinaryAngle(degrees);
+            }
+        } else {
+            auto word = static_cast<u16>(angles[axis]);
+            ImGui::InputScalar("##rotation", ImGuiDataType_U16, &word, nullptr, nullptr, "%04X",
+                               ImGuiInputTextFlags_CharsHexadecimal);
+            angles[axis] = static_cast<s16>(word);
+        }
+        isDone = ImGui::IsItemDeactivatedAfterEdit() || isDone;
+        ImGui::PopID();
+        ImGui::SameLine();
+    }
+    drawAngleFormatButton();
+    return isDone;
+}
+
+void PlacementEditor::drawAngleFormatButton() {
+    const bool isDegrees = angleFormat == core::AngleFormat::Degrees;
+    if (ImGui::Button(isDegrees ? "°##angles" : "0x##angles",
+                      ImVec2(ImGui::GetFrameHeight() * AngleButtonWidth, 0.0F))) {
+        angleFormat = isDegrees ? core::AngleFormat::Binary : core::AngleFormat::Degrees;
+        if (changeAngleFormat) {
+            changeAngleFormat(angleFormat);
+        }
+    }
+    ImGui::SetItemTooltip(isDegrees ? "In degrees. Click for binary angles."
+                                    : "In binary angles. Click for degrees.");
+}
+
+bool PlacementEditor::editActor(ActorPlacement& placement) {
     bool isDone = editActorId(placement.id);
     isDone = editPosition(placement.position) || isDone;
     core::drawPropertyLabel("Rotation",
-                            "In binary angles, 0x4000 a quarter turn. Many actors read parts of "
-                            "the X and Z rotation as params instead.");
-    const float third =
-        (ImGui::GetContentRegionAvail().x - 2 * ImGui::GetStyle().ItemSpacing.x) / 3.0F;
-    for (usize axis = 0; axis < 3; ++axis) {
-        ImGui::PushID(static_cast<int>(axis));
-        if (axis > 0) {
-            ImGui::SameLine();
-        }
-        auto word = static_cast<u16>(placement.rotation[axis]);
-        ImGui::SetNextItemWidth(third);
-        ImGui::InputScalar("##rotation", ImGuiDataType_U16, &word, nullptr, nullptr, "%04X",
-                           ImGuiInputTextFlags_CharsHexadecimal);
-        placement.rotation[axis] = static_cast<s16>(word);
-        isDone = ImGui::IsItemDeactivatedAfterEdit() || isDone;
-        ImGui::PopID();
-    }
+                            "The actor's rotation about X, Y and Z, which the game applies in the "
+                            "order Y, X, Z. Stored as binary angles, 0x4000 a quarter turn. Many "
+                            "actors read parts of the X and Z rotation as params instead.");
+    isDone = editRotation(placement.rotation) || isDone;
     core::drawPropertyLabel("Params", "The actor's params, which its Init reads.");
     isDone = editHex("##params", placement.params) || isDone;
     return isDone;
 }
 
-bool PlacementEditor::editTransitionActor(TransitionActorPlacement& placement) const {
+bool PlacementEditor::editTransitionActor(TransitionActorPlacement& placement) {
     bool isDone = editActorId(placement.id);
     for (usize side = 0; side < 2; ++side) {
         core::drawPropertyLabel(side == 0 ? "Front Room" : "Back Room",
@@ -204,8 +237,8 @@ bool PlacementEditor::editTransitionActor(TransitionActorPlacement& placement) c
         ImGui::PopID();
     }
     isDone = editPosition(placement.position) || isDone;
-    core::drawPropertyLabel("Rotation Y", "In binary angles, 0x4000 a quarter turn.");
-    isDone = editHex("##rotationY", placement.rotationY) || isDone;
+    core::drawPropertyLabel("Rotation Y", "Stored as a binary angle, 0x4000 a quarter turn.");
+    isDone = editRotation(std::span(&placement.rotationY, 1)) || isDone;
     core::drawPropertyLabel("Params", "The actor's params, which its Init reads.");
     isDone = editHex("##params", placement.params) || isDone;
     return isDone;

@@ -28,6 +28,10 @@ namespace toki::core {
 namespace {
 
 constexpr auto MarkerShapeNames = std::to_array<std::string_view>({"cube", "diamond", "pin"});
+constexpr auto AngleFormatNames = std::to_array<std::string_view>({"binary", "degrees"});
+
+static_assert(AngleFormatNames.size() == AngleFormatCount,
+              "every angle format needs a name in the config");
 
 static_assert(MarkerShapeNames.size() == MarkerShapeCount,
               "a marker shape was added to the enum without a name");
@@ -168,14 +172,26 @@ void readMarkers(const toml::table& root, const std::filesystem::path& path, Set
     }
 }
 
-void readScenes(const toml::table& root, Settings& settings) {
+void readScenes(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
     if (const std::optional<bool> reviews = root["scenes"]["review_saves"].value<bool>()) {
         settings.reviewsSceneSaves = *reviews;
+    }
+    const std::optional<std::string> angles = root["scenes"]["angles"].value<std::string>();
+    if (!angles) {
+        return;
+    }
+    if (const std::optional<AngleFormat> parsed = parseAngleFormat(*angles)) {
+        settings.angleFormat = *parsed;
+    } else {
+        logWarn("{}: unknown scenes.angles '{}', using '{}'", encodeUtf8(path), *angles,
+                getAngleFormatName(settings.angleFormat));
     }
 }
 
 void writeScenes(toml::table& root, const Settings& settings) {
-    ensureSection(root, "scenes").insert_or_assign("review_saves", settings.reviewsSceneSaves);
+    toml::table& scenes = ensureSection(root, "scenes");
+    scenes.insert_or_assign("review_saves", settings.reviewsSceneSaves);
+    scenes.insert_or_assign("angles", std::string{getAngleFormatName(settings.angleFormat)});
 }
 
 void writeMarkers(toml::table& root, const Settings& settings) {
@@ -404,6 +420,20 @@ std::string_view getMarkerShapeName(const MarkerShape shape) {
     return MarkerShapeNames[static_cast<usize>(shape)];
 }
 
+std::string_view getAngleFormatName(const AngleFormat format) {
+    return AngleFormatNames[static_cast<usize>(format)];
+}
+
+std::optional<AngleFormat> parseAngleFormat(const std::string_view name) {
+    for (usize i = 0; i < AngleFormatCount; ++i) {
+        const auto format = static_cast<AngleFormat>(i);
+        if (getAngleFormatName(format) == name) {
+            return format;
+        }
+    }
+    return std::nullopt;
+}
+
 std::optional<MarkerShape> parseMarkerShape(const std::string_view name) {
     for (usize i = 0; i < MarkerShapeCount; ++i) {
         const auto shape = static_cast<MarkerShape>(i);
@@ -444,7 +474,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readSession(*root, settings);
     readActors(*root, settings);
     readMarkers(*root, path, settings);
-    readScenes(*root, settings);
+    readScenes(*root, path, settings);
     readViewport(*root, settings);
 
     return settings;

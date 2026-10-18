@@ -100,6 +100,12 @@ public:
         inspectDisplayList = std::move(inspector);
     }
 
+    /// Shows placements' rotations as `format`; `changed` is told when the
+    /// panel switches it.
+    void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
+        placementEditor.setAngleFormat(format, std::move(changed));
+    }
+
     /// Marks actors not drawn as their models with `shape` from now on.
     void setMarkerShape(core::MarkerShape shape) {
         markerShape = shape;

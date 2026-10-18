@@ -37,6 +37,7 @@ add_executable(toki_tests
         app/scene/ActorDrawsTest.cpp
         app/scene/ActorEntryWriterTest.cpp
         app/scene/SceneCheckoutTest.cpp
+        app/scene/BinaryAngleTest.cpp
         app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp
         app/scene/SceneHeaderTest.cpp

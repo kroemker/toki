@@ -5,6 +5,7 @@ target_sources(toki_core PRIVATE
         ActorEntryWriter.cpp
         ActorObjects.cpp
         ActorMarkers.cpp
+        BinaryAngle.cpp
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp

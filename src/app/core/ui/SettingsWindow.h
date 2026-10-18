@@ -61,6 +61,7 @@ private:
     void drawLogEntries();
     void drawMarkerShape();
     void drawSceneSaveReview();
+    void drawAngleFormat();
     [[nodiscard]] Settings makeApplied() const;
 
     std::vector<Entry> entries;
