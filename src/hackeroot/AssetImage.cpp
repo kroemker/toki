@@ -353,6 +353,8 @@ void ImageReader::encodeFile(FileRead& file, std::vector<z64::ImageObject>& obje
             .name = std::string(declaration.name),
             .type = std::string(declaration.type),
             .isArray = declaration.isArray,
+            .pointerDepth = declaration.pointerDepth,
+            .innerLengths = declaration.innerLengths,
             .alignment = findAlignment(type),
             .startsFile = i == 0,
             .texture = std::move(texture),

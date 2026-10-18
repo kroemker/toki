@@ -1,6 +1,7 @@
 target_sources(toki_core PRIVATE
         CodeSymbols.cpp
         DataEncoder.cpp
+        DeclarationWriter.cpp
         DecompDialect.cpp
         DisplayListEncoder.cpp
         GbiNames.cpp

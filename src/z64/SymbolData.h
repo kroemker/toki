@@ -26,6 +26,8 @@ struct SymbolData {
     usize offset = 0;
     std::string type;
     bool isArray = false;
+    usize pointerDepth = 0;
+    std::vector<usize> innerLengths;
     std::vector<u8> bytes;
     std::vector<Relocation> relocations;
     std::optional<ImageTexture> texture;

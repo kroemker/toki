@@ -29,6 +29,10 @@ struct ImageObject {
     /// array bound: `Gfx` for `Gfx sDL[]`, `FlexSkeletonHeader`, `u64`.
     std::string type;
     bool isArray = false;
+    /// How many `*`s the declaration put before the name, as `SceneCmd* sAltHeaders[]`
+    /// has one, and the length of every dimension after the first.
+    usize pointerDepth = 0;
+    std::vector<usize> innerLengths;
     usize alignment = 1;
 
     /// The object is the first of its file, which starts on the boundary the
@@ -48,9 +52,11 @@ struct ImageSymbol {
     u8 segment = 0;
     usize offset = 0;
     usize size = 0;
-    /// As `ImageObject::type` and `ImageObject::isArray` declared it.
+    /// As `ImageObject` declared it.
     std::string type;
     bool isArray = false;
+    usize pointerDepth = 0;
+    std::vector<usize> innerLengths;
     std::optional<ImageTexture> texture;
     std::optional<EmbeddedSource> embedded;
 };

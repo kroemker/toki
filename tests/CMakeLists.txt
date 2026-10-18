@@ -90,6 +90,7 @@ add_executable(toki_tests
         n64/TexturePackingTest.cpp
         n64/TextureUnpackingTest.cpp
         z64/DataEncoderTest.cpp
+        z64/DeclarationWriterTest.cpp
         z64/DecompDialectTest.cpp
         z64/GbiNamesTest.cpp
         z64/ImageDifferenceTest.cpp

@@ -111,6 +111,8 @@ MemoryImage layOutImage(std::vector<ImageObject> objects, const LayoutOptions& o
                                                                .size = object.data.bytes.size(),
                                                                .type = object.type,
                                                                .isArray = object.isArray,
+                                                               .pointerDepth = object.pointerDepth,
+                                                               .innerLengths = object.innerLengths,
                                                                .texture = object.texture,
                                                                .embedded = object.embedded});
         if (!isNew) {

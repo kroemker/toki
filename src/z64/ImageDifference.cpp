@@ -17,7 +17,14 @@ namespace z64 {
 namespace {
 
 std::string makeTypeText(const SymbolData& symbol) {
-    return symbol.isArray ? symbol.type + "[]" : symbol.type;
+    std::string text = symbol.type + std::string(symbol.pointerDepth, '*');
+    if (symbol.isArray) {
+        text += "[]";
+    }
+    for (const usize inner : symbol.innerLengths) {
+        text += std::format("[{}]", inner);
+    }
+    return text;
 }
 
 std::string compareBytes(const SymbolData& expected, const SymbolData& actual) {
@@ -77,7 +84,7 @@ std::vector<ImageDifference> compareSymbols(const MemoryImage& expected, const M
             continue;
         }
         const SymbolData& other = found->second;
-        if (symbol.type != other.type || symbol.isArray != other.isArray) {
+        if (makeTypeText(symbol) != makeTypeText(other)) {
             report(name,
                    std::format("is a {}, not a {}", makeTypeText(other), makeTypeText(symbol)));
             continue;
