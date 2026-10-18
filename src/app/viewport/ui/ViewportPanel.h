@@ -28,6 +28,7 @@
 #include <array>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -153,9 +154,12 @@ public:
         return imageOrigin;
     }
 
-    /// The points a click in the viewport picks, and what picking the one at
-    /// an index does.
-    void setPickables(std::vector<glm::vec3> points, std::function<void(usize)> pick) {
+    /// The points a click or a box in the viewport picks, and what picking
+    /// those at some indices does, as the pick changes the selection: none
+    /// when nothing was hit.
+    using PickHandler = std::function<void(std::span<const usize>, PickMode)>;
+
+    void setPickables(std::vector<glm::vec3> points, PickHandler pick) {
         pickables = std::move(points);
         pickHandler = std::move(pick);
     }
@@ -167,7 +171,15 @@ public:
         if (!isHandleHeld) {
             handle = position;
         }
+        handleStart = position;
         moveHandler = std::move(move);
+    }
+
+    /// The points of what is selected, ringed over the image, the active one
+    /// brighter; while the gizmo is dragged they move with it.
+    void setSelectedPoints(std::vector<glm::vec3> points, std::optional<usize> active) {
+        selectedPoints = std::move(points);
+        activePoint = active;
     }
 
     /// The scene being read for the panel, shown over what is drawn until it
@@ -183,8 +195,11 @@ private:
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     void drawHandle(ImDrawList& drawList, ImVec2 origin, ImVec2 size);
+    void drawSelection(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool isHandleShown() const;
     void pick(ImVec2 origin, ImVec2 size) const;
+    void pickInBox(ImVec2 origin, ImVec2 size) const;
+    [[nodiscard]] PickMode findPickMode() const;
     [[nodiscard]] glm::mat4 makeProjection(ImVec2 size) const;
     void render(const gfx::RenderTarget& target);
     [[nodiscard]] std::vector<base::Diagnostic> drawFrame(const gfx::RenderTarget& target);
@@ -214,8 +229,13 @@ private:
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
     std::vector<glm::vec3> pickables;
-    std::function<void(usize)> pickHandler;
+    PickHandler pickHandler;
+    /// Where a box being dragged to select began, on the screen.
+    std::optional<ImVec2> boxStart;
     std::optional<glm::vec3> handle;
+    std::optional<glm::vec3> handleStart;
+    std::vector<glm::vec3> selectedPoints;
+    std::optional<usize> activePoint;
     std::function<void(const glm::vec3&, bool)> moveHandler;
     bool isHandleHeld = false;
     ViewportTools viewportTools;

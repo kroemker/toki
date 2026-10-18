@@ -64,6 +64,8 @@ constexpr f32 DegreesPerPoint = 0.4F;
 /// How far, in points, the mouse may move between press and release for a
 /// click to pick, and how near a point it must be.
 constexpr f32 ClickDistance = 4.0F;
+constexpr f32 BoxFillAlpha = 0.15F;
+constexpr f32 SelectionRingWidth = 2.0F;
 constexpr f32 PickRadius = 12.0F;
 constexpr float ToolStripMargin = 8.0F;
 /// The gap between the selection modes and the rest of the bar, in item
@@ -136,6 +138,8 @@ void ViewportPanel::setView(const ViewportView& view) {
 void ViewportPanel::drawBar() {
     drawSelectionModes(viewportTools);
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    drawPickModes(viewportTools, findPickMode());
+    ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     const ViewportBarEdit edit = drawViewportBar(viewportView, viewportChoices);
     if (edit.view) {
         setView(*edit.view);
@@ -174,10 +178,17 @@ void ViewportPanel::draw() {
     if (handleInput(size)) {
         stale = true;
     }
-    if (ImGui::IsItemDeactivated() &&
-        ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <
-            ClickDistance * ClickDistance) {
-        pick(origin, size);
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, ClickDistance)) {
+        boxStart = ImGui::GetIO().MouseClickedPos[ImGuiMouseButton_Left];
+    }
+    if (ImGui::IsItemDeactivated()) {
+        if (boxStart) {
+            pickInBox(origin, size);
+        } else if (ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <
+                   ClickDistance * ClickDistance) {
+            pick(origin, size);
+        }
+        boxStart.reset();
     }
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -222,7 +233,15 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
+    drawSelection(*drawList, origin, size);
     drawHandle(*drawList, origin, size);
+    if (boxStart) {
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        ImVec4 fill = core::palette::Accent;
+        fill.w = BoxFillAlpha;
+        drawList->AddRectFilled(*boxStart, mouse, ImGui::GetColorU32(fill));
+        drawList->AddRect(*boxStart, mouse, ImGui::GetColorU32(core::palette::Accent));
+    }
     drawList->PopClipRect();
     drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin));
     ImVec2 notePosition{ImGui::GetItemRectMax().x + ToolStripMargin, origin.y + 6.0F};
@@ -294,16 +313,48 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
         return;
     }
     const ImVec2 mouse = ImGui::GetIO().MousePos;
-    if (const std::optional<usize> picked =
-            findPickedPoint(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
-                            {mouse.x - origin.x, mouse.y - origin.y}, pickables, PickRadius)) {
-        pickHandler(*picked);
+    const std::optional<usize> picked =
+        findPickedPoint(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
+                        {mouse.x - origin.x, mouse.y - origin.y}, pickables, PickRadius);
+    pickHandler(picked ? std::span(&*picked, 1) : std::span<const usize>(), findPickMode());
+}
+
+void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
+    if (!pickHandler || !boxStart || !ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        return;
     }
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const std::vector<usize> picked =
+        findPointsInRect(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
+                         {boxStart->x - origin.x, boxStart->y - origin.y},
+                         {mouse.x - origin.x, mouse.y - origin.y}, pickables);
+    pickHandler(picked, findPickMode());
+}
+
+PickMode ViewportPanel::findPickMode() const {
+    return findHeldPickMode().value_or(viewportTools.pickMode);
 }
 
 bool ViewportPanel::isHandleShown() const {
     return handle && viewportTools.mode == SelectionMode::Node &&
            viewportTools.tool == EditTool::Move;
+}
+
+void ViewportPanel::drawSelection(ImDrawList& drawList, const ImVec2 origin,
+                                  const ImVec2 size) const {
+    const glm::mat4 viewProjection = makeProjection(size) * orbitCamera.makeViewMatrix();
+    const glm::vec3 offset =
+        isHandleHeld && handle && handleStart ? *handle - *handleStart : glm::vec3(0.0F);
+    for (usize i = 0; i < selectedPoints.size(); ++i) {
+        const std::optional<glm::vec2> position =
+            findScreenPosition(viewProjection, {size.x, size.y}, selectedPoints[i] + offset);
+        if (!position) {
+            continue;
+        }
+        const ImVec4 color = i == activePoint ? core::palette::Accent : core::palette::AccentMuted;
+        drawList.AddCircle(ImVec2(origin.x + position->x, origin.y + position->y), PickRadius,
+                           ImGui::GetColorU32(color), 0, SelectionRingWidth);
+    }
 }
 
 void ViewportPanel::drawHandle(ImDrawList& drawList, const ImVec2 origin, const ImVec2 size) {
@@ -340,9 +391,10 @@ bool ViewportPanel::handleInput(const ImVec2 size) {
     bool moved = false;
     if (ImGui::IsItemActive()) {
         const ImVec2 delta = io.MouseDelta;
-        const bool panning = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ||
-                             ImGui::IsMouseDown(ImGuiMouseButton_Right) || io.KeyShift;
-        if (delta.x != 0.0F || delta.y != 0.0F) {
+        const bool isNavigating = ImGui::IsMouseDown(ImGuiMouseButton_Middle) ||
+                                  ImGui::IsMouseDown(ImGuiMouseButton_Right);
+        const bool panning = io.KeyShift;
+        if (isNavigating && (delta.x != 0.0F || delta.y != 0.0F)) {
             if (panning) {
                 orbitCamera.pan(-delta.x / size.y, delta.y / size.y);
             } else {

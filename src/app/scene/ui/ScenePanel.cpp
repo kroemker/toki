@@ -268,10 +268,28 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
                   layer.header.playerEntries[i].position);
         }
     }
-    viewportPanel.setPickables(std::move(points),
-                               [this, placements = std::move(placements)](const usize index) {
-                                   placementEditor.select(placements[index]);
-                               });
+    viewportPanel.setPickables(std::move(points), [this, placements = std::move(placements)](
+                                                      const std::span<const usize> indices,
+                                                      const viewport::PickMode mode) {
+        std::vector<SceneNode> nodes;
+        for (const usize index : indices) {
+            nodes.emplace_back(placements[index]);
+        }
+        placementEditor.pick(nodes, mode);
+    });
+    std::vector<glm::vec3> selectedPoints;
+    std::optional<usize> activePoint;
+    const std::optional<PlacementRef> active = placementEditor.findSelected();
+    for (const PlacementRef& where : placementEditor.getSelection().listPlacements()) {
+        if (const std::optional<Placement> placement = findPlacement(*scene, where)) {
+            if (where == active) {
+                activePoint = selectedPoints.size();
+            }
+            selectedPoints.push_back(
+                makePoint(std::visit([](const auto& held) { return held.position; }, *placement)));
+        }
+    }
+    viewportPanel.setSelectedPoints(std::move(selectedPoints), activePoint);
     const std::optional<std::array<s16, 3>> selected = placementEditor.findSelectedPosition(*scene);
     viewportPanel.setHandle(selected ? std::optional(makePoint(*selected)) : std::nullopt,
                             [this](const glm::vec3& moved, const bool isDone) {
@@ -397,8 +415,16 @@ void ScenePanel::drawActor(const PlacementRow& row) {
     }
     ImGui::TreeNodeEx("##placement", flags, "%s", "");
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        placementEditor.select(where);
-        viewportPanel.focus(makePoint(row.position));
+        const ImGuiIO& io = ImGui::GetIO();
+        const SceneNode node = where;
+        if (io.KeyCtrl) {
+            placementEditor.pick(std::span(&node, 1), viewport::PickMode::Toggle);
+        } else if (io.KeyShift) {
+            placementEditor.pick(std::span(&node, 1), viewport::PickMode::Add);
+        } else {
+            placementEditor.select(where);
+            viewportPanel.focus(makePoint(row.position));
+        }
         if (where.kind == PlacementKind::PlayerEntry && where.index != sceneView.shownEntrance) {
             sceneView.shownEntrance = where.index;
             showScene();

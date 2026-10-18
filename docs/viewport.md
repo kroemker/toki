@@ -21,19 +21,34 @@ scene is; an owner that offers nothing gets no rows.
 
 ## Picking and moving
 
-The same way, the owner gives the viewport points to pick (`setPickables`) and one point to
-move (`setHandle`), each with what to do about it. A click, a press and release that moved
-less than a few points, picks the point drawn nearest the mouse, if one is within 12 points
-of it (`findPickedPoint`). The point to move gets a translation gizmo (ImGuizmo); dragging it
-moves no camera, and its owner is told where it is as it is dragged and once it is let go.
-The Scene panel offers the placements it shows, and the selected one to move.
+The same way, the owner gives the viewport points to pick (`setPickables`), the points of
+what is selected (`setSelectedPoints`) and one point to move (`setHandle`), each with what to
+do about it. A click, a press and release that moved less than a few points, picks the point
+drawn nearest the mouse, if one is within 12 points of it (`findPickedPoint`); a left drag
+draws a box and picks every point in it (`findPointsInRect`). A click that hits nothing picks
+nothing, which clears the selection. Selected points are ringed, the active one brighter.
+The point to move gets a translation gizmo (ImGuizmo); dragging it moves no camera, and its
+owner is told where it is as it is dragged and once it is let go.
+
+The mouse is split as Blender splits it: the left button picks, the middle or right button
+orbits, and either with Shift pans; the wheel zooms.
+
+How a pick changes the selection (`PickMode`) is a group of three icon buttons in the bar:
+pick anew, add, or take away. Holding Shift lights Add and holding Ctrl lights Take Away for
+as long as it is held, so the bar always shows what the next pick will do. In the Scene
+panel's tree, Shift+click adds and Ctrl+click toggles, as lists do.
+
+The Scene panel keeps the selection as a `SceneSelection` of nodes, rooms or placements, the
+one picked last the active one the Properties panel shows. The gizmo stands at the middle of
+the selected placements, and a move moves them all by the same amount, as one step to undo.
 
 What a click selects and what dragging does are the viewport's own (`ViewportTools`). The
-selection mode is a group of icon buttons at the start of the bar: Object, Face, Edge and
-Vertex, keys 1 to 4. The tool is a vertical group floating over the image's top left:
-Select, Move, Rotate and Scale, keys Q, W, E and R. Only Object, Select and Move are built;
-the rest are shown disabled, saying so. The gizmo is drawn only for Move, so Select picks
-without anything to drag.
+selection mode is a group of icon buttons at the start of the bar: Node, Face, Edge and
+Vertex, keys 1 to 4. Node mode selects what the scene's tree holds, rooms and placements,
+and is not called Object, because an object is what the decomp loads data from. The tool is
+a vertical group floating over the image's top left: Select, Move, Rotate and Scale, keys Q,
+W and E, Scale unbound. Only Node, Select and Move are built; the rest are shown disabled,
+saying so. Select is the tool the viewport starts with. The gizmo is drawn only for Move.
 
 Every key is bound through `core::KeyBindings`: each action has a name, a scope (the whole
 window, or the viewport while the cursor is over it) and a default chord, and `config.toml`

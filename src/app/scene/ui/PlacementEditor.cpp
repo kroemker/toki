@@ -16,8 +16,10 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <array>
 #include <cfloat>
+#include <climits>
 #include <expected>
 #include <format>
 #include <optional>
@@ -103,9 +105,15 @@ PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceSer
 
 void PlacementEditor::refresh(const Scene& scene) {
     draft.reset();
-    if (selected && !findPlacement(scene, *selected)) {
-        selected.reset();
-    }
+    moveStarts.clear();
+    selection.removeIf([&scene](const SceneNode& node) {
+        if (const auto* placement = std::get_if<PlacementRef>(&node)) {
+            return !findPlacement(scene, *placement);
+        }
+        const auto& room = std::get<RoomRef>(node);
+        return room.layer >= scene.layers.size() ||
+               room.room >= scene.layers[room.layer].rooms.size();
+    });
 }
 
 bool PlacementEditor::apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
@@ -173,19 +181,19 @@ void PlacementEditor::addObject(Scene& scene, const PlacementRef& where, const s
 }
 
 void PlacementEditor::drawInspector(Scene& scene) {
-    if (!selected) {
+    const std::optional<PlacementRef> active = findSelected();
+    if (!active) {
         ImGui::TextColored(core::palette::TextMuted,
                            "Select a placement in the Scene panel or the viewport.");
         return;
     }
     if (!draft) {
-        draft = findPlacement(scene, *selected);
+        draft = findPlacement(scene, *active);
         if (!draft) {
-            selected.reset();
             return;
         }
     }
-    const PlacementRef where = *selected;
+    const PlacementRef where = *active;
     const s16 actorId = std::visit([](const auto& held) { return held.id; }, *draft);
     const auto model = scene.actors.models.find(actorId);
     const actor::ActorEntry* entry =
@@ -229,6 +237,10 @@ void PlacementEditor::drawHeader(const PlacementRef& where, const s16 actorId,
     const std::string details =
         name == enumName ? makeWhere(where) : std::format("{} · {}", enumName, makeWhere(where));
     ImGui::TextColored(core::palette::TextMuted, "%s", details.c_str());
+    if (const usize count = selection.getNodes().size(); count > 1) {
+        ImGui::TextColored(core::palette::Accent, "%zu selected; shown is the one picked last.",
+                           count);
+    }
     ImGui::Spacing();
 }
 
@@ -311,13 +323,15 @@ void PlacementEditor::drawObject(const Scene& scene, const PlacementRef& where,
 void PlacementEditor::drawActions(const PlacementRef& where) {
     ImGui::Spacing();
     ImGui::BeginDisabled(where.kind == PlacementKind::PlayerEntry);
-    if (ImGui::Button("Duplicate")) {
-        pickDuplicate(where, *draft);
+    const usize count = listActedOn(where).size();
+    const std::string suffix = count > 1 ? std::format(" {}", count) : std::string();
+    if (ImGui::Button(std::format("Duplicate{}", suffix).c_str())) {
+        pickDuplicate(listActedOn(where));
     }
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Text, core::palette::Danger);
-    if (ImGui::Button("Delete")) {
-        pickDelete(where);
+    if (ImGui::Button(std::format("Delete{}", suffix).c_str())) {
+        pickDelete(listActedOn(where));
     }
     ImGui::PopStyleColor();
     ImGui::EndDisabled();
@@ -340,18 +354,52 @@ void PlacementEditor::commitDraft(Scene& scene, const PlacementRef& where) {
     }
 }
 
-void PlacementEditor::pickDuplicate(const PlacementRef& where, const Placement& placement) {
-    picked = [this, where, copied = placement](Scene& edited) { add(edited, where, copied); };
+std::optional<PlacementRef> PlacementEditor::findSelected() const {
+    const SceneNode* active = selection.findActive();
+    const auto* placement = active != nullptr ? std::get_if<PlacementRef>(active) : nullptr;
+    return placement != nullptr ? std::optional(*placement) : std::nullopt;
 }
 
-void PlacementEditor::pickDelete(const PlacementRef& where) {
-    picked = [this, where](Scene& edited) {
-        if (selected == where) {
-            selected.reset();
+std::vector<PlacementRef> PlacementEditor::listActedOn(const PlacementRef& where) const {
+    std::vector<PlacementRef> placements =
+        selection.contains(where) ? selection.listPlacements() : std::vector{where};
+    std::erase_if(placements, [](const PlacementRef& placement) {
+        return placement.kind == PlacementKind::PlayerEntry;
+    });
+    return placements;
+}
+
+void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements) {
+    picked = [this, placements = std::move(placements)](Scene& edited) {
+        std::vector<SceneNode> added;
+        for (const PlacementRef& where : placements) {
+            if (const std::optional<Placement> placement = findPlacement(edited, where)) {
+                if (const std::optional<PlacementRef> copy =
+                        add(edited, where, *placement, !added.empty())) {
+                    added.emplace_back(*copy);
+                }
+            }
         }
-        apply(edited, where, [where](SceneModel& model, const PlacementList& list) {
-            return removePlacement(model, list, where.index);
-        });
+        selection.pick(added, PickMode::Replace);
+    };
+}
+
+void PlacementEditor::pickDelete(std::vector<PlacementRef> placements) {
+    std::ranges::sort(placements, [](const PlacementRef& first, const PlacementRef& second) {
+        return first.index > second.index;
+    });
+    picked = [this, placements = std::move(placements)](Scene& edited) {
+        selection.clear();
+        bool isJoined = false;
+        for (const PlacementRef& where : placements) {
+            isJoined = apply(
+                           edited, where,
+                           [where](SceneModel& model, const PlacementList& list) {
+                               return removePlacement(model, list, where.index);
+                           },
+                           isJoined) ||
+                       isJoined;
+        }
     };
 }
 
@@ -363,10 +411,10 @@ void PlacementEditor::drawPlacementMenu(const Scene& scene, const PlacementRef& 
     ImGui::Separator();
     const bool isPlayerEntry = where.kind == PlacementKind::PlayerEntry;
     if (ImGui::MenuItem("Duplicate", nullptr, false, !isPlayerEntry)) {
-        pickDuplicate(where, *placement);
+        pickDuplicate(listActedOn(where));
     }
     if (ImGui::MenuItem("Delete", nullptr, false, !isPlayerEntry)) {
-        pickDelete(where);
+        pickDelete(listActedOn(where));
     }
     if (isPlayerEntry) {
         ImGui::SetItemTooltip("The spawn list names the player entries by index.");
@@ -387,38 +435,100 @@ void PlacementEditor::drawRoomMenu(const usize layer, const usize room,
 }
 
 std::optional<std::array<s16, 3>> PlacementEditor::findSelectedPosition(const Scene& scene) const {
-    if (!selected) {
+    if (!moveStarts.empty()) {
+        return moveMiddle;
+    }
+    std::array<s32, 3> sum{};
+    usize count = 0;
+    for (const PlacementRef& where : selection.listPlacements()) {
+        if (const std::optional<Placement> placement = findPlacement(scene, where)) {
+            const std::array<s16, 3> position =
+                std::visit([](const auto& held) { return held.position; }, *placement);
+            for (usize axis = 0; axis < 3; ++axis) {
+                sum[axis] += position[axis];
+            }
+            ++count;
+        }
+    }
+    if (count == 0) {
         return std::nullopt;
     }
-    const std::optional<Placement> placement = draft ? draft : findPlacement(scene, *selected);
-    if (!placement) {
-        return std::nullopt;
+    std::array<s16, 3> middle{};
+    for (usize axis = 0; axis < 3; ++axis) {
+        middle[axis] = static_cast<s16>(sum[axis] / static_cast<s32>(count));
     }
-    return std::visit([](const auto& held) { return held.position; }, *placement);
+    return middle;
 }
 
 void PlacementEditor::moveSelected(const Scene& scene, const std::array<s16, 3>& position,
                                    const bool isDone) {
-    if (!selected) {
+    const std::vector<PlacementRef> placements = selection.listPlacements();
+    if (placements.empty()) {
         return;
     }
-    if (!draft) {
-        draft = findPlacement(scene, *selected);
+    if (moveStarts.empty()) {
+        const std::optional<std::array<s16, 3>> middle = findSelectedPosition(scene);
+        if (!middle) {
+            return;
+        }
+        moveMiddle = *middle;
+        for (const PlacementRef& where : placements) {
+            const std::optional<Placement> placement = findPlacement(scene, where);
+            moveStarts.push_back(
+                placement ? std::visit([](const auto& held) { return held.position; }, *placement)
+                          : std::array<s16, 3>{});
+        }
     }
-    if (!draft) {
-        return;
+    std::array<s32, 3> offset{};
+    for (usize axis = 0; axis < 3; ++axis) {
+        offset[axis] = position[axis] - moveMiddle[axis];
     }
-    std::visit([&position](auto& held) { held.position = position; }, *draft);
+    const auto makeMoved = [&offset](const std::array<s16, 3>& start) {
+        std::array<s16, 3> moved{};
+        for (usize axis = 0; axis < 3; ++axis) {
+            moved[axis] = static_cast<s16>(
+                std::clamp(start[axis] + offset[axis], s32{INT16_MIN}, s32{INT16_MAX}));
+        }
+        return moved;
+    };
+    if (draft) {
+        if (const auto active = std::ranges::find(placements, findSelected());
+            active != placements.end()) {
+            const std::array<s16, 3> moved =
+                makeMoved(moveStarts[static_cast<usize>(active - placements.begin())]);
+            std::visit([&moved](auto& held) { held.position = moved; }, *draft);
+        }
+    }
     if (!isDone) {
         return;
     }
-    picked = [this, where = *selected, moved = *draft](Scene& edited) {
-        apply(edited, where, [&moved, &where](SceneModel& model, const PlacementList& list) {
-            if (const auto* transition = std::get_if<TransitionActorPlacement>(&moved)) {
-                return setTransitionActor(model, list.layer, where.index, *transition);
+    std::vector<std::pair<PlacementRef, std::array<s16, 3>>> moves;
+    for (usize i = 0; i < placements.size(); ++i) {
+        moves.emplace_back(placements[i], makeMoved(moveStarts[i]));
+    }
+    moveStarts.clear();
+    picked = [this, moves = std::move(moves)](Scene& edited) {
+        bool isJoined = false;
+        for (const auto& [where, moved] : moves) {
+            std::optional<Placement> placement = findPlacement(edited, where);
+            if (!placement) {
+                continue;
             }
-            return setPlacement(model, list, where.index, std::get<ActorPlacement>(moved));
-        });
+            std::visit([&moved](auto& held) { held.position = moved; }, *placement);
+            isJoined =
+                apply(
+                    edited, where,
+                    [&placement, &where](SceneModel& model, const PlacementList& list) {
+                        if (const auto* transition =
+                                std::get_if<TransitionActorPlacement>(&*placement)) {
+                            return setTransitionActor(model, list.layer, where.index, *transition);
+                        }
+                        return setPlacement(model, list, where.index,
+                                            std::get<ActorPlacement>(*placement));
+                    },
+                    isJoined) ||
+                isJoined;
+        }
     };
 }
 
@@ -428,28 +538,34 @@ void PlacementEditor::applyPicked(Scene& scene) {
     }
 }
 
-void PlacementEditor::add(Scene& scene, const PlacementRef& where, const Placement& placement) {
+std::optional<PlacementRef> PlacementEditor::add(Scene& scene, const PlacementRef& where,
+                                                 const Placement& placement, const bool joinsLast) {
     std::optional<usize> added;
-    apply(scene, where, [&placement, &added](SceneModel& model, const PlacementList& list) {
-        std::expected<usize, base::Diagnostic> index =
-            list.kind == PlacementKind::TransitionActor
-                ? addTransitionActor(model, list.layer,
-                                     std::get<TransitionActorPlacement>(placement))
-                : addPlacement(model, list, std::get<ActorPlacement>(placement));
-        if (!index) {
-            return std::expected<void, base::Diagnostic>(std::unexpected(index.error()));
-        }
-        added = *index;
-        return std::expected<void, base::Diagnostic>();
-    });
-    if (added) {
-        PlacementRef chosen = where;
-        chosen.index = *added;
-        select(chosen);
-        if (const auto* actor = std::get_if<ActorPlacement>(&placement)) {
-            addObjectFor(scene, chosen, actor->id);
-        }
+    apply(
+        scene, where,
+        [&placement, &added](SceneModel& model, const PlacementList& list) {
+            std::expected<usize, base::Diagnostic> index =
+                list.kind == PlacementKind::TransitionActor
+                    ? addTransitionActor(model, list.layer,
+                                         std::get<TransitionActorPlacement>(placement))
+                    : addPlacement(model, list, std::get<ActorPlacement>(placement));
+            if (!index) {
+                return std::expected<void, base::Diagnostic>(std::unexpected(index.error()));
+            }
+            added = *index;
+            return std::expected<void, base::Diagnostic>();
+        },
+        joinsLast);
+    if (!added) {
+        return std::nullopt;
     }
+    PlacementRef chosen = where;
+    chosen.index = *added;
+    select(chosen);
+    if (const auto* actor = std::get_if<ActorPlacement>(&placement)) {
+        addObjectFor(scene, chosen, actor->id);
+    }
+    return chosen;
 }
 
 } // namespace toki::scene

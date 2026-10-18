@@ -9,6 +9,7 @@
 
 #include <array>
 #include <optional>
+#include <vector>
 
 using base::usize;
 
@@ -44,4 +45,17 @@ TEST_CASE("a point behind the camera is not picked", "[viewport][pick]") {
     REQUIRE_FALSE(toki::viewport::findScreenPosition(viewProjection, {100.0F, 100.0F}, behind));
     REQUIRE(
         toki::viewport::findScreenPosition(viewProjection, {100.0F, 100.0F}, camera.getTarget()));
+}
+
+TEST_CASE("a box picks the points that fall in it, whichever corner it was dragged from",
+          "[viewport][pick]") {
+    const glm::mat4 identity(1.0F);
+    const glm::vec2 size{200.0F, 100.0F};
+    const std::array<glm::vec3, 3> points{glm::vec3{-0.5F, 0.0F, 0.0F}, glm::vec3{0.0F, 0.0F, 0.0F},
+                                          glm::vec3{0.5F, 0.5F, 0.0F}};
+
+    REQUIRE(toki::viewport::findPointsInRect(identity, size, {120.0F, 60.0F}, {40.0F, 40.0F},
+                                             points) == std::vector<usize>{0, 1});
+    REQUIRE(toki::viewport::findPointsInRect(identity, size, {0.0F, 0.0F}, {10.0F, 10.0F}, points)
+                .empty());
 }

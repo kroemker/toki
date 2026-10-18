@@ -30,10 +30,23 @@ constexpr std::array<ToolButton, 4> ModeButtons{{
 }};
 
 constexpr std::array<ToolButton, 4> ToolButtons{{
-    {core::icons::Cursor, "Select", core::Action::SelectTool, true},
+    {core::icons::Cursor, "Select: click, or drag a box", core::Action::SelectTool, true},
     {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true},
     {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, false},
     {core::icons::Resize, "Scale", core::Action::ScaleTool, false},
+}};
+
+struct PickModeButton {
+    const char* icon;
+    PickMode mode;
+    const char* tooltip;
+};
+
+constexpr std::array<PickModeButton, 3> PickModeButtons{{
+    {core::icons::Selection, PickMode::Replace,
+     "Pick anew: a click or a box selects only what it hits"},
+    {core::icons::SelectionPlus, PickMode::Add, "Add to the selection (hold Shift)"},
+    {core::icons::SelectionSlash, PickMode::Remove, "Take from the selection (hold Ctrl)"},
 }};
 
 constexpr float StripPadding = 3.0F;
@@ -78,6 +91,39 @@ bool drawSelectionModes(ViewportTools& tools) {
         ImGui::PopID();
     }
     return isPicked;
+}
+
+void drawPickModes(ViewportTools& tools, const PickMode shown) {
+    for (usize i = 0; i < PickModeButtons.size(); ++i) {
+        const PickModeButton& button = PickModeButtons[i];
+        if (i > 0) {
+            ImGui::SameLine(0.0F, 1.0F);
+        }
+        ImGui::PushID(static_cast<int>(i));
+        const bool isShown = shown == button.mode;
+        if (isShown) {
+            ImGui::PushStyleColor(ImGuiCol_Button, core::palette::AccentMuted);
+        }
+        if (ImGui::Button(button.icon)) {
+            tools.pickMode = button.mode;
+        }
+        if (isShown) {
+            ImGui::PopStyleColor();
+        }
+        ImGui::SetItemTooltip("%s", button.tooltip);
+        ImGui::PopID();
+    }
+}
+
+std::optional<PickMode> findHeldPickMode() {
+    const ImGuiIO& io = ImGui::GetIO();
+    if (io.KeyCtrl) {
+        return PickMode::Remove;
+    }
+    if (io.KeyShift) {
+        return PickMode::Add;
+    }
+    return std::nullopt;
 }
 
 void drawToolStrip(ViewportTools& tools, const ImVec2 position) {

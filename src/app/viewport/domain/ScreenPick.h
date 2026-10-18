@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <span>
+#include <vector>
 
 namespace toki::viewport {
 
@@ -23,5 +24,11 @@ namespace toki::viewport {
 [[nodiscard]] std::optional<usize> findPickedPoint(const glm::mat4& viewProjection, glm::vec2 size,
                                                    glm::vec2 mouse,
                                                    std::span<const glm::vec3> points, f32 radius);
+
+/// The indices of the points of `points` in front of the camera that fall in
+/// the rectangle between `corner` and `otherCorner` on the image, in order.
+[[nodiscard]] std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, glm::vec2 size,
+                                                  glm::vec2 corner, glm::vec2 otherCorner,
+                                                  std::span<const glm::vec3> points);
 
 } // namespace toki::viewport

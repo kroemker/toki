@@ -1,10 +1,12 @@
 #include "ScreenPick.h"
 
+#include <glm/common.hpp>
 #include <glm/ext/vector_float4.hpp>
 #include <glm/geometric.hpp>
 
 #include <optional>
 #include <span>
+#include <vector>
 
 namespace toki::viewport {
 
@@ -38,6 +40,23 @@ std::optional<usize> findPickedPoint(const glm::mat4& viewProjection, const glm:
         }
     }
     return picked;
+}
+
+std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, const glm::vec2 size,
+                                    const glm::vec2 corner, const glm::vec2 otherCorner,
+                                    const std::span<const glm::vec3> points) {
+    const glm::vec2 lowest = glm::min(corner, otherCorner);
+    const glm::vec2 highest = glm::max(corner, otherCorner);
+    std::vector<usize> found;
+    for (usize i = 0; i < points.size(); ++i) {
+        const std::optional<glm::vec2> position =
+            findScreenPosition(viewProjection, size, points[i]);
+        if (position && position->x >= lowest.x && position->y >= lowest.y &&
+            position->x <= highest.x && position->y <= highest.y) {
+            found.push_back(i);
+        }
+    }
+    return found;
 }
 
 } // namespace toki::viewport

@@ -6,6 +6,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/scene/ui/ActorForm.h"
 #include "app/scene/ui/ParamsForm.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -16,6 +17,7 @@
 #include <span>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace toki::scene {
 
@@ -52,16 +54,25 @@ public:
     }
 
     void select(const PlacementRef& where) {
-        selected = where;
+        selection.select(where);
         draft.reset();
     }
 
-    [[nodiscard]] bool isSelected(const PlacementRef& where) const {
-        return selected == where;
+    /// Changes the selection by `nodes` picked as `mode` says.
+    void pick(std::span<const SceneNode> nodes, PickMode mode) {
+        selection.pick(nodes, mode);
+        draft.reset();
     }
 
-    [[nodiscard]] const std::optional<PlacementRef>& findSelected() const {
-        return selected;
+    [[nodiscard]] bool isSelected(const SceneNode& node) const {
+        return selection.contains(node);
+    }
+
+    /// The placement selected last, which the Properties panel shows.
+    [[nodiscard]] std::optional<PlacementRef> findSelected() const;
+
+    [[nodiscard]] const SceneSelection& getSelection() const {
+        return selection;
     }
 
     /// Takes the placements of `scene` as they are again, after it was read
@@ -82,11 +93,13 @@ public:
     /// Makes the edit picked from a menu this frame, if one was.
     void applyPicked(Scene& scene);
 
-    /// Where the selected placement is, as it is being edited.
+    /// Where the selected placements are, as they are being moved: the middle
+    /// of them.
     [[nodiscard]] std::optional<std::array<s16, 3>> findSelectedPosition(const Scene& scene) const;
 
-    /// Moves the selected placement to `position`, as a gizmo drags it; once
-    /// `isDone`, the move is made by `applyPicked`.
+    /// Moves the selected placements so their middle is at `position`, as a
+    /// gizmo drags it; once `isDone`, the move is made by `applyPicked`, as
+    /// one step.
     void moveSelected(const Scene& scene, const std::array<s16, 3>& position, bool isDone);
 
     /// Why the last edit was not made, or empty.
@@ -127,9 +140,13 @@ private:
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
     void addObject(Scene& scene, const PlacementRef& where, const std::string& object,
                    bool joinsLast = false);
-    void add(Scene& scene, const PlacementRef& where, const Placement& placement);
-    void pickDuplicate(const PlacementRef& where, const Placement& placement);
-    void pickDelete(const PlacementRef& where);
+    std::optional<PlacementRef> add(Scene& scene, const PlacementRef& where,
+                                    const Placement& placement, bool joinsLast = false);
+    /// What a menu or button opened on `where` acts on: the selection when
+    /// `where` is in it, or else only `where`.
+    [[nodiscard]] std::vector<PlacementRef> listActedOn(const PlacementRef& where) const;
+    void pickDuplicate(std::vector<PlacementRef> placements);
+    void pickDelete(std::vector<PlacementRef> placements);
     void drawHeader(const PlacementRef& where, s16 actorId, const actor::ActorEntry* entry) const;
     [[nodiscard]] bool drawParams(const Scene& scene, const PlacementRef& where,
                                   const actor::ActorEntry* entry, s16 actorId);
@@ -146,7 +163,11 @@ private:
     std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;
-    std::optional<PlacementRef> selected;
+    SceneSelection selection;
+    /// Where each selected placement was when a move began, by its place in
+    /// the selection's placements, and their middle.
+    std::vector<std::array<s16, 3>> moveStarts;
+    std::array<s16, 3> moveMiddle{};
     std::optional<Placement> draft;
     std::string failure;
     std::function<void(Scene&)> picked;
