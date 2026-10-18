@@ -11,6 +11,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/scene/ui/PlacementEditor.h"
+#include "app/scene/ui/SceneOutliner.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
@@ -122,20 +123,17 @@ private:
     void showScene();
     void offerChoices();
     void drawPickers(const Scene& shown);
-    void drawRooms(const SceneLayer& layer);
     void drawRoomMenu(usize room, const RoomHeader& header);
     void drawHeldScene();
     /// Offers the viewport the placements it shows to pick, and the selected
     /// one to move.
     void offerPlacements(const SceneLayer& layer);
-    void drawPlacements(const SceneLayer& layer);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
     void drawFlagLinks(const std::vector<SceneFlagUse>& flags);
     void drawFlagUser(const FlagUser& user);
-    /// One placed actor's row; true when it was clicked.
-    bool drawActor(const PlacementRef& where, s16 actorId, const std::array<s16, 3>& position,
-                   const actor::PlacementValues& placement, const char* label,
-                   std::optional<std::span<const std::string>> loadedObjects);
+    /// The name cell of one placement's row of the outliner.
+    void drawActor(const PlacementRow& row);
+    [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
                           const ActorDescription& description) const;
     void drawActorMenu(const SceneActorModel& model, const actor::PlacementValues& placement,
@@ -155,6 +153,7 @@ private:
     std::function<void(const std::string&)> inspectDisplayList;
     std::function<void(const Scene&)> readActors;
     PlacementEditor placementEditor;
+    SceneOutliner sceneOutliner;
     /// A scene read while the open one had edits no save wrote, until the
     /// person says whether to throw them away for it.
     std::optional<Scene> heldScene;

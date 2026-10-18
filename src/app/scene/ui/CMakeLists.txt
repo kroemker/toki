@@ -4,4 +4,5 @@ target_sources(toki PRIVATE
         PlacementEditor.cpp
         PropertiesPanel.cpp
         SaveSceneDialog.cpp
+        SceneOutliner.cpp
         ScenePanel.cpp)

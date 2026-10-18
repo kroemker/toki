@@ -15,6 +15,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/ui/SceneOutliner.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -96,11 +97,20 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
     : Panel("scene", "Scene", core::icons::MapTrifold, core::DockSlot::Right),
       workspaceService(workspaceService), viewportPanel(viewportPanel),
       databaseStore(databaseStore), collectionCatalog(collectionCatalog),
-      placementEditor(workspaceService, collectionCatalog, [this](const bool hasNewActors) {
-          showScene();
-          if (hasNewActors && readActors && scene) {
-              readActors(*scene);
-          }
+      placementEditor(workspaceService, collectionCatalog,
+                      [this](const bool hasNewActors) {
+                          showScene();
+                          if (hasNewActors && readActors && scene) {
+                              readActors(*scene);
+                          }
+                      }),
+      sceneOutliner(SceneOutliner::Hooks{
+          .drawPlacement = [this](const PlacementRow& row) { drawActor(row); },
+          .drawRoomMenu = [this](const usize room,
+                                 const RoomHeader& header) { drawRoomMenu(room, header); },
+          .findName = [this](const s16 actorId) { return findOutlinerName(actorId); },
+          .findSelected = [this] { return placementEditor.findSelected(); },
+          .showScene = [this] { showScene(); },
       }) {}
 
 void ScenePanel::setScene(Scene read) {
@@ -210,8 +220,8 @@ void ScenePanel::draw() {
     ImGui::Separator();
     drawPickers(shown);
     const SceneLayer& layer = scene->layers[sceneView.layer];
-    drawRooms(layer);
-    drawPlacements(layer);
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    sceneOutliner.draw(*scene, sceneView, workspace != nullptr ? &workspace->getTables() : nullptr);
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
     drawFlags(flags);
     drawFlagLinks(flags);
@@ -331,50 +341,6 @@ void ScenePanel::drawPickers(const Scene& shown) {
                        static_cast<int>(drawn), static_cast<int>(shown.actors.models.size()));
 }
 
-void ScenePanel::drawRooms(const SceneLayer& layer) {
-    if (!ImGui::CollapsingHeader("Rooms", ImGuiTreeNodeFlags_DefaultOpen)) {
-        return;
-    }
-    for (usize room = 0; room < layer.rooms.size(); ++room) {
-        ImGui::PushID(static_cast<int>(room));
-        bool shown = room >= sceneView.hiddenRooms.size() || !sceneView.hiddenRooms[room];
-        if (ImGui::Checkbox("##shown", &shown) && room < sceneView.hiddenRooms.size()) {
-            sceneView.hiddenRooms[room] = !shown;
-            showScene();
-        }
-        ImGui::SameLine();
-        const RoomHeader& header = layer.rooms[room];
-        const std::string label = std::format("Room {}  ·  {} meshes, {} actors", room,
-                                              header.displayLists.size(), header.actors.size());
-        const bool isRoomOpen = ImGui::TreeNode(label.c_str());
-        drawRoomMenu(room, header);
-        if (isRoomOpen) {
-            const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-            const std::vector<std::string> loaded =
-                workspace != nullptr ? listLoadedObjects(layer, room, workspace->getTables())
-                                     : std::vector<std::string>{};
-            for (usize i = 0; i < header.actors.size(); ++i) {
-                const ActorPlacement& actor = header.actors[i];
-                const actor::PlacementValues placement =
-                    makePlacementValues(scene->actors, static_cast<u16>(actor.params),
-                                        actor.rotation, findLayerAge(layer.index));
-                ImGui::PushID(static_cast<int>(i));
-                static_cast<void>(drawActor(
-                    PlacementRef{.kind = PlacementKind::Actor,
-                                 .layer = sceneView.layer,
-                                 .room = room,
-                                 .index = i},
-                    actor.id, actor.position, placement, nullptr,
-                    workspace != nullptr ? std::optional<std::span<const std::string>>(loaded)
-                                         : std::nullopt));
-                ImGui::PopID();
-            }
-            ImGui::TreePop();
-        }
-        ImGui::PopID();
-    }
-}
-
 void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     if (!scene || !ImGui::BeginPopupContextItem()) {
         return;
@@ -404,75 +370,42 @@ void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     ImGui::EndPopup();
 }
 
-void ScenePanel::drawPlacements(const SceneLayer& layer) {
-    if (ImGui::CollapsingHeader("Entrances")) {
-        for (usize i = 0; i < layer.header.playerEntries.size(); ++i) {
-            const ActorPlacement& entry = layer.header.playerEntries[i];
-            const std::string label =
-                std::format("Entry {}{}", i, i == sceneView.shownEntrance ? "  ·  Link" : "");
-            const actor::PlacementValues placement =
-                makePlacementValues(scene->actors, static_cast<u16>(entry.params), entry.rotation,
-                                    findLayerAge(layer.index));
-            ImGui::PushID(static_cast<int>(i));
-            const bool isClicked = drawActor(
-                PlacementRef{
-                    .kind = PlacementKind::PlayerEntry, .layer = sceneView.layer, .index = i},
-                entry.id, entry.position, placement, label.c_str(), std::nullopt);
-            ImGui::PopID();
-            if (isClicked) {
-                sceneView.shownEntrance = i;
-                showScene();
-            }
-        }
-    }
-    if (ImGui::CollapsingHeader("Transition actors")) {
-        for (usize i = 0; i < layer.header.transitionActors.size(); ++i) {
-            const TransitionActorPlacement& actor = layer.header.transitionActors[i];
-            const std::string label = std::format("{}  ·  rooms {} and {}", findActorName(actor.id),
-                                                  actor.rooms[0], actor.rooms[1]);
-            const actor::PlacementValues placement =
-                makePlacementValues(scene->actors, static_cast<u16>(actor.params),
-                                    {0, actor.rotationY, 0}, findLayerAge(layer.index));
-            ImGui::PushID(static_cast<int>(i));
-            static_cast<void>(drawActor(
-                PlacementRef{
-                    .kind = PlacementKind::TransitionActor, .layer = sceneView.layer, .index = i},
-                actor.id, actor.position, placement, label.c_str(), std::nullopt));
-            ImGui::PopID();
-        }
-    }
-}
-
-bool ScenePanel::drawActor(const PlacementRef& where, const s16 actorId,
-                           const std::array<s16, 3>& position,
-                           const actor::PlacementValues& placement, const char* label,
-                           const std::optional<std::span<const std::string>> loadedObjects) {
+void ScenePanel::drawActor(const PlacementRow& row) {
+    const PlacementRef& where = row.where;
+    const s16 actorId = row.actorId;
+    const actor::PlacementValues& placement = row.values;
     const auto model = scene->actors.models.find(actorId);
     const std::optional<ActorDescription> description =
         model != scene->actors.models.end()
-            ? std::optional(describeActor(model->second, placement, loadedObjects,
+            ? std::optional(describeActor(model->second, placement, row.loadedObjects,
                                           [this, &model](const std::string_view name) {
                                               return collectionCatalog.findCollection(
                                                   model->second.entry->actor, name);
                                           }))
             : std::nullopt;
     const bool isDrawn = description && description->isDrawn;
-    ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",
-                       isDrawn ? core::icons::Cube : core::icons::Diamond);
-    ImGui::SameLine();
     std::string name = findActorName(actorId);
-    if (label != nullptr) {
-        name = label;
+    if (row.label) {
+        name = *row.label;
     } else if (description && !description->name.empty()) {
         name = description->name;
     }
-    const bool isClicked = ImGui::Selectable(name.c_str(), placementEditor.isSelected(where));
-    if (isClicked) {
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_Leaf |
+                               ImGuiTreeNodeFlags_NoTreePushOnOpen;
+    if (placementEditor.isSelected(where)) {
+        flags |= ImGuiTreeNodeFlags_Selected;
+    }
+    ImGui::TreeNodeEx("##placement", flags, "%s", "");
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
         placementEditor.select(where);
-        viewportPanel.focus(makePoint(position));
+        viewportPanel.focus(makePoint(row.position));
+        if (where.kind == PlacementKind::PlayerEntry && where.index != sceneView.shownEntrance) {
+            sceneView.shownEntrance = where.index;
+            showScene();
+        }
     }
     if (description && ImGui::BeginItemTooltip()) {
-        drawActorTooltip(actorId, position, *description);
+        drawActorTooltip(actorId, row.position, *description);
         ImGui::EndTooltip();
     }
     if (ImGui::BeginPopupContextItem()) {
@@ -482,7 +415,23 @@ bool ScenePanel::drawActor(const PlacementRef& where, const s16 actorId,
         placementEditor.drawPlacementMenu(*scene, where);
         ImGui::EndPopup();
     }
-    return isClicked;
+    ImGui::SameLine(0.0F, 0.0F);
+    ImGui::TextColored(isDrawn ? core::palette::Success : core::palette::TextDisabled, "%s",
+                       isDrawn ? core::icons::Cube : core::icons::Diamond);
+    ImGui::SameLine();
+    ImGui::TextUnformatted(name.c_str());
+}
+
+std::string ScenePanel::findOutlinerName(const s16 actorId) const {
+    std::string name = findActorName(actorId);
+    if (const auto model = scene->actors.models.find(actorId);
+        model != scene->actors.models.end()) {
+        name += " " + model->second.enumName;
+        if (model->second.entry) {
+            name += " " + model->second.entry->name;
+        }
+    }
+    return name;
 }
 
 void ScenePanel::drawActorTooltip(const s16 actorId, const std::array<s16, 3>& position,

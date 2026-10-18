@@ -110,8 +110,14 @@ unit, so an edge can be thinner than the unit positions are given in. The shape 
 (Viewport › Actor Markers): a cube by default, a diamond, or a pin, a pyramid on its tip
 that points at the exact spot an actor is placed.
 
-The Scene panel is the view's controls for what is shown: the layer, a checkbox for each
-room, and each room's actors by name from the checkout's actor table, with how each is drawn.
+The Scene panel is the view's controls for what is shown: the layer, and a tree of the layer
+(`SceneOutliner`). Under the scene are its rooms, each with an eye that hides it, its actors
+by name from the checkout's actor table, with how each is drawn and its params, and the
+objects its object list loads; then the transition actors, the entrances, and the light
+settings, a click on one lighting the scene with it. Collision, paths, cutscenes and exits
+are rows that say they are not read yet. A filter keeps the placements whose name, enum name
+or database name holds it. A placement selected elsewhere, in the viewport, opens its group
+and is scrolled to.
 How it is drawn is chosen in the viewport's bar: the scene offers its light settings and how
 its actors are shown (hidden, marked, or drawn as their models) there as
 `viewport::ViewportChoices`, and applies what is picked to its view. The viewport knows no

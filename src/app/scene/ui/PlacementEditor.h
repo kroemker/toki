@@ -60,6 +60,10 @@ public:
         return selected == where;
     }
 
+    [[nodiscard]] const std::optional<PlacementRef>& findSelected() const {
+        return selected;
+    }
+
     /// Takes the placements of `scene` as they are again, after it was read
     /// again or another layer is shown.
     void refresh(const Scene& scene);
