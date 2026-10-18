@@ -86,22 +86,60 @@ std::optional<PlacementList> findPlacementList(const Scene& scene, const Placeme
         .kind = where.kind, .layer = scene.layers[where.layer].index, .room = where.room};
 }
 
+namespace {
+
+void showModel(Scene& scene, const SceneModel& model) {
+    scene.images = model.layOut();
+    scene.diagnostics.clear();
+    readSceneLayers(scene);
+}
+
+} // namespace
+
 std::expected<void, base::Diagnostic> SceneEditor::apply(Scene& scene, const PlacementRef& where,
-                                                         const Edit& edit) {
+                                                         const Edit& edit, const bool joinsLast) {
     const std::optional<PlacementList> list = findPlacementList(scene, where);
     if (!list) {
         return std::unexpected(
             base::makeError({}, std::format("the scene has no layer {}", where.layer)));
     }
-    SceneModel edited = sceneModel ? *sceneModel : SceneModel(scene);
+    SceneModel before = sceneModel ? *sceneModel : SceneModel(scene);
+    SceneModel edited = before;
     if (std::expected<void, base::Diagnostic> done = edit(edited, *list); !done) {
         return done;
     }
-    scene.images = edited.layOut();
-    scene.diagnostics.clear();
-    readSceneLayers(scene);
+    showModel(scene, edited);
     sceneModel = std::move(edited);
+    if (!joinsLast || undone.empty()) {
+        undone.push_back(std::move(before));
+        if (undone.size() > HistoryLength) {
+            undone.erase(undone.begin());
+        }
+    }
+    redone.clear();
     return {};
+}
+
+bool SceneEditor::undo(Scene& scene) {
+    if (undone.empty() || !sceneModel) {
+        return false;
+    }
+    redone.push_back(std::move(*sceneModel));
+    sceneModel = std::move(undone.back());
+    undone.pop_back();
+    showModel(scene, *sceneModel);
+    return true;
+}
+
+bool SceneEditor::redo(Scene& scene) {
+    if (redone.empty() || !sceneModel) {
+        return false;
+    }
+    undone.push_back(std::move(*sceneModel));
+    sceneModel = std::move(redone.back());
+    redone.pop_back();
+    showModel(scene, *sceneModel);
+    return true;
 }
 
 } // namespace toki::scene

@@ -190,6 +190,36 @@ TEST_CASE("an edit of the open scene shows in its layers, and one that fails cha
     REQUIRE(editor.findModel()->findSymbol("actors")->bytes.size() == 32);
 }
 
+TEST_CASE("an edit is undone and redone as a step, and undoing every step leaves none",
+          "[scene][edit]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::readSceneLayers(scene);
+    const auto read = scene.layers.front().rooms.front().actors.front();
+    toki::scene::SceneEditor editor;
+    const toki::scene::PlacementRef first{.kind = toki::scene::PlacementKind::Actor};
+    const auto set = [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+        return toki::scene::setPlacement(model, list, 0, Moved);
+    };
+    const auto add = [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+        return toki::scene::addPlacement(model, list, Moved).transform([](auto) {});
+    };
+    REQUIRE_FALSE(editor.canUndo());
+    REQUIRE(editor.apply(scene, first, set));
+    REQUIRE(editor.apply(scene, first, add, true));
+    REQUIRE(scene.layers.front().rooms.front().actors.size() == 3);
+
+    REQUIRE(editor.undo(scene));
+    REQUIRE(scene.layers.front().rooms.front().actors.size() == 2);
+    REQUIRE(scene.layers.front().rooms.front().actors.front().id == read.id);
+    REQUIRE_FALSE(editor.isEdited());
+    REQUIRE_FALSE(editor.canUndo());
+
+    REQUIRE(editor.redo(scene));
+    REQUIRE(scene.layers.front().rooms.front().actors.size() == 3);
+    REQUIRE(editor.isEdited());
+    REQUIRE_FALSE(editor.redo(scene));
+}
+
 TEST_CASE("objects are added to the end of a room's object list", "[scene][edit]") {
     toki::scene::Scene scene;
     scene.images.push_back(std::make_shared<const z64::MemoryImage>(

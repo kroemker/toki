@@ -50,6 +50,19 @@ void drawFileMenu(const Settings& settings, const bool sceneOpen, MenuActions& a
     ImGui::EndMenu();
 }
 
+void drawEditMenu(const MenuState& state, MenuActions& actions) {
+    if (!ImGui::BeginMenu("Edit")) {
+        return;
+    }
+    if (ImGui::MenuItem("Undo", getShortcutLabel(Action::Undo).c_str(), false, state.canUndo)) {
+        actions.undo = true;
+    }
+    if (ImGui::MenuItem("Redo", getShortcutLabel(Action::Redo).c_str(), false, state.canRedo)) {
+        actions.redo = true;
+    }
+    ImGui::EndMenu();
+}
+
 void drawBuildMenu(const bool buildRunning, MenuActions& actions) {
     if (!ImGui::BeginMenu("Build")) {
         return;
@@ -102,7 +115,7 @@ void drawToolsMenu(const std::vector<std::unique_ptr<Dialog>>& dialogs) {
 } // namespace
 
 MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<Dialog>>& dialogs,
-                        const Settings& settings, const bool buildRunning, const bool sceneOpen) {
+                        const Settings& settings, const MenuState& state) {
     MenuActions actions;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(space::Medium, space::Medium));
@@ -112,8 +125,9 @@ MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<
         return actions;
     }
 
-    drawFileMenu(settings, sceneOpen, actions);
-    drawBuildMenu(buildRunning, actions);
+    drawFileMenu(settings, state.sceneOpen, actions);
+    drawEditMenu(state, actions);
+    drawBuildMenu(state.buildRunning, actions);
     drawToolsMenu(dialogs);
     drawViewMenu(panels);
 

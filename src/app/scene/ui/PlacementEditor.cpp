@@ -108,30 +108,49 @@ void PlacementEditor::refresh(const Scene& scene) {
     }
 }
 
-bool PlacementEditor::apply(Scene& scene, const PlacementRef& where,
-                            const SceneEditor::Edit& edit) {
-    const std::expected<void, base::Diagnostic> applied = sceneEditor.apply(scene, where, edit);
+bool PlacementEditor::apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
+                            const bool joinsLast) {
+    const std::expected<void, base::Diagnostic> applied =
+        sceneEditor.apply(scene, where, edit, joinsLast);
     draft.reset();
     if (!applied) {
         failure = applied.error().message;
         return false;
     }
     failure.clear();
+    showChanged(scene);
+    return true;
+}
+
+void PlacementEditor::showChanged(Scene& scene) {
     refresh(scene);
     show(hasUnreadActors(scene));
-    return true;
+}
+
+void PlacementEditor::undo(Scene& scene) {
+    if (sceneEditor.undo(scene)) {
+        failure.clear();
+        showChanged(scene);
+    }
+}
+
+void PlacementEditor::redo(Scene& scene) {
+    if (sceneEditor.redo(scene)) {
+        failure.clear();
+        showChanged(scene);
+    }
 }
 
 void PlacementEditor::addObjectFor(Scene& scene, const PlacementRef& where, const s16 actorId) {
     if (findActorObject) {
         if (const std::optional<std::string> object = findActorObject(actorId)) {
-            addObject(scene, where, *object);
+            addObject(scene, where, *object, true);
         }
     }
 }
 
-void PlacementEditor::addObject(Scene& scene, const PlacementRef& where,
-                                const std::string& object) {
+void PlacementEditor::addObject(Scene& scene, const PlacementRef& where, const std::string& object,
+                                const bool joinsLast) {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     if (where.kind != PlacementKind::Actor || workspace == nullptr) {
         return;
@@ -141,10 +160,12 @@ void PlacementEditor::addObject(Scene& scene, const PlacementRef& where,
     if (!missing) {
         return;
     }
-    const bool isAdded =
-        apply(scene, where, [missing](SceneModel& model, const PlacementList& list) {
+    const bool isAdded = apply(
+        scene, where,
+        [missing](SceneModel& model, const PlacementList& list) {
             return addRoomObjects(model, list.layer, list.room, std::span(&*missing, 1));
-        });
+        },
+        joinsLast);
     if (!isAdded) {
         failure = std::format("{} is not in the room's object list, and was not added: {}", object,
                               failure);

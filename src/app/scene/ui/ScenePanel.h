@@ -119,6 +119,28 @@ public:
     /// Draws the properties of what is selected, for the Properties panel.
     void drawProperties();
 
+    /// Takes back the last edit of the scene, or puts back the last one taken
+    /// back.
+    void undo() {
+        if (scene) {
+            placementEditor.undo(*scene);
+        }
+    }
+
+    void redo() {
+        if (scene) {
+            placementEditor.redo(*scene);
+        }
+    }
+
+    [[nodiscard]] bool canUndo() const {
+        return scene && placementEditor.canUndo();
+    }
+
+    [[nodiscard]] bool canRedo() const {
+        return scene && placementEditor.canRedo();
+    }
+
 private:
     void showScene();
     void offerChoices();

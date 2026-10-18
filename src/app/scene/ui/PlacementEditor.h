@@ -98,6 +98,17 @@ public:
         return sceneEditor.isEdited();
     }
 
+    void undo(Scene& scene);
+    void redo(Scene& scene);
+
+    [[nodiscard]] bool canUndo() const {
+        return sceneEditor.canUndo();
+    }
+
+    [[nodiscard]] bool canRedo() const {
+        return sceneEditor.canRedo();
+    }
+
     [[nodiscard]] const SceneModel* findModel() const {
         return sceneEditor.findModel();
     }
@@ -110,9 +121,12 @@ public:
     }
 
 private:
-    bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit);
+    bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
+               bool joinsLast = false);
+    void showChanged(Scene& scene);
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
-    void addObject(Scene& scene, const PlacementRef& where, const std::string& object);
+    void addObject(Scene& scene, const PlacementRef& where, const std::string& object,
+                   bool joinsLast = false);
     void add(Scene& scene, const PlacementRef& where, const Placement& placement);
     void pickDuplicate(const PlacementRef& where, const Placement& placement);
     void pickDelete(const PlacementRef& where);

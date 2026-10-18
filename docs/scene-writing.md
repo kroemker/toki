@@ -110,7 +110,10 @@ bytes of the list that layer's header points at, and the count in the header's c
   at it. A header with no list for a kind cannot be added to yet. Player entries are set,
   never added or removed: the spawn list and the entrance table name them by index.
 
-An edit that fails changes nothing. While a scene has edits no save wrote, its files read
+An edit that fails changes nothing. Every edit is a step Edit › Undo takes back
+(`SceneEditor` keeps the model before each, the last 64), the object an actor needs added
+in the same step as the actor; a save, or reading the scene again, starts the history
+afresh. While a scene has edits no save wrote, its files read
 again, or another scene opened, do not replace it: the panel asks whether to throw the
 edits away first. A save takes the edits as written, and a vanilla scene is opened again
 from its copy under `assets/`.

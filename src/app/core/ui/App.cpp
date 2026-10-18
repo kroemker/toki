@@ -296,7 +296,17 @@ void App::drawFrame() {
     }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
     const MenuActions actions =
-        drawMenuBar(panels, dialogs, settings, buildRunner.isRunning(), openScene != nullptr);
+        drawMenuBar(panels, dialogs, settings,
+                    MenuState{.buildRunning = buildRunner.isRunning(),
+                              .sceneOpen = openScene != nullptr,
+                              .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
+                              .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
+    if (scenePanel != nullptr && (actions.undo || isActionPressed(Action::Undo))) {
+        scenePanel->undo();
+    }
+    if (scenePanel != nullptr && (actions.redo || isActionPressed(Action::Redo))) {
+        scenePanel->redo();
+    }
     panels.draw();
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();

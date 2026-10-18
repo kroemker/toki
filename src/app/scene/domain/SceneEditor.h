@@ -41,8 +41,26 @@ public:
     using Edit =
         std::function<std::expected<void, base::Diagnostic>(SceneModel&, const PlacementList&)>;
 
+    /// Each edit is a step undone at once, unless it `joinsLast`, as the
+    /// object an actor needs is added with it.
     [[nodiscard]] std::expected<void, base::Diagnostic>
-    apply(Scene& scene, const PlacementRef& where, const Edit& edit);
+    apply(Scene& scene, const PlacementRef& where, const Edit& edit, bool joinsLast = false);
+
+    /// Takes back the last step, or puts back the last step taken back, and
+    /// shows the result in `scene`. False when there is none.
+    bool undo(Scene& scene);
+    bool redo(Scene& scene);
+
+    [[nodiscard]] bool canUndo() const {
+        return !undone.empty();
+    }
+
+    [[nodiscard]] bool canRedo() const {
+        return !redone.empty();
+    }
+
+    /// How many steps are kept to take back; the oldest are dropped.
+    static constexpr usize HistoryLength = 64;
 
     /// Whether the scene has edits no save has written yet.
     [[nodiscard]] bool isEdited() const {
@@ -56,10 +74,15 @@ public:
     /// Forgets the edits, once they were saved or thrown away.
     void reset() {
         sceneModel.reset();
+        undone.clear();
+        redone.clear();
     }
 
 private:
     std::optional<SceneModel> sceneModel;
+    /// The model before each step, the last step's last.
+    std::vector<SceneModel> undone;
+    std::vector<SceneModel> redone;
 };
 
 /// A placement as the scene panel edits it: an actor or a player entry, or a
