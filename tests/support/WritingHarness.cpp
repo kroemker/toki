@@ -93,7 +93,8 @@ z64::SymbolData WritingHarness::encode(const std::string& source) {
 }
 
 z64::DeclarationWriter WritingHarness::makeWriter(
-    std::map<std::string, z64::ElementWriter, std::less<>> elementWriters) const {
+    std::map<std::string, z64::ElementWriter, std::less<>> elementWriters,
+    std::map<std::string, z64::ElementCondition, std::less<>> elementConditions) const {
     return z64::DeclarationWriter(z64::DeclarationContext{
         .findType = [this](const std::string_view name) { return findType(name); },
         .findSymbol = [this](const std::string_view name) -> std::optional<z64::SymbolShape> {
@@ -101,6 +102,7 @@ z64::DeclarationWriter WritingHarness::makeWriter(
             return found == symbols.end() ? std::nullopt : std::optional(found->shape);
         },
         .elementWriters = std::move(elementWriters),
+        .elementConditions = std::move(elementConditions),
         .isExact = z64::makeEncodingCheck(makeDataContext())});
 }
 

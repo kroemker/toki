@@ -78,10 +78,19 @@ the generic form.
 
 A scene command is known by the value of its `SCENE_CMD_ID_*` enumerator under the
 checkout's configuration, so HackerOoT's own commands, whose IDs shift with the feature
-switches, are written as macros only when the switch that defines them is on, and are not
-wrapped in their `#if`: a save already refuses a scene with data a switch that is off
-hides. `SCENE_CMD_LIGHT_LIST` names an ID that does not exist, so the light list is always
-written as its words.
+switches, are written as macros only when the switch that defines them is on, each in an
+`#if` of its switch as fast64 writes them (an `ElementCondition`), so the scene still
+builds once the switch is turned off. `SCENE_CMD_LIGHT_LIST` names an ID that does not
+exist, so the light list is always written as its words.
+
+## Edited as symbols
+
+An open scene is edited as a `SceneModel`: the symbols of the scene's image and each
+room's, in their layout order, each with the alignment and file start it was laid out
+with. An edit replaces, adds or removes whole symbols (a removed one must have nothing
+pointing at it), and the model lays its images out again against the game's code, so the
+viewport, the display list viewer and the header readers see an edited scene the way they
+see one read from the checkout. Addresses move as symbols grow; relocations follow them.
 
 ## Checked before it is written
 

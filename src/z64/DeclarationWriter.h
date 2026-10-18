@@ -44,6 +44,10 @@ struct SymbolShape {
 using ElementWriter =
     std::function<std::optional<std::string>(const DeclarationWriter& writer, const ElementData&)>;
 
+/// The condition an element of an array is written under, as `#if` would test
+/// it, or nothing for one that is always there.
+using ElementCondition = std::function<std::optional<std::string>(const ElementData& element)>;
+
 /// Whether `text`, as the initializer of an element, encodes to that element's
 /// bytes and relocations.
 using ElementCheck = std::function<bool(const ElementData& element, std::string_view text)>;
@@ -59,6 +63,9 @@ struct DeclarationContext {
     /// The writers of elements of the types named, by the base type name a
     /// declaration is written with (`Gfx`, `SceneCmd`).
     std::map<std::string, ElementWriter, std::less<>> elementWriters;
+
+    /// The conditions elements of the types named are written under.
+    std::map<std::string, ElementCondition, std::less<>> elementConditions;
 
     /// What an element writer writes is used only when this says it is exact.
     /// Without it, the writers are trusted.

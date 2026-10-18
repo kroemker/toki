@@ -57,6 +57,8 @@ struct ImageSymbol {
     bool isArray = false;
     usize pointerDepth = 0;
     std::vector<usize> innerLengths;
+    usize alignment = 1;
+    bool startsFile = false;
     std::optional<ImageTexture> texture;
     std::optional<EmbeddedSource> embedded;
 };

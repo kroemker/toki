@@ -38,6 +38,8 @@ SymbolData makeSymbolData(const ImageSegment& segment, const std::string_view na
         .isArray = symbol.isArray,
         .pointerDepth = symbol.pointerDepth,
         .innerLengths = symbol.innerLengths,
+        .alignment = symbol.alignment,
+        .startsFile = symbol.startsFile,
         .texture = symbol.texture,
         .embedded = symbol.embedded,
     };
@@ -105,8 +107,7 @@ std::optional<SymbolData> findSymbolData(const MemoryImage& image, const std::st
     return makeSymbolData(*segment, name, symbol->second);
 }
 
-ImageObject makeImageObject(const SymbolData& symbol, const usize alignment,
-                            const bool startsFile) {
+ImageObject makeImageObject(const SymbolData& symbol) {
     return ImageObject{
         .segment = symbol.segment,
         .name = symbol.name,
@@ -114,8 +115,8 @@ ImageObject makeImageObject(const SymbolData& symbol, const usize alignment,
         .isArray = symbol.isArray,
         .pointerDepth = symbol.pointerDepth,
         .innerLengths = symbol.innerLengths,
-        .alignment = alignment,
-        .startsFile = startsFile,
+        .alignment = symbol.alignment,
+        .startsFile = symbol.startsFile,
         .texture = symbol.texture,
         .embedded = symbol.embedded,
         .data = EncodedData{.bytes = symbol.bytes, .relocations = symbol.relocations},

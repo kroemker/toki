@@ -28,6 +28,9 @@ struct SymbolData {
     bool isArray = false;
     usize pointerDepth = 0;
     std::vector<usize> innerLengths;
+    /// Where the image laid the symbol out on, and whether it began a file.
+    usize alignment = 1;
+    bool startsFile = false;
     std::vector<u8> bytes;
     std::vector<Relocation> relocations;
     std::optional<ImageTexture> texture;
@@ -43,9 +46,7 @@ struct SymbolData {
 [[nodiscard]] std::optional<SymbolData> findSymbolData(const MemoryImage& image,
                                                        std::string_view name);
 
-/// The object that lays `symbol` out again, at `alignment` and starting a
-/// file when `startsFile`.
-[[nodiscard]] ImageObject makeImageObject(const SymbolData& symbol, usize alignment,
-                                          bool startsFile);
+/// The object that lays `symbol` out again, aligned as it was.
+[[nodiscard]] ImageObject makeImageObject(const SymbolData& symbol);
 
 } // namespace z64

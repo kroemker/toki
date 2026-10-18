@@ -42,6 +42,8 @@ struct CommandSpec {
     std::string_view id;
     std::string_view macro;
     std::vector<ArgumentSpec> arguments;
+    /// The HackerOoT feature switch that defines the command.
+    std::string_view condition;
 };
 
 std::vector<CommandSpec> makeCommandSpecs() {
@@ -81,11 +83,23 @@ std::vector<CommandSpec> makeCommandSpecs() {
         {"CUTSCENE_DATA", "SCENE_CMD_CUTSCENE_DATA", {{Pointer}}},
         {"ALTERNATE_HEADER_LIST", "SCENE_CMD_ALTERNATE_HEADER_LIST", {{Pointer}}},
         {"MISC_SETTINGS", "SCENE_CMD_MISC_SETTINGS", {{Data1}, {Word}}},
-        {"OCC_PLANE_CAND_LIST", "SCENE_CMD_OCCLUSION_PLANE_CANDIDATES_LIST", {{Data1}, {Pointer}}},
-        {"ANIMATED_MATERIAL_LIST", "SCENE_CMD_ANIMATED_MATERIAL_LIST", {{Pointer}, {Data1}}},
-        {"ACTOR_CUTSCENE_LIST", "SCENE_CMD_ACTOR_CUTSCENE_LIST", {{Data1}, {Pointer}}},
-        {"ACTOR_CUTSCENE_CAM_LIST", "SCENE_CMD_ACTOR_CUTSCENE_CAM_LIST", {{Data1}, {Pointer}}},
-        {"TITLE_CARD", "SCENE_CMD_TITLE_CARD", {{Pointer}}},
+        {"OCC_PLANE_CAND_LIST",
+         "SCENE_CMD_OCCLUSION_PLANE_CANDIDATES_LIST",
+         {{Data1}, {Pointer}},
+         "ENABLE_F3DEX3"},
+        {"ANIMATED_MATERIAL_LIST",
+         "SCENE_CMD_ANIMATED_MATERIAL_LIST",
+         {{Pointer}, {Data1}},
+         "ENABLE_ANIMATED_MATERIALS"},
+        {"ACTOR_CUTSCENE_LIST",
+         "SCENE_CMD_ACTOR_CUTSCENE_LIST",
+         {{Data1}, {Pointer}},
+         "ENABLE_CUTSCENE_IMPROVEMENTS"},
+        {"ACTOR_CUTSCENE_CAM_LIST",
+         "SCENE_CMD_ACTOR_CUTSCENE_CAM_LIST",
+         {{Data1}, {Pointer}},
+         "ENABLE_CUTSCENE_IMPROVEMENTS"},
+        {"TITLE_CARD", "SCENE_CMD_TITLE_CARD", {{Pointer}}, "ENABLE_MM_TITLE_CARDS"},
     };
 }
 
@@ -133,6 +147,14 @@ public:
 
     [[nodiscard]] std::optional<std::string> write(const z64::DeclarationWriter& writer,
                                                    const z64::ElementData& element) const;
+
+    [[nodiscard]] std::optional<std::string> findCondition(const z64::ElementData& element) const {
+        const auto found = element.bytes.empty() ? specs.end() : specs.find(element.bytes[0]);
+        if (found == specs.end() || found->second.condition.empty()) {
+            return std::nullopt;
+        }
+        return std::string(found->second.condition);
+    }
 
 private:
     [[nodiscard]] std::string writeName(std::string_view enumeration, u32 value) const;
@@ -189,6 +211,12 @@ z64::ElementWriter makeSceneCommandWriter(const cparser::TypeTable& types) {
     return [writer = SceneCommandWriter(types)](const z64::DeclarationWriter& declarations,
                                                 const z64::ElementData& element) {
         return writer.write(declarations, element);
+    };
+}
+
+z64::ElementCondition makeSceneCommandCondition(const cparser::TypeTable& types) {
+    return [writer = SceneCommandWriter(types)](const z64::ElementData& element) {
+        return writer.findCondition(element);
     };
 }
 

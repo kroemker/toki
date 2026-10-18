@@ -109,11 +109,6 @@ std::optional<cparser::Value> findEnumerator(const FileRead& file, const std::st
     return value ? std::optional(cparser::makeInteger(*value)) : std::nullopt;
 }
 
-bool isLinkerSymbol(const std::string_view name) {
-    return name.starts_with('_') && name.contains("Segment") &&
-           (name.ends_with("Start") || name.ends_with("End"));
-}
-
 void completeLengths(std::vector<cparser::Declaration>& declarations) {
     std::map<std::string_view, usize> declared;
     for (const cparser::Declaration& declaration : declarations) {
@@ -431,6 +426,11 @@ ImageReader::read(const std::span<const std::vector<SegmentFiles>> images,
 }
 
 } // namespace
+
+bool isLinkerSymbol(const std::string_view name) {
+    return name.starts_with('_') && name.contains("Segment") &&
+           (name.ends_with("Start") || name.ends_with("End"));
+}
 
 struct AssetImageReader::Caches {
     PreludeCache preludes;

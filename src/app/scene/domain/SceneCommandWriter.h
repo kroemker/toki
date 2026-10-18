@@ -16,4 +16,8 @@ namespace toki::scene {
 /// under a configuration that defines them. `types` must outlive the writer.
 [[nodiscard]] z64::ElementWriter makeSceneCommandWriter(const cparser::TypeTable& types);
 
+/// The feature switch a `SceneCmd` only HackerOoT has is written under, as
+/// fast64 writes it, so the scene still builds once the switch is off.
+[[nodiscard]] z64::ElementCondition makeSceneCommandCondition(const cparser::TypeTable& types);
+
 } // namespace toki::scene

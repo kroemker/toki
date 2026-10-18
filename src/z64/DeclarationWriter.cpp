@@ -355,8 +355,14 @@ WrittenText DeclarationWriter::writeDefinition(const SymbolData& symbol) const {
     }
     written.text += "{\n";
     if (isAggregate(*element) || context.elementWriters.contains(writerName)) {
-        for (const std::string& item : items) {
-            written.text += std::format("{}{},\n", Indent, item);
+        const auto condition = context.elementConditions.find(writerName);
+        for (usize i = 0; i < count; ++i) {
+            const std::optional<std::string> guard =
+                condition == context.elementConditions.end()
+                    ? std::nullopt
+                    : condition->second(makeSlice(whole, *element, i * stride));
+            written.text += guard ? std::format("#if {}\n{}{},\n#endif\n", *guard, Indent, items[i])
+                                  : std::format("{}{},\n", Indent, items[i]);
         }
     } else {
         std::string line;

@@ -32,6 +32,7 @@ constexpr std::string_view Header =
     "typedef enum ObjectId { OBJECT_INVALID, OBJECT_GAMEPLAY_KEEP, OBJECT_GAMEPLAY_FIELD_KEEP } "
     "ObjectId;\n"
     "typedef enum RoomType { ROOM_TYPE_NORMAL, ROOM_TYPE_DUNGEON } RoomType;\n"
+    "#define ENABLE_ANIMATED_MATERIALS 1\n"
     "#define NULL ((void*)0)\n"
     "#define _SHIFTL(v, s, w) ((u32)(((u32)(v) & ((0x01 << (w)) - 1)) << (s)))\n"
     "#define CMD_BBBB(a, b, c, d) (_SHIFTL(a, 24, 8) | _SHIFTL(b, 16, 8) | _SHIFTL(c, 8, 8) | "
@@ -62,7 +63,8 @@ public:
 
     std::string writeCommands(const std::string& source) {
         return writeAgain(
-            source, makeWriter({{"SceneCmd", toki::scene::makeSceneCommandWriter(getTypes())}}));
+            source, makeWriter({{"SceneCmd", toki::scene::makeSceneCommandWriter(getTypes())}},
+                               {{"SceneCmd", toki::scene::makeSceneCommandCondition(getTypes())}}));
     }
 };
 
@@ -89,7 +91,9 @@ TEST_CASE("a scene command is written as its macro, its IDs by name", "[scene][w
             "    SCENE_CMD_ROOM_BEHAVIOR(ROOM_TYPE_DUNGEON, 3, 1, 0),\n"
             "    SCENE_CMD_TIME_SETTINGS(255, 255, 10),\n"
             "    SCENE_CMD_MISC_SETTINGS(48, 5),\n"
+            "#if ENABLE_ANIMATED_MATERIALS\n"
             "    SCENE_CMD_ANIMATED_MATERIAL_LIST(sMaterials, 1),\n"
+            "#endif\n"
             "    SCENE_CMD_END(),\n"
             "};\n");
 }

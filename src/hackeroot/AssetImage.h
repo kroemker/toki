@@ -16,6 +16,11 @@
 
 namespace hackeroot {
 
+/// Whether `name` is a symbol the linker defines for a segment of the spec,
+/// such as `_spot04_room_0SegmentRomStart`, which no asset file defines and
+/// which an image lays out as zero.
+[[nodiscard]] bool isLinkerSymbol(std::string_view name);
+
 class Workspace;
 
 /// The C files that make one segment, in the order the build links them: a

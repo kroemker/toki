@@ -38,10 +38,11 @@ public:
 
     [[nodiscard]] z64::DataContext makeDataContext() const;
 
-    /// A writer with the element writers given, checked by encoding what they
-    /// write.
-    [[nodiscard]] z64::DeclarationWriter
-    makeWriter(std::map<std::string, z64::ElementWriter, std::less<>> elementWriters = {}) const;
+    /// A writer with the element writers and conditions given, checked by
+    /// encoding what they write.
+    [[nodiscard]] z64::DeclarationWriter makeWriter(
+        std::map<std::string, z64::ElementWriter, std::less<>> elementWriters = {},
+        std::map<std::string, z64::ElementCondition, std::less<>> elementConditions = {}) const;
 
     /// Writes the symbol `source` declares and encodes what was written, which
     /// must come out as the same bytes and relocations.

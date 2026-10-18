@@ -68,7 +68,7 @@ TEST_CASE("symbols laid out again make the image they came from", "[z64][image]"
 
     std::vector<z64::ImageObject> objects;
     for (const z64::SymbolData& symbol : z64::listSymbolData(image, 3)) {
-        objects.push_back(z64::makeImageObject(symbol, 4, symbol.offset == 0));
+        objects.push_back(z64::makeImageObject(symbol));
     }
     const z64::MemoryImage again = z64::layOutImage(std::move(objects), {});
 
