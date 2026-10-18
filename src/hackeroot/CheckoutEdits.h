@@ -6,6 +6,7 @@
 #include <expected>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -60,6 +61,14 @@ listLostSegmentLines(std::string_view spec, std::string_view name, std::string_v
 [[nodiscard]] EditStatus putSpecSegment(std::string& spec, std::string_view name,
                                         std::string_view block, std::string_view title,
                                         std::string_view anchor);
+
+/// Makes the segment named `name` of `spec` link `objects`, in order, as
+/// `$(BUILD_DIR)/<object>`, in place of the files it included, keeping every
+/// other line it has: what a person set, such as `romalign`, stays. Nothing
+/// when `spec` has no such segment.
+[[nodiscard]] std::optional<EditStatus>
+setSpecSegmentIncludes(std::string& spec, std::string_view name,
+                       std::span<const std::string> objects);
 
 /// `putSpecSegment` as an item of `plan`'s edit `spec`, labelled `label`, and a
 /// warning in `plan` naming each line the segment had that its rewrite loses

@@ -11,6 +11,7 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -202,6 +203,45 @@ EditStatus putSpecSegment(std::string& spec, const std::string_view name,
     }
     addToManagedBlock(spec, title, block, anchor);
     return EditStatus::Add;
+}
+
+std::optional<EditStatus> setSpecSegmentIncludes(std::string& spec, const std::string_view name,
+                                                 const std::span<const std::string> objects) {
+    const std::optional<TextRange> found = findSpecSegment(spec, name);
+    if (!found) {
+        return std::nullopt;
+    }
+    const std::string_view segment =
+        std::string_view(spec).substr(found->begin, found->end - found->begin);
+    std::string rewritten;
+    std::string indent = "    ";
+    bool isWritten = false;
+    const auto writeIncludes = [&] {
+        for (const std::string& object : objects) {
+            rewritten += std::format("{}include \"$(BUILD_DIR)/{}\"\n", indent, object);
+        }
+        isWritten = true;
+    };
+    for (const std::string_view line : splitLines(segment)) {
+        const std::string_view trimmed = trimSpaces(line);
+        if (trimmed.starts_with("include ")) {
+            if (!isWritten) {
+                indent = std::string(line.substr(0, line.find_first_not_of(" \t")));
+                writeIncludes();
+            }
+            continue;
+        }
+        if (!isWritten && (trimmed.starts_with("number ") || trimmed == "endseg")) {
+            writeIncludes();
+        }
+        rewritten += std::format("{}\n", line);
+    }
+    rewritten.pop_back();
+    if (rewritten == segment) {
+        return EditStatus::Present;
+    }
+    spec.replace(found->begin, found->end - found->begin, rewritten);
+    return EditStatus::Update;
 }
 
 EditItem putSpecSegmentItem(FileEdit& spec, EditPlan& plan, const std::string_view name,

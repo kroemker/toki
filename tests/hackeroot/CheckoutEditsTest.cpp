@@ -194,6 +194,31 @@ TEST_CASE("a plan that fails to write a file puts back every file written before
     std::filesystem::remove_all(folder, ignored);
 }
 
+TEST_CASE("a segment's includes are replaced and its other lines kept", "[hackeroot][edits]") {
+    std::string spec =
+        "beginseg\n"
+        "    name \"spot04_scene\"\n"
+        "    romalign 0x1000\n"
+        "    include \"$(BUILD_DIR)/assets/scenes/overworld/spot04/spot04_scene.o\"\n"
+        "    number 2\n"
+        "endseg\n";
+    const std::vector<std::string> objects{"assets/scenes/a/a_scene_main.o",
+                                           "assets/scenes/a/a_scene_col.o"};
+
+    REQUIRE(hackeroot::setSpecSegmentIncludes(spec, "spot04_scene", objects) ==
+            hackeroot::EditStatus::Update);
+    REQUIRE(spec == "beginseg\n"
+                    "    name \"spot04_scene\"\n"
+                    "    romalign 0x1000\n"
+                    "    include \"$(BUILD_DIR)/assets/scenes/a/a_scene_main.o\"\n"
+                    "    include \"$(BUILD_DIR)/assets/scenes/a/a_scene_col.o\"\n"
+                    "    number 2\n"
+                    "endseg\n");
+    REQUIRE(hackeroot::setSpecSegmentIncludes(spec, "spot04_scene", objects) ==
+            hackeroot::EditStatus::Present);
+    REQUIRE_FALSE(hackeroot::setSpecSegmentIncludes(spec, "spot05_scene", objects).has_value());
+}
+
 TEST_CASE("a plan copies files as they are and removes what it replaces", "[hackeroot][edits]") {
     const std::filesystem::path folder = makeFolder("checkout_edits_copies");
     writeRaw(folder / "old.c", "int old;\r\n");
