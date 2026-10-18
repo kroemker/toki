@@ -1,28 +1,12 @@
 #include "z64/DeclarationWriter.h"
 
-#include "base/Types.h"
-#include "cparser/CType.h"
-#include "cparser/Expression.h"
-#include "cparser/MacroTable.h"
-#include "cparser/Parser.h"
-#include "cparser/Preprocessor.h"
-#include "cparser/TypeName.h"
-#include "cparser/TypeParser.h"
-#include "z64/DataEncoder.h"
-#include "z64/DecompDialect.h"
+#include "support/WritingHarness.h"
 #include "z64/SymbolData.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <array>
-#include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
-
-using base::u8;
-using base::usize;
 
 namespace {
 
@@ -43,129 +27,15 @@ constexpr std::string_view Types =
     "typedef struct { Entry* first; f32 scale; } Holder;\n"
     "#define NULL ((void*)0)\n";
 
-/// Symbols the data may point at: a display list, one entry, and a ROM symbol.
-struct Shapes {
-    [[nodiscard]] std::optional<cparser::SymbolAddress>
-    findAddress(const std::string_view name) const {
-        if (name == "sDL") {
-            return cparser::SymbolAddress{.name = "sDL", .elementSize = 8};
-        }
-        if (name == "sEntry") {
-            return cparser::SymbolAddress{.name = "sEntry", .elementSize = 16};
-        }
-        if (name == "_roomSegmentRomStart") {
-            return cparser::SymbolAddress{.name = "_roomSegmentRomStart", .elementSize = 1};
-        }
-        return std::nullopt;
-    }
-
-    [[nodiscard]] static std::optional<z64::SymbolShape> findShape(const std::string_view name) {
-        if (name == "sDL") {
-            return z64::SymbolShape{.type = "Gfx", .isArray = true, .elementSize = 8};
-        }
-        if (name == "sEntry") {
-            return z64::SymbolShape{.type = "Entry", .isArray = false, .elementSize = 16};
-        }
-        if (name == "_roomSegmentRomStart") {
-            return z64::SymbolShape{.type = "u8", .isArray = true, .elementSize = 1};
-        }
-        return std::nullopt;
-    }
-};
-
-/// The types `Types` defines, and the last declaration of a source encoded
-/// against them, as the symbol a memory image would hold.
-class Harness {
+/// Types, and symbols the data may point at: a display list, one entry, and a
+/// ROM symbol.
+class Harness : public testing::WritingHarness {
 public:
     Harness()
-        : typesUnit(cparser::preprocessText(
-              base, "types.h", std::string(Types),
-              cparser::PreprocessOptions{.dialect = &z64::getDecompDialect(),
-                                         .expandMacros = true})),
-          types(cparser::parseTypes(typesUnit,
-                                    cparser::EvalContext{.dialect = &z64::getDecompDialect()})) {}
-
-    z64::SymbolData encode(const std::string& source) {
-        units.push_back(std::make_unique<cparser::TranslationUnit>(
-            cparser::preprocessText(typesUnit.macros, "data.c", source, {})));
-        const cparser::TranslationUnit& unit = *units.back();
-        const cparser::ParseResult parsed = cparser::parseDeclarations(
-            unit, cparser::EvalContext{.dialect = &z64::getDecompDialect()});
-        REQUIRE_FALSE(parsed.declarations.empty());
-        const cparser::Declaration& declaration = parsed.declarations.back();
-        const cparser::CType* type = findType(declaration.type);
-        REQUIRE(type != nullptr);
-        for (usize i = 0; i < declaration.pointerDepth; ++i) {
-            type = types.types.getPointer(type);
-        }
-        if (declaration.isArray) {
-            for (auto inner = declaration.innerLengths.rbegin();
-                 inner != declaration.innerLengths.rend(); ++inner) {
-                type = types.types.getArray(type, *inner);
-            }
-            type = types.types.getArray(
-                type, declaration.hasDeclaredLength ? declaration.arrayLength : std::nullopt);
-        }
-        z64::DataEncoder encoder(
-            z64::DataContext{.macros = &unit.macros,
-                             .types = &types.types,
-                             .findSymbol = [this](const std::string_view name) {
-                                 return shapes.findAddress(name);
-                             }});
-        z64::EncodedData data =
-            encoder.encode(*type, declaration.initializer, declaration.isBraced);
-        for (const base::Diagnostic& diagnostic : data.diagnostics) {
-            UNSCOPED_INFO(diagnostic.message);
-        }
-        REQUIRE(data.diagnostics.empty());
-        return z64::SymbolData{
-            .name = std::string(declaration.name),
-            .type = std::string(declaration.type),
-            .isArray = declaration.isArray,
-            .pointerDepth = declaration.pointerDepth,
-            .innerLengths = declaration.innerLengths,
-            .bytes = std::move(data.bytes),
-            .relocations = std::move(data.relocations),
-        };
-    }
-
-    [[nodiscard]] const cparser::CType* findType(const std::string_view name) const {
-        if (const cparser::CType* type = types.types.findTypedef(name)) {
-            return type;
-        }
-        const std::array<std::string_view, 1> words{name};
-        if (const std::optional<cparser::ScalarType> scalar =
-                cparser::combineScalarWords(z64::getDecompDialect(), words)) {
-            return types.types.getScalar(*scalar);
-        }
-        return nullptr;
-    }
-
-    [[nodiscard]] z64::DeclarationWriter makeWriter() const {
-        return z64::DeclarationWriter(z64::DeclarationContext{
-            .findType = [this](const std::string_view name) { return findType(name); },
-            .findSymbol = &Shapes::findShape});
-    }
-
-    /// Writes the symbol `source` declares and encodes what was written,
-    /// which must come out as the same bytes and relocations.
-    std::string writeAgain(const std::string& source) {
-        const z64::SymbolData symbol = encode(source);
-        const z64::WrittenText written = makeWriter().writeDefinition(symbol);
-        REQUIRE(written.diagnostics.empty());
-        const z64::SymbolData again = encode(written.text);
-        REQUIRE(again.bytes == symbol.bytes);
-        REQUIRE(again.relocations == symbol.relocations);
-        REQUIRE(again.innerLengths == symbol.innerLengths);
-        return written.text;
-    }
-
-private:
-    cparser::MacroTable base;
-    cparser::TranslationUnit typesUnit;
-    mutable cparser::TypeParseResult types;
-    Shapes shapes;
-    std::vector<std::unique_ptr<cparser::TranslationUnit>> units;
+        : WritingHarness(Types, {{"sDL", {.type = "Gfx", .isArray = true, .elementSize = 8}},
+                                 {"sEntry", {.type = "Entry", .isArray = false, .elementSize = 16}},
+                                 {"_roomSegmentRomStart",
+                                  {.type = "u8", .isArray = true, .elementSize = 1}}}) {}
 };
 
 } // namespace

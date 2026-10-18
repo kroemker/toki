@@ -274,12 +274,22 @@ std::string DeclarationWriter::writeExtern(const SymbolData& symbol) const {
     return std::format("extern {}{};\n", symbol.type, writeDeclarator(symbol));
 }
 
+std::optional<std::string> DeclarationWriter::writeTyped(const std::string_view name,
+                                                         const ElementData& element) const {
+    const auto found = context.elementWriters.find(name);
+    if (found == context.elementWriters.end()) {
+        return std::nullopt;
+    }
+    std::optional<std::string> written = found->second(*this, element);
+    if (written && context.isExact && !context.isExact(element, *written)) {
+        return std::nullopt;
+    }
+    return written;
+}
+
 WrittenText DeclarationWriter::writeElement(const ElementData& element) const {
-    if (const auto found = context.elementWriters.find(element.type->name);
-        found != context.elementWriters.end()) {
-        if (std::optional<std::string> written = found->second(*this, element)) {
-            return WrittenText{.text = std::move(*written)};
-        }
+    if (std::optional<std::string> written = writeTyped(element.type->name, element)) {
+        return WrittenText{.text = std::move(*written)};
     }
     ValueWriter values(*this);
     std::string text = values.write(element, false);
@@ -320,11 +330,8 @@ WrittenText DeclarationWriter::writeDefinition(const SymbolData& symbol) const {
         .type = element, .bytes = symbol.bytes, .relocations = symbol.relocations};
     const auto writeOne = [&](const ElementData& item, const std::string_view name,
                               const bool isTopLevel) {
-        if (const auto found = context.elementWriters.find(name);
-            found != context.elementWriters.end()) {
-            if (std::optional<std::string> text = found->second(*this, item)) {
-                return *text;
-            }
+        if (std::optional<std::string> typed = writeTyped(name, item)) {
+            return std::move(*typed);
         }
         ValueWriter values(*this);
         std::string text = values.write(item, isTopLevel);

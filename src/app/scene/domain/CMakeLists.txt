@@ -6,6 +6,7 @@ target_sources(toki_core PRIVATE
         ActorMarkers.cpp
         RuntimeSegments.cpp
         Scene.cpp
+        SceneCommandWriter.cpp
         SceneActorLoader.cpp
         SceneActors.cpp
         SceneFlags.cpp

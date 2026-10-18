@@ -70,6 +70,19 @@ and comparing the bytes, falling back to the generic form where they differ:
   `.bin`) as an include of that file again, copied with the scene. fast64 writes textures
   inline, and those stay inline.
 
+The generic writer is `z64::DeclarationWriter`, and a typed writer is an `ElementWriter`
+for one element type, handed to it by name. Each element a typed writer writes is encoded
+on its own (`z64::makeEncodingCheck`) before it is used, so a writer may guess: a command
+whose unused bytes are not zero, or a macro that spells it differently, simply comes out in
+the generic form.
+
+A scene command is known by the value of its `SCENE_CMD_ID_*` enumerator under the
+checkout's configuration, so HackerOoT's own commands, whose IDs shift with the feature
+switches, are written as macros only when the switch that defines them is on, and are not
+wrapped in their `#if`: a save already refuses a scene with data a switch that is off
+hides. `SCENE_CMD_LIGHT_LIST` names an ID that does not exist, so the light list is always
+written as its words.
+
 ## Checked before it is written
 
 A save writes the new files into memory, reads them back as the build would, and compares

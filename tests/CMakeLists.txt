@@ -36,6 +36,7 @@ add_executable(toki_tests
         app/scene/ActorDescriptionTest.cpp
         app/scene/ActorDrawsTest.cpp
         app/scene/SceneCheckoutTest.cpp
+        app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp
         app/scene/SceneHeaderTest.cpp
         app/scene/SceneLoaderTest.cpp
@@ -89,6 +90,7 @@ add_executable(toki_tests
         n64/TextureMemoryTest.cpp
         n64/TexturePackingTest.cpp
         n64/TextureUnpackingTest.cpp
+        support/WritingHarness.cpp
         z64/DataEncoderTest.cpp
         z64/DeclarationWriterTest.cpp
         z64/DecompDialectTest.cpp
@@ -102,6 +104,7 @@ add_executable(toki_tests
         z64/TextureEncoderTest.cpp
         z64/TextureIncludesTest.cpp
         z64/TextureNameTest.cpp)
+target_include_directories(toki_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(toki_tests PRIVATE toki_core Catch2::Catch2WithMain toki_warnings)
 
 set(TOKI_HACKEROOT "" CACHE PATH

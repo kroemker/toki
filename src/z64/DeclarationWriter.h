@@ -44,6 +44,10 @@ struct SymbolShape {
 using ElementWriter =
     std::function<std::optional<std::string>(const DeclarationWriter& writer, const ElementData&)>;
 
+/// Whether `text`, as the initializer of an element, encodes to that element's
+/// bytes and relocations.
+using ElementCheck = std::function<bool(const ElementData& element, std::string_view text)>;
+
 struct DeclarationContext {
     /// The type a declaration's base type name names: a typedef, a tag or a
     /// scalar's words, as the prelude the symbol was read against defines it.
@@ -55,6 +59,10 @@ struct DeclarationContext {
     /// The writers of elements of the types named, by the base type name a
     /// declaration is written with (`Gfx`, `SceneCmd`).
     std::map<std::string, ElementWriter, std::less<>> elementWriters;
+
+    /// What an element writer writes is used only when this says it is exact.
+    /// Without it, the writers are trusted.
+    ElementCheck isExact;
 };
 
 /// What writing made, and what it could not write exactly: a union whose bytes
@@ -75,9 +83,9 @@ struct WrittenText {
 /// symbol it names, plus the constant the word holds. A symbol built from an
 /// embedded file is written as the include of it again.
 ///
-/// The writers given for element types write those elements instead; each
-/// checks what it writes and gives nothing when it would not read back the
-/// same, so the generic form is the fallback that is always exact.
+/// The writers given for element types write those elements instead, as long
+/// as what they write passes the context's check, so the generic form is the
+/// fallback that is always exact.
 class DeclarationWriter {
 public:
     explicit DeclarationWriter(DeclarationContext context);
@@ -109,6 +117,9 @@ public:
 
 private:
     [[nodiscard]] const cparser::CType* findDeclaredType(const SymbolData& symbol) const;
+
+    [[nodiscard]] std::optional<std::string> writeTyped(std::string_view name,
+                                                        const ElementData& element) const;
 
     DeclarationContext context;
 };
