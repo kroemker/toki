@@ -153,17 +153,20 @@ void ViewportPanel::draw() {
     if (size.x < 1.0F || size.y < 1.0F) {
         return;
     }
-    ImGui::InvisibleButton("##viewport", size,
-                           ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight |
-                               ImGuiButtonFlags_MouseButtonMiddle);
-    const bool isOverHandle = handle && ImGuizmo::IsOver();
-    if (ImGui::IsItemActivated() && isOverHandle) {
-        isHandleHeld = true;
+    // ImGuizmo takes the mouse only while no item is hovered, so over its
+    // gizmo the viewport's own button gives way to a dummy of the same size.
+    if (handle && (isHandleHeld || ImGuizmo::IsOver())) {
+        ImGui::Dummy(size);
+    } else {
+        ImGui::InvisibleButton("##viewport", size,
+                               ImGuiButtonFlags_MouseButtonLeft |
+                                   ImGuiButtonFlags_MouseButtonRight |
+                                   ImGuiButtonFlags_MouseButtonMiddle);
     }
-    if (!isHandleHeld && handleInput(size)) {
+    if (handleInput(size)) {
         stale = true;
     }
-    if (ImGui::IsItemDeactivated() && !isHandleHeld &&
+    if (ImGui::IsItemDeactivated() &&
         ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] <
             ClickDistance * ClickDistance) {
         pick(origin, size);
@@ -308,7 +311,9 @@ void ViewportPanel::drawHandle(ImDrawList& drawList, const ImVec2 origin, const 
             moveHandler(*handle, false);
         }
     }
-    if (isHandleHeld && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+    if (ImGuizmo::IsUsing()) {
+        isHandleHeld = true;
+    } else if (isHandleHeld) {
         isHandleHeld = false;
         if (moveHandler) {
             moveHandler(*handle, true);
