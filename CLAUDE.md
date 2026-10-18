@@ -262,6 +262,10 @@ listed below is only what no change may break.
     never out of the C: the bytes are what the game sees.
   - What the game draws a room with comes from the checkout's own code (`sSetupDL`,
     `sDefaultDisplayList`), not from constants written down here.
+- **[Writing scenes](docs/scene-writing.md)** — how a scene is saved: its C written again,
+  whole, from the memory image, in fast64's layout.
+  - A save writes declarations from their bytes, never edits the C it read.
+  - Nothing is written that does not read back as the same symbols, bytes and relocations.
 - **[Objects](docs/objects.md)** — how an object folder becomes a catalog of assets, and how
   a skeleton is posed and drawn.
   - An object is a catalog, not a model. What is drawn is picked from it; nothing assumes
