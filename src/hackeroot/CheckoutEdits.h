@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hackeroot/EditPlan.h"
 #include "hackeroot/Types.h"
 
 #include <expected>
@@ -10,59 +11,6 @@
 #include <vector>
 
 namespace hackeroot {
-
-/// Whether a thing an edit makes so is so already, is added, or is changed.
-enum class EditStatus : u8 {
-    Present,
-    Add,
-    Update,
-};
-
-/// One thing an edit makes so, as a person reads it:
-/// `scene segment "oceantest_scene"`.
-struct EditItem {
-    EditStatus status = EditStatus::Present;
-    std::string label;
-};
-
-/// A file of the checkout and what an edit makes of it: its text as it was
-/// read, with `\n` line endings, the text it is to be written as, and each
-/// thing that changes. A file that does not exist yet has no text before.
-struct FileEdit {
-    std::filesystem::path file;
-    std::optional<std::string> before;
-    std::string after;
-    std::vector<EditItem> items;
-};
-
-/// The edits a tool would make to a checkout, to be shown before they are
-/// made, and what the tool warns of.
-struct EditPlan {
-    std::vector<FileEdit> files;
-    std::vector<std::string> warnings;
-
-    /// Whether applying it changes any file.
-    [[nodiscard]] bool hasWork() const;
-};
-
-/// What `applyEditPlan` wrote, by path relative to the checkout.
-struct EditsApplied {
-    std::vector<std::filesystem::path> written;
-};
-
-/// The text of `file` with `\n` line endings, or why it cannot be read.
-[[nodiscard]] std::expected<std::string, std::string>
-readCheckoutText(const std::filesystem::path& file);
-
-/// Writes every file of `plan` whose text changes, under `repository`, each
-/// with the line endings it had (`\n` for a new one), through a file beside
-/// it that replaces it whole. Nothing is written when a file is no longer
-/// what the plan read, or a new one exists already: the plan is stale and is
-/// made again. When a write fails, every file written before it is put back as
-/// it was, and every file and folder made is removed, so a plan is written
-/// whole or not at all.
-[[nodiscard]] std::expected<EditsApplied, std::string>
-applyEditPlan(const std::filesystem::path& repository, const EditPlan& plan);
 
 /// Sets the `#define name` on line `line` (from 1) of `text` to `value`,
 /// keeping its indent and a comment after it. The line must define `name`

@@ -31,74 +31,6 @@ constexpr std::string_view DefineDirective = "#define ";
     return makeTokiMarker(std::format("{} end", title));
 }
 
-[[nodiscard]] std::string normalizeLineEndings(const std::string_view text) {
-    std::string normalized;
-    normalized.reserve(text.size());
-    for (usize i = 0; i < text.size(); ++i) {
-        if (text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n') {
-            continue;
-        }
-        normalized += text[i];
-    }
-    return normalized;
-}
-
-[[nodiscard]] std::string makeLineEndings(const std::string_view text,
-                                          const std::string_view lineEnding) {
-    if (lineEnding == "\n") {
-        return std::string(text);
-    }
-    std::string written;
-    written.reserve(text.size() + (text.size() / 32));
-    for (const char letter : text) {
-        if (letter == '\n') {
-            written += lineEnding;
-        } else {
-            written += letter;
-        }
-    }
-    return written;
-}
-
-[[nodiscard]] std::expected<std::string, std::string> readRaw(const std::filesystem::path& file) {
-    std::ifstream stream(file, std::ios::binary);
-    if (!stream) {
-        return std::unexpected(std::format("cannot read {}", file.string()));
-    }
-    std::ostringstream contents;
-    contents << stream.rdbuf();
-    return contents.str();
-}
-
-[[nodiscard]] std::expected<void, std::string> writeWhole(const std::filesystem::path& file,
-                                                          const std::string& text) {
-    std::error_code status;
-    std::filesystem::create_directories(file.parent_path(), status);
-    if (status) {
-        return std::unexpected(
-            std::format("cannot create {}: {}", file.parent_path().string(), status.message()));
-    }
-    std::filesystem::path written = file;
-    written += ".toki-writing";
-    {
-        std::ofstream stream(written, std::ios::binary | std::ios::trunc);
-        stream << text;
-        stream.close();
-        if (!stream) {
-            std::filesystem::remove(written, status);
-            return std::unexpected(std::format("cannot write {}", written.string()));
-        }
-    }
-    std::filesystem::rename(written, file, status);
-    if (status) {
-        std::error_code ignored;
-        std::filesystem::remove(written, ignored);
-        return std::unexpected(
-            std::format("cannot replace {}: {}", file.string(), status.message()));
-    }
-    return {};
-}
-
 [[nodiscard]] usize findLineStart(const std::string_view text, const std::string_view anchor) {
     if (anchor.empty()) {
         return std::string_view::npos;
@@ -111,46 +43,6 @@ constexpr std::string_view DefineDirective = "#define ";
         ++at;
     }
     return std::string_view::npos;
-}
-
-[[nodiscard]] bool isChanged(const FileEdit& edit) {
-    return !edit.before || *edit.before != edit.after;
-}
-
-[[nodiscard]] std::vector<std::filesystem::path>
-listMissingFolders(const std::filesystem::path& repository, std::filesystem::path folder) {
-    std::vector<std::filesystem::path> missing;
-    std::error_code status;
-    while (!folder.empty() && folder != repository && !std::filesystem::exists(folder, status)) {
-        missing.push_back(folder);
-        folder = folder.parent_path();
-    }
-    return missing;
-}
-
-void undoWrites(const std::filesystem::path& repository, const EditPlan& plan,
-                const std::vector<std::string>& lineEndings, const usize failed,
-                const std::vector<std::filesystem::path>& madeFolders) {
-    for (usize i = 0; i <= failed; ++i) {
-        const FileEdit& edit = plan.files[i];
-        if (!isChanged(edit)) {
-            continue;
-        }
-        std::error_code ignored;
-        if (edit.before) {
-            static_cast<void>(
-                writeWhole(repository / edit.file, makeLineEndings(*edit.before, lineEndings[i])));
-        } else {
-            std::filesystem::remove(repository / edit.file, ignored);
-        }
-    }
-    std::vector<std::filesystem::path> folders = madeFolders;
-    std::ranges::sort(folders, std::greater{},
-                      [](const std::filesystem::path& folder) { return folder.native().size(); });
-    for (const std::filesystem::path& folder : folders) {
-        std::error_code ignored;
-        std::filesystem::remove(folder, ignored);
-    }
 }
 
 [[nodiscard]] std::optional<TextRange> findLine(const std::string& text, const usize line) {
@@ -173,73 +65,6 @@ void undoWrites(const std::filesystem::path& repository, const EditPlan& plan,
 
 std::string makeTokiMarker(const std::string_view what) {
     return std::format("// toki: {}", what);
-}
-
-bool EditPlan::hasWork() const {
-    return std::ranges::any_of(files, isChanged);
-}
-
-std::expected<std::string, std::string> readCheckoutText(const std::filesystem::path& file) {
-    std::expected<std::string, std::string> raw = readRaw(file);
-    if (!raw) {
-        return raw;
-    }
-    return normalizeLineEndings(*raw);
-}
-
-std::expected<EditsApplied, std::string> applyEditPlan(const std::filesystem::path& repository,
-                                                       const EditPlan& plan) {
-    std::vector<std::string> lineEndings;
-    for (const FileEdit& edit : plan.files) {
-        const std::filesystem::path path = repository / edit.file;
-        lineEndings.emplace_back("\n");
-        if (!isChanged(edit)) {
-            continue;
-        }
-        std::error_code status;
-        const bool exists = std::filesystem::exists(path, status);
-        if (!edit.before) {
-            if (exists) {
-                return std::unexpected(std::format("{} exists already, so nothing was written",
-                                                   edit.file.generic_string()));
-            }
-            continue;
-        }
-        const std::expected<std::string, std::string> raw = readRaw(path);
-        if (!raw) {
-            return std::unexpected(raw.error());
-        }
-        if (normalizeLineEndings(*raw) != *edit.before) {
-            return std::unexpected(
-                std::format("{} changed since it was read, so nothing was written; look again",
-                            edit.file.generic_string()));
-        }
-        if (raw->contains("\r\n")) {
-            lineEndings.back() = "\r\n";
-        }
-    }
-    EditsApplied applied;
-    std::vector<std::filesystem::path> madeFolders;
-    for (usize i = 0; i < plan.files.size(); ++i) {
-        const FileEdit& edit = plan.files[i];
-        if (!isChanged(edit)) {
-            continue;
-        }
-        const std::filesystem::path path = repository / edit.file;
-        if (!edit.before) {
-            std::ranges::move(listMissingFolders(repository, path.parent_path()),
-                              std::back_inserter(madeFolders));
-        }
-        if (std::expected<void, std::string> written =
-                writeWhole(path, makeLineEndings(edit.after, lineEndings[i]));
-            !written) {
-            undoWrites(repository, plan, lineEndings, i, madeFolders);
-            return std::unexpected(std::format(
-                "{}; every file written before it was put back as it was", written.error()));
-        }
-        applied.written.push_back(edit.file);
-    }
-    return applied;
 }
 
 EditStatus setDefine(std::string& text, const usize line, const std::string_view name,

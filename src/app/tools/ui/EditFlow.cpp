@@ -27,6 +27,8 @@ namespace {
         return core::palette::Warning;
     case hackeroot::EditStatus::Present:
         return core::palette::TextMuted;
+    case hackeroot::EditStatus::Remove:
+        return core::palette::Danger;
     }
     return core::palette::Text;
 }
@@ -39,6 +41,8 @@ namespace {
         return "change";
     case hackeroot::EditStatus::Present:
         return "there";
+    case hackeroot::EditStatus::Remove:
+        return "remove";
     }
     return "";
 }
@@ -78,7 +82,9 @@ bool EditFlow::takeResult() {
     }
     if (result->applied) {
         const usize count = (*result->applied)->written.size();
-        status = std::format("Wrote {} {}.", count, count == 1 ? "file" : "files");
+        const usize removed = (*result->applied)->removed.size();
+        status = std::format("Wrote {} {}", count, count == 1 ? "file" : "files");
+        status += removed == 0 ? std::string(".") : std::format(" and removed {}.", removed);
         isFailure = false;
         return true;
     }
@@ -110,7 +116,10 @@ void EditFlow::drawReview() {
     ImGui::SeparatorText("What will change");
     for (const hackeroot::FileEdit& file : reviewed->files) {
         ImGui::TextUnformatted(file.file.generic_string().c_str());
-        if (!file.before) {
+        if (file.isRemoved) {
+            ImGui::SameLine();
+            ImGui::TextColored(core::palette::Danger, "removed");
+        } else if (!file.before) {
             ImGui::SameLine();
             ImGui::TextColored(core::palette::Success, "new file");
         }
@@ -121,6 +130,14 @@ void EditFlow::drawReview() {
             ImGui::TextUnformatted(item.label.c_str());
         }
         ImGui::Unindent();
+    }
+    for (const hackeroot::FileCopy& copy : reviewed->copies) {
+        if (copy.isPresent) {
+            continue;
+        }
+        ImGui::TextUnformatted(copy.to.generic_string().c_str());
+        ImGui::SameLine();
+        ImGui::TextColored(core::palette::Success, "copied");
     }
     for (const std::string& warning : reviewed->warnings) {
         ImGui::TextColored(core::palette::Warning, "%s", core::icons::Warning);

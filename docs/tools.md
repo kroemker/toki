@@ -14,7 +14,7 @@ what it holds while it is closed.
 
 ## Editing a checkout
 
-Every tool works the same way, in `hackeroot/CheckoutEdits`:
+Every tool works the same way, in `hackeroot/CheckoutEdits` and `hackeroot/EditPlan`:
 
 - **Planned, then applied.** A tool reads the files it would change and says what it would
   make of each (`hackeroot::EditPlan`): for every file its text as read and as it would be
@@ -27,6 +27,11 @@ Every tool works the same way, in `hackeroot/CheckoutEdits`:
   replaces itself whole, with the line endings it had. When a write fails, every file
   written before it is put back and every file and folder made is removed, so a plan is
   written whole or not at all, and running the tool again starts from where it was.
+- **Files are also copied and removed.** A plan may copy a file byte for byte, as a scene
+  copied out of `extracted/` takes its textures along (`FileCopy`), and remove a file it
+  read, as a saved scene drops the files of its old layout. Copies are made after the
+  writes and removals last, each undone if a later step fails; a copy whose destination
+  exists already is stale unless it holds the same bytes, in which case it is there.
 - **Off the UI thread.** Plans are made and applied on a worker (`toki::tools::EditWorker`),
   since nothing on the UI thread reads the checkout. The workspace sees the change by its
   own polling and reads the checkout again.

@@ -7,6 +7,7 @@ target_sources(toki_core PRIVATE
         BuildMap.cpp
         Checkout.cpp
         CheckoutEdits.cpp
+        EditPlan.cpp
         ConfigDefines.cpp
         Configuration.cpp
         FilePoller.cpp

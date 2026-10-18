@@ -194,6 +194,53 @@ TEST_CASE("a plan that fails to write a file puts back every file written before
     std::filesystem::remove_all(folder, ignored);
 }
 
+TEST_CASE("a plan copies files as they are and removes what it replaces", "[hackeroot][edits]") {
+    const std::filesystem::path folder = makeFolder("checkout_edits_copies");
+    writeRaw(folder / "old.c", "int old;\r\n");
+    writeRaw(folder / "source.png", std::string("\x89PNG\r\n\x00\x01", 8));
+    hackeroot::EditPlan plan;
+    plan.files.push_back(
+        hackeroot::FileEdit{.file = "old.c", .before = "int old;\n", .isRemoved = true});
+    plan.files.push_back(hackeroot::FileEdit{.file = "new.c", .after = "int x;\n"});
+    plan.copies.push_back(
+        hackeroot::makeFileCopy(folder, folder / "source.png", "copied/texture.png"));
+    REQUIRE_FALSE(plan.copies.front().isPresent);
+
+    const std::expected<hackeroot::EditsApplied, std::string> applied =
+        hackeroot::applyEditPlan(folder, plan);
+
+    REQUIRE(applied.has_value());
+    REQUIRE(applied->removed == std::vector<std::filesystem::path>{"old.c"});
+    REQUIRE_FALSE(std::filesystem::exists(folder / "old.c"));
+    REQUIRE(readRaw(folder / "copied/texture.png") == readRaw(folder / "source.png"));
+    REQUIRE(hackeroot::makeFileCopy(folder, folder / "source.png", "copied/texture.png").isPresent);
+    std::error_code ignored;
+    std::filesystem::remove_all(folder, ignored);
+}
+
+TEST_CASE("a plan whose copy fails puts back the files it wrote and removes none",
+          "[hackeroot][edits]") {
+    const std::filesystem::path folder = makeFolder("checkout_edits_copy_undo");
+    writeRaw(folder / "old.c", "int old;\n");
+    writeRaw(folder / "table.h", "a\n");
+    writeRaw(folder / "blocker", "a file where a folder is wanted");
+    writeRaw(folder / "source.png", "png");
+    hackeroot::EditPlan plan;
+    plan.files.push_back(hackeroot::FileEdit{.file = "table.h", .before = "a\n", .after = "b\n"});
+    plan.files.push_back(
+        hackeroot::FileEdit{.file = "old.c", .before = "int old;\n", .isRemoved = true});
+    plan.copies.push_back(hackeroot::makeFileCopy(folder, folder / "source.png", "blocker/t.png"));
+
+    const std::expected<hackeroot::EditsApplied, std::string> applied =
+        hackeroot::applyEditPlan(folder, plan);
+
+    REQUIRE_FALSE(applied.has_value());
+    REQUIRE(readRaw(folder / "table.h") == "a\n");
+    REQUIRE(readRaw(folder / "old.c") == "int old;\n");
+    std::error_code ignored;
+    std::filesystem::remove_all(folder, ignored);
+}
+
 TEST_CASE("the configuration's settings are read where the build defines them",
           "[hackeroot][config]") {
     const std::vector<std::string> debug{"-DDEBUG_FEATURES=1"};
