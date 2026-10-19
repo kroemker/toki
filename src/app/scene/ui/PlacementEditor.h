@@ -44,6 +44,10 @@ public:
 
     /// Shows rotations as `format`; `changed` is told when the form's own
     /// button switches it.
+    void setNameFinder(ActorForm::FindName finder) {
+        actorForm.setNameFinder(std::move(finder));
+    }
+
     void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
         actorForm.setAngleFormat(format, std::move(changed));
     }

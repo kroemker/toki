@@ -7,6 +7,7 @@
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
+#include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
@@ -30,6 +31,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cmath>
 #include <cstdint>
 #include <format>
@@ -399,7 +401,13 @@ void ScenePanel::drawHeldScene() {
 
 void ScenePanel::drawPickers(const Scene& shown) {
     const SceneLayer& current = shown.layers[sceneView.layer];
-    if (ImGui::BeginCombo("Layer", makeLayerName(current.index).c_str())) {
+    if (!core::beginProperties("##pickers")) {
+        return;
+    }
+    core::drawPropertyLabel("Layer", "The scene setup shown and edited: the child or adult, day "
+                                     "or night header, or a cutscene's.");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##layer", makeLayerName(current.index).c_str())) {
         for (usize i = 0; i < shown.layers.size(); ++i) {
             const std::string name = makeLayerName(shown.layers[i].index);
             if (ImGui::Selectable(name.c_str(), i == sceneView.layer) && i != sceneView.layer) {
@@ -410,6 +418,7 @@ void ScenePanel::drawPickers(const Scene& shown) {
         }
         ImGui::EndCombo();
     }
+    core::endProperties();
 
     const auto drawn = std::ranges::count_if(
         shown.actors.models, [](const auto& entry) { return entry.second.hasDrawing(); });
@@ -420,6 +429,25 @@ void ScenePanel::drawPickers(const Scene& shown) {
 void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     if (!scene || !ImGui::BeginPopupContextItem()) {
         return;
+    }
+    std::vector<bool>& hidden = sceneView.hiddenRooms;
+    const bool isHidden = room < hidden.size() && hidden[room];
+    if (ImGui::MenuItem(isHidden ? "Show" : "Hide") && room < hidden.size()) {
+        hidden[room] = !isHidden;
+        showScene();
+    }
+    if (ImGui::MenuItem("Hide Others") && room < hidden.size()) {
+        std::ranges::fill(hidden, true);
+        hidden[room] = false;
+        showScene();
+    }
+    if (ImGui::MenuItem("Show All")) {
+        std::ranges::fill(hidden, false);
+        showScene();
+    }
+    if (ImGui::MenuItem("Hide All")) {
+        std::ranges::fill(hidden, true);
+        showScene();
     }
     const core::CameraPose camera = viewportPanel.getCameraPose();
     placementEditor.drawRoomMenu(sceneView.layer, room,

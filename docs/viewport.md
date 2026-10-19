@@ -31,11 +31,10 @@ A click that is near no point picks what drew the triangle under the mouse: the 
 where each command of the frame's own list began its outputs (`n64::ListMark`), so every
 draw knows which outputs it made (`Frame::drawOutputs`), and a draw names its `owner`, a
 number the content's owner gives it. What is selected is passed back as owners
-(`setSelectedOwners`) and shown three ways, each an overlay of the bar that is kept with the
+(`setSelectedOwners`) and shown two ways, each an overlay of the bar that is kept with the
 others: what its draws drew, tinted and outlined in the overlay pass (Selection Highlight);
-a box around that, in the world, taken back from clip space by the inverse of the frame's
-view and projection (Selection Box), so it covers what is on screen; and a ring at each
-origin, the active one brighter (Selection Ring).
+and a box around that, in the world, taken back from clip space by the inverse of the
+frame's view and projection (Selection Box), so it covers what is on screen.
 
 The mouse is split as Blender splits it: the left button picks, the middle or right button
 orbits, and either with Shift pans; the wheel zooms.
@@ -54,11 +53,15 @@ turns them all together, as one step to undo.
 Every way of moving or turning what is selected runs one `TransformSession`: the Move and
 Rotate tools' gizmo (ImGuizmo), and G and R, which move or turn it with the mouse alone, as
 in Blender. A session knows only points, an offset and an angle, so the same one will move
-vertices. While it runs the rings show where it puts each point and a line over the image
-says what it does, `Move  X 120  Y 0  Z -30`; nothing changes the scene until it is
+vertices. While it runs a line over the image says what it does, `Move  X 120  Y 0  Z -30`; nothing changes the scene until it is
 confirmed, with Enter or a click, and Esc or a right-click cancels it. Typing a number takes
 the mouse's place, field by field, Tab moving to the next axis, Backspace and `-` as
-expected.
+expected. Numbers are read from the keys pressed, digits, `-` and `.` or `,`, not from text
+input, which SDL sends only while a text field has focus.
+
+G and R begin with no axis held, whatever the bar holds, and once they end the bar holds
+what it held before, so an axis held for one move is not held for the next turn. Switching
+tools lets go of the axes too.
 
 What a session comes to is previewed as it runs. Whenever its result changes, the target's
 owner is told (`ViewportTransform::PreviewHandler`) and shows it as `setNextFrame` content

@@ -61,6 +61,7 @@ private:
     void drawRoom(const Scene& scene, const SceneLayer& layer, SceneView& view, usize room,
                   const hackeroot::Tables* tables);
     void drawObjects(const RoomHeader& header, const hackeroot::Tables* tables);
+    void drawRoomsShown(SceneView& view) const;
     void drawTransitionActors(const Scene& scene, const SceneLayer& layer, SceneView& view);
     void drawEntrances(const Scene& scene, const SceneLayer& layer, SceneView& view);
     void drawLightSettings(const SceneLayer& layer, SceneView& view);

@@ -1,11 +1,13 @@
 #include "Assets.h"
 
 #include "base/Diagnostic.h"
+#include "hackeroot/CheckoutEdits.h"
 #include "hackeroot/Types.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <format>
+#include <fstream>
 #include <iterator>
 #include <set>
 #include <string>
@@ -44,6 +46,22 @@ listDirectory(const std::filesystem::path& directory) {
     });
 }
 
+/// Whether the scene `name` in `directory` was written by Toki, which puts its
+/// marker on the first line of the scene's main file. Only that line is read.
+[[nodiscard]] bool isWrittenByToki(const std::filesystem::path& directory,
+                                   const std::string& name) {
+    std::ifstream file(directory / (name + "_scene_main.c"));
+    std::string line;
+    if (!std::getline(file, line)) {
+        return false;
+    }
+    while (line.ends_with('')) {
+        line.pop_back();
+}
+
+return line == makeTokiMarker("scene");
+}
+
 [[nodiscard]] usize countRooms(const std::vector<std::filesystem::directory_entry>& entries,
                                const std::string& name) {
     const std::string prefix = name + "_room_";
@@ -75,6 +93,8 @@ collectScenes(const std::vector<std::filesystem::directory_entry>& entries, usiz
             scenes.push_back(AssetDirectory{.name = name,
                                             .directory = entry.path(),
                                             .isExtracted = isExtracted,
+                                            .isWrittenByToki =
+                                                !isExtracted && isWrittenByToki(entry.path(), name),
                                             .roomCount = countRooms(inside, name)});
         } else if (depth + 1 < MaxSceneDepth) {
             std::vector<AssetDirectory> deeper = collectScenes(inside, depth + 1, isExtracted);

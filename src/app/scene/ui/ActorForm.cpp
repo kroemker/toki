@@ -1,6 +1,7 @@
 #include "ActorForm.h"
 
 #include "app/core/ui/PropertyTable.h"
+#include "app/core/ui/Theme.h"
 #include "app/scene/domain/BinaryAngle.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -26,7 +27,7 @@ constexpr float BinaryDragSpeed = 0x10000 / 360.0F;
 /// heights.
 constexpr float AngleButtonWidth = 1.4F;
 
-[[nodiscard]] std::string makeActorLabel(const hackeroot::ActorEntry& actor) {
+[[nodiscard]] std::string makeEnumLabel(const hackeroot::ActorEntry& actor) {
     return actor.enumName.empty() ? std::format("0x{:04X}", actor.id) : actor.enumName;
 }
 
@@ -70,9 +71,20 @@ constexpr float AngleButtonWidth = 1.4F;
 
 } // namespace
 
+std::string ActorForm::makeActorLabel(const hackeroot::ActorEntry& actor) const {
+    if (findName) {
+        if (std::optional<std::string> name = findName(actor.enumName); name && !name->empty()) {
+            return std::move(*name);
+        }
+    }
+    return makeEnumLabel(actor);
+}
+
 bool ActorForm::editType(s16& id) {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    core::drawPropertyLabel("Type", "The actor's ID, from the actor table.");
+    core::drawPropertyLabel("Type", "The actor's ID, from the actor table, shown by the name "
+                                    "the actor database gives it. The filter matches that name "
+                                    "and the enum name.");
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (workspace == nullptr) {
         return editHex("##actor", id);
@@ -93,13 +105,22 @@ bool ActorForm::editType(s16& id) {
     bool isChanged = false;
     for (const hackeroot::ActorEntry& actor : actors) {
         const std::string label = makeActorLabel(actor);
-        if (actor.isUnset || !isFilteredIn(label, actorFilter)) {
+        const std::string enumName = makeEnumLabel(actor);
+        if (actor.isUnset ||
+            (!isFilteredIn(label, actorFilter) && !isFilteredIn(enumName, actorFilter))) {
             continue;
         }
+        ImGui::PushID(static_cast<int>(actor.id));
         if (ImGui::Selectable(label.c_str(), actor.id == index)) {
             id = static_cast<s16>(actor.id);
             isChanged = true;
         }
+        if (label != enumName) {
+            ImGui::SameLine(ImGui::GetContentRegionMax().x -
+                            ImGui::CalcTextSize(enumName.c_str()).x);
+            ImGui::TextColored(core::palette::TextMuted, "%s", enumName.c_str());
+        }
+        ImGui::PopID();
     }
     ImGui::EndCombo();
     return isChanged;

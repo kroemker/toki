@@ -70,10 +70,8 @@ public:
     /// that changed since it was last told, or that it ended.
     void updatePreview();
 
-    /// Whether the target's points are ringed.
-    void setRingShown(const bool isShown) {
-        isRingShown = isShown;
-    }
+    /// Switches to `tool`, which lets go of the axes held for the one before.
+    void setTool(EditTool tool);
 
     void setGroundSource(FindGround findGround) {
         findGroundTriangles = std::move(findGround);
@@ -106,9 +104,8 @@ public:
 
     void drawGizmo(ImDrawList& drawList, const TransformView& view, EditTool tool);
 
-    /// Rings the target's points where the transform running puts them, draws
-    /// the axes it is held to as lines through the target's middle, as
-    /// Blender does, and says what it does over the image.
+    /// Draws the axes the transform is held to as lines through the target's
+    /// middle, as Blender does, and says what it does over the image.
     void drawOverlay(ImDrawList& drawList, const TransformView& view, EditTool tool) const;
 
 private:
@@ -120,6 +117,7 @@ private:
     void confirm();
     void cancel();
     void applyConstraintKeys();
+    void applyTypedKeys();
     void drawAxisOptions(TransformKind kind);
     void drawAxisLines(ImDrawList& drawList, const TransformView& view, EditTool tool) const;
 
@@ -134,7 +132,10 @@ private:
     Snapping snapping;
     std::optional<TransformSession> session;
     bool isModalRunning = false;
-    bool isRingShown = true;
+    EditTool shownTool = EditTool::Select;
+    /// The axes the bar held before G or R began a transform of their own,
+    /// given back once it ends.
+    AxisConstraint toolConstraint;
     bool isGizmoHeld = false;
     glm::mat4 gizmoMatrix{1.0F};
     ImVec2 modalStart{};

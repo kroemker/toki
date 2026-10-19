@@ -172,6 +172,7 @@ void ViewportPanel::draw() {
         return;
     }
     const TransformView transformView = makeTransformView(origin, size);
+    viewportTransform.setTool(viewportTools.tool);
     const bool isModal = viewportTransform.updateModal(transformView);
     if (isModal && ViewportTransform::isOverImage(transformView) &&
         (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
@@ -260,8 +261,6 @@ void ViewportPanel::draw() {
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
     drawSelectionBoxes(*drawList, transformView);
-    viewportTransform.setRingShown(viewportView.overlays.isShown &&
-                                   viewportView.overlays.selectionRing);
     viewportTransform.drawOverlay(*drawList, transformView, viewportTools.tool);
     if (viewportTools.mode == SelectionMode::Node) {
         viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);

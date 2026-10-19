@@ -28,10 +28,6 @@ constexpr std::array<ImVec4, 3> AxisColors{ImVec4{0.93F, 0.33F, 0.36F, 0.9F},
                                            ImVec4{0.47F, 0.80F, 0.33F, 0.9F},
                                            ImVec4{0.33F, 0.55F, 0.95F, 0.9F}};
 constexpr f32 AxisLineWidth = 1.5F;
-constexpr f32 RingRadius = 16.0F;
-constexpr f32 RingWidth = 2.5F;
-constexpr f32 RingShadowWidth = 5.0F;
-constexpr ImVec4 RingShadow{0.0F, 0.0F, 0.0F, 0.6F};
 constexpr f32 NoteMargin = 8.0F;
 
 [[nodiscard]] core::Action findConstrainAction(const usize axis) {
@@ -78,6 +74,14 @@ void ViewportTransform::setTarget(std::optional<TransformTarget> target, Handler
     previewHandler = std::move(preview);
     if (!transformTarget || transformTarget->points.empty()) {
         cancel();
+    }
+}
+
+void ViewportTransform::setTool(const EditTool tool) {
+    if (tool != shownTool) {
+        shownTool = tool;
+        axisConstraint = {};
+        toolConstraint = {};
     }
 }
 
@@ -153,6 +157,9 @@ void ViewportTransform::confirm() {
 
 void ViewportTransform::cancel() {
     session.reset();
+    if (isModalRunning) {
+        axisConstraint = toolConstraint;
+    }
     isModalRunning = false;
     gizmoConstraint.reset();
 }
@@ -181,6 +188,8 @@ void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& v
         return;
     }
     const auto startModal = [this, &view](const TransformKind kind) {
+        toolConstraint = axisConstraint;
+        axisConstraint = {};
         begin(kind);
         isModalRunning = true;
         modalStart = ImVec2(ImGui::GetIO().MousePos.x - view.origin.x,
@@ -189,7 +198,7 @@ void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& v
     };
     if (core::isActionPressed(core::Action::Grab)) {
         startModal(TransformKind::Move);
-    } else if (core::isActionPressed(core::Action::Turn) && isTurnable(axisConstraint)) {
+    } else if (core::isActionPressed(core::Action::Turn) && isTurnable(AxisConstraint{})) {
         startModal(TransformKind::Rotate);
     } else if (isTransformTool(tool)) {
         applyConstraintKeys();
@@ -202,13 +211,8 @@ bool ViewportTransform::updateModal(const TransformView& view) {
         return false;
     }
     applyConstraintKeys();
+    applyTypedKeys();
     ImGuiIO& io = ImGui::GetIO();
-    for (const ImWchar character : io.InputQueueCharacters) {
-        if (character < 0x80) {
-            static_cast<void>(session->type(static_cast<char>(character)));
-        }
-    }
-    io.InputQueueCharacters.resize(0);
     if (ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
         session->erase();
     }
@@ -241,6 +245,25 @@ bool ViewportTransform::updateModal(const TransformView& view) {
         cancel();
     }
     return true;
+}
+
+void ViewportTransform::applyTypedKeys() {
+    // Keys, not characters: SDL sends text only while a text field has focus,
+    // and none has while a transform runs.
+    for (int digit = 0; digit < 10; ++digit) {
+        if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + digit)) ||
+            ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_Keypad0 + digit))) {
+            static_cast<void>(session->type(static_cast<char>('0' + digit)));
+        }
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Minus) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)) {
+        static_cast<void>(session->type('-'));
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_Period) || ImGui::IsKeyPressed(ImGuiKey_Comma) ||
+        ImGui::IsKeyPressed(ImGuiKey_KeypadDecimal)) {
+        static_cast<void>(session->type('.'));
+    }
+    ImGui::GetIO().InputQueueCharacters.resize(0);
 }
 
 bool ViewportTransform::isOverImage(const TransformView& view) {
@@ -349,23 +372,6 @@ void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& v
         return;
     }
     drawAxisLines(drawList, view, tool);
-    const glm::mat4 viewProjection = view.projection * view.view;
-    const std::vector<glm::vec3> points = makePoints();
-    for (usize i = 0; i < points.size(); ++i) {
-        const std::optional<glm::vec2> position =
-            findScreenPosition(viewProjection, {view.size.x, view.size.y}, points[i]);
-        if (!position) {
-            continue;
-        }
-        if (!isRingShown && !session) {
-            continue;
-        }
-        const ImVec4 color =
-            i == transformTarget->activePoint ? core::palette::Accent : core::palette::AccentMuted;
-        const ImVec2 center(view.origin.x + position->x, view.origin.y + position->y);
-        drawList.AddCircle(center, RingRadius, ImGui::GetColorU32(RingShadow), 0, RingShadowWidth);
-        drawList.AddCircle(center, RingRadius, ImGui::GetColorU32(color), 0, RingWidth);
-    }
     if (!session) {
         return;
     }

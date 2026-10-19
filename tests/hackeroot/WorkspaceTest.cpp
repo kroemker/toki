@@ -135,6 +135,25 @@ TEST_CASE("a scene folder counts its rooms, not their files", "[hackeroot][works
     REQUIRE(spot00->roomCount == 1);
 }
 
+TEST_CASE("a scene Toki wrote is told from one fast64 exported by its marker",
+          "[hackeroot][workspace]") {
+    const std::filesystem::path checkout =
+        std::filesystem::temp_directory_path() / "toki-written-checkout";
+    std::filesystem::remove_all(checkout);
+    std::filesystem::create_directories(checkout / "assets/scenes/test/written");
+    std::filesystem::create_directories(checkout / "assets/scenes/test/exported");
+    std::ofstream(checkout / "assets/scenes/test/written/written_scene_main.c")
+        << "// toki: scene\r\n#include \"written_scene.h\"\n";
+    std::ofstream(checkout / "assets/scenes/test/exported/exported_scene.c") << "";
+
+    const hackeroot::Assets assets = hackeroot::listAssets(checkout, "ntsc-1.2");
+    std::filesystem::remove_all(checkout);
+
+    REQUIRE(assets.scenes.size() == 2);
+    REQUIRE_FALSE(assets.scenes[0].isWrittenByToki);
+    REQUIRE(assets.scenes[1].isWrittenByToki);
+}
+
 TEST_CASE("a version that was never extracted is a warning, not a failure",
           "[hackeroot][workspace]") {
     const hackeroot::Assets assets = hackeroot::listAssets(getCheckout(), "pal-1.0");

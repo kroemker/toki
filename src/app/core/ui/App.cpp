@@ -181,6 +181,12 @@ void App::registerPanels() {
             actorDatabase->database, workspace->getTables().actors[index].enumName);
         return entry != nullptr ? entry->object : std::nullopt;
     });
+    scenePanel->setActorNameFinder(
+        [this](const std::string_view enumName) -> std::optional<std::string> {
+            const actor::ActorEntry* entry =
+                actorDatabase ? actor::findEntry(actorDatabase->database, enumName) : nullptr;
+            return entry != nullptr ? std::optional(entry->name) : std::nullopt;
+        });
     scenePanel->setActorReader([this](const scene::Scene& edited) {
         sceneActorLoader.open(workspaceService.getSharedWorkspace(),
                               scene::ActorRequest{.name = std::format("{}'s actors", edited.name),

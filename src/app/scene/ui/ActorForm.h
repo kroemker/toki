@@ -4,11 +4,14 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/workspace/domain/WorkspaceService.h"
+#include "hackeroot/Tables.h"
 
 #include <array>
 #include <functional>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 
 namespace toki::scene {
 
@@ -27,6 +30,14 @@ public:
         changeAngleFormat = std::move(changed);
     }
 
+    /// What finds the name the actor database gives an actor, by its enum
+    /// name, shown in place of the enum name where there is one.
+    using FindName = std::function<std::optional<std::string>(std::string_view enumName)>;
+
+    void setNameFinder(FindName finder) {
+        findName = std::move(finder);
+    }
+
     /// `isParamAxis` says which axes of the rotation the actor reads params
     /// from, which are shown raw whatever the format.
     [[nodiscard]] bool drawActor(ActorPlacement& placement, const std::array<bool, 3>& isParamAxis);
@@ -36,6 +47,7 @@ public:
 
 private:
     [[nodiscard]] bool editType(s16& id);
+    [[nodiscard]] std::string makeActorLabel(const hackeroot::ActorEntry& actor) const;
     [[nodiscard]] bool editRotation(std::span<s16> angles, std::span<const bool> isParamAxis);
     void drawAngleFormatButton();
 
@@ -43,6 +55,7 @@ private:
     std::string actorFilter;
     core::AngleFormat angleFormat = core::AngleFormat::Binary;
     std::function<void(core::AngleFormat)> changeAngleFormat;
+    FindName findName;
 };
 
 } // namespace toki::scene

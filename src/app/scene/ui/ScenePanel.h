@@ -60,6 +60,11 @@ public:
         placementEditor.setObjectFinder(std::move(finder));
     }
 
+    /// What finds the name the actor database gives an actor, by its enum name.
+    void setActorNameFinder(ActorForm::FindName finder) {
+        placementEditor.setNameFinder(std::move(finder));
+    }
+
     /// What reads the actors an edit placed that were not read yet.
     void setActorReader(std::function<void(const Scene&)> reader) {
         readActors = std::move(reader);

@@ -70,6 +70,8 @@ std::string formatId(const Entry* entry, const int digits) {
 void drawSource(const hackeroot::AssetDirectory& asset) {
     if (asset.isExtracted) {
         ImGui::TextColored(core::palette::TextMuted, "vanilla");
+    } else if (asset.isWrittenByToki) {
+        ImGui::TextColored(core::palette::Accent, "toki");
     } else {
         ImGui::TextColored(core::palette::Warning, "fast64");
     }

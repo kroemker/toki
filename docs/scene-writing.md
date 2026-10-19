@@ -132,7 +132,9 @@ A save warns, in the plan, about what it cannot keep: the `#define`s and `#if`s 
 display list command that holds an address as a number rather than a symbol (it is written
 as the same number, and points elsewhere once what was there moves), and, for a scene
 fast64 exported, that its `.blend` no longer matches. A scene Toki wrote carries
-`// toki: scene` at the top of its main file and is not warned about.
+`// toki: scene` at the top of its main file and is not warned about. The asset listing
+reads that one line of each scene in the checkout's own assets (`isWrittenByToki`), so the
+Assets panel shows the scene's source as toki, not fast64.
 
 ## Checked before it is written
 

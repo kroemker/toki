@@ -23,11 +23,11 @@ namespace {
 
 constexpr float InfoWidth = 6.0F;
 constexpr float VisibilityWidth = 1.6F;
-constexpr ImGuiTreeNodeFlags GroupFlags = ImGuiTreeNodeFlags_SpanAllColumns |
-                                          ImGuiTreeNodeFlags_OpenOnArrow |
-                                          ImGuiTreeNodeFlags_OpenOnDoubleClick;
+constexpr ImGuiTreeNodeFlags GroupFlags =
+    ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_AllowOverlap |
+    ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 constexpr ImGuiTreeNodeFlags LeafFlags = ImGuiTreeNodeFlags_SpanAllColumns |
-                                         ImGuiTreeNodeFlags_Leaf |
+                                         ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_Leaf |
                                          ImGuiTreeNodeFlags_NoTreePushOnOpen;
 constexpr ImVec4 RoomColor{0.498F, 0.706F, 1.0F, 1.0F};
 constexpr ImVec4 DoorColor{0.788F, 0.612F, 1.0F, 1.0F};
@@ -103,6 +103,7 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
     if (drawNode("##scene", GroupFlags | ImGuiTreeNodeFlags_DefaultOpen, core::icons::MapTrifold,
                  RoomColor, scene.name)) {
         drawInfo(std::format("{} rooms", layer.rooms.size()));
+        drawRoomsShown(view);
         for (usize room = 0; room < layer.rooms.size(); ++room) {
             drawRoom(scene, layer, view, room, tables);
         }
@@ -120,8 +121,22 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         ImGui::TreePop();
     } else {
         drawInfo(std::format("{} rooms", layer.rooms.size()));
+        drawRoomsShown(view);
     }
     ImGui::EndTable();
+}
+
+void SceneOutliner::drawRoomsShown(SceneView& view) const {
+    ImGui::TableNextColumn();
+    const bool isAnyHidden = std::ranges::contains(view.hiddenRooms, true);
+    if (ImGui::SmallButton(isAnyHidden ? core::icons::EyeSlash : core::icons::Eye)) {
+        std::ranges::fill(view.hiddenRooms, !isAnyHidden);
+        if (hooks.showScene) {
+            hooks.showScene();
+        }
+    }
+    ImGui::SetItemTooltip(isAnyHidden ? "Some rooms are hidden. Click to show all rooms."
+                                      : "Click to hide all rooms.");
 }
 
 void SceneOutliner::drawRoom(const Scene& scene, const SceneLayer& layer, SceneView& view,

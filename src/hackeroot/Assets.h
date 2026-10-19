@@ -17,6 +17,9 @@ struct AssetDirectory {
     std::string name;
     std::filesystem::path directory;
     bool isExtracted = false;
+    /// For a scene in the checkout's own assets, whether Toki wrote it: its
+    /// `<scene>_scene_main.c` begins with Toki's marker.
+    bool isWrittenByToki = false;
     /// For a scene, how many rooms its folder holds: distinct `<scene>_room_<n>`
     /// files, however many files each room is split into. Zero for an object.
     usize roomCount = 0;

@@ -207,8 +207,6 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
     isChanged |=
         drawSwitchRow("Selection Box", "A box around what the frame drew of each thing selected.",
                       changed.overlays.selectionBox);
-    isChanged |= drawSwitchRow("Selection Ring", "A ring at the origin of each thing selected.",
-                               changed.overlays.selectionRing);
     if (isChanged) {
         edit.view = changed;
     }
