@@ -405,6 +405,14 @@ void PlacementEditor::commitDraft(Scene& scene, const PlacementRef& where) {
     }
 }
 
+std::optional<PlacementEditor::Draft> PlacementEditor::findChangedDraft(const Scene& scene) const {
+    const std::optional<PlacementRef> where = findSelected();
+    if (!draft || !where || findPlacement(scene, *where) == draft) {
+        return std::nullopt;
+    }
+    return Draft{.where = *where, .placement = *draft};
+}
+
 std::optional<PlacementRef> PlacementEditor::findSelected() const {
     const SceneNode* active = selection.findActive();
     const auto* placement = active != nullptr ? std::get_if<PlacementRef>(active) : nullptr;

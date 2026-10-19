@@ -72,6 +72,18 @@ public:
     /// The placement selected last, which the Properties panel shows.
     [[nodiscard]] std::optional<PlacementRef> findSelected() const;
 
+    /// A placement as the Properties panel holds it while it is edited.
+    struct Draft {
+        PlacementRef where;
+        Placement placement;
+
+        friend bool operator==(const Draft&, const Draft&) = default;
+    };
+
+    /// The placement being edited, as it is now, while that differs from
+    /// what `scene` holds; nothing otherwise.
+    [[nodiscard]] std::optional<Draft> findChangedDraft(const Scene& scene) const;
+
     [[nodiscard]] const SceneSelection& getSelection() const {
         return selection;
     }

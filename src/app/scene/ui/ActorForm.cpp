@@ -20,6 +20,8 @@ namespace toki::scene {
 namespace {
 
 constexpr float DragSpeed = 1.0F;
+/// A binary angle dragged turns as fast as one in degrees, a degree a point.
+constexpr float BinaryDragSpeed = 0x10000 / 360.0F;
 /// The width of the button that switches how rotations are shown, in frame
 /// heights.
 constexpr float AngleButtonWidth = 1.4F;
@@ -113,19 +115,22 @@ bool ActorForm::editRotation(const std::span<s16> angles, const std::span<const 
     for (usize axis = 0; axis < angles.size(); ++axis) {
         ImGui::PushID(static_cast<int>(axis));
         ImGui::SetNextItemWidth(width);
-        if (angleFormat == core::AngleFormat::Degrees && !isParamAxis[axis]) {
-            f32 degrees = convertToDegrees(angles[axis]);
-            if (ImGui::InputFloat("##rotation", &degrees, 0.0F, 0.0F, "%.2f°")) {
-                angles[axis] = convertToBinaryAngle(degrees);
-            }
-        } else {
+        if (isParamAxis[axis]) {
             auto word = static_cast<u16>(angles[axis]);
             ImGui::InputScalar("##rotation", ImGuiDataType_U16, &word, nullptr, nullptr, "%04X",
                                ImGuiInputTextFlags_CharsHexadecimal);
             angles[axis] = static_cast<s16>(word);
-            if (isParamAxis[axis]) {
-                ImGui::SetItemTooltip("The actor reads params from this axis, so it is shown "
-                                      "raw. The Params section names its bits.");
+            ImGui::SetItemTooltip("The actor reads params from this axis, so it is shown "
+                                  "raw. The Params section names its bits.");
+        } else if (angleFormat == core::AngleFormat::Degrees) {
+            f32 degrees = convertToDegrees(angles[axis]);
+            if (ImGui::DragFloat("##rotation", &degrees, DragSpeed, 0.0F, 0.0F, "%.2f°")) {
+                angles[axis] = convertToBinaryAngle(degrees);
+            }
+        } else {
+            int word = static_cast<u16>(angles[axis]);
+            if (ImGui::DragInt("##rotation", &word, BinaryDragSpeed, 0, 0, "%04X")) {
+                angles[axis] = static_cast<s16>(static_cast<u16>(word & 0xFFFF));
             }
         }
         isDone = ImGui::IsItemDeactivatedAfterEdit() || isDone;
@@ -155,7 +160,8 @@ bool ActorForm::drawActor(ActorPlacement& placement, const std::array<bool, 3>& 
     core::drawPropertyLabel("Rotation",
                             "The actor's rotation about X, Y and Z, which the game applies in the "
                             "order Y, X, Z. Stored as binary angles, 0x4000 a quarter turn. Many "
-                            "actors read parts of the X and Z rotation as params instead.");
+                            "actors read parts of the X and Z rotation as params instead. Drag to "
+                            "turn, or double-click to type.");
     isDone = editRotation(placement.rotation, isParamAxis) || isDone;
     isDone = editParams(placement.params) || isDone;
     return isDone;
@@ -174,7 +180,8 @@ bool ActorForm::drawTransitionActor(TransitionActorPlacement& placement,
         ImGui::PopID();
     }
     isDone = editPosition(placement.position) || isDone;
-    core::drawPropertyLabel("Rotation Y", "Stored as a binary angle, 0x4000 a quarter turn.");
+    core::drawPropertyLabel("Rotation Y", "Stored as a binary angle, 0x4000 a quarter turn. "
+                                          "Drag to turn, or double-click to type.");
     const std::array<bool, 1> isParamAxis{isRotationParams};
     isDone = editRotation(std::span(&placement.rotationY, 1), isParamAxis) || isDone;
     isDone = editParams(placement.params) || isDone;

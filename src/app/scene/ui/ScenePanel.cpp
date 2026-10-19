@@ -243,15 +243,22 @@ void ScenePanel::showPreview(const std::vector<PlacementRef>& placements,
         isPreviewEnding = true;
         return;
     }
-    SceneLayer layer = scene->layers[sceneView.layer];
+    std::vector<PlacementEditor::Draft> moved;
     for (usize i = 0; i < placements.size() && i < edit->points.size(); ++i) {
-        if (placements[i].layer != sceneView.layer) {
-            continue;
-        }
         if (const std::optional<Placement> placement = findPlacement(*scene, placements[i])) {
-            static_cast<void>(setLayerPlacement(
-                layer, placements[i],
-                makeTransformedPlacement(*placement, edit->points[i], edit->result)));
+            moved.push_back(
+                {.where = placements[i],
+                 .placement = makeTransformedPlacement(*placement, edit->points[i], edit->result)});
+        }
+    }
+    showPlacements(moved);
+}
+
+void ScenePanel::showPlacements(const std::span<const PlacementEditor::Draft> placements) {
+    SceneLayer layer = scene->layers[sceneView.layer];
+    for (const PlacementEditor::Draft& placed : placements) {
+        if (placed.where.layer == sceneView.layer) {
+            static_cast<void>(setLayerPlacement(layer, placed.where, placed.placement));
         }
     }
     viewportPanel.setNextFrame(makeSceneContent(*scene, sceneView, markerShape, &layer));
@@ -265,6 +272,15 @@ void ScenePanel::update() {
     if (isPreviewEnding) {
         isPreviewEnding = false;
         showScene();
+    }
+    std::optional<PlacementEditor::Draft> changed = placementEditor.findChangedDraft(*scene);
+    if (changed != shownDraft) {
+        shownDraft = std::move(changed);
+        if (shownDraft && sceneView.layer < scene->layers.size()) {
+            showPlacements(std::span(&*shownDraft, 1));
+        } else {
+            showScene();
+        }
     }
 }
 

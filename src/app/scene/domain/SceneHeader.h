@@ -17,6 +17,8 @@ struct ActorPlacement {
     std::array<s16, 3> position{};
     std::array<s16, 3> rotation{};
     s16 params = 0;
+
+    friend bool operator==(const ActorPlacement&, const ActorPlacement&) = default;
 };
 
 /// A `TransitionActorEntry`: an actor between two rooms, a door or a loading
@@ -27,6 +29,9 @@ struct TransitionActorPlacement {
     std::array<s16, 3> position{};
     s16 rotationY = 0;
     s16 params = 0;
+
+    friend bool operator==(const TransitionActorPlacement&,
+                           const TransitionActorPlacement&) = default;
 };
 
 /// One of a scene's `EnvLightSettings`: the ambient colour, two directional

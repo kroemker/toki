@@ -138,6 +138,10 @@ viewport, in three sections:
 - **Actor** is the placement as the game stores it: its type, position, rotation and params,
   raw. A rotation is shown in binary angles or degrees (Scenes › Rotations In, or the button
   beside it), except an axis the actor reads params from, which is always shown raw.
+  Position and rotation are dragged, a unit or a degree a point, or typed after a
+  double-click; a dragged angle wraps at a full turn. While a field is held the viewport
+  shows the placement as it now is (`findChangedDraft`), drawn from a copy of the layer as a
+  transform's preview is, and the edit is made, one undo step, when the field is let go.
 - **Params** is the same bits as the actor's database entry names them: a flag as a
   checkbox, a number as a field, a choice as a dropdown of its values or its collection's
   (`ParamsForm`). Each control writes only its own bits (`writeParamValue`), and the raw

@@ -165,6 +165,8 @@ private:
     [[nodiscard]] bool pickInTree(const SceneNode& node);
     void showPreview(const std::vector<PlacementRef>& placements,
                      const std::optional<viewport::TransformEdit>& edit);
+    /// Shows the scene with `placements` in place of what it holds there.
+    void showPlacements(std::span<const PlacementEditor::Draft> placements);
     [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
                           const ActorDescription& description) const;
@@ -188,6 +190,8 @@ private:
     /// Whether a preview of a transform ended this frame, so the scene is
     /// shown as it is again.
     bool isPreviewEnding = false;
+    /// The edit of the Properties panel the viewport shows, before it is made.
+    std::optional<PlacementEditor::Draft> shownDraft;
     SceneOutliner sceneOutliner;
     /// A scene read while the open one had edits no save wrote, until the
     /// person says whether to throw them away for it.
