@@ -167,8 +167,9 @@ void ViewportPanel::draw() {
     }
     const TransformView transformView = makeTransformView(origin, size);
     const bool isModal = viewportTransform.updateModal(transformView);
-    if (isModal && (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
-                    ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
+    if (isModal && ViewportTransform::isOverImage(transformView) &&
+        (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+         ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
         isPressSwallowed = true;
     }
     if (!isModal && !viewportTransform.isModal() &&

@@ -77,6 +77,10 @@ public:
     /// it runs, when the viewport's own clicks and keys are left alone.
     bool updateModal(const TransformView& view);
 
+    /// Whether the mouse is over the image itself, not the bar or the tool
+    /// strip over it: where a click confirms or cancels a transform.
+    [[nodiscard]] static bool isOverImage(const TransformView& view);
+
     [[nodiscard]] bool isModal() const {
         return isModalRunning;
     }

@@ -53,8 +53,10 @@ expected.
 The options of the Move and Rotate tools are in the bar, as buttons: the axes held, X, Y and
 Z, and snapping. X holds to X alone or frees it again, Shift+X holds to the other two, and
 the buttons light as the keys press them; the gizmo shows only the axes held. The grid
-snaps a drag, not what is typed, to 10 units or 15°; holding Ctrl lights it while
-transforming, and a click keeps it on. The ground button, or Alt held, sets each moved point
+snaps a drag, not what is typed, to 10 units or 15°. A click on a button switches it; while
+transforming, holding Ctrl switches the grid and Alt the ground for as long as it is held,
+as in Blender, and the button shows what holds now. The bar's buttons work while G or R
+runs: only a click on the image itself confirms or cancels. The ground snap sets each moved point
 down on the highest surface within 100 units above it and below: a ray straight down against
 the room triangles the frame drew, taken back to the world by the inverse of the frame's
 view and projection, so only what is on screen is ground until collision is read.

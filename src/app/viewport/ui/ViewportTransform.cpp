@@ -77,8 +77,8 @@ Snapping ViewportTransform::findSnapping() const {
     Snapping found = snapping;
     if (session) {
         const ImGuiIO& io = ImGui::GetIO();
-        found.isGridOn |= io.KeyCtrl;
-        found.isGroundOn |= io.KeyAlt;
+        found.isGridOn = found.isGridOn != io.KeyCtrl;
+        found.isGroundOn = found.isGroundOn != io.KeyAlt;
     }
     return found;
 }
@@ -203,15 +203,22 @@ bool ViewportTransform::updateModal(const TransformView& view) {
         session->setDraggedAngle(turnedDegrees);
     }
     lastMouse = mouse;
+    const bool isOnImage = isOverImage(view);
     if (ImGui::IsKeyPressed(ImGuiKey_Enter, false) ||
         ImGui::IsKeyPressed(ImGuiKey_KeypadEnter, false) ||
-        ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        (isOnImage && ImGui::IsMouseClicked(ImGuiMouseButton_Left))) {
         confirm();
     } else if (ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
-               ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+               (isOnImage && ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
         cancel();
     }
     return true;
+}
+
+bool ViewportTransform::isOverImage(const TransformView& view) {
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    return ImGui::IsWindowHovered() && mouse.x >= view.origin.x && mouse.y >= view.origin.y &&
+           mouse.x < view.origin.x + view.size.x && mouse.y < view.origin.y + view.size.y;
 }
 
 bool ViewportTransform::isGizmoActive(const EditTool tool) const {
@@ -307,12 +314,13 @@ void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& v
     if (isModalRunning) {
         const std::string hint = std::format(
             "Enter or click confirms · Esc or right-click cancels · {} {} {} hold to an axis, "
-            "{} to the other two · type a number, Tab for the next · hold Ctrl for the grid{}",
+            "{} to the other two · type a number, Tab for the next · hold Ctrl to switch the "
+            "grid{}",
             core::getShortcutLabel(core::Action::ConstrainX),
             core::getShortcutLabel(core::Action::ConstrainY),
             core::getShortcutLabel(core::Action::ConstrainZ),
             core::getShortcutLabel(core::Action::ConstrainPlaneX),
-            session->getKind() == TransformKind::Move ? ", Alt for the ground" : "");
+            session->getKind() == TransformKind::Move ? ", Alt the ground" : "");
         drawList.AddText(position, ImGui::GetColorU32(core::palette::TextMuted), hint.c_str());
         position.y -= line;
     }
@@ -333,16 +341,18 @@ bool ViewportTransform::drawOptions(const EditTool tool) {
     if (drawToggle(core::icons::GridFour, shown.isGridOn)) {
         snapping.isGridOn = !snapping.isGridOn;
     }
-    ImGui::SetItemTooltip("Snap to the grid: %g units, %g° (hold Ctrl while transforming)",
-                          snapping.gridStep, snapping.angleStep);
+    ImGui::SetItemTooltip(
+        "Snap to the grid: %g units, %g° (hold Ctrl while transforming to switch it)",
+        snapping.gridStep, snapping.angleStep);
     if (kind == TransformKind::Move) {
         ImGui::SameLine(0.0F, 1.0F);
         if (drawToggle(core::icons::ArrowLineDown, shown.isGroundOn)) {
             snapping.isGroundOn = !snapping.isGroundOn;
         }
-        ImGui::SetItemTooltip("Set each point down on the ground below it (hold Alt while "
-                              "moving). The ground is what the frame drew on screen, until "
-                              "collision is read.");
+        ImGui::SetItemTooltip(
+            "Set each point down on the ground below it (hold Alt while "
+            "moving to switch it). The ground is what the frame drew on screen, until "
+            "collision is read.");
     }
     return true;
 }
@@ -358,7 +368,7 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
         const bool isLit = kind == TransformKind::Rotate
                                ? findConstraint().findRotationAxis() == axis
                                : findConstraint().axes[axis];
-        ImGui::BeginDisabled(isBlocked || session.has_value());
+        ImGui::BeginDisabled(isBlocked);
         if (drawToggle(AxisLabels[axis], isLit)) {
             if (kind == TransformKind::Rotate) {
                 axisConstraint.constrainTo(axis);
