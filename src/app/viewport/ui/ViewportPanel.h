@@ -190,8 +190,9 @@ public:
     /// What is selected, ringed over the image, and what is done with it once
     /// a transform of it is confirmed.
     void setTransformTarget(std::optional<TransformTarget> target,
-                            ViewportTransform::Handler handler) {
-        viewportTransform.setTarget(std::move(target), std::move(handler));
+                            ViewportTransform::Handler handler,
+                            ViewportTransform::PreviewHandler preview = nullptr) {
+        viewportTransform.setTarget(std::move(target), std::move(handler), std::move(preview));
     }
 
     /// The scene being read for the panel, shown over what is drawn until it

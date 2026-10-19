@@ -266,6 +266,7 @@ void ViewportPanel::draw() {
     if (viewportTools.mode == SelectionMode::Node) {
         viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
     }
+    viewportTransform.updatePreview();
     if (boxStart) {
         const ImVec2 mouse = ImGui::GetIO().MousePos;
         ImVec4 fill = core::palette::Accent;

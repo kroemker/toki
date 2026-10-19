@@ -119,6 +119,11 @@ public:
     /// Draws the properties of what is selected, for the Properties panel.
     void drawProperties();
 
+    /// Makes the edits picked this frame, wherever they were picked, and shows
+    /// the scene again once a preview of a transform ended. Called every frame
+    /// after the panels are drawn, whichever of them are open.
+    void update();
+
     /// Takes back the last edit of the scene, or puts back the last one taken
     /// back.
     void undo() {
@@ -158,6 +163,8 @@ private:
     /// Selects `node` as a click in the tree does: Ctrl toggles it and Shift
     /// adds it. True when it alone is selected now.
     [[nodiscard]] bool pickInTree(const SceneNode& node);
+    void showPreview(const std::vector<PlacementRef>& placements,
+                     const std::optional<viewport::TransformEdit>& edit);
     [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
                           const ActorDescription& description) const;
@@ -178,6 +185,9 @@ private:
     std::function<void(const std::string&)> inspectDisplayList;
     std::function<void(const Scene&)> readActors;
     PlacementEditor placementEditor;
+    /// Whether a preview of a transform ended this frame, so the scene is
+    /// shown as it is again.
+    bool isPreviewEnding = false;
     SceneOutliner sceneOutliner;
     /// A scene read while the open one had edits no save wrote, until the
     /// person says whether to throw them away for it.

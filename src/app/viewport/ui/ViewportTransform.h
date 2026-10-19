@@ -36,6 +36,8 @@ struct TransformTarget {
 struct TransformEdit {
     TransformResult result;
     std::vector<glm::vec3> points;
+
+    friend bool operator==(const TransformEdit&, const TransformEdit&) = default;
 };
 
 /// The camera and the part of the screen a transform is drawn over.
@@ -57,7 +59,16 @@ public:
     /// The triangles drawn of the ground, three corners each, in the world.
     using FindGround = std::function<std::vector<glm::vec3>()>;
 
-    void setTarget(std::optional<TransformTarget> target, Handler handler);
+    /// Shows a transform as it runs, or, given nothing, that it ended,
+    /// confirmed or not.
+    using PreviewHandler = std::function<void(const std::optional<TransformEdit>&)>;
+
+    void setTarget(std::optional<TransformTarget> target, Handler handler,
+                   PreviewHandler preview = nullptr);
+
+    /// Tells the preview handler what the transform running comes to, when
+    /// that changed since it was last told, or that it ended.
+    void updatePreview();
 
     /// Whether the target's points are ringed.
     void setRingShown(const bool isShown) {
@@ -114,6 +125,8 @@ private:
 
     std::optional<TransformTarget> transformTarget;
     Handler transformHandler;
+    PreviewHandler previewHandler;
+    std::optional<TransformEdit> previewed;
     FindGround findGroundTriangles;
     AxisConstraint axisConstraint;
     /// The axis a gizmo's ring turns about, while one is dragged.

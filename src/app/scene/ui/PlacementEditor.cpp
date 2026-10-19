@@ -4,8 +4,8 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
-#include "app/scene/domain/BinaryAngle.h"
 #include "app/scene/domain/PlacementEdits.h"
+#include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneEditor.h"
@@ -73,10 +73,6 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
         }
     }
     return axes;
-}
-
-[[nodiscard]] s16 roundToS16(const f32 value) {
-    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
 }
 
 [[nodiscard]] std::string makeWhere(const PlacementRef& where) {
@@ -547,23 +543,7 @@ void PlacementEditor::applyTransform(std::vector<PlacementRef> placements,
             if (!placement) {
                 continue;
             }
-            const glm::vec3& point = edit.points[i];
-            const std::array<s16, 3> position{roundToS16(point.x), roundToS16(point.y),
-                                              roundToS16(point.z)};
-            const bool isTurned = edit.result.kind == viewport::TransformKind::Rotate;
-            if (auto* actor = std::get_if<ActorPlacement>(&*placement)) {
-                actor->position = position;
-                if (isTurned) {
-                    actor->rotation =
-                        rotateBinaryAngles(actor->rotation, edit.result.axis, edit.result.degrees);
-                }
-            } else if (auto* transition = std::get_if<TransitionActorPlacement>(&*placement)) {
-                transition->position = position;
-                if (isTurned && edit.result.axis == 1) {
-                    transition->rotationY = rotateBinaryAngles({0, transition->rotationY, 0}, 1,
-                                                               edit.result.degrees)[1];
-                }
-            }
+            placement = makeTransformedPlacement(*placement, edit.points[i], edit.result);
             isJoined =
                 apply(
                     edited, where,

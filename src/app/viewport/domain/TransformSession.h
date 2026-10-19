@@ -61,6 +61,8 @@ struct TransformResult {
     glm::vec3 offset{0.0F};
     usize axis = 1;
     f32 degrees = 0.0F;
+
+    friend bool operator==(const TransformResult&, const TransformResult&) = default;
 };
 
 /// One transform of what is selected, from when it begins to when it is

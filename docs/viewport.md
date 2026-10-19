@@ -60,6 +60,14 @@ confirmed, with Enter or a click, and Esc or a right-click cancels it. Typing a 
 the mouse's place, field by field, Tab moving to the next axis, Backspace and `-` as
 expected.
 
+What a session comes to is previewed as it runs. Whenever its result changes, the target's
+owner is told (`ViewportTransform::PreviewHandler`) and shows it as `setNextFrame` content
+without editing anything: the scene panel draws a copy of the shown layer with the moved
+placements in it (`makeSceneContent` with a layer in place of the scene's), so a model moves
+and turns with everything it draws, its skeleton included. When the session ends the handler
+is told so, and the scene is shown as it is again, edited if it was confirmed. The preview
+re-runs the frame, which costs what orbiting the camera costs.
+
 The options of the Move and Rotate tools are in the bar, as buttons: the axes held, X, Y and
 Z, and snapping. X holds to X alone or frees it again, Shift+X holds to the other two, and
 the buttons light as the keys press them; the gizmo shows only the axes held, and each axis

@@ -308,6 +308,9 @@ void App::drawFrame() {
         scenePanel->redo();
     }
     panels.draw();
+    if (scenePanel != nullptr) {
+        scenePanel->update();
+    }
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }

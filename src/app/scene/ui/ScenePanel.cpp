@@ -10,6 +10,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneFlags.h"
@@ -231,7 +232,40 @@ void ScenePanel::draw() {
     drawFlags(flags);
     drawFlagLinks(flags);
     offerPlacements(layer);
+}
+
+void ScenePanel::showPreview(const std::vector<PlacementRef>& placements,
+                             const std::optional<viewport::TransformEdit>& edit) {
+    if (!scene || sceneView.layer >= scene->layers.size()) {
+        return;
+    }
+    if (!edit) {
+        isPreviewEnding = true;
+        return;
+    }
+    SceneLayer layer = scene->layers[sceneView.layer];
+    for (usize i = 0; i < placements.size() && i < edit->points.size(); ++i) {
+        if (placements[i].layer != sceneView.layer) {
+            continue;
+        }
+        if (const std::optional<Placement> placement = findPlacement(*scene, placements[i])) {
+            static_cast<void>(setLayerPlacement(
+                layer, placements[i],
+                makeTransformedPlacement(*placement, edit->points[i], edit->result)));
+        }
+    }
+    viewportPanel.setNextFrame(makeSceneContent(*scene, sceneView, markerShape, &layer));
+}
+
+void ScenePanel::update() {
+    if (!scene) {
+        return;
+    }
     placementEditor.applyPicked(*scene);
+    if (isPreviewEnding) {
+        isPreviewEnding = false;
+        showScene();
+    }
 }
 
 void ScenePanel::drawProperties() {
@@ -240,7 +274,6 @@ void ScenePanel::drawProperties() {
         return;
     }
     placementEditor.drawInspector(*scene);
-    placementEditor.applyPicked(*scene);
 }
 
 void ScenePanel::offerPlacements(const SceneLayer& layer) {
@@ -301,8 +334,11 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
     }
     viewportPanel.setTransformTarget(
         std::move(transform->target),
-        [this, placements = std::move(transform->placements)](const viewport::TransformEdit& edit) {
-            placementEditor.applyTransform(placements, edit);
+        [this, moved = transform->placements](const viewport::TransformEdit& edit) {
+            placementEditor.applyTransform(moved, edit);
+        },
+        [this, moved = transform->placements](const std::optional<viewport::TransformEdit>& edit) {
+            showPreview(moved, edit);
         });
 }
 

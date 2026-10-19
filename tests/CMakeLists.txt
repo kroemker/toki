@@ -46,6 +46,7 @@ add_executable(toki_tests
         app/scene/SceneLoaderTest.cpp
         app/scene/PlacementEditsTest.cpp
         app/scene/SceneModelTest.cpp
+        app/scene/PlacementTransformTest.cpp
         app/scene/SceneSaveCheckoutTest.cpp
         app/scene/SceneSelectionTest.cpp
         app/scene/SceneSourceScanTest.cpp

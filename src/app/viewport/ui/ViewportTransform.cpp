@@ -71,11 +71,33 @@ bool drawToggle(const char* label, const bool isLit) {
 
 } // namespace
 
-void ViewportTransform::setTarget(std::optional<TransformTarget> target, Handler handler) {
+void ViewportTransform::setTarget(std::optional<TransformTarget> target, Handler handler,
+                                  PreviewHandler preview) {
     transformTarget = std::move(target);
     transformHandler = std::move(handler);
+    previewHandler = std::move(preview);
     if (!transformTarget || transformTarget->points.empty()) {
         cancel();
+    }
+}
+
+void ViewportTransform::updatePreview() {
+    if (!session) {
+        if (previewed) {
+            previewed.reset();
+            if (previewHandler) {
+                previewHandler(std::nullopt);
+            }
+        }
+        return;
+    }
+    TransformEdit edit{.result = session->makeResult(findConstraint(), findSnapping()),
+                       .points = makePoints()};
+    if (edit != previewed) {
+        previewed = edit;
+        if (previewHandler) {
+            previewHandler(edit);
+        }
     }
 }
 

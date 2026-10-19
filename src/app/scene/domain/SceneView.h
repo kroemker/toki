@@ -46,9 +46,12 @@ struct SceneView {
 /// config's `sDefaultDisplayList` and `sSetupDL[SETUPDL_25]`, then that pass's
 /// display list of every part of every shown room, then that pass's placed
 /// actors drawn as their models (`makeActorDraws`). Actors without one, and
-/// player entries, are marked by `markerShape` between the two passes.
+/// player entries, are marked by `markerShape` between the two passes. With
+/// `shownLayer`, its placements are drawn in place of the shown layer's, as
+/// an edit is previewed before it is made.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
-                                                         core::MarkerShape markerShape);
+                                                         core::MarkerShape markerShape,
+                                                         const SceneLayer* shownLayer = nullptr);
 
 /// The light and fog the game draws a scene under while `setting` is its
 /// current light setting.

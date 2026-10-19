@@ -302,13 +302,14 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
 }
 
 viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
-                                           const core::MarkerShape markerShape) {
+                                           const core::MarkerShape markerShape,
+                                           const SceneLayer* shownLayer) {
     viewport::ViewportContent content{.images = scene.images};
     labelSceneImages(content, scene);
     if (scene.images.empty() || view.layer >= scene.layers.size()) {
         return content;
     }
-    const SceneLayer& layer = scene.layers[view.layer];
+    const SceneLayer& layer = shownLayer != nullptr ? *shownLayer : scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
     const PassSource source{.layer = layer,
