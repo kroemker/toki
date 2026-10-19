@@ -157,9 +157,7 @@ void SceneOutliner::drawRoom(const Scene& scene, const SceneLayer& layer, SceneV
         flags |= ImGuiTreeNodeFlags_Selected;
     }
     const bool isOpen = beginNode("##room", flags);
-    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickRoom) {
-        hooks.pickRoom(room);
-    }
+    const bool isRowClicked = ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen();
     if (hooks.drawRoomMenu) {
         hooks.drawRoomMenu(room, header);
     }
@@ -173,7 +171,11 @@ void SceneOutliner::drawRoom(const Scene& scene, const SceneLayer& layer, SceneV
             hooks.showScene();
         }
     }
+    const bool isEyeHovered = ImGui::IsItemHovered();
     ImGui::SetItemTooltip(isHidden ? "Hidden. Click to show the room." : "Click to hide the room.");
+    if (isRowClicked && !isEyeHovered && hooks.pickRoom) {
+        hooks.pickRoom(room);
+    }
     if (isOpen) {
         const std::vector<std::string> loaded = tables != nullptr
                                                     ? listLoadedObjects(layer, room, *tables)

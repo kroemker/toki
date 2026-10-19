@@ -7,6 +7,9 @@
 #include "app/viewport/domain/ScreenPick.h"
 
 #include <ImGuizmo.h>
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_scancode.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/trigonometric.hpp>
@@ -28,6 +31,20 @@ constexpr std::array<ImVec4, 3> AxisColors{ImVec4{0.93F, 0.33F, 0.36F, 0.9F},
                                            ImVec4{0.47F, 0.80F, 0.33F, 0.9F},
                                            ImVec4{0.33F, 0.55F, 0.95F, 0.9F}};
 constexpr f32 AxisLineWidth = 1.5F;
+/// The keys ImGui's SDL backend names by their place, not by what they print.
+constexpr std::array<std::pair<ImGuiKey, SDL_Scancode>, 11> PunctuationKeys{{
+    {ImGuiKey_GraveAccent, SDL_SCANCODE_GRAVE},
+    {ImGuiKey_Minus, SDL_SCANCODE_MINUS},
+    {ImGuiKey_Equal, SDL_SCANCODE_EQUALS},
+    {ImGuiKey_LeftBracket, SDL_SCANCODE_LEFTBRACKET},
+    {ImGuiKey_RightBracket, SDL_SCANCODE_RIGHTBRACKET},
+    {ImGuiKey_Backslash, SDL_SCANCODE_BACKSLASH},
+    {ImGuiKey_Semicolon, SDL_SCANCODE_SEMICOLON},
+    {ImGuiKey_Apostrophe, SDL_SCANCODE_APOSTROPHE},
+    {ImGuiKey_Comma, SDL_SCANCODE_COMMA},
+    {ImGuiKey_Period, SDL_SCANCODE_PERIOD},
+    {ImGuiKey_Slash, SDL_SCANCODE_SLASH},
+}};
 constexpr f32 NoteMargin = 8.0F;
 
 [[nodiscard]] core::Action findConstrainAction(const usize axis) {
@@ -249,19 +266,31 @@ bool ViewportTransform::updateModal(const TransformView& view) {
 
 void ViewportTransform::applyTypedKeys() {
     // Keys, not characters: SDL sends text only while a text field has focus,
-    // and none has while a transform runs.
+    // and none has while a transform runs. ImGui names punctuation keys by
+    // where they sit on a US keyboard, so what they print is asked of SDL,
+    // which knows the layout.
     for (int digit = 0; digit < 10; ++digit) {
         if (ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_0 + digit)) ||
             ImGui::IsKeyPressed(static_cast<ImGuiKey>(ImGuiKey_Keypad0 + digit))) {
             static_cast<void>(session->type(static_cast<char>('0' + digit)));
         }
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_Minus) || ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)) {
         static_cast<void>(session->type('-'));
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_Period) || ImGui::IsKeyPressed(ImGuiKey_Comma) ||
-        ImGui::IsKeyPressed(ImGuiKey_KeypadDecimal)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_KeypadDecimal)) {
         static_cast<void>(session->type('.'));
+    }
+    for (const auto& [key, scancode] : PunctuationKeys) {
+        if (!ImGui::IsKeyPressed(key)) {
+            continue;
+        }
+        const SDL_Keycode printed = SDL_GetKeyFromScancode(scancode, SDL_KMOD_NONE, false);
+        if (printed == SDLK_MINUS) {
+            static_cast<void>(session->type('-'));
+        } else if (printed == SDLK_PERIOD || printed == SDLK_COMMA) {
+            static_cast<void>(session->type('.'));
+        }
     }
     ImGui::GetIO().InputQueueCharacters.resize(0);
 }

@@ -430,25 +430,6 @@ void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     if (!scene || !ImGui::BeginPopupContextItem()) {
         return;
     }
-    std::vector<bool>& hidden = sceneView.hiddenRooms;
-    const bool isHidden = room < hidden.size() && hidden[room];
-    if (ImGui::MenuItem(isHidden ? "Show" : "Hide") && room < hidden.size()) {
-        hidden[room] = !isHidden;
-        showScene();
-    }
-    if (ImGui::MenuItem("Hide Others") && room < hidden.size()) {
-        std::ranges::fill(hidden, true);
-        hidden[room] = false;
-        showScene();
-    }
-    if (ImGui::MenuItem("Show All")) {
-        std::ranges::fill(hidden, false);
-        showScene();
-    }
-    if (ImGui::MenuItem("Hide All")) {
-        std::ranges::fill(hidden, true);
-        showScene();
-    }
     const core::CameraPose camera = viewportPanel.getCameraPose();
     placementEditor.drawRoomMenu(sceneView.layer, room,
                                  {static_cast<s16>(camera.target[0]),

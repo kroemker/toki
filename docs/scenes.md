@@ -112,8 +112,7 @@ that points at the exact spot an actor is placed.
 
 The Scene panel is the view's controls for what is shown: the layer, and a tree of the layer
 (`SceneOutliner`). Under the scene are its rooms, each with an eye that hides it (the
-scene's own eye shows every room when any is hidden, and hides them all otherwise; a room's
-context menu has Hide Others, Show All and Hide All), its actors
+scene's own eye shows every room when any is hidden, and hides them all otherwise), its actors
 by name from the checkout's actor table, with how each is drawn and its params, and the
 objects its object list loads; then the transition actors, the entrances, and the light
 settings, a click on one lighting the scene with it. Collision, paths, cutscenes and exits

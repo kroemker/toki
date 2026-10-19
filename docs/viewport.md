@@ -57,7 +57,10 @@ vertices. While it runs a line over the image says what it does, `Move  X 120  Y
 confirmed, with Enter or a click, and Esc or a right-click cancels it. Typing a number takes
 the mouse's place, field by field, Tab moving to the next axis, Backspace and `-` as
 expected. Numbers are read from the keys pressed, digits, `-` and `.` or `,`, not from text
-input, which SDL sends only while a text field has focus.
+input, which SDL sends only while a text field has focus. ImGui names punctuation keys by
+their place on a US keyboard, so for those SDL is asked what the key prints under the
+layout in use (`SDL_GetKeyFromScancode`): `-` is the minus key on a German keyboard as on a
+US one.
 
 G and R begin with no axis held, whatever the bar holds, and once they end the bar holds
 what it held before, so an axis held for one move is not held for the next turn. Switching
