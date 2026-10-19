@@ -35,11 +35,11 @@ namespace {
 
 } // namespace
 
-std::optional<u32> findPickedTriangle(const n64::RspResult& result, const glm::vec2 point) {
-    std::optional<u32> picked;
+std::optional<usize> findPickedTriangle(const n64::RspResult& result, const glm::vec2 point) {
+    std::optional<usize> picked;
     f32 nearest = 0.0F;
-    for (const n64::RspOutput& output : result.outputs) {
-        const auto* triangle = std::get_if<n64::Triangle>(&output);
+    for (usize index = 0; index < result.outputs.size(); ++index) {
+        const auto* triangle = std::get_if<n64::Triangle>(&result.outputs[index]);
         if (triangle == nullptr) {
             continue;
         }
@@ -55,11 +55,21 @@ std::optional<u32> findPickedTriangle(const n64::RspResult& result, const glm::v
         }
         const std::optional<f32> depth = findDepthAt(vertices, point);
         if (depth && *depth >= -1.0F && *depth <= 1.0F && (!picked || *depth < nearest)) {
-            picked = triangle->address;
+            picked = index;
             nearest = *depth;
         }
     }
     return picked;
+}
+
+std::optional<usize> findRangeOf(const std::span<const std::optional<OutputRange>> ranges,
+                                 const usize output) {
+    for (usize i = 0; i < ranges.size(); ++i) {
+        if (ranges[i] && output >= ranges[i]->first && output < ranges[i]->end) {
+            return i;
+        }
+    }
+    return std::nullopt;
 }
 
 std::optional<usize> findImageAt(const std::span<const std::optional<z64::MappedImage>> images,

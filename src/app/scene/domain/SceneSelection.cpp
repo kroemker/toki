@@ -7,6 +7,44 @@
 
 namespace toki::scene {
 
+namespace {
+
+constexpr usize KindShift = 56;
+constexpr usize LayerShift = 40;
+constexpr usize RoomShift = 24;
+constexpr usize FieldMask = 0xFFFF;
+constexpr usize IndexMask = 0xFF'FFFF;
+constexpr usize RoomKind = 3;
+
+} // namespace
+
+usize makeNodeKey(const SceneNode& node) {
+    if (const auto* room = std::get_if<RoomRef>(&node)) {
+        return (RoomKind << KindShift) | ((room->layer & FieldMask) << LayerShift) |
+               ((room->room & FieldMask) << RoomShift);
+    }
+    const auto& placement = std::get<PlacementRef>(node);
+    return (static_cast<usize>(placement.kind) << KindShift) |
+           ((placement.layer & FieldMask) << LayerShift) |
+           ((placement.room & FieldMask) << RoomShift) | (placement.index & IndexMask);
+}
+
+std::optional<SceneNode> findNode(const usize key) {
+    const usize kind = key >> KindShift;
+    const usize layer = (key >> LayerShift) & FieldMask;
+    const usize room = (key >> RoomShift) & FieldMask;
+    if (kind == RoomKind) {
+        return RoomRef{.layer = layer, .room = room};
+    }
+    if (kind > static_cast<usize>(PlacementKind::PlayerEntry)) {
+        return std::nullopt;
+    }
+    return PlacementRef{.kind = static_cast<PlacementKind>(kind),
+                        .layer = layer,
+                        .room = room,
+                        .index = key & IndexMask};
+}
+
 void SceneSelection::pick(const std::span<const SceneNode> picked, const PickMode mode) {
     if (mode == PickMode::Replace) {
         nodes.assign(picked.begin(), picked.end());

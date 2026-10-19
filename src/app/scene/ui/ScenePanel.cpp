@@ -281,13 +281,18 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
             for (const usize index : hit.points) {
                 nodes.emplace_back(placements[index]);
             }
-            if (scene && hit.image && *hit.image >= FirstRoomImage &&
-                *hit.image < scene->images.size()) {
-                nodes.emplace_back(
-                    RoomRef{.layer = sceneView.layer, .room = *hit.image - FirstRoomImage});
+            if (hit.owner) {
+                if (const std::optional<SceneNode> node = findNode(*hit.owner)) {
+                    nodes.push_back(*node);
+                }
             }
             placementEditor.pick(nodes, mode);
         });
+    std::vector<usize> selectedOwners;
+    for (const SceneNode& node : placementEditor.getSelection().getNodes()) {
+        selectedOwners.push_back(makeNodeKey(node));
+    }
+    viewportPanel.setSelectedOwners(std::move(selectedOwners));
     std::optional<PlacementEditor::SelectionTransform> transform =
         placementEditor.makeTransformTarget(*scene);
     if (!transform) {

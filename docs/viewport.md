@@ -25,7 +25,17 @@ The same way, the owner gives the viewport points to pick (`setPickables`) and w
 selected to transform (`setTransformTarget`), each with what to do about it. A click, a press and release that moved less than a few points, picks the point
 drawn nearest the mouse, if one is within 12 points of it (`findPickedPoint`); a left drag
 draws a box and picks every point in it (`findPointsInRect`). A click that hits nothing picks
-nothing, which clears the selection. Selected points are ringed, the active one brighter.
+nothing, which clears the selection.
+
+A click that is near no point picks what drew the triangle under the mouse: the RSP marks
+where each command of the frame's own list began its outputs (`n64::ListMark`), so every
+draw knows which outputs it made (`Frame::drawOutputs`), and a draw names its `owner`, a
+number the content's owner gives it. What is selected is passed back as owners
+(`setSelectedOwners`) and shown three ways, each an overlay of the bar that is kept with the
+others: what its draws drew, tinted and outlined in the overlay pass (Selection Highlight);
+a box around that, in the world, taken back from clip space by the inverse of the frame's
+view and projection (Selection Box), so it covers what is on screen; and a ring at each
+origin, the active one brighter (Selection Ring).
 
 The mouse is split as Blender splits it: the left button picks, the middle or right button
 orbits, and either with Shift pans; the wheel zooms.

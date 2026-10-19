@@ -5,7 +5,9 @@
 #include "z64/MemoryImage.h"
 
 #include <array>
+#include <optional>
 #include <span>
+#include <vector>
 
 namespace toki::scene {
 
@@ -19,15 +21,19 @@ enum class MarkerKind : u8 {
 struct Marker {
     std::array<s16, 3> position{};
     MarkerKind kind = MarkerKind::Actor;
+    /// What the marker's draw is owned by in the viewport.
+    std::optional<usize> owner;
 };
 
 /// The segment marker images are written to, one no asset or game code of
 /// OoT uses.
 inline constexpr u8 MarkerSegment = 0x0F;
 
+/// One display list per marker, in the markers' order, so each is a draw of
+/// its own that can be picked and outlined.
 struct ActorMarkers {
     z64::MemoryImage image;
-    u32 displayList = 0;
+    std::vector<u32> displayLists;
 };
 
 /// A small `shape` at every marker, coloured by kind with its edges drawn as

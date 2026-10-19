@@ -25,6 +25,13 @@ using SceneNode = std::variant<PlacementRef, RoomRef>;
 
 using viewport::PickMode;
 
+/// `node` as one number, as a scene's draws in the viewport say which node
+/// they are part of (`viewport::ViewportDraw::owner`).
+[[nodiscard]] usize makeNodeKey(const SceneNode& node);
+
+/// The node `key` is the number of, if it is one.
+[[nodiscard]] std::optional<SceneNode> findNode(usize key);
+
 /// The nodes selected, in the order they were, the last the active one the
 /// Properties panel shows.
 class SceneSelection {

@@ -14,6 +14,7 @@
 #include "app/viewport/domain/RenderMode.h"
 #include "app/viewport/domain/RenderOverride.h"
 #include "app/viewport/domain/ScreenPick.h"
+#include "app/viewport/domain/SelectionShape.h"
 #include "app/viewport/domain/TrianglePick.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
@@ -66,8 +67,13 @@ constexpr f32 DegreesPerPoint = 0.4F;
 /// click to pick, and how near a point it must be.
 constexpr f32 ClickDistance = 4.0F;
 constexpr f32 BoxFillAlpha = 0.15F;
+constexpr f32 SelectionFill = 0.18F;
+constexpr f32 SelectionEdge = 0.85F;
+constexpr f32 SelectionEdgeWidth = 1.0F;
+constexpr f32 BoxWidth = 1.5F;
+constexpr f32 BoxShadowAlpha = 0.55F;
 constexpr f32 SelectionRingWidth = 2.0F;
-constexpr f32 PickRadius = 12.0F;
+constexpr f32 PickRadius = 16.0F;
 constexpr float ToolStripMargin = 8.0F;
 /// The gap between the selection modes and the rest of the bar, in item
 /// spacings.
@@ -253,6 +259,9 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
+    drawSelectionBoxes(*drawList, transformView);
+    viewportTransform.setRingShown(viewportView.overlays.isShown &&
+                                   viewportView.overlays.selectionRing);
     viewportTransform.drawOverlay(*drawList, transformView, viewportTools.tool);
     if (viewportTools.mode == SelectionMode::Node) {
         viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
@@ -278,6 +287,62 @@ void ViewportPanel::draw() {
     }
     ImGui::SetCursorScreenPos(ImVec2(origin.x, end.y));
     statusBar.draw();
+}
+
+gfx::Overlay ViewportPanel::makeSelectionHighlight(const DrawnFrame& drawing,
+                                                   const f32 scale) const {
+    const std::vector<ClipTriangle> triangles = listOwnedTriangles(
+        drawing.rspResult, {.ranges = drawing.drawOutputs, .owners = drawing.drawOwners},
+        selectedOwners);
+    const ImVec4& accent = core::palette::Accent;
+    const auto makeColor = [&accent](const f32 alpha) {
+        return std::array<u8, 4>{
+            static_cast<u8>(accent.x * 255.0F), static_cast<u8>(accent.y * 255.0F),
+            static_cast<u8>(accent.z * 255.0F), static_cast<u8>(alpha * 255.0F)};
+    };
+    gfx::Overlay overlay;
+    for (const ClipTriangle& triangle : triangles) {
+        overlay.triangles.push_back(
+            {.corners = triangle, .color = makeColor(SelectionFill), .hiddenOpacity = XrayOpacity});
+    }
+    overlay.lines = makeOutlines(
+        triangles, {.color = makeColor(SelectionEdge), .width = SelectionEdgeWidth * scale});
+    for (gfx::OverlayLine& line : overlay.lines) {
+        line.hiddenOpacity = XrayOpacity;
+    }
+    return overlay;
+}
+
+void ViewportPanel::drawSelectionBoxes(ImDrawList& drawList, const TransformView& view) {
+    const ViewportOverlays& overlays = viewportView.overlays;
+    if (!overlays.isShown || !overlays.selectionBox || !drawnFrame || selectedOwners.empty()) {
+        return;
+    }
+    if (!selectionBoxes) {
+        selectionBoxes =
+            findOwnedBoxes(drawnFrame->rspResult,
+                           {.ranges = drawnFrame->drawOutputs, .owners = drawnFrame->drawOwners},
+                           selectedOwners, glm::inverse(frameViewProjection));
+    }
+    const glm::mat4 viewProjection = view.projection * view.view;
+    const ImU32 color = ImGui::GetColorU32(core::palette::Accent);
+    const ImU32 shadow = ImGui::GetColorU32(ImVec4(0.0F, 0.0F, 0.0F, BoxShadowAlpha));
+    for (const std::optional<WorldBox>& box : *selectionBoxes) {
+        if (!box) {
+            continue;
+        }
+        for (const auto& [start, end] : listBoxEdges(*box)) {
+            const std::optional<std::array<glm::vec2, 2>> edge =
+                findScreenSegment(viewProjection, {view.size.x, view.size.y}, start, end);
+            if (!edge) {
+                continue;
+            }
+            const ImVec2 from(view.origin.x + (*edge)[0].x, view.origin.y + (*edge)[0].y);
+            const ImVec2 to(view.origin.x + (*edge)[1].x, view.origin.y + (*edge)[1].y);
+            drawList.AddLine(from, to, shadow, BoxWidth + 2.0F);
+            drawList.AddLine(from, to, color, BoxWidth);
+        }
+    }
 }
 
 gfx::Overlay ViewportPanel::makeHighlight(const f32 scale) const {
@@ -342,15 +407,18 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
         pickHandler({.points = std::span(&*picked, 1)}, findPickMode());
         return;
     }
-    std::optional<usize> image;
+    std::optional<usize> owner;
     if (drawnFrame) {
         const glm::vec2 point{(mouse.x - origin.x) / size.x * 2.0F - 1.0F,
                               1.0F - (mouse.y - origin.y) / size.y * 2.0F};
-        if (const std::optional<u32> address = findPickedTriangle(drawnFrame->rspResult, point)) {
-            image = findImageAt(mappedImages, *address);
+        if (const std::optional<usize> output = findPickedTriangle(drawnFrame->rspResult, point)) {
+            if (const std::optional<usize> draw = findRangeOf(drawnFrame->drawOutputs, *output);
+                draw && *draw < drawnFrame->drawOwners.size()) {
+                owner = drawnFrame->drawOwners[*draw];
+            }
         }
     }
-    pickHandler({.image = image}, findPickMode());
+    pickHandler({.owner = owner}, findPickMode());
 }
 
 void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
@@ -443,7 +511,12 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
     const u64 generation = isTracing ? ++frameGeneration : 0;
     DrawnFrame drawing{.rspResult = isTracing ? frame.rspResult : std::move(frame.rspResult),
                        .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult),
-                       .generation = generation};
+                       .generation = generation,
+                       .drawOutputs = std::move(frame.drawOutputs)};
+    for (const ViewportDraw& draw : viewportContent.draws) {
+        drawing.drawOwners.push_back(draw.owner);
+    }
+    selectionBoxes.reset();
     if (mode != RenderMode{}) {
         drawing.rdpResult = applyRenderMode(std::move(drawing.rdpResult), mode,
                                             makeViewProjection(viewportContent, orbitCamera, size));
@@ -509,11 +582,16 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
             line.hiddenOpacity = XrayOpacity;
         }
     }
+    if (overlays.isShown && overlays.selectionHighlight) {
+        gfx::Overlay selected = makeSelectionHighlight(drawing, scale);
+        std::ranges::move(selected.triangles, std::back_inserter(overlay.triangles));
+        std::ranges::move(selected.lines, std::back_inserter(overlay.lines));
+    }
     if (highlightGeneration != drawing.generation) {
         return overlay;
     }
     gfx::Overlay highlighted = makeHighlight(scale);
-    overlay.triangles = std::move(highlighted.triangles);
+    std::ranges::move(highlighted.triangles, std::back_inserter(overlay.triangles));
     std::ranges::move(highlighted.lines, std::back_inserter(overlay.lines));
     return overlay;
 }

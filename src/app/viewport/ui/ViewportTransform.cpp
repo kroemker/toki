@@ -28,8 +28,10 @@ constexpr std::array<ImVec4, 3> AxisColors{ImVec4{0.93F, 0.33F, 0.36F, 0.9F},
                                            ImVec4{0.47F, 0.80F, 0.33F, 0.9F},
                                            ImVec4{0.33F, 0.55F, 0.95F, 0.9F}};
 constexpr f32 AxisLineWidth = 1.5F;
-constexpr f32 RingRadius = 12.0F;
-constexpr f32 RingWidth = 2.0F;
+constexpr f32 RingRadius = 16.0F;
+constexpr f32 RingWidth = 2.5F;
+constexpr f32 RingShadowWidth = 5.0F;
+constexpr ImVec4 RingShadow{0.0F, 0.0F, 0.0F, 0.6F};
 constexpr f32 NoteMargin = 8.0F;
 
 [[nodiscard]] core::Action findConstrainAction(const usize axis) {
@@ -333,10 +335,14 @@ void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& v
         if (!position) {
             continue;
         }
+        if (!isRingShown && !session) {
+            continue;
+        }
         const ImVec4 color =
             i == transformTarget->activePoint ? core::palette::Accent : core::palette::AccentMuted;
-        drawList.AddCircle(ImVec2(view.origin.x + position->x, view.origin.y + position->y),
-                           RingRadius, ImGui::GetColorU32(color), 0, RingWidth);
+        const ImVec2 center(view.origin.x + position->x, view.origin.y + position->y);
+        drawList.AddCircle(center, RingRadius, ImGui::GetColorU32(RingShadow), 0, RingShadowWidth);
+        drawList.AddCircle(center, RingRadius, ImGui::GetColorU32(color), 0, RingWidth);
     }
     if (!session) {
         return;

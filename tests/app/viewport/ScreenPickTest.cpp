@@ -9,6 +9,7 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include <array>
+#include <cmath>
 #include <optional>
 #include <vector>
 
@@ -88,4 +89,25 @@ TEST_CASE("an axis line runs from edge to edge of the image, cut where it passes
     }
     REQUIRE_FALSE(toki::viewport::findScreenLine(glm::mat4(1.0F), size, {0.0F, 3.0F, 0.0F},
                                                  {1.0F, 0.0F, 0.0F}));
+}
+
+TEST_CASE("a segment falls on the image, cut where it passes behind the camera",
+          "[viewport][pick]") {
+    const glm::vec2 size{200.0F, 100.0F};
+    const auto flat = toki::viewport::findScreenSegment(glm::mat4(1.0F), size, {-0.5F, 0.0F, 0.0F},
+                                                        {0.5F, 0.0F, 0.0F});
+    REQUIRE(flat.has_value());
+    REQUIRE((*flat)[0] == glm::vec2(50.0F, 50.0F));
+    REQUIRE((*flat)[1] == glm::vec2(150.0F, 50.0F));
+
+    toki::viewport::OrbitCamera camera;
+    const glm::mat4 viewProjection =
+        toki::viewport::OrbitCamera::makeProjectionMatrix(2.0F) * camera.makeViewMatrix();
+    const glm::vec3 behind = camera.getEye() * 2.0F - camera.getTarget();
+    const auto cut =
+        toki::viewport::findScreenSegment(viewProjection, size, camera.getTarget(), behind);
+    REQUIRE(cut.has_value());
+    REQUIRE(std::isfinite((*cut)[1].x));
+    REQUIRE_FALSE(toki::viewport::findScreenSegment(viewProjection, size, behind,
+                                                    behind + glm::vec3(10.0F, 0.0F, 0.0F)));
 }

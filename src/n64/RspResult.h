@@ -75,9 +75,19 @@ struct RspStatistics {
     usize culled = 0;
 };
 
+/// A command of the task's own display list, not one it called: its physical
+/// address and the index in `RspResult::outputs` of the first output made
+/// from it on, by it or by the lists it called. Kept whether or not the task
+/// is traced, so a caller can tell which of the lists it called made what.
+struct ListMark {
+    u32 address = 0;
+    usize firstOutput = 0;
+};
+
 struct RspResult {
     std::vector<Viewport> viewports;
     std::vector<RspOutput> outputs;
+    std::vector<ListMark> listMarks;
     /// Every command run, when the task asked for it.
     std::vector<TraceEntry> trace;
     std::vector<base::Diagnostic> diagnostics;

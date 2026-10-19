@@ -63,14 +63,13 @@ std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, const glm::
     return found;
 }
 
-std::optional<std::array<glm::vec2, 2>> findScreenLine(const glm::mat4& viewProjection,
-                                                       const glm::vec2 size, const glm::vec3& point,
-                                                       const glm::vec3& direction) {
-    constexpr f32 Reach = 1.0e5F;
+namespace {
+
+/// The clip-space segment from `first` to `second` with what is behind the
+/// near plane cut off, as two points on an image of `size`.
+[[nodiscard]] std::optional<std::array<glm::vec2, 2>>
+projectClipSegment(glm::vec4 first, glm::vec4 second, const glm::vec2 size) {
     constexpr f32 Near = 1.0e-4F;
-    const glm::vec3 unit = glm::normalize(direction);
-    glm::vec4 first = viewProjection * glm::vec4(point - unit * Reach, 1.0F);
-    glm::vec4 second = viewProjection * glm::vec4(point + unit * Reach, 1.0F);
     const f32 firstDepth = first.z + first.w;
     const f32 secondDepth = second.z + second.w;
     if (firstDepth < Near && secondDepth < Near) {
@@ -85,8 +84,31 @@ std::optional<std::array<glm::vec2, 2>> findScreenLine(const glm::mat4& viewProj
         return glm::vec2((clip.x / clip.w + 1.0F) * 0.5F * size.x,
                          (1.0F - clip.y / clip.w) * 0.5F * size.y);
     };
-    const glm::vec2 start = toScreen(first);
-    const glm::vec2 along = toScreen(second) - start;
+    return std::array{toScreen(first), toScreen(second)};
+}
+
+} // namespace
+
+std::optional<std::array<glm::vec2, 2>> findScreenSegment(const glm::mat4& viewProjection,
+                                                          const glm::vec2 size,
+                                                          const glm::vec3& start,
+                                                          const glm::vec3& end) {
+    return projectClipSegment(viewProjection * glm::vec4(start, 1.0F),
+                              viewProjection * glm::vec4(end, 1.0F), size);
+}
+
+std::optional<std::array<glm::vec2, 2>> findScreenLine(const glm::mat4& viewProjection,
+                                                       const glm::vec2 size, const glm::vec3& point,
+                                                       const glm::vec3& direction) {
+    constexpr f32 Reach = 1.0e5F;
+    const glm::vec3 unit = glm::normalize(direction);
+    const std::optional<std::array<glm::vec2, 2>> ends =
+        findScreenSegment(viewProjection, size, point - unit * Reach, point + unit * Reach);
+    if (!ends) {
+        return std::nullopt;
+    }
+    const glm::vec2 start = (*ends)[0];
+    const glm::vec2 along = (*ends)[1] - start;
     if (!std::isfinite(start.x) || !std::isfinite(start.y) || !std::isfinite(along.x) ||
         !std::isfinite(along.y) || glm::length(along) < 1.0F) {
         return std::nullopt;

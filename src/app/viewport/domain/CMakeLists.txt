@@ -5,6 +5,7 @@ target_sources(toki_core PRIVATE
         ReferenceGrid.cpp
         RenderOverride.cpp
         ScreenPick.cpp
+        SelectionShape.cpp
         TransformSession.cpp
         TrianglePick.cpp
         ViewportFrame.cpp

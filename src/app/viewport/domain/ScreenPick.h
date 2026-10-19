@@ -34,6 +34,13 @@ namespace toki::viewport {
 findScreenLine(const glm::mat4& viewProjection, glm::vec2 size, const glm::vec3& point,
                const glm::vec3& direction);
 
+/// The segment from `start` to `end` as it falls on an image of `size` that
+/// `viewProjection` draws, cut where it passes behind the camera; nothing
+/// when all of it is behind.
+[[nodiscard]] std::optional<std::array<glm::vec2, 2>>
+findScreenSegment(const glm::mat4& viewProjection, glm::vec2 size, const glm::vec3& start,
+                  const glm::vec3& end);
+
 /// The indices of the points of `points` in front of the camera that fall in
 /// the rectangle between `corner` and `otherCorner` on the image, in order.
 [[nodiscard]] std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, glm::vec2 size,

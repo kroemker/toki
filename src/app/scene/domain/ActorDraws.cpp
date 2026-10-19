@@ -354,6 +354,8 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
             draws.undrawn.push_back(index);
             continue;
         }
+        const usize opaqueStart = draws.opaque.size();
+        const usize translucentStart = draws.translucent.size();
         if (drawing->kind != actor::DrawKind::Children) {
             writeActor(draws, actor, *drawing, firstImage, setup);
         }
@@ -362,6 +364,12 @@ ActorDraws makeActorDraws(const SceneActors& actors, const std::span<const Place
             if (const std::optional<ActorDrawing> childDrawing = makeDrawn(actors, placedChild)) {
                 writeActor(draws, placedChild, *childDrawing, firstImage, setup);
             }
+        }
+        for (usize i = opaqueStart; i < draws.opaque.size(); ++i) {
+            draws.opaque[i].owner = actor.owner;
+        }
+        for (usize i = translucentStart; i < draws.translucent.size(); ++i) {
+            draws.translucent[i].owner = actor.owner;
         }
     }
     return draws;

@@ -125,10 +125,12 @@ scene; it only shows the rows it was offered. Choosing an actor
 turns the camera to it. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
-A room is selected by its row or by clicking what it draws in the viewport: the click finds
-the nearest triangle the frame drew under the mouse (`findPickedTriangle`) and the image whose
-memory holds the command that drew it (`findImageAt`), so it is the room the game drew, not
-a bounding box. A selected room is shown read-only: its shape, parts, actors and objects.
+A room or an actor is selected by its row or by clicking anything it draws in the viewport.
+Every draw of the scene's content is owned by the node it is part of, a room's mesh by its
+room and an actor's models, its children's and its marker by its placement, as a number
+(`makeNodeKey`), and the click picks the owner of the nearest triangle the frame drew under
+the mouse, so it is what the game drew, not a bounding box. A selected room is shown
+read-only: its shape, parts, actors and objects.
 
 The Properties panel, below it, shows the placement selected in the panel or picked in the
 viewport, in three sections:

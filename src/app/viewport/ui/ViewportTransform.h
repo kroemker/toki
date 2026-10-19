@@ -59,6 +59,11 @@ public:
 
     void setTarget(std::optional<TransformTarget> target, Handler handler);
 
+    /// Whether the target's points are ringed.
+    void setRingShown(const bool isShown) {
+        isRingShown = isShown;
+    }
+
     void setGroundSource(FindGround findGround) {
         findGroundTriangles = std::move(findGround);
     }
@@ -116,6 +121,7 @@ private:
     Snapping snapping;
     std::optional<TransformSession> session;
     bool isModalRunning = false;
+    bool isRingShown = true;
     bool isGizmoHeld = false;
     glm::mat4 gizmoMatrix{1.0F};
     ImVec2 modalStart{};

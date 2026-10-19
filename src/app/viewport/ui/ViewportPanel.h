@@ -5,6 +5,7 @@
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/SelectionShape.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -53,6 +54,9 @@ struct DrawnFrame {
     n64::RspResult rspResult;
     n64::RdpResult rdpResult;
     u64 generation = 0;
+    /// What each of the content's draws made, and what owns it.
+    std::vector<std::optional<OutputRange>> drawOutputs;
+    std::vector<std::optional<usize>> drawOwners;
 };
 
 class ViewportPanel : public core::Panel {
@@ -157,11 +161,11 @@ public:
     }
 
     /// What a click or a box in the viewport hit: the indices of the points
-    /// it picked, and, for a click that picked none, the image of the
-    /// content that drew what is under it, if anything is.
+    /// it picked, and, for a click that picked none, the owner of the draw
+    /// that drew what is under it, if anything is and one owns it.
     struct ViewportPick {
         std::span<const usize> points;
-        std::optional<usize> image;
+        std::optional<usize> owner;
     };
 
     /// The points a click or a box in the viewport picks, and what picking
@@ -171,6 +175,16 @@ public:
     void setPickables(std::vector<glm::vec3> points, PickHandler pick) {
         pickables = std::move(points);
         pickHandler = std::move(pick);
+    }
+
+    /// The owners of the draws selected, shown as the overlays say: what
+    /// their draws drew tinted and outlined, and boxed.
+    void setSelectedOwners(std::vector<usize> owners) {
+        if (owners != selectedOwners) {
+            selectedOwners = std::move(owners);
+            isOverlayStale = true;
+            selectionBoxes.reset();
+        }
     }
 
     /// What is selected, ringed over the image, and what is done with it once
@@ -195,6 +209,8 @@ private:
     [[nodiscard]] TransformView makeTransformView(ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool isTransforming() const;
     [[nodiscard]] std::vector<glm::vec3> listGroundTriangles() const;
+    [[nodiscard]] gfx::Overlay makeSelectionHighlight(const DrawnFrame& drawing, f32 scale) const;
+    void drawSelectionBoxes(ImDrawList& drawList, const TransformView& view);
     void pick(ImVec2 origin, ImVec2 size) const;
     void pickInBox(ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] PickMode findPickMode() const;
@@ -236,6 +252,9 @@ private:
     /// drew back to the world.
     glm::mat4 frameViewProjection{1.0F};
     ViewportTransform viewportTransform;
+    std::vector<usize> selectedOwners;
+    /// The boxes around what is selected, found once per frame drawn.
+    std::optional<std::vector<std::optional<WorldBox>>> selectionBoxes;
     /// Whether the press the mouse is in ended a transform, so its release
     /// picks nothing.
     bool isPressSwallowed = false;

@@ -80,8 +80,7 @@ constexpr u32 FirstImageAddress = 0x0010'0000;
 
 std::shared_ptr<const z64::MemoryImage> makeFiller(const usize size) {
     z64::MemoryImage image;
-    image.segments.push_back(
-        z64::ImageSegment{.number = 0x07, .bytes = std::vector<u8>(size, 0)});
+    image.segments.push_back(z64::ImageSegment{.number = 0x07, .bytes = std::vector<u8>(size, 0)});
     return std::make_shared<const z64::MemoryImage>(std::move(image));
 }
 
@@ -203,6 +202,13 @@ TEST_CASE("each draw sees its own image in the segments they share", "[viewport]
     const std::vector<n64::Triangle> triangles = findTriangles(frame.rspResult);
     REQUIRE(triangles.size() == 2);
     REQUIRE(triangles[0].vertices[0].position != triangles[1].vertices[0].position);
+    REQUIRE(frame.drawOutputs.size() == 2);
+    for (const std::optional<toki::viewport::OutputRange>& range : frame.drawOutputs) {
+        REQUIRE(range.has_value());
+        REQUIRE(range->end - range->first == 1);
+        REQUIRE(std::holds_alternative<n64::Triangle>(frame.rspResult.outputs[range->first]));
+    }
+    REQUIRE(frame.drawOutputs[0]->first < frame.drawOutputs[1]->first);
 }
 
 TEST_CASE("orbiting keeps the distance and stops short of the poles", "[viewport]") {

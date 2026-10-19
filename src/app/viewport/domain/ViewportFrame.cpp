@@ -30,6 +30,7 @@
 #include <memory>
 #include <optional>
 #include <ratio>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,6 +49,9 @@ constexpr f32 DepthHalfRange = 511.0F;
 struct FrameList {
     std::vector<u8> bytes;
     u32 start = 0;
+    /// Where the frame list calls each draw's display list, in the frame's
+    /// segment; nothing for a draw left out.
+    std::vector<std::optional<u32>> drawCalls;
 };
 
 using MappedImages = std::vector<std::optional<z64::MappedImage>>;
@@ -151,8 +155,11 @@ struct DrawData {
     return lookAts;
 }
 
-void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
-                const MappedImages& mapped, const DrawData& data) {
+[[nodiscard]] std::vector<std::optional<u32>> writeDraws(n64::DisplayListWriter& writer,
+                                                         const ViewportContent& content,
+                                                         const MappedImages& mapped,
+                                                         const DrawData& data) {
+    std::vector<std::optional<u32>> calls(content.draws.size());
     std::optional<usize> current = 0;
     for (usize i = 0; i < content.draws.size(); ++i) {
         const ViewportDraw& draw = content.draws[i];
@@ -178,7 +185,7 @@ void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
         if (data.lookAts[i]) {
             writer.setLookAt(*data.lookAts[i]);
         }
-        writer.callDisplayList(draw.displayList);
+        calls[i] = writer.callDisplayList(draw.displayList);
         if (data.matrices[i]) {
             writer.loadMatrix(data.identity, n64::MatrixLoad::ModelView);
         }
@@ -186,6 +193,32 @@ void writeDraws(n64::DisplayListWriter& writer, const ViewportContent& content,
             writer.setLookAt(data.lookAt);
         }
     }
+    return calls;
+}
+
+/// What each draw made, from where the RSP marked the frame list's call of
+/// it and the command after.
+[[nodiscard]] std::vector<std::optional<OutputRange>>
+findDrawOutputs(const n64::RspResult& result, const FrameList& frameList, const u32 physical) {
+    std::unordered_map<u32, usize> marks;
+    for (usize i = 0; i < result.listMarks.size(); ++i) {
+        marks.emplace(result.listMarks[i].address, i);
+    }
+    std::vector<std::optional<OutputRange>> ranges;
+    ranges.reserve(frameList.drawCalls.size());
+    for (const std::optional<u32>& call : frameList.drawCalls) {
+        const auto found = call ? marks.find(physical + (*call & 0x00FF'FFFF)) : marks.end();
+        if (found == marks.end()) {
+            ranges.emplace_back();
+            continue;
+        }
+        const usize next = found->second + 1;
+        ranges.push_back(OutputRange{.first = result.listMarks[found->second].firstOutput,
+                                     .end = next < result.listMarks.size()
+                                                ? result.listMarks[next].firstOutput
+                                                : result.outputs.size()});
+    }
+    return ranges;
 }
 
 FrameList writeFrameList(const ViewportContent& content, const MappedImages& mapped,
@@ -221,9 +254,9 @@ FrameList writeFrameList(const ViewportContent& content, const MappedImages& map
             setSegments(writer, *content.images[image], *mapped[image]);
         }
     }
-    writeDraws(writer, content, mapped, data);
+    std::vector<std::optional<u32>> calls = writeDraws(writer, content, mapped, data);
     writer.endDisplayList();
-    return FrameList{.bytes = writer.getBytes(), .start = start};
+    return FrameList{.bytes = writer.getBytes(), .start = start, .drawCalls = std::move(calls)};
 }
 
 [[nodiscard]] std::optional<base::Diagnostic> checkContent(const ViewportContent& content) {
@@ -408,6 +441,7 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
                                                         .recordsTrace = recordsTrace,
                                                         .overrides = overrides});
     const Clock::time_point ranAt = Clock::now();
+    frame.drawOutputs = findDrawOutputs(frame.rspResult, frameList, physical);
     frame.rdpResult = n64::runRdp(frame.rspResult, memory);
     frame.timings = FrameTimings{.place = makeMilliseconds(placedAt - started),
                                  .rsp = makeMilliseconds(ranAt - placedAt),

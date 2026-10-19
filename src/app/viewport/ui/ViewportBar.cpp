@@ -201,6 +201,14 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
                                core::Action::ToggleXray)
             .c_str(),
         changed.overlays.xray);
+    isChanged |= drawSwitchRow("Selection Highlight",
+                               "What is selected, tinted and outlined where the frame drew it.",
+                               changed.overlays.selectionHighlight);
+    isChanged |=
+        drawSwitchRow("Selection Box", "A box around what the frame drew of each thing selected.",
+                      changed.overlays.selectionBox);
+    isChanged |= drawSwitchRow("Selection Ring", "A ring at the origin of each thing selected.",
+                               changed.overlays.selectionRing);
     if (isChanged) {
         edit.view = changed;
     }

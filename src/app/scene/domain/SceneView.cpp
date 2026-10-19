@@ -9,6 +9,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "hackeroot/GameCode.h"
@@ -58,19 +59,30 @@ struct Placed {
         if (!isShown(view, room)) {
             continue;
         }
-        for (const ActorPlacement& actor : layer.rooms[room].actors) {
-            placed.actors.push_back(makePlaced(actor, age));
+        const std::vector<ActorPlacement>& actors = layer.rooms[room].actors;
+        for (usize i = 0; i < actors.size(); ++i) {
+            PlacedActor& made = placed.actors.emplace_back(makePlaced(actors[i], age));
+            made.owner = makeNodeKey(PlacementRef{
+                .kind = PlacementKind::Actor, .layer = view.layer, .room = room, .index = i});
         }
     }
-    for (const TransitionActorPlacement& actor : layer.header.transitionActors) {
-        placed.transitionActors.push_back(PlacedActor{.id = actor.id,
-                                                      .position = actor.position,
-                                                      .rotation = {0, actor.rotationY, 0},
-                                                      .params = static_cast<u16>(actor.params),
-                                                      .age = age});
+    const std::vector<TransitionActorPlacement>& transitions = layer.header.transitionActors;
+    for (usize i = 0; i < transitions.size(); ++i) {
+        const TransitionActorPlacement& actor = transitions[i];
+        placed.transitionActors.push_back(PlacedActor{
+            .id = actor.id,
+            .position = actor.position,
+            .rotation = {0, actor.rotationY, 0},
+            .params = static_cast<u16>(actor.params),
+            .age = age,
+            .owner = makeNodeKey(PlacementRef{
+                .kind = PlacementKind::TransitionActor, .layer = view.layer, .index = i})});
     }
-    for (const ActorPlacement& entry : layer.header.playerEntries) {
-        placed.entrances.push_back(makePlaced(entry, age));
+    const std::vector<ActorPlacement>& entries = layer.header.playerEntries;
+    for (usize i = 0; i < entries.size(); ++i) {
+        PlacedActor& made = placed.entrances.emplace_back(makePlaced(entries[i], age));
+        made.owner = makeNodeKey(
+            PlacementRef{.kind = PlacementKind::PlayerEntry, .layer = view.layer, .index = i});
     }
     return placed;
 }
@@ -112,13 +124,16 @@ struct Placed {
 [[nodiscard]] std::vector<Marker> makeMarkers(const Placed& placed) {
     std::vector<Marker> markers;
     for (const PlacedActor& actor : placed.actors) {
-        markers.push_back(Marker{.position = actor.position, .kind = MarkerKind::Actor});
+        markers.push_back(
+            Marker{.position = actor.position, .kind = MarkerKind::Actor, .owner = actor.owner});
     }
     for (const PlacedActor& entry : placed.entrances) {
-        markers.push_back(Marker{.position = entry.position, .kind = MarkerKind::PlayerEntry});
+        markers.push_back(Marker{
+            .position = entry.position, .kind = MarkerKind::PlayerEntry, .owner = entry.owner});
     }
     for (const PlacedActor& actor : placed.transitionActors) {
-        markers.push_back(Marker{.position = actor.position, .kind = MarkerKind::TransitionActor});
+        markers.push_back(Marker{
+            .position = actor.position, .kind = MarkerKind::TransitionActor, .owner = actor.owner});
     }
     return markers;
 }
@@ -129,8 +144,11 @@ void addMarkers(viewport::ViewportContent& content, const std::span<const Marker
         return;
     }
     ActorMarkers made = makeActorMarkers(markers, shape);
-    content.draws.push_back(
-        viewport::ViewportDraw{.image = content.images.size(), .displayList = made.displayList});
+    for (usize i = 0; i < made.displayLists.size(); ++i) {
+        content.draws.push_back(viewport::ViewportDraw{.image = content.images.size(),
+                                                       .displayList = made.displayLists[i],
+                                                       .owner = markers[i].owner});
+    }
     content.images.push_back(std::make_shared<const z64::MemoryImage>(std::move(made.image)));
 }
 
@@ -208,8 +226,10 @@ struct PassSource {
         for (const RoomDisplayLists& lists : rooms[room].displayLists) {
             const u32 displayList = opaque ? lists.opaque : lists.translucent;
             if (displayList != 0) {
-                draws.push_back(viewport::ViewportDraw{.image = FirstRoomImage + room,
-                                                       .displayList = displayList});
+                draws.push_back(viewport::ViewportDraw{
+                    .image = FirstRoomImage + room,
+                    .displayList = displayList,
+                    .owner = makeNodeKey(RoomRef{.layer = source.view.layer, .room = room})});
             }
         }
     }

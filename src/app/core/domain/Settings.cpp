@@ -253,6 +253,10 @@ void readViewport(const toml::table& root, Settings& settings) {
     overlays.flagLinks = (*viewport)["flag_links"].value_or(overlays.flagLinks);
     overlays.grid = (*viewport)["grid"].value_or(overlays.grid);
     overlays.xray = (*viewport)["xray"].value_or(overlays.xray);
+    overlays.selectionHighlight =
+        (*viewport)["selection_highlight"].value_or(overlays.selectionHighlight);
+    overlays.selectionBox = (*viewport)["selection_box"].value_or(overlays.selectionBox);
+    overlays.selectionRing = (*viewport)["selection_ring"].value_or(overlays.selectionRing);
 }
 
 void writeViewport(toml::table& root, const Settings& settings) {
@@ -271,6 +275,9 @@ void writeViewport(toml::table& root, const Settings& settings) {
     viewport.insert_or_assign("flag_links", overlays.flagLinks);
     viewport.insert_or_assign("grid", overlays.grid);
     viewport.insert_or_assign("xray", overlays.xray);
+    viewport.insert_or_assign("selection_highlight", overlays.selectionHighlight);
+    viewport.insert_or_assign("selection_box", overlays.selectionBox);
+    viewport.insert_or_assign("selection_ring", overlays.selectionRing);
     root.insert_or_assign("viewport", std::move(viewport));
 }
 

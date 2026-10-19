@@ -529,3 +529,27 @@ TEST_CASE("a traced task records every command run, how deep, and what it made",
     REQUIRE(result.trace[8].firstOutput != result.trace[3].firstOutput);
     REQUIRE(n64::runTask(memory, {.displayList = start, .segments = task.segments}).trace.empty());
 }
+
+TEST_CASE("an untraced task still marks where each command of its own list began its outputs",
+          "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 called = builder.drawTriangle(0, 1, 2);
+    builder.endDisplayList();
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.callDisplayList(called);
+    builder.callDisplayList(called);
+    builder.endDisplayList();
+
+    n64::Memory memory;
+    REQUIRE(memory.map(SegmentBase, builder.getBytes()));
+    n64::RspTask task{.displayList = start};
+    task.segments[DisplayListBuilder::Segment] = SegmentBase;
+    const n64::RspResult result = n64::runTask(memory, task);
+
+    REQUIRE(result.listMarks.size() == 4);
+    REQUIRE(result.listMarks[1].address == SegmentBase + ((start + 8) & 0x00FF'FFFF));
+    REQUIRE(result.listMarks[1].firstOutput == 0);
+    REQUIRE(result.listMarks[2].firstOutput == 1);
+    REQUIRE(result.listMarks[3].firstOutput == 2);
+}

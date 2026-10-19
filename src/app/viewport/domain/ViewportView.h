@@ -16,6 +16,11 @@ struct ViewportOverlays {
     bool grid = false;
     /// Whether what the frame hides of an overlay is drawn, faintly.
     bool xray = false;
+    /// How what is selected is shown: what it drew tinted and outlined, a box
+    /// around it, and a ring at its origin.
+    bool selectionHighlight = true;
+    bool selectionBox = true;
+    bool selectionRing = true;
 
     friend bool operator==(const ViewportOverlays&, const ViewportOverlays&) = default;
 };

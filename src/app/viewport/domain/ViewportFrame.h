@@ -70,6 +70,17 @@ struct ViewportDraw {
     /// and `func_8002ED80` set one toward an actor for `G_TEXTURE_GEN`;
     /// nothing to draw with the frame's.
     std::optional<glm::vec3> lookAtTarget;
+    /// What the draw is part of, numbered as the content's owner numbers what
+    /// it shows, as a scene numbers its rooms and placements; what the frame
+    /// drew of it can be picked and outlined by it.
+    std::optional<usize> owner;
+};
+
+/// The outputs of `n64::RspResult::outputs` one draw made, from `first` to
+/// before `end`.
+struct OutputRange {
+    usize first = 0;
+    usize end = 0;
 };
 
 /// What kind of thing an image of a viewport's content holds.
@@ -134,6 +145,9 @@ struct Frame {
     n64::RdpResult rdpResult;
     std::vector<base::Diagnostic> diagnostics;
     std::vector<std::optional<z64::MappedImage>> mappedImages;
+    /// What each of the content's draws made, by its index; nothing for a draw
+    /// left out.
+    std::vector<std::optional<OutputRange>> drawOutputs;
     u32 frameListAddress = 0;
     usize frameListSize = 0;
     FrameTimings timings;

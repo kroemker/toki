@@ -25,6 +25,9 @@ struct PlacedActor {
     std::array<s16, 3> rotation{};
     u16 params = 0;
     std::optional<actor::Age> age;
+    /// What the actor's draws are owned by in the viewport, the children it
+    /// spawns' too (`viewport::ViewportDraw::owner`).
+    std::optional<usize> owner;
 };
 
 /// What drawing placed actors as their models adds to a scene's content: the

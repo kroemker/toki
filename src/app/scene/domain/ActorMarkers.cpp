@@ -293,21 +293,19 @@ ActorMarkers makeActorMarkers(const std::span<const Marker> markers,
                              n64::geometry::TextureGen | n64::geometry::CullFront |
                              n64::geometry::CullBack;
     constexpr u32 Wanted = n64::geometry::ZBuffer | n64::geometry::Shade | n64::geometry::CullBack;
-    const u32 start = writer.syncPipe();
-    writer.setCombine(ShadeCombine0, ShadeCombine1);
-    writer.setOtherMode(0, OpaqueDepthRenderMode);
-    writer.setGeometryMode(Unwanted, Wanted);
+    ActorMarkers made;
     for (usize i = 0; i < markers.size(); ++i) {
+        made.displayLists.push_back(writer.syncPipe());
+        writer.setCombine(ShadeCombine0, ShadeCombine1);
+        writer.setOtherMode(0, OpaqueDepthRenderMode);
+        writer.setGeometryMode(Unwanted, Wanted);
         writer.loadMatrix(matrices[i], n64::MatrixLoad::ModelView);
         drawMarker(writer, data, markers[i].kind);
+        writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
+        writer.endDisplayList();
     }
-    writer.loadMatrix(identity, n64::MatrixLoad::ModelView);
-    writer.endDisplayList();
-
-    ActorMarkers made;
     made.image.segments.push_back(
         z64::ImageSegment{.number = MarkerSegment, .bytes = writer.getBytes()});
-    made.displayList = start;
     return made;
 }
 

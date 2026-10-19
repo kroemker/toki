@@ -4,6 +4,7 @@
 
 #include <array>
 
+using base::usize;
 using toki::scene::PickMode;
 using toki::scene::PlacementRef;
 using toki::scene::RoomRef;
@@ -39,6 +40,16 @@ TEST_CASE("a pick replaces the selection, or adds to, takes from or toggles it",
 
     selection.pick({}, PickMode::Replace);
     REQUIRE(selection.isEmpty());
+}
+
+TEST_CASE("a node is the same node again from its key", "[scene][selection]") {
+    for (const SceneNode& node :
+         {SceneNode{PlacementRef{
+              .kind = toki::scene::PlacementKind::TransitionActor, .layer = 2, .index = 7}},
+          SceneNode{PlacementRef{.layer = 1, .room = 3, .index = 40}}, Room}) {
+        REQUIRE(toki::scene::findNode(toki::scene::makeNodeKey(node)) == node);
+    }
+    REQUIRE_FALSE(toki::scene::findNode(usize{9} << 56U));
 }
 
 TEST_CASE("the placements of a selection leave its rooms out", "[scene][selection]") {

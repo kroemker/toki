@@ -29,8 +29,17 @@ TEST_CASE("the triangle picked is the nearest under the point", "[viewport][pick
     result.outputs.emplace_back(makeTriangle(-0.2F, 0x200, 2.0F));
     result.outputs.emplace_back(makeTriangle(-0.9F, 0x300, -1.0F));
 
-    REQUIRE(toki::viewport::findPickedTriangle(result, {0.0F, 0.0F}) == u32{0x200});
+    REQUIRE(toki::viewport::findPickedTriangle(result, {0.0F, 0.0F}) == usize{1});
     REQUIRE_FALSE(toki::viewport::findPickedTriangle(result, {0.9F, 0.9F}));
+}
+
+TEST_CASE("an output is in the range of the draw that made it", "[viewport][pick]") {
+    const std::array<std::optional<toki::viewport::OutputRange>, 3> ranges{
+        toki::viewport::OutputRange{.first = 0, .end = 4}, std::nullopt,
+        toki::viewport::OutputRange{.first = 4, .end = 9}};
+    REQUIRE(toki::viewport::findRangeOf(ranges, 3) == usize{0});
+    REQUIRE(toki::viewport::findRangeOf(ranges, 4) == usize{2});
+    REQUIRE_FALSE(toki::viewport::findRangeOf(ranges, 9));
 }
 
 TEST_CASE("an address is in the image mapped around it", "[viewport][pick]") {

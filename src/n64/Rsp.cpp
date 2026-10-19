@@ -61,6 +61,10 @@ bool RspInterpreter::step() {
     const u32 word0 = readU32(*bytes, 0);
     const u32 word1 = readU32(*bytes, 4);
     pc = (pc + 8) & PhysicalMask;
+    if (returnStack.empty()) {
+        result.listMarks.push_back(
+            ListMark{.address = commandAddress, .firstOutput = result.outputs.size()});
+    }
     if (recordsTrace) {
         result.trace.push_back(TraceEntry{.address = commandAddress,
                                           .word0 = word0,
