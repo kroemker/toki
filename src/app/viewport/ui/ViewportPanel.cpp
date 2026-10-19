@@ -253,7 +253,7 @@ void ViewportPanel::draw() {
     imageOrigin = origin;
     drawList->PushClipRect(origin, end, true);
     drawViewChanges(*drawList, origin, size);
-    viewportTransform.drawOverlay(*drawList, transformView);
+    viewportTransform.drawOverlay(*drawList, transformView, viewportTools.tool);
     if (viewportTools.mode == SelectionMode::Node) {
         viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
     }

@@ -2,6 +2,7 @@
 
 #include "app/viewport/domain/OrbitCamera.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float2.hpp>
@@ -58,4 +59,33 @@ TEST_CASE("a box picks the points that fall in it, whichever corner it was dragg
                                              points) == std::vector<usize>{0, 1});
     REQUIRE(toki::viewport::findPointsInRect(identity, size, {0.0F, 0.0F}, {10.0F, 10.0F}, points)
                 .empty());
+}
+
+TEST_CASE("an axis line runs from edge to edge of the image, cut where it passes the camera",
+          "[viewport][pick]") {
+    const glm::vec2 size{200.0F, 100.0F};
+    const auto across = toki::viewport::findScreenLine(glm::mat4(1.0F), size, {0.0F, 0.0F, 0.0F},
+                                                       {1.0F, 0.0F, 0.0F});
+    REQUIRE(across.has_value());
+    REQUIRE((*across)[0].x == Catch::Approx(0.0F).margin(1e-2));
+    REQUIRE((*across)[1].x == Catch::Approx(200.0F).margin(1e-2));
+    REQUIRE((*across)[0].y == Catch::Approx(50.0F));
+
+    toki::viewport::OrbitCamera camera;
+    const glm::mat4 viewProjection =
+        toki::viewport::OrbitCamera::makeProjectionMatrix(2.0F) * camera.makeViewMatrix();
+    const glm::vec3 beside = camera.getTarget() + glm::vec3(0.0F, 30.0F, 0.0F);
+    const auto toward = toki::viewport::findScreenLine(viewProjection, size, beside,
+                                                       camera.getEye() - camera.getTarget());
+    REQUIRE(toward.has_value());
+    if (toward) {
+        for (const glm::vec2& end : *toward) {
+            REQUIRE(end.x >= -1e-2F);
+            REQUIRE(end.x <= 200.01F);
+            REQUIRE(end.y >= -1e-2F);
+            REQUIRE(end.y <= 100.01F);
+        }
+    }
+    REQUIRE_FALSE(toki::viewport::findScreenLine(glm::mat4(1.0F), size, {0.0F, 3.0F, 0.0F},
+                                                 {1.0F, 0.0F, 0.0F}));
 }

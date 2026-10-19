@@ -6,6 +6,7 @@
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+#include <array>
 #include <optional>
 #include <span>
 #include <vector>
@@ -24,6 +25,14 @@ namespace toki::viewport {
 [[nodiscard]] std::optional<usize> findPickedPoint(const glm::mat4& viewProjection, glm::vec2 size,
                                                    glm::vec2 mouse,
                                                    std::span<const glm::vec3> points, f32 radius);
+
+/// The part of the endless line through `point` along `direction` that is on
+/// an image of `size` that `viewProjection` draws, from one edge to the other,
+/// as two points on the image; nothing when none of it is in front of the
+/// camera or on the image.
+[[nodiscard]] std::optional<std::array<glm::vec2, 2>>
+findScreenLine(const glm::mat4& viewProjection, glm::vec2 size, const glm::vec3& point,
+               const glm::vec3& direction);
 
 /// The indices of the points of `points` in front of the camera that fall in
 /// the rectangle between `corner` and `otherCorner` on the image, in order.

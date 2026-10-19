@@ -90,9 +90,10 @@ public:
 
     void drawGizmo(ImDrawList& drawList, const TransformView& view, EditTool tool);
 
-    /// Rings the target's points where the transform running puts them, and
-    /// says what it does over the image.
-    void drawOverlay(ImDrawList& drawList, const TransformView& view) const;
+    /// Rings the target's points where the transform running puts them, draws
+    /// the axes it is held to as lines through the target's middle, as
+    /// Blender does, and says what it does over the image.
+    void drawOverlay(ImDrawList& drawList, const TransformView& view, EditTool tool) const;
 
 private:
     [[nodiscard]] Snapping findSnapping() const;
@@ -104,6 +105,7 @@ private:
     void cancel();
     void applyConstraintKeys();
     void drawAxisOptions(TransformKind kind);
+    void drawAxisLines(ImDrawList& drawList, const TransformView& view, EditTool tool) const;
 
     std::optional<TransformTarget> transformTarget;
     Handler transformHandler;

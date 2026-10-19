@@ -52,7 +52,9 @@ expected.
 
 The options of the Move and Rotate tools are in the bar, as buttons: the axes held, X, Y and
 Z, and snapping. X holds to X alone or frees it again, Shift+X holds to the other two, and
-the buttons light as the keys press them; the gizmo shows only the axes held. The grid
+the buttons light as the keys press them; the gizmo shows only the axes held, and each axis
+held is drawn as an endless line through the middle of what is selected, red, green and
+blue, as in Blender, cut where it passes the camera (`findScreenLine`). The grid
 snaps a drag, not what is typed, to 10 units or 15°. A click on a button switches it; while
 transforming, holding Ctrl switches the grid and Alt the ground for as long as it is held,
 as in Blender, and the button shows what holds now. The bar's buttons work while G or R

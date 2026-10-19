@@ -24,6 +24,10 @@ namespace toki::viewport {
 namespace {
 
 constexpr std::array<const char*, 3> AxisLabels{"X", "Y", "Z"};
+constexpr std::array<ImVec4, 3> AxisColors{ImVec4{0.93F, 0.33F, 0.36F, 0.9F},
+                                           ImVec4{0.47F, 0.80F, 0.33F, 0.9F},
+                                           ImVec4{0.33F, 0.55F, 0.95F, 0.9F}};
+constexpr f32 AxisLineWidth = 1.5F;
 constexpr f32 RingRadius = 12.0F;
 constexpr f32 RingWidth = 2.0F;
 constexpr f32 NoteMargin = 8.0F;
@@ -289,10 +293,38 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
     }
 }
 
-void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& view) const {
-    if (!transformTarget) {
+void ViewportTransform::drawAxisLines(ImDrawList& drawList, const TransformView& view,
+                                      const EditTool tool) const {
+    const bool isRotating =
+        session ? session->getKind() == TransformKind::Rotate : tool == EditTool::Rotate;
+    const AxisConstraint& constraint = findConstraint();
+    if ((!session && !isTransformTool(tool)) || (constraint.isFree() && !isRotating)) {
         return;
     }
+    const glm::mat4 viewProjection = view.projection * view.view;
+    for (usize axis = 0; axis < AxisLabels.size(); ++axis) {
+        const bool isShown =
+            isRotating ? constraint.findRotationAxis() == axis : constraint.axes[axis];
+        if (!isShown) {
+            continue;
+        }
+        glm::vec3 direction(0.0F);
+        direction[static_cast<glm::length_t>(axis)] = 1.0F;
+        if (const std::optional<std::array<glm::vec2, 2>> line = findScreenLine(
+                viewProjection, {view.size.x, view.size.y}, transformTarget->pivot, direction)) {
+            drawList.AddLine(ImVec2(view.origin.x + (*line)[0].x, view.origin.y + (*line)[0].y),
+                             ImVec2(view.origin.x + (*line)[1].x, view.origin.y + (*line)[1].y),
+                             ImGui::GetColorU32(AxisColors[axis]), AxisLineWidth);
+        }
+    }
+}
+
+void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& view,
+                                    const EditTool tool) const {
+    if (!transformTarget || transformTarget->points.empty()) {
+        return;
+    }
+    drawAxisLines(drawList, view, tool);
     const glm::mat4 viewProjection = view.projection * view.view;
     const std::vector<glm::vec3> points = makePoints();
     for (usize i = 0; i < points.size(); ++i) {
