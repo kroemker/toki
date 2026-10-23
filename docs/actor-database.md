@@ -88,14 +88,14 @@ rotates = { x = true, y = true, z = false }
 match = { "Type" = [5, 7] }
 scale = 0.005
 parts = [
-    { display_list = "gTreasureChestChestFrontDL", rotation = [0, 180, 0], env = [0, 0, 0, 255] },
-    { display_list = "gTreasureChestChestSideAndLidDL", rotation = [0, 180, 0], env = [0, 0, 0, 255] },
+    { display_list = "gTreasureChestChestFrontDL", env = [0, 0, 0, 255] },
+    { display_list = "gTreasureChestChestSideAndLidDL", translation = [0, 2733, 1982], rotation = [180, 90, 0], env = [0, 0, 0, 255] },
 ]
 
 [[actors.ACTOR_EN_BOX.variants]]
 parts = [
-    { display_list = "gTreasureChestChestFrontDL", rotation = [0, 180, 0], env = [0, 0, 0, 255] },
-    { display_list = "gTreasureChestChestSideAndLidDL", rotation = [0, 180, 0], env = [0, 0, 0, 255] },
+    { display_list = "gTreasureChestChestFrontDL", env = [0, 0, 0, 255] },
+    { display_list = "gTreasureChestChestSideAndLidDL", translation = [0, 2733, 1982], rotation = [180, 90, 0], env = [0, 0, 0, 255] },
 ]
 
 [actors.ACTOR_EN_MD]
