@@ -79,6 +79,7 @@ public:
         heldScene.reset();
         placementEditor.reset();
         sceneView = {};
+        previewPaths.reset();
         pendingSession.reset();
         viewportPanel.setOverlay({});
         viewportPanel.clearChoices();
@@ -161,17 +162,30 @@ private:
     /// one to move.
     void offerPlacements(const SceneLayer& layer);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
-    void drawFlagLinks(const std::vector<SceneFlagUse>& flags);
+    /// Hands the viewport its overlay: the links between actors sharing a
+    /// flag, and the layer's paths.
+    void drawOverlay(const std::vector<SceneFlagUse>& flags, const SceneLayer& layer);
+    void addFlagLinks(viewport::ViewportOverlay& overlay, const std::vector<SceneFlagUse>& flags);
+    void addPathLines(viewport::ViewportOverlay& overlay, const std::vector<ScenePath>& paths);
     void drawFlagUser(const FlagUser& user);
     /// The name cell of one placement's row of the outliner.
     void drawActor(const PlacementRow& row);
     /// Selects `node` as a click in the tree does: Ctrl toggles it and Shift
     /// adds it. True when it alone is selected now.
     [[nodiscard]] bool pickInTree(const SceneNode& node);
-    void showPreview(const std::vector<PlacementRef>& placements,
+    /// Selects a light setting, path or point clicked in the tree, and
+    /// lights the scene with the setting or turns the camera to the path.
+    void pickListNode(const SceneNode& node);
+    void drawNodeMenu(const SceneNode& node);
+    void drawGroupMenu(OutlinerGroup group);
+    void showPreview(const std::vector<SceneNode>& nodes,
                      const std::optional<viewport::TransformEdit>& edit);
-    /// Shows the scene with `placements` in place of what it holds there.
-    void showPlacements(std::span<const PlacementEditor::Draft> placements);
+    /// Shows the scene with what `preview` holds in place of what the scene
+    /// holds there.
+    void showEdited(const PlacementEditor::Preview& preview);
+    /// Shows `layer` in place of the shown layer of the scene, as `view` says.
+    void showLayer(const SceneLayer& layer, const SceneView& view);
+    [[nodiscard]] std::array<s16, 3> findCameraTarget() const;
     [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
                           const ActorDescription& description) const;
@@ -195,8 +209,12 @@ private:
     /// Whether a preview of a transform ended this frame, so the scene is
     /// shown as it is again.
     bool isPreviewEnding = false;
-    /// The edit of the Properties panel the viewport shows, before it is made.
-    std::optional<PlacementEditor::Draft> shownDraft;
+    /// The edits of the Properties panel the viewport shows, before they are
+    /// made.
+    PlacementEditor::Preview shownPreview;
+    /// The paths of the layer a preview shows, which the overlay draws in
+    /// place of the layer's own until the scene is shown as it is again.
+    std::optional<std::vector<ScenePath>> previewPaths;
     SceneOutliner sceneOutliner;
     /// A scene read while the open one had edits no save wrote, until the
     /// person says whether to throw them away for it.

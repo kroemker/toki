@@ -1,5 +1,7 @@
 #include "app/actor/domain/ActorDatabaseFile.h"
 #include "app/actor/domain/Derivation.h"
+#include "app/scene/domain/HeaderNames.h"
+#include "app/scene/domain/HeaderSettings.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneFlags.h"
@@ -107,10 +109,36 @@ TEST_CASE("a vanilla and a fast64 scene read and draw every room", "[scene][chec
         REQUIRE(main.header.roomCount == main.rooms.size());
         REQUIRE_FALSE(main.header.playerEntries.empty());
         REQUIRE_FALSE(main.header.lightSettings.empty());
+        CHECK(main.header.paths.empty() == (name != "spot04"));
+        for (const toki::scene::ScenePath& path : main.header.paths) {
+            CHECK_FALSE(path.points.empty());
+        }
         for (const toki::scene::RoomHeader& room : main.rooms) {
             CHECK_FALSE(room.displayLists.empty());
         }
         CHECK(main.header.keepObjectId != 0);
+        for (const toki::scene::HeaderSetting setting :
+             {toki::scene::HeaderSetting::Sequence, toki::scene::HeaderSetting::NatureAmbience,
+              toki::scene::HeaderSetting::Skybox, toki::scene::HeaderSetting::LightMode,
+              toki::scene::HeaderSetting::KeepObject, toki::scene::HeaderSetting::NaviHints,
+              toki::scene::HeaderSetting::CameraType}) {
+            const std::optional<base::s64> value =
+                toki::scene::findSetting(main.header.commands, setting);
+            INFO(name << ": setting " << static_cast<int>(setting));
+            REQUIRE(value.has_value());
+            CHECK(std::ranges::contains(scene.headerNames.findValues(setting), *value,
+                                        &toki::scene::NamedValue::value));
+        }
+        for (const toki::scene::HeaderSetting setting :
+             {toki::scene::HeaderSetting::RoomType, toki::scene::HeaderSetting::Environment,
+              toki::scene::HeaderSetting::LensMode}) {
+            const std::optional<base::s64> value =
+                toki::scene::findSetting(main.rooms.front().commands, setting);
+            INFO(name << ": setting " << static_cast<int>(setting));
+            REQUIRE(value.has_value());
+            CHECK(std::ranges::contains(scene.headerNames.findValues(setting), *value,
+                                        &toki::scene::NamedValue::value));
+        }
         CHECK(std::ranges::any_of(
             main.rooms, [](const toki::scene::RoomHeader& room) { return !room.objects.empty(); }));
 

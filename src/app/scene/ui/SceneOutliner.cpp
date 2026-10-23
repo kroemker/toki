@@ -32,6 +32,7 @@ constexpr ImGuiTreeNodeFlags LeafFlags = ImGuiTreeNodeFlags_SpanAllColumns |
 constexpr ImVec4 RoomColor{0.498F, 0.706F, 1.0F, 1.0F};
 constexpr ImVec4 DoorColor{0.788F, 0.612F, 1.0F, 1.0F};
 constexpr ImVec4 EntranceColor{1.0F, 0.549F, 0.420F, 1.0F};
+constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 1.0F};
 
 [[nodiscard]] bool containsIgnoringCase(const std::string_view text, const std::string_view part) {
     const auto lower = [](const char c) {
@@ -100,8 +101,17 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
     ImGui::TableSetupColumn("info", ImGuiTableColumnFlags_WidthFixed, font * InfoWidth);
     ImGui::TableSetupColumn("shown", ImGuiTableColumnFlags_WidthFixed, font * VisibilityWidth);
     const SceneLayer& layer = scene.layers[view.layer];
-    if (drawNode("##scene", GroupFlags | ImGuiTreeNodeFlags_DefaultOpen, core::icons::MapTrifold,
-                 RoomColor, scene.name)) {
+    ImGuiTreeNodeFlags sceneFlags = GroupFlags | ImGuiTreeNodeFlags_DefaultOpen;
+    if (hooks.isSelected && hooks.isSelected(SceneRef{.layer = view.layer})) {
+        sceneFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+    const bool isSceneOpen = beginNode("##scene", sceneFlags);
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickScene) {
+        hooks.pickScene();
+    }
+    ImGui::SetItemTooltip("The scene's settings: its sound, skybox, keep object and camera.");
+    drawLabel(core::icons::MapTrifold, RoomColor, scene.name);
+    if (isSceneOpen) {
         drawInfo(std::format("{} rooms", layer.rooms.size()));
         drawRoomsShown(view);
         for (usize room = 0; room < layer.rooms.size(); ++room) {
@@ -110,10 +120,9 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawTransitionActors(scene, layer, view);
         drawEntrances(scene, layer, view);
         drawLightSettings(layer, view);
+        drawPaths(layer, view);
         drawUnread(core::icons::Polygon, "Collision",
                    "Toki does not read collision yet. A save writes it back as it was.");
-        drawUnread(core::icons::Path, "Paths",
-                   "Toki does not read paths yet. A save writes them back as they were.");
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
@@ -291,26 +300,24 @@ void SceneOutliner::drawLightSettings(const SceneLayer& layer, SceneView& view) 
         return;
     }
     const std::vector<LightSetting>& settings = layer.header.lightSettings;
-    const bool isOpen = drawNode("##lights", GroupFlags, core::icons::Sun, core::palette::Warning,
-                                 "Light Settings");
+    const bool isOpen = beginNode("##lights", GroupFlags);
+    ImGui::SetItemTooltip("The layer's light settings. Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::LightSettings);
+    drawLabel(core::icons::Sun, core::palette::Warning, "Light Settings");
     drawInfo(std::format("{}", settings.size()));
     if (!isOpen) {
         return;
     }
     for (usize i = 0; i < settings.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        const ImGuiTreeNodeFlags flags =
-            LeafFlags | (i == view.lightSetting ? ImGuiTreeNodeFlags_Selected : 0);
-        ImGui::TreeNodeEx("##light", flags, "%s", "");
-        if (ImGui::IsItemClicked() && i != view.lightSetting) {
-            view.lightSetting = i;
-            if (hooks.showScene) {
-                hooks.showScene();
-            }
+        const SceneNode node = LightSettingRef{.layer = view.layer, .index = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##light", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNode) {
+            hooks.pickNode(node);
         }
-        ImGui::SetItemTooltip("Click to light the scene with it.");
+        ImGui::SetItemTooltip("Click to edit it and light the scene with it.");
+        drawNodeMenu(node);
         ImGui::SameLine(0.0F, 0.0F);
         const std::array<u8, 3>& ambient = settings[i].ambientColor;
         ImGui::ColorButton(
@@ -318,11 +325,88 @@ void SceneOutliner::drawLightSettings(const SceneLayer& layer, SceneView& view) 
             ImVec4(ambient[0] / 255.0F, ambient[1] / 255.0F, ambient[2] / 255.0F, 1.0F),
             ImGuiColorEditFlags_NoTooltip, ImVec2(ImGui::GetFontSize(), ImGui::GetFontSize()));
         ImGui::SameLine();
-        ImGui::TextUnformatted(std::format("Setting {}", i).c_str());
+        ImGui::TextUnformatted(makeLightSettingName(layer.header, i).c_str());
         drawInfo(i == view.lightSetting ? "shown" : "");
         ImGui::PopID();
     }
     ImGui::TreePop();
+}
+
+void SceneOutliner::drawPaths(const SceneLayer& layer, SceneView& view) {
+    if (!filter.empty()) {
+        return;
+    }
+    const std::vector<ScenePath>& paths = layer.header.paths;
+    const bool isOpen = beginNode("##paths", GroupFlags);
+    ImGui::SetItemTooltip("The layer's paths, which actors that follow one name by index. "
+                          "Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::Paths);
+    drawLabel(core::icons::Path, PathColor, "Paths");
+    drawInfo(std::format("{}", paths.size()));
+    ImGui::TableNextColumn();
+    if (ImGui::SmallButton(view.showsPaths ? core::icons::Eye : core::icons::EyeSlash)) {
+        view.showsPaths = !view.showsPaths;
+        if (hooks.showScene) {
+            hooks.showScene();
+        }
+    }
+    ImGui::SetItemTooltip(view.showsPaths ? "Click to hide the paths in the viewport."
+                                          : "Hidden. Click to show the paths in the viewport.");
+    if (!isOpen) {
+        return;
+    }
+    for (usize path = 0; path < paths.size(); ++path) {
+        ImGui::PushID(static_cast<int>(path));
+        const SceneNode node = PathRef{.layer = view.layer, .path = path};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        const bool isPathOpen =
+            beginNode("##path", GroupFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickNode) {
+            hooks.pickNode(node);
+        }
+        drawNodeMenu(node);
+        drawLabel(core::icons::Path, PathColor, std::format("Path {}", path));
+        drawInfo(std::format("{} points", paths[path].points.size()));
+        if (isPathOpen) {
+            drawPathPoints(paths[path], node);
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawPathPoints(const ScenePath& path, const SceneNode& pathNode) {
+    const auto& [layer, index] = std::get<PathRef>(pathNode);
+    for (usize i = 0; i < path.points.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const SceneNode node = PathPointRef{.layer = layer, .path = index, .point = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##point", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNode) {
+            hooks.pickNode(node);
+        }
+        const std::array<s16, 3>& point = path.points[i];
+        ImGui::SetItemTooltip("At %d, %d, %d", point[0], point[1], point[2]);
+        drawNodeMenu(node);
+        drawLabel(core::icons::Dot, PathColor, std::format("Point {}", i));
+        drawInfo("");
+        ImGui::PopID();
+    }
+}
+
+void SceneOutliner::drawGroupMenu(const OutlinerGroup group) const {
+    if (hooks.drawGroupMenu && ImGui::BeginPopupContextItem()) {
+        hooks.drawGroupMenu(group);
+        ImGui::EndPopup();
+    }
+}
+
+void SceneOutliner::drawNodeMenu(const SceneNode& node) const {
+    if (hooks.drawNodeMenu && ImGui::BeginPopupContextItem()) {
+        hooks.drawNodeMenu(node);
+        ImGui::EndPopup();
+    }
 }
 
 void SceneOutliner::drawPlacement(const PlacementRow& row) {

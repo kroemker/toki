@@ -32,9 +32,15 @@ struct PlacementRow {
     std::optional<std::span<const std::string>> loadedObjects;
 };
 
+/// A group of the outliner whose context menu adds to it.
+enum class OutlinerGroup : u8 {
+    LightSettings,
+    Paths,
+};
+
 /// The Scene panel's tree of one layer: the scene, each room with its actors
 /// and objects, and the scene's own lists, each row with what it holds, and a
-/// room with whether it is shown. A filter keeps the placements whose name
+/// room and the paths with whether they are shown. A filter keeps the placements whose name
 /// holds it, and the groups that hold one.
 class SceneOutliner {
 public:
@@ -49,8 +55,16 @@ public:
         std::function<bool(const SceneNode&)> isSelected;
         /// Selects the room of the layer shown when its row is clicked.
         std::function<void(usize room)> pickRoom;
+        /// Selects the scene when its row is clicked.
+        std::function<void()> pickScene;
         /// Shows the scene again once the view changed.
         std::function<void()> showScene;
+        /// Selects a light setting, a path or a point when its row is clicked.
+        std::function<void(const SceneNode&)> pickNode;
+        /// Draws the items of a light setting's, a path's or a point's
+        /// context menu.
+        std::function<void(const SceneNode&)> drawNodeMenu;
+        std::function<void(OutlinerGroup)> drawGroupMenu;
     };
 
     explicit SceneOutliner(Hooks hooks) : hooks(std::move(hooks)) {}
@@ -65,6 +79,10 @@ private:
     void drawTransitionActors(const Scene& scene, const SceneLayer& layer, SceneView& view);
     void drawEntrances(const Scene& scene, const SceneLayer& layer, SceneView& view);
     void drawLightSettings(const SceneLayer& layer, SceneView& view);
+    void drawPaths(const SceneLayer& layer, SceneView& view);
+    void drawPathPoints(const ScenePath& path, const SceneNode& pathNode);
+    void drawGroupMenu(OutlinerGroup group) const;
+    void drawNodeMenu(const SceneNode& node) const;
     void drawPlacement(const PlacementRow& row);
     [[nodiscard]] bool isFilteredIn(s16 actorId) const;
     [[nodiscard]] bool isRevealing(PlacementKind kind, std::optional<usize> room) const;

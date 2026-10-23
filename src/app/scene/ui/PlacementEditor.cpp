@@ -4,6 +4,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
@@ -24,6 +25,7 @@
 #include <cmath>
 #include <expected>
 #include <format>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -75,6 +77,33 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
     return axes;
 }
 
+[[nodiscard]] s16 roundToS16(const f32 value) {
+    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
+}
+
+/// Whether `node` is still something `scene` holds.
+[[nodiscard]] bool isInScene(const Scene& scene, const SceneNode& node) {
+    if (const auto* placement = std::get_if<PlacementRef>(&node)) {
+        return findPlacement(scene, *placement).has_value();
+    }
+    if (const auto* sceneNode = std::get_if<SceneRef>(&node)) {
+        return sceneNode->layer < scene.layers.size();
+    }
+    if (const auto* room = std::get_if<RoomRef>(&node)) {
+        return room->layer < scene.layers.size() &&
+               room->room < scene.layers[room->layer].rooms.size();
+    }
+    if (const auto* light = std::get_if<LightSettingRef>(&node)) {
+        return findLightSetting(scene, light->layer, light->index).has_value();
+    }
+    if (const auto* path = std::get_if<PathRef>(&node)) {
+        return findPath(scene, path->layer, path->path).has_value();
+    }
+    const auto& point = std::get<PathPointRef>(node);
+    const std::optional<ScenePath> path = findPath(scene, point.layer, point.path);
+    return path && point.point < path->points.size();
+}
+
 [[nodiscard]] std::string makeWhere(const PlacementRef& where) {
     switch (where.kind) {
     case PlacementKind::Actor:
@@ -103,25 +132,49 @@ s16 PlacementEditor::findDefaultActor() const {
 PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceService,
                                  actor::CollectionCatalog& collectionCatalog, Show show)
     : workspaceService(workspaceService), collectionCatalog(collectionCatalog),
-      show(std::move(show)), actorForm(workspaceService) {}
+      show(std::move(show)), actorForm(workspaceService),
+      headerForm(workspaceService,
+                 [this](Scene& scene, const SceneEditor::ModelEdit& edit) {
+                     return applyToModel(scene, edit);
+                 }),
+      lightSettingForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }),
+      pathForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }) {}
 
 void PlacementEditor::refresh(const Scene& scene) {
+    resetDrafts();
+    selection.removeIf([&scene](const SceneNode& node) { return !isInScene(scene, node); });
+}
+
+void PlacementEditor::resetDrafts() {
     draft.reset();
-    selection.removeIf([&scene](const SceneNode& node) {
-        if (const auto* placement = std::get_if<PlacementRef>(&node)) {
-            return !findPlacement(scene, *placement);
+    lightSettingForm.reset();
+    pathForm.reset();
+}
+
+void PlacementEditor::pickModelEdit(SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+    picked = [this, edit = std::move(edit), select = std::move(select)](Scene& edited) {
+        if (applyToModel(edited, edit) && select) {
+            selection.select(*select);
         }
-        const auto& room = std::get<RoomRef>(node);
-        return room.layer >= scene.layers.size() ||
-               room.room >= scene.layers[room.layer].rooms.size();
-    });
+    };
 }
 
 bool PlacementEditor::apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
                             const bool joinsLast) {
-    const std::expected<void, base::Diagnostic> applied =
-        sceneEditor.apply(scene, where, edit, joinsLast);
-    draft.reset();
+    return showApplied(scene, sceneEditor.apply(scene, where, edit, joinsLast));
+}
+
+bool PlacementEditor::applyToModel(Scene& scene, const SceneEditor::ModelEdit& edit) {
+    return showApplied(scene, sceneEditor.applyToModel(scene, edit));
+}
+
+bool PlacementEditor::showApplied(Scene& scene,
+                                  const std::expected<void, base::Diagnostic>& applied) {
+    resetDrafts();
     if (!applied) {
         failure = applied.error().message;
         return false;
@@ -184,13 +237,28 @@ void PlacementEditor::addObject(Scene& scene, const PlacementRef& where, const s
 void PlacementEditor::drawInspector(Scene& scene) {
     const SceneNode* node = selection.findActive();
     if (const auto* room = node != nullptr ? std::get_if<RoomRef>(node) : nullptr) {
-        drawRoom(scene, *room);
+        headerForm.drawRoom(scene, *room, selection.getNodes().size());
+        return;
+    }
+    if (const auto* sceneNode = node != nullptr ? std::get_if<SceneRef>(node) : nullptr) {
+        headerForm.drawScene(scene, *sceneNode, selection.getNodes().size());
+        return;
+    }
+    if (const auto* light = node != nullptr ? std::get_if<LightSettingRef>(node) : nullptr) {
+        lightSettingForm.draw(scene, *light, selection.getNodes().size());
+        return;
+    }
+    if (node != nullptr &&
+        (std::holds_alternative<PathRef>(*node) || std::holds_alternative<PathPointRef>(*node))) {
+        pathForm.draw(scene, *node, selection.getNodes().size());
         return;
     }
     const std::optional<PlacementRef> active = findSelected();
     if (!active) {
-        ImGui::TextColored(core::palette::TextMuted,
-                           "Select a room or a placement in the Scene panel or the viewport.");
+        ImGui::TextColored(
+            core::palette::TextMuted,
+            "Select the scene, a room, a placement, a light setting or a path in the Scene panel "
+            "or the viewport.");
         return;
     }
     if (!draft) {
@@ -326,51 +394,6 @@ void PlacementEditor::drawObject(const Scene& scene, const PlacementRef& where,
     core::endProperties();
 }
 
-void PlacementEditor::drawRoom(const Scene& scene, const RoomRef& where) {
-    if (where.layer >= scene.layers.size() ||
-        where.room >= scene.layers[where.layer].rooms.size()) {
-        return;
-    }
-    const RoomHeader& header = scene.layers[where.layer].rooms[where.room];
-    ImGui::TextUnformatted(std::format("Room {}", where.room).c_str());
-    ImGui::TextColored(core::palette::TextMuted, "%s",
-                       std::format("Layer {}", where.layer).c_str());
-    if (const usize count = selection.getNodes().size(); count > 1) {
-        ImGui::TextColored(core::palette::Accent, "%zu selected; shown is the one picked last.",
-                           count);
-    }
-    ImGui::Spacing();
-    if (ImGui::CollapsingHeader("Room", ImGuiTreeNodeFlags_DefaultOpen) &&
-        core::beginProperties("##room", LabelWidth)) {
-        constexpr std::array<const char*, 3> ShapeNames{"Normal", "Image", "Cullable"};
-        core::drawPropertyLabel("Shape", "How the room's mesh is drawn, from its "
-                                         "SCENE_CMD_ROOM_SHAPE: every part, a prerendered "
-                                         "image, or the parts the camera sees.");
-        ImGui::TextUnformatted(ShapeNames[static_cast<usize>(header.shapeType)]);
-        core::drawPropertyLabel("Parts", "The display list pairs of the room's mesh.");
-        ImGui::Text("%zu", header.displayLists.size());
-        core::drawPropertyLabel("Actors", "The actors the room places in this layer.");
-        ImGui::Text("%zu", header.actors.size());
-        core::endProperties();
-    }
-    if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-        const hackeroot::Tables* tables = workspace != nullptr ? &workspace->getTables() : nullptr;
-        if (header.objects.empty()) {
-            ImGui::TextColored(core::palette::TextMuted, "The room loads no objects of its own.");
-        }
-        for (const s16 id : header.objects) {
-            const auto index = static_cast<usize>(id);
-            ImGui::BulletText("%s", tables != nullptr && id >= 0 && index < tables->objects.size()
-                                        ? tables->objects[index].enumName.c_str()
-                                        : std::format("0x{:04X}", static_cast<u16>(id)).c_str());
-        }
-    }
-    ImGui::Spacing();
-    ImGui::TextColored(core::palette::TextMuted,
-                       "Rooms are read-only here; their mesh is authored in fast64.");
-}
-
 void PlacementEditor::drawActions(const PlacementRef& where) {
     ImGui::Spacing();
     ImGui::BeginDisabled(where.kind == PlacementKind::PlayerEntry);
@@ -411,6 +434,12 @@ std::optional<PlacementEditor::Draft> PlacementEditor::findChangedDraft(const Sc
         return std::nullopt;
     }
     return Draft{.where = *where, .placement = *draft};
+}
+
+PlacementEditor::Preview PlacementEditor::findPreview(const Scene& scene) const {
+    return Preview{.placement = findChangedDraft(scene),
+                   .lightSetting = lightSettingForm.findChangedDraft(scene),
+                   .path = pathForm.findChangedDraft(scene)};
 }
 
 std::optional<PlacementRef> PlacementEditor::findSelected() const {
@@ -498,21 +527,36 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
     SelectionTransform made;
     viewport::TransformTarget& target = made.target;
     target.scaleNote = "Actors set their own scale.";
-    const std::optional<PlacementRef> active = findSelected();
+    const SceneNode* active = selection.findActive();
     glm::vec3 sum(0.0F);
-    for (const PlacementRef& where : selection.listPlacements()) {
+    for (const SceneNode& node : selection.listMovable()) {
+        if (const auto* point = std::get_if<PathPointRef>(&node)) {
+            const std::optional<ScenePath> path = findPath(scene, point->layer, point->path);
+            if (!path || point->point >= path->points.size()) {
+                continue;
+            }
+            if (active != nullptr && *active == node) {
+                target.activePoint = target.points.size();
+            }
+            const std::array<s16, 3>& position = path->points[point->point];
+            target.points.emplace_back(position[0], position[1], position[2]);
+            sum += target.points.back();
+            made.nodes.push_back(node);
+            continue;
+        }
+        const auto& where = std::get<PlacementRef>(node);
         const std::optional<Placement> placement = findPlacement(scene, where);
         if (!placement) {
             continue;
         }
-        if (where == active) {
+        if (active != nullptr && *active == node) {
             target.activePoint = target.points.size();
         }
         const std::array<s16, 3> position =
             std::visit([](const auto& held) { return held.position; }, *placement);
         target.points.emplace_back(position[0], position[1], position[2]);
         sum += target.points.back();
-        made.placements.push_back(where);
+        made.nodes.push_back(node);
         if (std::holds_alternative<TransitionActorPlacement>(*placement)) {
             target.isTurnable[0] = false;
             target.isTurnable[2] = false;
@@ -534,19 +578,23 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
                               "about X or Z would change on every axis";
         }
     }
-    if (made.placements.empty()) {
+    if (made.nodes.empty()) {
         return std::nullopt;
     }
-    target.pivot = sum / static_cast<f32>(made.placements.size());
+    target.pivot = sum / static_cast<f32>(made.nodes.size());
     return made;
 }
 
-void PlacementEditor::applyTransform(std::vector<PlacementRef> placements,
+void PlacementEditor::applyTransform(std::vector<SceneNode> nodes,
                                      const viewport::TransformEdit& edit) {
-    picked = [this, placements = std::move(placements), edit](Scene& edited) {
+    picked = [this, nodes = std::move(nodes), edit](Scene& edited) {
         bool isJoined = false;
-        for (usize i = 0; i < placements.size() && i < edit.points.size(); ++i) {
-            const PlacementRef& where = placements[i];
+        for (usize i = 0; i < nodes.size() && i < edit.points.size(); ++i) {
+            const auto* moved = std::get_if<PlacementRef>(&nodes[i]);
+            if (moved == nullptr) {
+                continue;
+            }
+            const PlacementRef& where = *moved;
             std::optional<Placement> placement = findPlacement(edited, where);
             if (!placement) {
                 continue;
@@ -566,7 +614,44 @@ void PlacementEditor::applyTransform(std::vector<PlacementRef> placements,
                     isJoined) ||
                 isJoined;
         }
+        static_cast<void>(applyPathMoves(edited, nodes, edit.points, isJoined));
     };
+}
+
+bool PlacementEditor::applyPathMoves(Scene& scene, const std::span<const SceneNode> nodes,
+                                     const std::span<const glm::vec3> points,
+                                     const bool joinsLast) {
+    std::map<std::pair<usize, usize>, ScenePath> paths;
+    for (usize i = 0; i < nodes.size() && i < points.size(); ++i) {
+        const auto* point = std::get_if<PathPointRef>(&nodes[i]);
+        if (point == nullptr) {
+            continue;
+        }
+        const std::pair key(point->layer, point->path);
+        if (!paths.contains(key)) {
+            if (std::optional<ScenePath> path = findPath(scene, point->layer, point->path)) {
+                paths.emplace(key, std::move(*path));
+            }
+        }
+        const auto found = paths.find(key);
+        if (found != paths.end() && point->point < found->second.points.size()) {
+            found->second.points[point->point] = {roundToS16(points[i].x), roundToS16(points[i].y),
+                                                  roundToS16(points[i].z)};
+        }
+    }
+    bool isJoined = joinsLast;
+    for (const auto& [key, path] : paths) {
+        const usize gameLayer = scene.layers[key.first].index;
+        isJoined =
+            showApplied(scene, sceneEditor.applyToModel(
+                                   scene,
+                                   [gameLayer, index = key.second, &path](SceneModel& model) {
+                                       return setPathPoints(model, gameLayer, index, path.points);
+                                   },
+                                   isJoined)) ||
+            isJoined;
+    }
+    return isJoined;
 }
 
 void PlacementEditor::applyPicked(Scene& scene) {

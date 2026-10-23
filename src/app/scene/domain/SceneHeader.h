@@ -35,7 +35,9 @@ struct TransitionActorPlacement {
 };
 
 /// One of a scene's `EnvLightSettings`: the ambient colour, two directional
-/// lights, and fog, for one time of day or one area.
+/// lights, and fog, for one time of day or one area. `blendRate` is the six
+/// bits the fog near value shares its half with, how fast the game blends
+/// into the setting, in steps of four.
 struct LightSetting {
     std::array<u8, 3> ambientColor{};
     std::array<s8, 3> light1Direction{};
@@ -44,7 +46,18 @@ struct LightSetting {
     std::array<u8, 3> light2Color{};
     std::array<u8, 3> fogColor{};
     s16 fogNear = 0;
+    u8 blendRate = 0;
     s16 zFar = 0;
+
+    friend bool operator==(const LightSetting&, const LightSetting&) = default;
+};
+
+/// One of a scene's `Path`s: the points an actor that follows it walks, flies
+/// or swims through, in order.
+struct ScenePath {
+    std::vector<std::array<s16, 3>> points;
+
+    friend bool operator==(const ScenePath&, const ScenePath&) = default;
 };
 
 /// How the game picks a scene's current light setting: by the time of day,
@@ -54,10 +67,49 @@ enum class LightMode : u8 {
     Settings,
 };
 
+/// A `SceneCmd`'s ID, as the game's command table orders them. HackerOoT's
+/// own commands come after these, and their IDs shift with its feature
+/// switches, so none of them is here.
+enum class CommandCode : u8 {
+    PlayerEntryList = 0x00,
+    ActorList = 0x01,
+    RoomList = 0x04,
+    WindSettings = 0x05,
+    SpecialFiles = 0x07,
+    RoomBehavior = 0x08,
+    RoomShape = 0x0A,
+    ObjectList = 0x0B,
+    PathList = 0x0D,
+    TransitionActorList = 0x0E,
+    LightSettingsList = 0x0F,
+    TimeSettings = 0x10,
+    SkyboxSettings = 0x11,
+    SkyboxDisables = 0x12,
+    End = 0x14,
+    SoundSettings = 0x15,
+    EchoSettings = 0x16,
+    AlternateHeaderList = 0x18,
+    MiscSettings = 0x19,
+};
+
+/// One `SceneCmd` as the game reads it: its ID, the byte after it, and the
+/// word that ends it.
+struct HeaderCommand {
+    u8 code = 0;
+    u8 data1 = 0;
+    u32 data2 = 0;
+
+    friend bool operator==(const HeaderCommand&, const HeaderCommand&) = default;
+};
+
 /// What a scene's header says, read from the scene's bytes in the memory
 /// image the way `Scene_ExecuteCommands` reads them: command by command until
 /// `SCENE_CMD_END`.
 struct SceneHeader {
+    /// Where the header is, as a segmented address.
+    u32 address = 0;
+    /// Every command before `SCENE_CMD_END`, in order.
+    std::vector<HeaderCommand> commands;
     usize roomCount = 0;
     u8 skyboxId = 0;
     LightMode lightMode = LightMode::Time;
@@ -67,6 +119,9 @@ struct SceneHeader {
     std::vector<ActorPlacement> playerEntries;
     std::vector<TransitionActorPlacement> transitionActors;
     std::vector<LightSetting> lightSettings;
+    /// The paths of `SCENE_CMD_PATH_LIST`, which actors name by index. The
+    /// list holds no count; it is as long as the array laid out at its address.
+    std::vector<ScenePath> paths;
     /// The headers of the scene's other layers, from layer 1 on, as segmented
     /// addresses: zero where a layer has none of its own.
     std::vector<u32> alternateHeaders;
@@ -88,6 +143,9 @@ struct RoomDisplayLists {
 
 /// What a room's header says.
 struct RoomHeader {
+    /// As for a scene: where the header is, and its commands.
+    u32 address = 0;
+    std::vector<HeaderCommand> commands;
     RoomShapeType shapeType = RoomShapeType::Normal;
     std::vector<RoomDisplayLists> displayLists;
     std::vector<ActorPlacement> actors;

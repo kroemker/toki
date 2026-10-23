@@ -44,6 +44,21 @@ std::optional<Placement> findPlacement(const Scene& scene, const PlacementRef& w
     return std::nullopt;
 }
 
+std::optional<LightSetting> findLightSetting(const Scene& scene, const usize layer,
+                                             const usize index) {
+    if (layer >= scene.layers.size() || index >= scene.layers[layer].header.lightSettings.size()) {
+        return std::nullopt;
+    }
+    return scene.layers[layer].header.lightSettings[index];
+}
+
+std::optional<ScenePath> findPath(const Scene& scene, const usize layer, const usize index) {
+    if (layer >= scene.layers.size() || index >= scene.layers[layer].header.paths.size()) {
+        return std::nullopt;
+    }
+    return scene.layers[layer].header.paths[index];
+}
+
 bool hasUnreadActors(const Scene& scene) {
     const auto isUnread = [&scene](const s16 id) { return !scene.actors.models.contains(id); };
     for (const SceneLayer& layer : scene.layers) {
@@ -103,9 +118,15 @@ std::expected<void, base::Diagnostic> SceneEditor::apply(Scene& scene, const Pla
         return std::unexpected(
             base::makeError({}, std::format("the scene has no layer {}", where.layer)));
     }
+    return applyToModel(
+        scene, [&edit, &list](SceneModel& model) { return edit(model, *list); }, joinsLast);
+}
+
+std::expected<void, base::Diagnostic> SceneEditor::applyToModel(Scene& scene, const ModelEdit& edit,
+                                                                const bool joinsLast) {
     SceneModel before = sceneModel ? *sceneModel : SceneModel(scene);
     SceneModel edited = before;
-    if (std::expected<void, base::Diagnostic> done = edit(edited, *list); !done) {
+    if (std::expected<void, base::Diagnostic> done = edit(edited); !done) {
         return done;
     }
     showModel(scene, edited);

@@ -98,17 +98,36 @@ What the Scene panel edits are the placements of a layer: a room's actors, the s
 transition actors, and where the player enters (`PlacementEdits`). An edit changes the
 bytes of the list that layer's header points at, and the count in the header's command:
 
-- A list another header also points at is copied for the edited one first, named as fast64
-  names one (`<room>_header02_actorList`), so an edit of one layer never shows in another.
-  A room with no header of its own for a layer is edited in its main header, since that is
-  what the game reads for it.
+- A header another layer reads too is copied for the edited layer first
+  (`<room>_header02`), and so is a list another header points at, named as fast64 names one
+  (`<room>_header02_actorList`), so an edit of one layer never shows in another. A shared
+  main header keeps its place, and the layers that point at it get the copy, without the
+  alternate header list, which only a main header holds. A room with no header of its own
+  for a layer is edited in its main header, since that is what the game reads for it.
 - An actor whose database entry names an object no keep object and no object list of its
   room loads has that object added to the room's object list in the same layer, since the
-  game spawns no actor whose object is not loaded. Objects are only added, never removed:
-  actors spawn others whose objects the list holds for them.
+  game spawns no actor whose object is not loaded. Objects are never removed with an actor:
+  actors spawn others whose objects the list holds for them. A room's object list is set
+  whole by hand (`setRoomObjects`), to remove or reorder its objects.
 - Removing a list's last placement removes the command, and the list once nothing points
-  at it. A header with no list for a kind cannot be added to yet. Player entries are set,
-  never added or removed: the spawn list and the entrance table name them by index.
+  at it. A header with no list for a kind is given one when a placement is added, its
+  command before the end. Player entries are set, never added or removed: the spawn list
+  and the entrance table name them by index.
+
+The settings a header holds in its commands' own bytes are edited the same way
+(`setHeaderSetting`): each is a field of its command, masked, so setting one writes its
+bits and no other, in the header the layer reads, made its own first. A header without the
+command is given it before its end, its other settings at the values that change nothing
+where the game has one (a time of 0xFF leaves the time as it was), zero otherwise.
+
+A layer's light settings and paths are edited the same way, each copied for the layer
+first when another layer reads it too (`LightSettingEdits`, `PathEdits`). A light setting is
+a list its command counts, as placements are; the last one is not removed. A path list has
+no count, and is as long as its array, so a path is added or removed by growing or
+shrinking the list, a new path's points made a `Vec3s` array of their own
+(`<list>_points<n>`), and a path's points are replaced whole, the count in its `Path` with
+them. Points another layer's list shares are copied before they change, and points nothing
+points at once a path is removed are removed with it.
 
 An edit that fails changes nothing. Every edit is a step Edit › Undo takes back
 (`SceneEditor` keeps the model before each, the last 64), the object an actor needs added

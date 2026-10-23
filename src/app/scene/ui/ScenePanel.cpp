@@ -17,6 +17,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/ui/PathForm.h"
 #include "app/scene/ui/SceneOutliner.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -48,6 +49,8 @@ namespace {
 
 constexpr float DimmedLinkAlpha = 0.2F;
 constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
+constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 0.7F};
+constexpr ImVec4 SelectedPathColor{1.0F, 0.75F, 1.0F, 1.0F};
 
 [[nodiscard]] ImVec4 findFlagColor(const actor::SceneFlag kind) {
     switch (kind) {
@@ -118,7 +121,12 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
               [this](const usize room) {
                   static_cast<void>(pickInTree(RoomRef{.layer = sceneView.layer, .room = room}));
               },
+          .pickScene =
+              [this] { static_cast<void>(pickInTree(SceneRef{.layer = sceneView.layer})); },
           .showScene = [this] { showScene(); },
+          .pickNode = [this](const SceneNode& node) { pickListNode(node); },
+          .drawNodeMenu = [this](const SceneNode& node) { drawNodeMenu(node); },
+          .drawGroupMenu = [this](const OutlinerGroup group) { drawGroupMenu(group); },
       }) {}
 
 void ScenePanel::setScene(Scene read) {
@@ -169,6 +177,7 @@ std::optional<core::SceneSession> ScenePanel::makeSession() const {
 }
 
 void ScenePanel::showScene() {
+    previewPaths.reset();
     if (scene) {
         viewportPanel.setContent(makeSceneContent(*scene, sceneView, markerShape));
         offerChoices();
@@ -232,11 +241,11 @@ void ScenePanel::draw() {
     sceneOutliner.draw(*scene, sceneView, workspace != nullptr ? &workspace->getTables() : nullptr);
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
     drawFlags(flags);
-    drawFlagLinks(flags);
+    drawOverlay(flags, layer);
     offerPlacements(layer);
 }
 
-void ScenePanel::showPreview(const std::vector<PlacementRef>& placements,
+void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
                              const std::optional<viewport::TransformEdit>& edit) {
     if (!scene || sceneView.layer >= scene->layers.size()) {
         return;
@@ -245,25 +254,50 @@ void ScenePanel::showPreview(const std::vector<PlacementRef>& placements,
         isPreviewEnding = true;
         return;
     }
-    std::vector<PlacementEditor::Draft> moved;
-    for (usize i = 0; i < placements.size() && i < edit->points.size(); ++i) {
-        if (const std::optional<Placement> placement = findPlacement(*scene, placements[i])) {
-            moved.push_back(
-                {.where = placements[i],
-                 .placement = makeTransformedPlacement(*placement, edit->points[i], edit->result)});
+    SceneLayer layer = scene->layers[sceneView.layer];
+    for (usize i = 0; i < nodes.size() && i < edit->points.size(); ++i) {
+        if (const auto* point = std::get_if<PathPointRef>(&nodes[i])) {
+            if (point->layer == sceneView.layer && point->path < layer.header.paths.size() &&
+                point->point < layer.header.paths[point->path].points.size()) {
+                layer.header.paths[point->path].points[point->point] =
+                    makePosition(edit->points[i]);
+            }
+            continue;
+        }
+        const auto& where = std::get<PlacementRef>(nodes[i]);
+        if (const std::optional<Placement> placement = findPlacement(*scene, where);
+            placement && where.layer == sceneView.layer) {
+            static_cast<void>(setLayerPlacement(
+                layer, where, makeTransformedPlacement(*placement, edit->points[i], edit->result)));
         }
     }
-    showPlacements(moved);
+    showLayer(layer, sceneView);
 }
 
-void ScenePanel::showPlacements(const std::span<const PlacementEditor::Draft> placements) {
+void ScenePanel::showEdited(const PlacementEditor::Preview& preview) {
     SceneLayer layer = scene->layers[sceneView.layer];
-    for (const PlacementEditor::Draft& placed : placements) {
-        if (placed.where.layer == sceneView.layer) {
-            static_cast<void>(setLayerPlacement(layer, placed.where, placed.placement));
-        }
+    SceneView view = sceneView;
+    if (preview.placement && preview.placement->where.layer == sceneView.layer) {
+        static_cast<void>(
+            setLayerPlacement(layer, preview.placement->where, preview.placement->placement));
     }
-    viewportPanel.setNextFrame(makeSceneContent(*scene, sceneView, markerShape, &layer));
+    if (const std::optional<LightSettingForm::Draft>& light = preview.lightSetting;
+        light && light->where.layer == sceneView.layer &&
+        light->where.index < layer.header.lightSettings.size()) {
+        layer.header.lightSettings[light->where.index] = light->setting;
+        view.lightSetting = light->where.index;
+    }
+    if (const std::optional<PathForm::Draft>& path = preview.path;
+        path && path->where.layer == sceneView.layer &&
+        path->where.path < layer.header.paths.size()) {
+        layer.header.paths[path->where.path] = path->path;
+    }
+    showLayer(layer, view);
+}
+
+void ScenePanel::showLayer(const SceneLayer& layer, const SceneView& view) {
+    previewPaths = layer.header.paths;
+    viewportPanel.setNextFrame(makeSceneContent(*scene, view, markerShape, &layer));
 }
 
 void ScenePanel::update() {
@@ -275,11 +309,11 @@ void ScenePanel::update() {
         isPreviewEnding = false;
         showScene();
     }
-    std::optional<PlacementEditor::Draft> changed = placementEditor.findChangedDraft(*scene);
-    if (changed != shownDraft) {
-        shownDraft = std::move(changed);
-        if (shownDraft && sceneView.layer < scene->layers.size()) {
-            showPlacements(std::span(&*shownDraft, 1));
+    PlacementEditor::Preview changed = placementEditor.findPreview(*scene);
+    if (changed != shownPreview) {
+        shownPreview = std::move(changed);
+        if (!shownPreview.isEmpty() && sceneView.layer < scene->layers.size()) {
+            showEdited(shownPreview);
         } else {
             showScene();
         }
@@ -296,8 +330,8 @@ void ScenePanel::drawProperties() {
 
 void ScenePanel::offerPlacements(const SceneLayer& layer) {
     std::vector<glm::vec3> points;
-    std::vector<PlacementRef> placements;
-    const auto offer = [&points, &placements](const PlacementRef& where,
+    std::vector<SceneNode> placements;
+    const auto offer = [&points, &placements](const SceneNode& where,
                                               const std::array<s16, 3>& position) {
         points.push_back(makePoint(position));
         placements.push_back(where);
@@ -308,20 +342,33 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
                 continue;
             }
             for (usize i = 0; i < layer.rooms[room].actors.size(); ++i) {
-                offer({.kind = PlacementKind::Actor,
-                       .layer = sceneView.layer,
-                       .room = room,
-                       .index = i},
+                offer(PlacementRef{.kind = PlacementKind::Actor,
+                                   .layer = sceneView.layer,
+                                   .room = room,
+                                   .index = i},
                       layer.rooms[room].actors[i].position);
             }
         }
         for (usize i = 0; i < layer.header.transitionActors.size(); ++i) {
-            offer({.kind = PlacementKind::TransitionActor, .layer = sceneView.layer, .index = i},
+            offer(PlacementRef{.kind = PlacementKind::TransitionActor,
+                               .layer = sceneView.layer,
+                               .index = i},
                   layer.header.transitionActors[i].position);
         }
         for (usize i = 0; i < layer.header.playerEntries.size(); ++i) {
-            offer({.kind = PlacementKind::PlayerEntry, .layer = sceneView.layer, .index = i},
+            offer(PlacementRef{.kind = PlacementKind::PlayerEntry,
+                               .layer = sceneView.layer,
+                               .index = i},
                   layer.header.playerEntries[i].position);
+        }
+    }
+    if (sceneView.showsPaths) {
+        for (usize path = 0; path < layer.header.paths.size(); ++path) {
+            const std::vector<std::array<s16, 3>>& pathPoints = layer.header.paths[path].points;
+            for (usize point = 0; point < pathPoints.size(); ++point) {
+                offer(PathPointRef{.layer = sceneView.layer, .path = path, .point = point},
+                      pathPoints[point]);
+            }
         }
     }
     viewportPanel.setPickables(
@@ -330,7 +377,7 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
                                                    const viewport::PickMode mode) {
             std::vector<SceneNode> nodes;
             for (const usize index : hit.points) {
-                nodes.emplace_back(placements[index]);
+                nodes.push_back(placements[index]);
             }
             if (hit.owner) {
                 if (const std::optional<SceneNode> node = findNode(*hit.owner)) {
@@ -352,10 +399,10 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
     }
     viewportPanel.setTransformTarget(
         std::move(transform->target),
-        [this, moved = transform->placements](const viewport::TransformEdit& edit) {
+        [this, moved = transform->nodes](const viewport::TransformEdit& edit) {
             placementEditor.applyTransform(moved, edit);
         },
-        [this, moved = transform->placements](const std::optional<viewport::TransformEdit>& edit) {
+        [this, moved = transform->nodes](const std::optional<viewport::TransformEdit>& edit) {
             showPreview(moved, edit);
         });
 }
@@ -430,11 +477,7 @@ void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
     if (!scene || !ImGui::BeginPopupContextItem()) {
         return;
     }
-    const core::CameraPose camera = viewportPanel.getCameraPose();
-    placementEditor.drawRoomMenu(sceneView.layer, room,
-                                 {static_cast<s16>(camera.target[0]),
-                                  static_cast<s16>(camera.target[1]),
-                                  static_cast<s16>(camera.target[2])});
+    placementEditor.drawRoomMenu(sceneView.layer, room, findCameraTarget());
     if (inspectDisplayList == nullptr) {
         ImGui::EndPopup();
         return;
@@ -453,6 +496,58 @@ void ScenePanel::drawRoomMenu(const usize room, const RoomHeader& header) {
         }
     }
     ImGui::EndPopup();
+}
+
+std::array<s16, 3> ScenePanel::findCameraTarget() const {
+    const core::CameraPose camera = viewportPanel.getCameraPose();
+    return {static_cast<s16>(camera.target[0]), static_cast<s16>(camera.target[1]),
+            static_cast<s16>(camera.target[2])};
+}
+
+void ScenePanel::pickListNode(const SceneNode& node) {
+    if (!pickInTree(node) || !scene) {
+        return;
+    }
+    if (const auto* light = std::get_if<LightSettingRef>(&node)) {
+        if (light->index != sceneView.lightSetting) {
+            sceneView.lightSetting = light->index;
+            showScene();
+        }
+        return;
+    }
+    const PathRef path = findPathOf(node);
+    const std::optional<ScenePath> found = findPath(*scene, path.layer, path.path);
+    const auto* point = std::get_if<PathPointRef>(&node);
+    const usize index = point != nullptr ? point->point : 0;
+    if (found && index < found->points.size()) {
+        viewportPanel.focus(makePoint(found->points[index]));
+    }
+}
+
+void ScenePanel::drawNodeMenu(const SceneNode& node) {
+    if (!scene) {
+        return;
+    }
+    if (const auto* light = std::get_if<LightSettingRef>(&node)) {
+        placementEditor.getLightSettingForm().drawMenu(*scene, *light);
+    } else if (std::holds_alternative<PathRef>(node) ||
+               std::holds_alternative<PathPointRef>(node)) {
+        placementEditor.getPathForm().drawMenu(*scene, node);
+    }
+}
+
+void ScenePanel::drawGroupMenu(const OutlinerGroup group) {
+    if (!scene) {
+        return;
+    }
+    switch (group) {
+    case OutlinerGroup::LightSettings:
+        placementEditor.getLightSettingForm().drawGroupMenu(*scene, sceneView.layer);
+        break;
+    case OutlinerGroup::Paths:
+        placementEditor.getPathForm().drawGroupMenu(*scene, sceneView.layer, findCameraTarget());
+        break;
+    }
 }
 
 bool ScenePanel::pickInTree(const SceneNode& node) {
@@ -656,12 +751,39 @@ void ScenePanel::drawFlagUser(const FlagUser& user) {
     ImGui::SetItemTooltip("By its param \"%s\"", user.param.c_str());
 }
 
-void ScenePanel::drawFlagLinks(const std::vector<SceneFlagUse>& flags) {
+void ScenePanel::drawOverlay(const std::vector<SceneFlagUse>& flags, const SceneLayer& layer) {
     viewport::ViewportOverlay overlay;
-    if (!sceneView.showsActors) {
-        viewportPanel.setOverlay(std::move(overlay));
-        return;
+    if (sceneView.showsActors) {
+        addFlagLinks(overlay, flags);
     }
+    if (sceneView.showsPaths) {
+        addPathLines(overlay, previewPaths ? *previewPaths : layer.header.paths);
+    }
+    viewportPanel.setOverlay(std::move(overlay));
+}
+
+void ScenePanel::addPathLines(viewport::ViewportOverlay& overlay,
+                              const std::vector<ScenePath>& paths) {
+    std::optional<usize> selected;
+    if (const SceneNode* active = placementEditor.getSelection().findActive();
+        active != nullptr && (std::holds_alternative<PathRef>(*active) ||
+                              std::holds_alternative<PathPointRef>(*active))) {
+        selected = findPathOf(*active).path;
+    }
+    for (usize path = 0; path < paths.size(); ++path) {
+        const u32 color = ImGui::GetColorU32(path == selected ? SelectedPathColor : PathColor);
+        const std::vector<std::array<s16, 3>>& points = paths[path].points;
+        for (usize i = 1; i < points.size(); ++i) {
+            overlay.lines.push_back(viewport::OverlayLine{.from = makePoint(points[i - 1]),
+                                                          .to = makePoint(points[i]),
+                                                          .color = color,
+                                                          .hasArrowAtTo = true});
+        }
+    }
+}
+
+void ScenePanel::addFlagLinks(viewport::ViewportOverlay& overlay,
+                              const std::vector<SceneFlagUse>& flags) {
     const auto isShown = [this](const FlagUser& user) {
         return !user.room || *user.room >= sceneView.hiddenRooms.size() ||
                !sceneView.hiddenRooms[*user.room];
@@ -681,7 +803,6 @@ void ScenePanel::drawFlagLinks(const std::vector<SceneFlagUse>& flags) {
                 .hasArrowAtTo = true});
         }
     }
-    viewportPanel.setOverlay(std::move(overlay));
 }
 
 std::string ScenePanel::findActorName(const s16 actorId) const {

@@ -6,6 +6,12 @@ target_sources(toki_core PRIVATE
         ActorObjects.cpp
         ActorMarkers.cpp
         BinaryAngle.cpp
+        HeaderNames.cpp
+        HeaderSettings.cpp
+        HeaderSymbols.cpp
+        LightSettingEdits.cpp
+        ListEditor.cpp
+        PathEdits.cpp
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp

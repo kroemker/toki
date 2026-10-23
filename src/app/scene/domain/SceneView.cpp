@@ -32,6 +32,7 @@ namespace {
 
 constexpr usize SettingsPerDay = 4;
 constexpr usize Midday = 1;
+constexpr f32 PathPointScale = 0.5F;
 
 [[nodiscard]] bool isShown(const SceneView& view, const usize room) {
     return room >= view.hiddenRooms.size() || !view.hiddenRooms[room];
@@ -134,6 +135,21 @@ struct Placed {
     for (const PlacedActor& actor : placed.transitionActors) {
         markers.push_back(Marker{
             .position = actor.position, .kind = MarkerKind::TransitionActor, .owner = actor.owner});
+    }
+    return markers;
+}
+
+[[nodiscard]] std::vector<Marker> makePathMarkers(const SceneLayer& layer, const usize shownLayer) {
+    std::vector<Marker> markers;
+    const std::vector<ScenePath>& paths = layer.header.paths;
+    for (usize path = 0; path < paths.size(); ++path) {
+        for (usize point = 0; point < paths[path].points.size(); ++point) {
+            markers.push_back(Marker{.position = paths[path].points[point],
+                                     .kind = MarkerKind::PathPoint,
+                                     .scale = PathPointScale,
+                                     .owner = makeNodeKey(PathPointRef{
+                                         .layer = shownLayer, .path = path, .point = point})});
+        }
     }
     return markers;
 }
@@ -334,6 +350,10 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         }
         addMarkers(content, makeMarkers(placed), markerShape);
         labelImages(content, "Actor markers", viewport::ImageKind::Generated);
+    }
+    if (view.showsPaths) {
+        addMarkers(content, makePathMarkers(layer, view.layer), markerShape);
+        labelImages(content, "Path markers", viewport::ImageKind::Generated);
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));

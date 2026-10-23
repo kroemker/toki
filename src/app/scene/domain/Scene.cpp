@@ -1,11 +1,14 @@
 #include "Scene.h"
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSave.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/GameCode.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/SceneFiles.h"
 #include "hackeroot/Workspace.h"
 #include "z64/MemoryImage.h"
@@ -161,6 +164,8 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         headerFiles.rooms.push_back(room.front());
     }
     readLayers(scene, headerFiles);
+    const hackeroot::Prelude& prelude = reader.getPrelude(getSceneIncludes());
+    scene.headerNames = readHeaderNames(prelude.types, prelude.macros);
 
     if (scene.layers.front().header.roomCount != files.rooms.size()) {
         scene.diagnostics.push_back(base::makeWarning(

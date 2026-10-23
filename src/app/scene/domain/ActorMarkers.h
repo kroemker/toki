@@ -15,12 +15,15 @@ enum class MarkerKind : u8 {
     Actor,
     PlayerEntry,
     TransitionActor,
+    PathPoint,
 };
 
 /// Where something is placed in a scene, to be marked in the viewport.
 struct Marker {
     std::array<s16, 3> position{};
     MarkerKind kind = MarkerKind::Actor;
+    /// How large the marker is drawn, an actor's being 1.
+    f32 scale = 1.0F;
     /// What the marker's draw is owned by in the viewport.
     std::optional<usize> owner;
 };

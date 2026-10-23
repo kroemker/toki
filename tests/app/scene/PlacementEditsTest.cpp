@@ -139,7 +139,21 @@ TEST_CASE("the last actor removed takes its command, and the list once nothing p
 
     REQUIRE(model.findSymbol("actors") == nullptr);
     REQUIRE(model.findSymbol("room")->bytes.size() == 16);
-    REQUIRE_FALSE(toki::scene::addPlacement(model, main, Moved));
+}
+
+TEST_CASE("an actor added to a header with no actor list is given a list of its own",
+          "[scene][edit]") {
+    toki::scene::SceneModel model(makeScene(1));
+    const toki::scene::PlacementList main{.kind = toki::scene::PlacementKind::Actor};
+    REQUIRE(toki::scene::removePlacement(model, main, 0));
+
+    REQUIRE(toki::scene::addPlacement(model, main, Moved) == usize{0});
+
+    const toki::scene::RoomHeader room = readRoom(model, "room");
+    REQUIRE(room.actors.size() == 1);
+    REQUIRE(room.actors[0].id == 0x22);
+    REQUIRE(model.findSymbol("room_header00_actorList") != nullptr);
+    REQUIRE(readRoom(model, "roomAlt").actors.size() == 1);
 }
 
 TEST_CASE("a transition actor set keeps the cameras of its sides", "[scene][edit]") {

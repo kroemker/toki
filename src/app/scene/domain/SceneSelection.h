@@ -20,8 +20,42 @@ struct RoomRef {
     friend bool operator==(const RoomRef&, const RoomRef&) = default;
 };
 
-/// Something of the scene that can be selected: a room or a placement.
-using SceneNode = std::variant<PlacementRef, RoomRef>;
+/// The scene itself in a layer, as the root of the scene's tree.
+struct SceneRef {
+    usize layer = 0;
+
+    friend bool operator==(const SceneRef&, const SceneRef&) = default;
+};
+
+/// One of a layer's light settings.
+struct LightSettingRef {
+    usize layer = 0;
+    usize index = 0;
+
+    friend bool operator==(const LightSettingRef&, const LightSettingRef&) = default;
+};
+
+/// One of a layer's paths.
+struct PathRef {
+    usize layer = 0;
+    usize path = 0;
+
+    friend bool operator==(const PathRef&, const PathRef&) = default;
+};
+
+/// One point of a layer's path.
+struct PathPointRef {
+    usize layer = 0;
+    usize path = 0;
+    usize point = 0;
+
+    friend bool operator==(const PathPointRef&, const PathPointRef&) = default;
+};
+
+/// Something of the scene that can be selected: a placement, a room, the
+/// scene, a light setting, a path or one of its points.
+using SceneNode =
+    std::variant<PlacementRef, RoomRef, SceneRef, LightSettingRef, PathRef, PathPointRef>;
 
 using viewport::PickMode;
 
@@ -63,6 +97,10 @@ public:
 
     /// The placements selected, in order.
     [[nodiscard]] std::vector<PlacementRef> listPlacements() const;
+
+    /// The placements and path points selected, in order: what a transform
+    /// moves.
+    [[nodiscard]] std::vector<SceneNode> listMovable() const;
 
     /// Forgets the nodes `isGone` says are no longer there.
     void removeIf(const std::function<bool(const SceneNode&)>& isGone);

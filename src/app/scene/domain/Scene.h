@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
@@ -42,6 +43,8 @@ struct Scene {
     /// drawn from: read after the scene (`SceneActorLoader`), and empty until
     /// they are.
     SceneActors actors;
+    /// What the checkout names the values of the headers' settings.
+    HeaderNames headerNames;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
     std::chrono::milliseconds elapsed{};

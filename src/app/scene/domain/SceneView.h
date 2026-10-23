@@ -22,6 +22,8 @@ struct SceneView {
     std::vector<bool> hiddenRooms;
     bool showsActors = true;
     bool drawsModels = true;
+    /// Whether the layer's paths have their points marked.
+    bool showsPaths = true;
     /// The player entry Link is drawn at; the others are marked.
     usize shownEntrance = 0;
 };
@@ -46,9 +48,10 @@ struct SceneView {
 /// config's `sDefaultDisplayList` and `sSetupDL[SETUPDL_25]`, then that pass's
 /// display list of every part of every shown room, then that pass's placed
 /// actors drawn as their models (`makeActorDraws`). Actors without one, and
-/// player entries, are marked by `markerShape` between the two passes. With
-/// `shownLayer`, its placements are drawn in place of the shown layer's, as
-/// an edit is previewed before it is made.
+/// player entries, are marked by `markerShape` between the two passes, and so
+/// are the points of the layer's paths, smaller, while `view` shows them. With
+/// `shownLayer`, its placements, paths and light settings are drawn in place
+/// of the shown layer's, as an edit is previewed before it is made.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                                          core::MarkerShape markerShape,
                                                          const SceneLayer* shownLayer = nullptr);

@@ -103,6 +103,7 @@ TEST_CASE("a scene header gives its rooms, entries, light settings and light mod
     REQUIRE(header.lightSettings[0].light2Direction == std::array<s8, 3>{-73, -73, -73});
     REQUIRE(header.lightSettings[0].fogColor == std::array<u8, 3>{70, 80, 90});
     REQUIRE(header.lightSettings[0].fogNear == 990);
+    REQUIRE(header.lightSettings[0].blendRate == 2);
     REQUIRE(header.lightSettings[0].zFar == 12800);
 }
 
@@ -215,4 +216,30 @@ TEST_CASE("a room lists the objects it loads, and a scene its keep object", "[sc
     const toki::scene::SceneHeader sceneHeader = toki::scene::readSceneHeader(scene.makeImage());
 
     REQUIRE(sceneHeader.keepObjectId == 3);
+}
+
+TEST_CASE("a path list is as long as the array it points at, each path its own count",
+          "[scene][header]") {
+    SegmentBuilder scene(hackeroot::SceneSegment);
+    scene.addCommand(0x0D, 0, 0x0200'0010);
+    scene.addCommand(0x14, 0, 0);
+    scene.addBytes({2, 0, 0, 0});
+    scene.addWord(0x0200'0020);
+    scene.addBytes({1, 0, 0, 0});
+    scene.addWord(0x0200'002C);
+    for (const s16 half :
+         {s16{1}, s16{2}, s16{3}, s16{-4}, s16{-5}, s16{-6}, s16{70}, s16{80}, s16{90}}) {
+        scene.addHalf(half);
+    }
+    z64::MemoryImage image = scene.makeImage();
+    image.symbols.emplace(
+        "scenePaths",
+        z64::ImageSymbol{.segment = hackeroot::SceneSegment, .offset = 0x10, .size = 0x10});
+
+    const toki::scene::SceneHeader header = toki::scene::readSceneHeader(image);
+
+    REQUIRE(header.diagnostics.empty());
+    REQUIRE(header.paths.size() == 2);
+    REQUIRE(header.paths[0].points == std::vector<std::array<s16, 3>>{{1, 2, 3}, {-4, -5, -6}});
+    REQUIRE(header.paths[1].points == std::vector<std::array<s16, 3>>{{70, 80, 90}});
 }

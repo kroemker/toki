@@ -8,11 +8,17 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/ui/ActorForm.h"
+#include "app/scene/ui/HeaderForm.h"
+#include "app/scene/ui/LightSettingForm.h"
 #include "app/scene/ui/ParamsForm.h"
+#include "app/scene/ui/PathForm.h"
 #include "app/viewport/ui/ViewportTransform.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
+#include <glm/ext/vector_float3.hpp>
+
 #include <array>
+#include <expected>
 #include <functional>
 #include <optional>
 #include <span>
@@ -25,8 +31,10 @@ namespace toki::scene {
 struct Scene;
 
 /// Edits the placements of the open scene: the one selected in a form, and
-/// adding, copying and removing them from the scene panel's menus. Every edit
-/// goes through a `SceneEditor`, and what it changed is handed on to be shown.
+/// adding, copying and removing them from the scene panel's menus, and what
+/// else is selected in its own form: a header, a light setting or a path.
+/// Every edit goes through a `SceneEditor`, and what it changed is handed on
+/// to be shown.
 class PlacementEditor {
 public:
     /// Shows an edited scene; `hasNewActors` when it places an actor whose
@@ -88,6 +96,23 @@ public:
     /// what `scene` holds; nothing otherwise.
     [[nodiscard]] std::optional<Draft> findChangedDraft(const Scene& scene) const;
 
+    /// What the Properties panel holds while it is edited, each draft while
+    /// it differs from what the scene holds, for the viewport to show before
+    /// the edit is made.
+    struct Preview {
+        std::optional<Draft> placement;
+        std::optional<LightSettingForm::Draft> lightSetting;
+        std::optional<PathForm::Draft> path;
+
+        [[nodiscard]] bool isEmpty() const {
+            return !placement && !lightSetting && !path;
+        }
+
+        friend bool operator==(const Preview&, const Preview&) = default;
+    };
+
+    [[nodiscard]] Preview findPreview(const Scene& scene) const;
+
     [[nodiscard]] const SceneSelection& getSelection() const {
         return selection;
     }
@@ -97,7 +122,8 @@ public:
     void refresh(const Scene& scene);
 
     /// Draws the selected placement's properties: the actor as stored, its
-    /// params as the actor database names them, and the object it needs.
+    /// params as the actor database names them, and the object it needs. The
+    /// scene or a room selected shows its header's settings instead.
     void drawInspector(Scene& scene);
 
     /// The items of a placement's context menu that edit it. What is picked is
@@ -110,18 +136,26 @@ public:
     /// Makes the edit picked from a menu this frame, if one was.
     void applyPicked(Scene& scene);
 
-    /// The selected placements as the viewport transforms them, and which
-    /// they are, in the order of the target's points.
+    /// The selected placements and path points as the viewport transforms
+    /// them, and which they are, in the order of the target's points.
     struct SelectionTransform {
         viewport::TransformTarget target;
-        std::vector<PlacementRef> placements;
+        std::vector<SceneNode> nodes;
     };
 
     [[nodiscard]] std::optional<SelectionTransform> makeTransformTarget(const Scene& scene) const;
 
-    /// Moves and turns `placements` as a confirmed transform says, by
-    /// `applyPicked`, as one step.
-    void applyTransform(std::vector<PlacementRef> placements, const viewport::TransformEdit& edit);
+    /// Moves and turns `nodes` as a confirmed transform says, by
+    /// `applyPicked`, as one step. A path point is moved, never turned.
+    void applyTransform(std::vector<SceneNode> nodes, const viewport::TransformEdit& edit);
+
+    [[nodiscard]] LightSettingForm& getLightSettingForm() {
+        return lightSettingForm;
+    }
+
+    [[nodiscard]] PathForm& getPathForm() {
+        return pathForm;
+    }
 
     /// Why the last edit was not made, or empty.
     [[nodiscard]] const std::string& getFailure() const {
@@ -150,13 +184,21 @@ public:
     /// Forgets the edits, once they were saved or thrown away.
     void reset() {
         sceneEditor.reset();
-        draft.reset();
+        resetDrafts();
         failure.clear();
     }
 
 private:
     bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
                bool joinsLast = false);
+    bool applyToModel(Scene& scene, const SceneEditor::ModelEdit& edit);
+    /// Makes `edit` by `applyPicked`, and selects `select` when it was made.
+    void pickModelEdit(SceneEditor::ModelEdit edit, std::optional<SceneNode> select);
+    void resetDrafts();
+    [[nodiscard]] bool applyPathMoves(Scene& scene, std::span<const SceneNode> nodes,
+                                      std::span<const glm::vec3> points, bool joinsLast);
+    /// Takes what an edit did: shows the scene, or keeps why it failed.
+    bool showApplied(Scene& scene, const std::expected<void, base::Diagnostic>& applied);
     void showChanged(Scene& scene);
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
     void addObject(Scene& scene, const PlacementRef& where, const std::string& object,
@@ -173,7 +215,6 @@ private:
                                   const actor::ActorEntry* entry, s16 actorId);
     void drawObject(const Scene& scene, const PlacementRef& where, const actor::ActorEntry& entry);
     void drawActions(const PlacementRef& where);
-    void drawRoom(const Scene& scene, const RoomRef& where);
     void commitDraft(Scene& scene, const PlacementRef& where);
     [[nodiscard]] s16 findDefaultActor() const;
 
@@ -182,6 +223,9 @@ private:
     Show show;
     ActorForm actorForm;
     ParamsForm paramsForm;
+    HeaderForm headerForm;
+    LightSettingForm lightSettingForm;
+    PathForm pathForm;
     std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;

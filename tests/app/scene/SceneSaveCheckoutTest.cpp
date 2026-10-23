@@ -1,3 +1,6 @@
+#include "app/scene/domain/HeaderSettings.h"
+#include "app/scene/domain/LightSettingEdits.h"
+#include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
@@ -12,6 +15,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <expected>
 #include <filesystem>
@@ -149,4 +153,70 @@ TEST_CASE("a vanilla scene with its actors edited reads back as edited",
     REQUIRE(std::ranges::any_of(plan->warnings, [](const std::string& warning) {
         return warning.starts_with("Room 1 lists") && warning.contains("slots");
     }));
+}
+
+TEST_CASE("a vanilla scene with its header settings edited reads back as edited",
+          "[scene][save][checkout]") {
+    using toki::scene::HeaderSetting;
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("spot04"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(workspace);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    toki::scene::SceneModel model(scene);
+
+    REQUIRE(toki::scene::setHeaderSetting(model, {}, HeaderSetting::Sequence, 0x7F));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.layer = 2}, HeaderSetting::Skybox, 0));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.room = 0}, HeaderSetting::LensMode, 1));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.room = 1}, HeaderSetting::WindStrength, 30));
+    REQUIRE(toki::scene::setRoomObjects(model, 2, 1, {}));
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+        workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                               .directory = scene.directory,
+                                               .files = scene.files,
+                                               .model = std::move(model)});
+
+    INFO((plan ? std::string() : plan.error()));
+    REQUIRE(plan.has_value());
+}
+
+TEST_CASE("a vanilla scene with its light settings and paths edited reads back as edited",
+          "[scene][save][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("spot04"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(workspace);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    REQUIRE(scene.layers.size() > 2);
+    REQUIRE_FALSE(scene.layers[2].header.paths.empty());
+    toki::scene::SceneModel model(scene);
+    toki::scene::LightSetting dusk = scene.layers[2].header.lightSettings.front();
+    dusk.fogNear = 900;
+    dusk.blendRate = 5;
+    std::vector<std::array<base::s16, 3>> points = scene.layers[2].header.paths.front().points;
+    points.push_back({0, 100, 0});
+
+    REQUIRE(toki::scene::setLightSetting(model, 2, 0, dusk));
+    REQUIRE(toki::scene::addLightSetting(model, 0, dusk));
+    REQUIRE(toki::scene::setPathPoints(model, 2, 0, points));
+    REQUIRE(toki::scene::addPath(model, 0, points));
+    REQUIRE(toki::scene::removePath(model, 0, 0));
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+        workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                               .directory = scene.directory,
+                                               .files = scene.files,
+                                               .model = std::move(model)});
+
+    INFO((plan ? std::string() : plan.error()));
+    REQUIRE(plan.has_value());
 }

@@ -46,6 +46,13 @@ public:
     [[nodiscard]] std::expected<void, base::Diagnostic>
     apply(Scene& scene, const PlacementRef& where, const Edit& edit, bool joinsLast = false);
 
+    /// Changes the model with `edit`, which knows itself what it changes, as
+    /// `apply` does.
+    using ModelEdit = std::function<std::expected<void, base::Diagnostic>(SceneModel&)>;
+
+    [[nodiscard]] std::expected<void, base::Diagnostic>
+    applyToModel(Scene& scene, const ModelEdit& edit, bool joinsLast = false);
+
     /// Takes back the last step, or puts back the last step taken back, and
     /// shows the result in `scene`. False when there is none.
     bool undo(Scene& scene);
@@ -91,6 +98,14 @@ using Placement = std::variant<ActorPlacement, TransitionActorPlacement>;
 
 /// The placement `where` names in `scene`, if it still holds one there.
 [[nodiscard]] std::optional<Placement> findPlacement(const Scene& scene, const PlacementRef& where);
+
+/// The light setting of a layer `layer` and `index` name, an index into
+/// `Scene::layers` and one into its light settings, if it still holds one.
+[[nodiscard]] std::optional<LightSetting> findLightSetting(const Scene& scene, usize layer,
+                                                           usize index);
+
+/// The path of a layer `layer` and `index` name, as for a light setting.
+[[nodiscard]] std::optional<ScenePath> findPath(const Scene& scene, usize layer, usize index);
 
 /// Whether `scene` places an actor its actors were not read for.
 [[nodiscard]] bool hasUnreadActors(const Scene& scene);
