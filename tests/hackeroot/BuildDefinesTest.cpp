@@ -63,6 +63,16 @@ TEST_CASE("the linker map is where the Makefile has the build write it", "[hacke
             getCheckout() / "build/gc-eu-mq-dbg/hackeroot-gc-eu-mq-dbg.map");
 }
 
+TEST_CASE("the ROM is where the Makefile has the build write it", "[hackeroot][defines]") {
+    REQUIRE(read().romFile == getCheckout() / "build/ntsc-1.2/hackeroot-ntsc-1.2.z64");
+}
+
+TEST_CASE("DEBUG_FEATURES is read as make has it, from the settings or the Makefile",
+          "[hackeroot][defines]") {
+    REQUIRE(read().debugFeatures == "1");
+    REQUIRE(read({{"DEBUG_FEATURES", "0"}}).debugFeatures == "0");
+}
+
 TEST_CASE("an explicit VERSION_MACRO is left alone", "[hackeroot][defines]") {
     const hackeroot::BuildDefines defines = read({{"VERSION_MACRO", "SOMETHING_ELSE"}});
 

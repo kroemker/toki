@@ -98,8 +98,7 @@ TEST_CASE("make runs inside the checkout's distribution", "[build][runner][check
     if (repository.empty()) {
         SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
     }
-    std::vector<std::string> command =
-        hackeroot::makeBuildCommand(repository, {}, hackeroot::BuildTarget::Build, 1);
+    std::vector<std::string> command = hackeroot::makeBuildCommand(repository, {}, 1);
     command.erase(std::ranges::find(command, "make"), command.end());
     command.insert(command.end(), {"make", "--version"});
     BuildRunner runner;

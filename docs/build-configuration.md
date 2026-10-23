@@ -53,6 +53,17 @@ The user's build settings (`VERSION`, `DEBUG_FEATURES`, ...) are make's command 
 flow through exactly as they would in `make VERSION=...`. The same settings must reach the
 build runner, or the viewer and the build disagree about every scene ID.
 
+The settings window gives `VERSION` and `DEBUG_FEATURES` rows of their own and takes every
+other variable as one line. It offers the versions found under `extracted/`, the only ones
+that build, and shows as each row's default what the open workspace read when that
+variable was unset. A `DEBUG_FEATURES` default is shown only while `VERSION` is the one it
+was read under, because the Makefile's default for it depends on the version.
+
+Run builds the ROM, the Makefile's default goal, and then starts the emulator from Toki
+with the ROM's Windows path (`ROM`, read from the Makefile like `MAP`). make's own `run`
+target is never used: it starts `N64_EMULATOR` inside WSL, which needs a Linux path to a
+Windows program and passes it a relative Linux path to the ROM.
+
 ## Measured
 
 Against a HackerOoT checkout over `\\wsl.localhost` (`VERSION ?= ntsc-1.2`,

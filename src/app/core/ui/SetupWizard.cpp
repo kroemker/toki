@@ -68,7 +68,7 @@ void SetupWizard::drawWelcome() {
 }
 
 std::optional<std::filesystem::path> SetupWizard::drawPathStep(SDL_Window* parent) {
-    if (const std::optional<std::filesystem::path> chosen = folderDialog.takeChoice()) {
+    if (const std::optional<std::filesystem::path> chosen = pathDialog.takeChoice()) {
         setBuffer(pathInput, encodeUtf8(*chosen));
     }
 
@@ -85,10 +85,10 @@ std::optional<std::filesystem::path> SetupWizard::drawPathStep(SDL_Window* paren
                              pathInput.size());
 
     ImGui::SameLine();
-    ImGui::BeginDisabled(folderDialog.isPending());
+    ImGui::BeginDisabled(pathDialog.isPending());
     if (ImGui::Button("Browse\u2026")) {
         const std::filesystem::path start = decodeUtf8(pathInput.data());
-        folderDialog.open(parent, isExistingDirectory(start) ? start : std::filesystem::path{});
+        pathDialog.openFolder(parent, isExistingDirectory(start) ? start : std::filesystem::path{});
     }
     ImGui::EndDisabled();
 

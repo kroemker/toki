@@ -3,11 +3,11 @@
 #include "app/build/Types.h"
 #include "app/build/domain/AnsiText.h"
 #include "app/build/domain/BuildRunner.h"
+#include "app/build/domain/BuildTarget.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Theme.h"
-#include "hackeroot/BuildCommand.h"
 
 #include <imgui.h>
 
@@ -85,9 +85,11 @@ void drawLine(const std::string& line) {
 } // namespace
 
 BuildPanel::BuildPanel(BuildRunner& buildRunner, const core::Fonts& fonts,
-                       std::function<void(hackeroot::BuildTarget)> startBuild)
+                       std::function<void(BuildTarget)> startBuild,
+                       std::function<bool()> hasEmulator)
     : Panel("build", "Build", core::icons::Hammer, core::DockSlot::Bottom),
-      buildRunner(buildRunner), fonts(fonts), startBuild(std::move(startBuild)) {}
+      buildRunner(buildRunner), fonts(fonts), startBuild(std::move(startBuild)),
+      hasEmulator(std::move(hasEmulator)) {}
 
 void BuildPanel::draw() {
     drawToolbar();
@@ -99,15 +101,19 @@ void BuildPanel::drawToolbar() {
     const bool running = buildRunner.isRunning();
     ImGui::BeginDisabled(running);
     if (ImGui::Button((std::string(core::icons::Hammer) + " Build").c_str())) {
-        startBuild(hackeroot::BuildTarget::Build);
+        startBuild(BuildTarget::Build);
     }
     ImGui::SetItemTooltip("Build the checkout (Ctrl+B)");
-    ImGui::SameLine();
-    if (ImGui::Button((std::string(core::icons::Play) + " Run").c_str())) {
-        startBuild(hackeroot::BuildTarget::Run);
-    }
-    ImGui::SetItemTooltip("Build, then run it (F5)");
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    const bool emulatorSet = hasEmulator();
+    ImGui::BeginDisabled(running || !emulatorSet);
+    if (ImGui::Button((std::string(core::icons::Play) + " Run").c_str())) {
+        startBuild(BuildTarget::Run);
+    }
+    ImGui::EndDisabled();
+    ImGui::SetItemTooltip(emulatorSet ? "Build, then run it (F5)"
+                                      : "Set the emulator in Settings, under General, to run");
 
     ImGui::SameLine();
     ImGui::BeginDisabled(!running);

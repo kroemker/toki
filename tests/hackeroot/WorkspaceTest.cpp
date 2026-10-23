@@ -106,6 +106,12 @@ TEST_CASE("asset folders come from the checkout and from its extracted version",
             std::vector<std::string>{"gameplay_keep (extracted)", "object_custom"});
 }
 
+TEST_CASE("the versions extracted into the checkout are listed, whichever is read",
+          "[hackeroot][workspace]") {
+    REQUIRE(hackeroot::listAssets(getCheckout(), "pal-1.0").versions ==
+            std::vector<std::string>{"ntsc-1.2"});
+}
+
 TEST_CASE("a vanilla scene copied to the checkout's assets is listed once, as the copy",
           "[hackeroot][workspace]") {
     const std::filesystem::path checkout =

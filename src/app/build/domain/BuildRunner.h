@@ -4,7 +4,6 @@
 #include "app/build/domain/BuildLog.h"
 #include "app/build/domain/Process.h"
 #include "base/Diagnostic.h"
-#include "hackeroot/BuildCommand.h"
 #include "makeparser/Makefile.h"
 
 #include <chrono>
@@ -47,11 +46,10 @@ public:
     /// Stops a running build and waits for its worker.
     ~BuildRunner();
 
-    /// Builds the checkout at `root`, or builds and runs it, with `settings` as
-    /// make's command line.
+    /// Builds the ROM of the checkout at `root`, with `settings` as make's
+    /// command line.
     [[nodiscard]] std::expected<void, base::Diagnostic>
-    start(const std::filesystem::path& root, const makeparser::MakeOverrides& settings,
-          hackeroot::BuildTarget target);
+    start(const std::filesystem::path& root, const makeparser::MakeOverrides& settings);
 
     /// Runs `arguments` as a build. What `start` does once it has the command.
     [[nodiscard]] std::expected<void, base::Diagnostic>

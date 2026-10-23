@@ -28,6 +28,9 @@ struct AssetDirectory {
 struct Assets {
     std::vector<AssetDirectory> scenes;
     std::vector<AssetDirectory> objects;
+    /// The versions extracted into the checkout, the folders of `extracted/`,
+    /// sorted. Only these can be built.
+    std::vector<std::string> versions;
     std::vector<base::Diagnostic> diagnostics;
 };
 
@@ -37,6 +40,7 @@ struct Assets {
 /// `oceantest/oceantest_scene.h`), at any depth under `scenes/`; an object
 /// folder is any folder directly under `objects/`. A missing `extracted/`
 /// version is a warning: the checkout has not been set up for that version.
+/// Every version extracted is listed too, whichever is read.
 [[nodiscard]] Assets listAssets(const std::filesystem::path& repository, std::string_view version);
 
 } // namespace hackeroot

@@ -1,6 +1,7 @@
 #include "SettingsWindow.h"
 
 #include "app/core/Types.h"
+#include "app/core/domain/BuildChoices.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/MakeVariables.h"
 #include "app/core/domain/Settings.h"
@@ -15,9 +16,14 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <filesystem>
 #include <format>
+#include <map>
+#include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace toki::core {
@@ -36,6 +42,10 @@ static_assert(AngleFormatLabels.size() == AngleFormatCount,
 constexpr auto LogLevelLabels =
     std::to_array<const char*>({"Debug", "Info", "OK", "Warning", "Error"});
 
+constexpr std::string_view VersionVariable = "VERSION";
+constexpr std::string_view DebugFeaturesVariable = "DEBUG_FEATURES";
+constexpr std::array OwnedVariables = {VersionVariable, DebugFeaturesVariable};
+
 static_assert(MarkerShapeLabels.size() == MarkerShapeCount,
               "a marker shape was added to the enum without a label");
 static_assert(LogLevelLabels.size() == LogLevelCount,
@@ -46,6 +56,38 @@ void copyText(std::array<char, Size>& into, const std::string_view text) {
     const usize length = std::min(text.size(), Size - 1);
     std::copy_n(text.begin(), length, into.begin());
     into[length] = '\0';
+}
+
+[[nodiscard]] bool isOwnedVariable(const std::string_view name) {
+    return std::ranges::find(OwnedVariables, name) != OwnedVariables.end();
+}
+
+[[nodiscard]] std::optional<std::string>
+findVariable(const std::map<std::string, std::string, std::less<>>& variables,
+             const std::string_view name) {
+    const auto found = variables.find(name);
+    return found == variables.end() ? std::nullopt : std::optional(found->second);
+}
+
+void eraseVariable(std::map<std::string, std::string, std::less<>>& variables,
+                   const std::string_view name) {
+    if (const auto found = variables.find(name); found != variables.end()) {
+        variables.erase(found);
+    }
+}
+
+[[nodiscard]] std::string encodeNative(std::filesystem::path path) {
+    const std::u8string encoded = path.make_preferred().u8string();
+    return {encoded.begin(), encoded.end()};
+}
+
+[[nodiscard]] std::string_view trimPath(const std::string_view text) {
+    constexpr std::string_view Padding = " \t\"";
+    const usize first = text.find_first_not_of(Padding);
+    if (first == std::string_view::npos) {
+        return {};
+    }
+    return text.substr(first, text.find_last_not_of(Padding) - first + 1);
 }
 
 template <usize Count>
@@ -77,11 +119,38 @@ SettingsWindow::SettingsWindow() {
         .reset = [] {},
     });
     entries.push_back(Entry{
+        .category = "General",
+        .label = "Emulator",
+        .help = "The program Run opens the built ROM in. Toki starts it itself and hands it the "
+                "ROM's Windows path, \\\\wsl.localhost\\... for a checkout in WSL.",
+        .drawControl = [this] { drawEmulator(); },
+        .isChanged = [this] { return emulatorLine[0] != '\0'; },
+        .reset = [this] { emulatorLine.fill('\0'); },
+    });
+    entries.push_back(Entry{
         .category = "Build",
-        .label = "Make Variables",
-        .help = "Variables make is run with, as on its command line: VERSION=gc-eu-mq "
-                "DEBUG_FEATURES=1. The checkout is read and built with these; what is left out "
-                "takes the Makefile's own default. Quote a value that holds a space.",
+        .label = "Version",
+        .help = "The game version the checkout is read and built as, VERSION. The versions "
+                "make setup extracted into the checkout are offered. Default is the Makefile's.",
+        .drawControl = [this] { drawVersion(); },
+        .isChanged = [this] { return draft.build.contains(VersionVariable); },
+        .reset = [this] { eraseVariable(draft.build, VersionVariable); },
+    });
+    entries.push_back(Entry{
+        .category = "Build",
+        .label = "Debug Features",
+        .help = "Whether the checkout is read and built with the debug features, "
+                "DEBUG_FEATURES. Default is what the Makefile gives the version.",
+        .drawControl = [this] { drawDebugFeatures(); },
+        .isChanged = [this] { return draft.build.contains(DebugFeaturesVariable); },
+        .reset = [this] { eraseVariable(draft.build, DebugFeaturesVariable); },
+    });
+    entries.push_back(Entry{
+        .category = "Build",
+        .label = "Other Variables",
+        .help = "Further variables make is run with, as on its command line: COMPILER=ido "
+                "REGION=EU. The checkout is read and built with these; what is left out takes "
+                "the Makefile's own default. Quote a value that holds a space.",
         .drawControl = [this] { drawMakeVariables(); },
         .isChanged = [this] { return buildLine[0] != '\0'; },
         .reset = [this] { buildLine.fill('\0'); },
@@ -133,9 +202,16 @@ SettingsWindow::SettingsWindow() {
     });
 }
 
-void SettingsWindow::open(const Settings& current) {
+void SettingsWindow::open(const Settings& current, BuildChoices choices) {
     draft = current;
-    copyText(buildLine, formatMakeVariables(current.build));
+    buildChoices = std::move(choices);
+    openedVersion = findVariable(current.build, VersionVariable);
+    std::map<std::string, std::string, std::less<>> others = current.build;
+    std::erase_if(others, [](const auto& variable) { return isOwnedVariable(variable.first); });
+    std::erase_if(draft.build,
+                  [](const auto& variable) { return !isOwnedVariable(variable.first); });
+    copyText(buildLine, formatMakeVariables(others));
+    copyText(emulatorLine, current.emulatorPath ? encodeNative(*current.emulatorPath) : "");
     search.fill('\0');
     isOpening = true;
 }
@@ -163,8 +239,9 @@ std::vector<std::string_view> SettingsWindow::findCategories() const {
     return categories;
 }
 
-SettingsActions SettingsWindow::draw() {
+SettingsActions SettingsWindow::draw(SDL_Window* parent) {
     SettingsActions actions;
+    dialogParent = parent;
     if (isOpening) {
         ImGui::OpenPopup(PopupName);
         isOpening = false;
@@ -280,24 +357,115 @@ void SettingsWindow::drawHackerootPath() {
     }
 }
 
+void SettingsWindow::drawVersion() {
+    std::vector<VariableOption> options;
+    for (const std::string& version : buildChoices.versions) {
+        options.push_back(VariableOption{.label = version, .value = version});
+    }
+    if (const std::optional<std::string> set = findVariable(draft.build, VersionVariable);
+        set && std::ranges::find(options, *set, &VariableOption::value) == options.end()) {
+        options.push_back(
+            VariableOption{.label = std::format("{} (not extracted)", *set), .value = *set});
+    }
+    drawVariableCombo(VersionVariable, options);
+}
+
+void SettingsWindow::drawDebugFeatures() {
+    const std::array options{VariableOption{.label = "On", .value = "1"},
+                             VariableOption{.label = "Off", .value = "0"}};
+    drawVariableCombo(DebugFeaturesVariable, options);
+}
+
+void SettingsWindow::drawVariableCombo(const std::string_view name,
+                                       const std::span<const VariableOption> options) {
+    const std::optional<std::string> set = findVariable(draft.build, name);
+    const std::string defaultLabel = makeDefaultLabel(name, options);
+    std::string preview = defaultLabel;
+    if (set) {
+        const auto found = std::ranges::find(options, *set, &VariableOption::value);
+        preview = found == options.end() ? *set : found->label;
+    }
+    if (!ImGui::BeginCombo("##variable", preview.c_str())) {
+        return;
+    }
+    if (ImGui::Selectable(defaultLabel.c_str(), !set)) {
+        eraseVariable(draft.build, name);
+    }
+    for (const VariableOption& option : options) {
+        if (ImGui::Selectable(option.label.c_str(), set == option.value)) {
+            draft.build.insert_or_assign(std::string(name), option.value);
+        }
+    }
+    ImGui::EndCombo();
+}
+
+std::string SettingsWindow::makeDefaultLabel(const std::string_view name,
+                                             const std::span<const VariableOption> options) const {
+    if (name != VersionVariable && findVariable(draft.build, VersionVariable) != openedVersion) {
+        return "Default";
+    }
+    const std::optional<std::string> value = findVariable(buildChoices.defaults, name);
+    if (!value) {
+        return "Default";
+    }
+    const auto found = std::ranges::find(options, *value, &VariableOption::value);
+    return std::format("Default ({})", found == options.end() ? *value : found->label);
+}
+
 void SettingsWindow::drawMakeVariables() {
     const MakeVariables read = parseMakeVariables(buildLine.data());
-    const bool hasRejected = !read.rejected.empty();
-    if (hasRejected) {
+    std::string owned;
+    for (const auto& [name, value] : read.variables) {
+        if (isOwnedVariable(name)) {
+            owned += owned.empty() ? name : " " + name;
+        }
+    }
+    std::string rejected;
+    for (const std::string& word : read.rejected) {
+        rejected += rejected.empty() ? word : " " + word;
+    }
+    const bool leavesOut = !owned.empty() || !rejected.empty();
+    if (leavesOut) {
         ImGui::PushStyleColor(ImGuiCol_Border, palette::Danger);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0F);
     }
-    ImGui::InputTextWithHint("##make", "VERSION=gc-eu-mq DEBUG_FEATURES=1", buildLine.data(),
+    ImGui::InputTextWithHint("##make", "COMPILER=ido REGION=EU", buildLine.data(),
                              buildLine.size());
-    if (hasRejected) {
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
-        std::string words;
-        for (const std::string& word : read.rejected) {
-            words += words.empty() ? word : " " + word;
-        }
-        ImGui::SetItemTooltip("Not NAME=value, left out: %s", words.c_str());
+    if (!leavesOut) {
+        return;
     }
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+    std::string tooltip;
+    if (!rejected.empty()) {
+        tooltip = std::format("Not NAME=value, left out: {}", rejected);
+    }
+    if (!owned.empty()) {
+        tooltip += std::format("{}Set in a row of its own, left out: {}",
+                               tooltip.empty() ? "" : "\n", owned);
+    }
+    ImGui::SetItemTooltip("%s", tooltip.c_str());
+}
+
+void SettingsWindow::drawEmulator() {
+    if (const std::optional<std::filesystem::path> chosen = pathDialog.takeChoice()) {
+        copyText(emulatorLine, encodeNative(*chosen));
+    }
+    const char* browse = "Browse…";
+    const float buttonWidth =
+        ImGui::CalcTextSize(browse).x + (ImGui::GetStyle().FramePadding.x * 2.0F);
+    ImGui::SetNextItemWidth(ImGui::CalcItemWidth() -
+                            (buttonWidth + ImGui::GetStyle().ItemSpacing.x));
+    ImGui::InputTextWithHint("##emulator", "No emulator set", emulatorLine.data(),
+                             emulatorLine.size());
+    ImGui::SameLine();
+    ImGui::BeginDisabled(pathDialog.isPending());
+    if (ImGui::Button(browse)) {
+        const std::string_view current = trimPath(emulatorLine.data());
+        pathDialog.openProgram(dialogParent, current.empty() ? std::filesystem::path{}
+                                                             : decodeUtf8(current).parent_path());
+    }
+    ImGui::EndDisabled();
 }
 
 void SettingsWindow::drawLogLevel() {
@@ -334,7 +502,13 @@ void SettingsWindow::drawSceneSaveReview() {
 
 Settings SettingsWindow::makeApplied() const {
     Settings applied = draft;
-    applied.build = parseMakeVariables(buildLine.data()).variables;
+    for (auto& [name, value] : parseMakeVariables(buildLine.data()).variables) {
+        if (!isOwnedVariable(name)) {
+            applied.build.insert_or_assign(name, std::move(value));
+        }
+    }
+    const std::string_view emulator = trimPath(emulatorLine.data());
+    applied.emulatorPath = emulator.empty() ? std::nullopt : std::optional(decodeUtf8(emulator));
     return applied;
 }
 

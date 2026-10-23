@@ -7,6 +7,8 @@
 #include "app/actor/ui/NewActorsPrompt.h"
 #include "app/assets/domain/AssetReader.h"
 #include "app/build/domain/BuildRunner.h"
+#include "app/build/domain/BuildTarget.h"
+#include "app/core/domain/BuildChoices.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
@@ -25,7 +27,6 @@
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "gfx/Device.h"
-#include "hackeroot/BuildCommand.h"
 
 #include <expected>
 #include <filesystem>
@@ -60,8 +61,10 @@ private:
     void drawFrame();
     void setHackerootPath(const std::filesystem::path& path);
     void openCheckout(const std::filesystem::path& path);
-    void startBuild(hackeroot::BuildTarget target);
+    void startBuild(build::BuildTarget target);
     void updateBuild();
+    void startEmulator();
+    [[nodiscard]] BuildChoices makeBuildChoices() const;
     void updateAssets();
     void updateScene();
     void updateSceneActors();
@@ -101,6 +104,8 @@ private:
             saveState();
         }};
     build::BuildRunner buildRunner;
+    /// Whether the build running opens the emulator once it succeeds.
+    bool runsAfterBuild = false;
     assets::AssetReader assetReader;
     scene::SceneLoader sceneLoader;
     scene::SceneActorLoader sceneActorLoader;

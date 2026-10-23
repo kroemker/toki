@@ -165,6 +165,12 @@ Assets listAssets(const std::filesystem::path& repository, std::string_view vers
                     std::move(extractedScenes)));
     assets.objects = mergeByName(collectObjects(repository / "assets/objects", false),
                                  std::move(extractedObjects));
+    for (const std::filesystem::directory_entry& entry : listDirectory(repository / "extracted")) {
+        if (isFolder(entry)) {
+            assets.versions.push_back(entry.path().filename().string());
+        }
+    }
+    std::ranges::sort(assets.versions);
     return assets;
 }
 

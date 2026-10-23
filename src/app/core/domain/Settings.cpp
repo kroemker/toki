@@ -315,6 +315,23 @@ void readBuild(const toml::table& root, const std::filesystem::path& path, Setti
     }
 }
 
+void readRun(const toml::table& root, Settings& settings) {
+    if (const std::optional<std::string> emulator = root["run"]["emulator"].value<std::string>()) {
+        settings.emulatorPath = decodeUtf8(*emulator);
+    }
+}
+
+void writeRun(toml::table& root, const Settings& settings) {
+    if (settings.emulatorPath) {
+        ensureSection(root, "run").insert_or_assign("emulator", encodeUtf8(*settings.emulatorPath));
+    } else if (toml::table* run = root["run"].as_table()) {
+        run->erase("emulator");
+        if (run->empty()) {
+            root.erase("run");
+        }
+    }
+}
+
 template <typename Node>
 [[nodiscard]] std::optional<f32> readFloat(const Node& node) {
     if (const std::optional<f64> value = node.template value<f64>()) {
@@ -511,6 +528,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readWindow(*root, settings);
     readPanels(*root, settings);
     readBuild(*root, path, settings);
+    readRun(*root, settings);
     readSession(*root, settings);
     readActors(*root, settings);
     readMarkers(*root, path, settings);
@@ -549,6 +567,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeWindow(root, settings);
     writePanels(root, settings);
     writeBuild(root, settings);
+    writeRun(root, settings);
     writeSession(root, settings);
     writeActors(root, settings);
     writeMarkers(root, settings);

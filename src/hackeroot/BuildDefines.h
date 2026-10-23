@@ -19,6 +19,13 @@ struct BuildDefines {
     /// the vanilla assets of that version were extracted into.
     std::string version;
 
+    /// The `DEBUG_FEATURES` the build is for, as make has it: `1` or `0`.
+    std::string debugFeatures;
+
+    /// The ROM the build writes, `ROM`, under the checkout. Empty when the
+    /// Makefile names none.
+    std::filesystem::path romFile;
+
     /// The linker map the build writes, `MAP`, under the checkout. Empty when
     /// the Makefile names none.
     std::filesystem::path mapFile;

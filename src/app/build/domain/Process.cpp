@@ -5,6 +5,7 @@
 
 #include <array>
 #include <expected>
+#include <filesystem>
 #include <format>
 #include <optional>
 #include <span>
@@ -154,6 +155,25 @@ Process::start(const std::span<const std::string> arguments) {
     return Process(information.hProcess, job, readEnd);
 }
 
+std::expected<void, base::Diagnostic> Process::launch(const std::span<const std::string> arguments,
+                                                      const std::filesystem::path& directory) {
+    const std::string commandLine = makeCommandLine(arguments);
+    std::wstring mutableLine = widen(commandLine);
+    const std::wstring workingDirectory = directory.wstring();
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION information{};
+    if (CreateProcessW(nullptr, mutableLine.data(), nullptr, nullptr, FALSE, 0, nullptr,
+                       workingDirectory.empty() ? nullptr : workingDirectory.c_str(), &startup,
+                       &information) == 0) {
+        return std::unexpected(
+            makeSystemError(std::format("`{}` could not be started", commandLine)));
+    }
+    CloseHandle(information.hThread);
+    CloseHandle(information.hProcess);
+    return {};
+}
+
 std::optional<std::string> Process::readOutput() {
     std::array<char, 4096> buffer{};
     while (true) {
@@ -197,6 +217,14 @@ void Process::close() {
 
 std::expected<Process, base::Diagnostic>
 Process::start(const std::span<const std::string> arguments) {
+    return std::unexpected(base::makeError(
+        {}, std::format("`{}` could not be started: running processes is only implemented on "
+                        "Windows so far",
+                        makeCommandLine(arguments))));
+}
+
+std::expected<void, base::Diagnostic> Process::launch(const std::span<const std::string> arguments,
+                                                      const std::filesystem::path& /*directory*/) {
     return std::unexpected(base::makeError(
         {}, std::format("`{}` could not be started: running processes is only implemented on "
                         "Windows so far",

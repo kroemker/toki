@@ -26,11 +26,10 @@ BuildRunner::~BuildRunner() {
     stop();
 }
 
-std::expected<void, base::Diagnostic> BuildRunner::start(const std::filesystem::path& root,
-                                                         const makeparser::MakeOverrides& settings,
-                                                         const hackeroot::BuildTarget target) {
+std::expected<void, base::Diagnostic>
+BuildRunner::start(const std::filesystem::path& root, const makeparser::MakeOverrides& settings) {
     return startCommand(
-        hackeroot::makeBuildCommand(root, settings, target, std::thread::hardware_concurrency()));
+        hackeroot::makeBuildCommand(root, settings, std::thread::hardware_concurrency()));
 }
 
 std::expected<void, base::Diagnostic>

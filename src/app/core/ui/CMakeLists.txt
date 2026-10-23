@@ -1,13 +1,13 @@
 target_sources(toki PRIVATE
         App.cpp
         Dialog.cpp
-        FolderDialog.cpp
         Fonts.cpp
         Hotkeys.cpp
         LogPanel.cpp
         MenuBar.cpp
         Panel.cpp
         PanelManager.cpp
+        PathDialog.cpp
         Paths.cpp
         PropertyTable.cpp
         SettingsWindow.cpp

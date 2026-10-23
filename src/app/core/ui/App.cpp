@@ -9,8 +9,12 @@
 #include "app/assets/domain/ObjectNames.h"
 #include "app/assets/ui/AssetBrowserPanel.h"
 #include "app/build/domain/BuildRunner.h"
+#include "app/build/domain/BuildTarget.h"
+#include "app/build/domain/EmulatorCommand.h"
+#include "app/build/domain/Process.h"
 #include "app/build/ui/BuildPanel.h"
 #include "app/core/Types.h"
+#include "app/core/domain/BuildChoices.h"
 #include "app/core/domain/Log.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/domain/Utf8.h"
@@ -40,7 +44,7 @@
 #include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "hackeroot/Assets.h"
-#include "hackeroot/BuildCommand.h"
+#include "hackeroot/BuildDefines.h"
 #include "hackeroot/Checkout.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -224,7 +228,8 @@ void App::registerPanels() {
         }));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<build::BuildPanel>(
-        buildRunner, fonts, [this](const hackeroot::BuildTarget target) { startBuild(target); }));
+        buildRunner, fonts, [this](const build::BuildTarget target) { startBuild(target); },
+        [this] { return settings.emulatorPath.has_value(); }));
 }
 
 void App::registerDialogs() {
@@ -332,9 +337,9 @@ void App::drawFrame() {
     }
 
     if (actions.openSettings || isActionPressed(Action::OpenSettings)) {
-        settingsWindow.open(settings);
+        settingsWindow.open(settings, makeBuildChoices());
     }
-    const SettingsActions edited = settingsWindow.draw();
+    const SettingsActions edited = settingsWindow.draw(window->getHandle());
     if (edited.applied) {
         applySettings(*edited.applied);
     }
@@ -343,10 +348,10 @@ void App::drawFrame() {
         setupWizard.beginChangePath(settings.hackerootPath);
     }
     if (actions.build || isActionPressed(Action::Build)) {
-        startBuild(hackeroot::BuildTarget::Build);
+        startBuild(build::BuildTarget::Build);
     }
     if (actions.run || isActionPressed(Action::Run)) {
-        startBuild(hackeroot::BuildTarget::Run);
+        startBuild(build::BuildTarget::Run);
     }
     if (actions.stopBuild) {
         buildRunner.stop();
@@ -356,12 +361,20 @@ void App::drawFrame() {
     }
 }
 
-void App::startBuild(const hackeroot::BuildTarget target) {
+void App::startBuild(const build::BuildTarget target) {
     if (buildRunner.isRunning()) {
         return;
     }
     if (!settings.hackerootPath) {
         logError("set the HackerOoT folder before building");
+        return;
+    }
+    if (target == build::BuildTarget::Run && !settings.emulatorPath) {
+        logError("set the emulator in Settings, under General, to run the ROM");
+        return;
+    }
+    if (target == build::BuildTarget::Run && !isFile(*settings.emulatorPath)) {
+        logError("the emulator {} is not a file", encodeUtf8(*settings.emulatorPath));
         return;
     }
     const std::expected<std::filesystem::path, base::Diagnostic> root =
@@ -371,12 +384,13 @@ void App::startBuild(const hackeroot::BuildTarget target) {
         return;
     }
     const std::expected<void, base::Diagnostic> started = buildRunner.start(
-        *root, makeparser::MakeOverrides(settings.build.begin(), settings.build.end()), target);
+        *root, makeparser::MakeOverrides(settings.build.begin(), settings.build.end()));
     if (!started) {
         logError("{}", base::describe(started.error()));
         return;
     }
-    if (target == hackeroot::BuildTarget::Run) {
+    runsAfterBuild = target == build::BuildTarget::Run;
+    if (runsAfterBuild) {
         logInfo("building and running {}", encodeUtf8(*root));
     } else {
         logInfo("building {}", encodeUtf8(*root));
@@ -597,6 +611,7 @@ void App::setSceneAngleFormat() {
 void App::applySettings(const Settings& applied) {
     const bool rebuildsCheckout = applied.build != settings.build;
     settings.build = applied.build;
+    settings.emulatorPath = applied.emulatorPath;
     settings.log = applied.log;
     settings.markerShape = applied.markerShape;
     settings.reviewsSceneSaves = applied.reviewsSceneSaves;
@@ -627,6 +642,53 @@ void App::updateBuild() {
     } else {
         logError("{}", outcome->summary);
     }
+    if (std::exchange(runsAfterBuild, false) && outcome->status == build::BuildStatus::Succeeded) {
+        startEmulator();
+    }
+}
+
+void App::startEmulator() {
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (!settings.emulatorPath) {
+        logError("set the emulator in Settings, under General, to run the ROM");
+        return;
+    }
+    if (workspace == nullptr) {
+        logError("the ROM cannot be run before the checkout is read");
+        return;
+    }
+    const std::filesystem::path& rom = workspace->getBuildDefines().romFile;
+    if (rom.empty()) {
+        logError("the Makefile names no ROM to run");
+        return;
+    }
+    const std::vector<std::string> command =
+        build::makeEmulatorCommand(*settings.emulatorPath, rom);
+    if (const std::expected<void, base::Diagnostic> started =
+            build::Process::launch(command, settings.emulatorPath->parent_path());
+        !started) {
+        logError("{}", base::describe(started.error()));
+        return;
+    }
+    logInfo("running {} in {}", encodeUtf8(rom.filename()),
+            encodeUtf8(settings.emulatorPath->filename()));
+}
+
+BuildChoices App::makeBuildChoices() const {
+    BuildChoices choices;
+    const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
+    if (workspace == nullptr) {
+        return choices;
+    }
+    choices.versions = workspace->getAssets().versions;
+    const hackeroot::BuildDefines& defines = workspace->getBuildDefines();
+    if (!settings.build.contains("VERSION")) {
+        choices.defaults.emplace("VERSION", defines.version);
+    }
+    if (!settings.build.contains("DEBUG_FEATURES")) {
+        choices.defaults.emplace("DEBUG_FEATURES", defines.debugFeatures);
+    }
+    return choices;
 }
 
 void App::setHackerootPath(const std::filesystem::path& path) {

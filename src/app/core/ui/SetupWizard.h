@@ -1,8 +1,8 @@
 #pragma once
 
 #include "app/core/Types.h"
-#include "app/core/ui/FolderDialog.h"
 #include "app/core/ui/Fonts.h"
+#include "app/core/ui/PathDialog.h"
 
 #include <array>
 #include <filesystem>
@@ -42,7 +42,7 @@ private:
     [[nodiscard]] std::optional<std::filesystem::path> drawPathStep(SDL_Window* parent);
 
     const Fonts& fonts;
-    FolderDialog folderDialog;
+    PathDialog pathDialog;
     Step step = Step::Welcome;
     bool active = false;
     bool cancellable = false;

@@ -4,6 +4,7 @@
 #include "base/Diagnostic.h"
 
 #include <expected>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -26,6 +27,12 @@ public:
     Process(Process&& other) noexcept;
     Process& operator=(Process&& other) noexcept;
     ~Process();
+
+    /// Starts `arguments[0]` with the rest as its arguments in `directory`, and
+    /// lets it go: it has no pipe and no job, so it keeps running when Toki
+    /// closes. Fails naming the command when it cannot be started.
+    [[nodiscard]] static std::expected<void, base::Diagnostic>
+    launch(std::span<const std::string> arguments, const std::filesystem::path& directory);
 
     /// Waits for the next output and returns it as it came, or nothing once
     /// the process and everything it started have closed the pipe.

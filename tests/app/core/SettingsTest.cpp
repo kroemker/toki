@@ -189,6 +189,23 @@ TEST_CASE("build settings round-trip and accept numbers", "[core][settings]") {
     REQUIRE(reloaded->build == loaded->build);
 }
 
+TEST_CASE("the emulator round-trips, and unset is written as nothing", "[core][settings]") {
+    const TempDir dir("emulator");
+    Settings written;
+    written.emulatorPath = std::filesystem::path("C:/Emulators/ares/ares.exe");
+    REQUIRE(saveSettings(written, dir.getFile()).has_value());
+
+    auto read = loadSettings(dir.getFile());
+    REQUIRE(read.has_value());
+    REQUIRE(read->emulatorPath == written.emulatorPath);
+
+    read->emulatorPath.reset();
+    REQUIRE(saveSettings(*read, dir.getFile()).has_value());
+    const auto cleared = loadSettings(dir.getFile());
+    REQUIRE(cleared.has_value());
+    REQUIRE_FALSE(cleared->emulatorPath.has_value());
+}
+
 TEST_CASE("closed panels round-trip beside open ones", "[core][settings]") {
     const TempDir dir("closed_panels");
     Settings written;

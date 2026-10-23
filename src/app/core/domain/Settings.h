@@ -92,6 +92,11 @@ struct Settings {
     /// both always agree on what the build is.
     std::map<std::string, std::string, std::less<>> build;
 
+    /// The emulator Run opens the built ROM in. Toki starts it itself, with
+    /// the ROM's Windows path, rather than through make's `run` target, which
+    /// would start it inside WSL.
+    std::optional<std::filesystem::path> emulatorPath;
+
     std::optional<WindowGeometry> window;
     LogSettings log;
     std::optional<std::vector<std::string>> openPanels;

@@ -87,10 +87,17 @@ readBuildDefines(const std::filesystem::path& repository,
     const makeparser::MakeSite site{.location = base::SourceLocation{.file = path}};
     defines.version = makeparser::stripWords(
         makefile->variables.expand("$(VERSION)", site, defines.diagnostics).text);
+    defines.debugFeatures = makeparser::stripWords(
+        makefile->variables.expand("$(DEBUG_FEATURES)", site, defines.diagnostics).text);
     const std::string mapFile = makeparser::stripWords(
         makefile->variables.expand("$(MAP)", site, defines.diagnostics).text);
     if (!mapFile.empty()) {
         defines.mapFile = repository / mapFile;
+    }
+    const std::string romFile = makeparser::stripWords(
+        makefile->variables.expand("$(ROM)", site, defines.diagnostics).text);
+    if (!romFile.empty()) {
+        defines.romFile = repository / romFile;
     }
 
     if (makefile->variables.find("CPP_DEFINES") == nullptr) {

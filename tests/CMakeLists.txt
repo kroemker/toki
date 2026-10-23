@@ -18,6 +18,7 @@ add_executable(toki_tests
         app/assets/AssetReportTest.cpp
         app/build/BuildRunnerTest.cpp
         app/build/BuildTextTest.cpp
+        app/build/EmulatorCommandTest.cpp
         app/core/KeyBindingsTest.cpp
         app/core/LogTest.cpp
         app/core/MakeVariablesTest.cpp
