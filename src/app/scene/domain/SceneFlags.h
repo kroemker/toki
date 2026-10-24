@@ -54,9 +54,10 @@ struct FlagLink {
 /// 0x20 are reset when the scene is left, as `Flags_GetSwitch` keeps them apart.
 [[nodiscard]] bool isSavedSceneFlag(actor::SceneFlag kind, s64 number);
 
-/// The scene flag `param` names for `placement`, or nothing when the param is
-/// at its highest value, which actors take to mean no flag, or past the flags
-/// the kind has.
+/// The scene flag `param` names for `placement`, or nothing when it names none:
+/// collectible flag 0, which `Flags_SetCollectible` never sets, a param of
+/// another kind at its highest value, which actors take to mean no flag, or a
+/// number past the flags the kind has.
 [[nodiscard]] std::optional<s64> findFlagNumber(const actor::ActorParam& param,
                                                 const actor::PlacementValues& placement);
 

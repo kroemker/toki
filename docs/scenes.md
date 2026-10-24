@@ -202,7 +202,8 @@ Its Flags section lists every scene flag the layer's placed actors use, by the p
 entries mark as one ([actor-database.md](actor-database.md)), in the rooms and between them
 (`listSceneFlags`): each flag by kind and number, whether it is saved or reset when the
 scene is left, and the actors that read or set it, those more than one actor uses first. A
-flag at its param's highest value means none, as actors take it, and is left out. A flag
+collectible flag of 0 means none, since `Flags_SetCollectible` never sets it, and a flag of
+another kind at its param's highest value means none, as actors take it; both are left out. A flag
 read but set by no actor here says so, since a cutscene, another scene or the player may set
 it. Choosing an actor turns the camera to it.
 
