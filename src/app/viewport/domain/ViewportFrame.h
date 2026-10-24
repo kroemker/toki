@@ -74,6 +74,9 @@ struct ViewportDraw {
     /// it shows, as a scene numbers its rooms and placements; what the frame
     /// drew of it can be picked and outlined by it.
     std::optional<usize> owner;
+    /// Whether the edges of the triangles the draw makes are drawn over the
+    /// frame as lines, as a collision's are to show its shape.
+    bool isEdged = false;
 };
 
 /// The outputs of `n64::RspResult::outputs` one draw made, from `first` to

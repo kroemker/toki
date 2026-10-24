@@ -26,6 +26,7 @@ constexpr const char* ShadingPopup = "##shading";
 constexpr const char* OverlaysPopup = "##overlays";
 constexpr float LabelWidth = 9.0F;
 constexpr auto ActorDisplayLabels = std::to_array<const char*>({"Hidden", "Markers", "Models"});
+constexpr auto CollisionDisplayLabels = std::to_array<const char*>({"Off", "Over Rooms", "Only"});
 constexpr auto TextureFilterLabels = std::to_array<const char*>({"N64", "Point"});
 constexpr std::array<const char*, ShadingCount> ShadingIcons{
     core::icons::ImageSquare, core::icons::Sphere,   core::icons::Checkerboard,
@@ -186,6 +187,30 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
             edit.choices = std::move(changed);
         }
     }
+    if (choices && choices->collision) {
+        core::drawPropertyLabel("Collision",
+                                "The scene's collision: over the rooms, see-through and edged, or "
+                                "alone in their place.");
+        if (const std::optional<CollisionDisplay> picked =
+                drawEnumCombo("##collision", CollisionDisplayLabels, *choices->collision)) {
+            ViewportChoices changed = edit.choices.value_or(*choices);
+            changed.collision = *picked;
+            edit.choices = std::move(changed);
+        }
+        if (*choices->collision != CollisionDisplay::Off && !choices->collisionColorings.empty()) {
+            core::drawPropertyLabel("Color By",
+                                    "Kind colours floors, walls and ceilings apart; a setting "
+                                    "colours each of its values, and leaves grey what is "
+                                    "without it.");
+            if (const std::optional<usize> chosen =
+                    drawNameCombo("##collisionColoring", choices->collisionColorings,
+                                  choices->collisionColoring)) {
+                ViewportChoices changed = edit.choices.value_or(*choices);
+                changed.collisionColoring = *chosen;
+                edit.choices = std::move(changed);
+            }
+        }
+    }
     ViewportView changed = view;
     bool isChanged = drawSwitchRow("Flag Links",
                                    "A line from each actor that sets a flag to each that reads "
@@ -218,6 +243,9 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
                                        const std::optional<ViewportChoices>& choices) {
     usize count = (view.overlays.flagLinks ? 1 : 0) + (view.overlays.grid ? 1 : 0);
     if (choices && choices->actors && *choices->actors != ActorDisplay::Hidden) {
+        ++count;
+    }
+    if (choices && choices->collision && *choices->collision != CollisionDisplay::Off) {
         ++count;
     }
     return count;

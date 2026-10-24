@@ -2,8 +2,10 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 
 #include <optional>
@@ -26,6 +28,8 @@ struct SceneView {
     bool showsPaths = true;
     /// The player entry Link is drawn at; the others are marked.
     usize shownEntrance = 0;
+    viewport::CollisionDisplay collision = viewport::CollisionDisplay::Off;
+    CollisionColoring collisionColoring = CollisionColoring::Kind;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of
@@ -51,7 +55,10 @@ struct SceneView {
 /// player entries, are marked by `markerShape` between the two passes, and so
 /// are the points of the layer's paths, smaller, while `view` shows them. With
 /// `shownLayer`, its placements, paths and light settings are drawn in place
-/// of the shown layer's, as an edit is previewed before it is made.
+/// of the shown layer's, as an edit is previewed before it is made. The
+/// layer's collision is drawn after everything else over the rooms, or after
+/// the opaque pass in place of the rooms, as `view` shows it, every polygon a
+/// draw of its own with its edges drawn.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                                          core::MarkerShape markerShape,
                                                          const SceneLayer* shownLayer = nullptr);

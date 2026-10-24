@@ -57,6 +57,8 @@ struct DrawnFrame {
     /// What each of the content's draws made, and what owns it.
     std::vector<std::optional<OutputRange>> drawOutputs;
     std::vector<std::optional<usize>> drawOwners;
+    /// The draws whose triangles have their edges drawn.
+    std::vector<usize> edgedDraws;
 };
 
 class ViewportPanel : public core::Panel {

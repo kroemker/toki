@@ -5,6 +5,8 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDraws.h"
 #include "app/scene/domain/ActorMarkers.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/RuntimeSegments.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -211,6 +213,7 @@ struct PassSource {
     usize imageCount = 0;
     usize standInImage = 0;
     u32 standIn = 0;
+    bool drawsRooms = true;
 };
 
 [[nodiscard]] viewport::ViewportDraw makeRuntimeSegmentsDraw(const PassSource& source) {
@@ -236,7 +239,7 @@ struct PassSource {
     }
     const std::vector<RoomHeader>& rooms = source.layer.rooms;
     for (usize room = 0; room < rooms.size() && FirstRoomImage + room < source.imageCount; ++room) {
-        if (!isShown(source.view, room)) {
+        if (!source.drawsRooms || !isShown(source.view, room)) {
             continue;
         }
         for (const RoomDisplayLists& lists : rooms[room].displayLists) {
@@ -250,6 +253,24 @@ struct PassSource {
         }
     }
     return draws;
+}
+
+void addCollision(viewport::ViewportContent& content, const Collision& collision,
+                  const SceneView& view) {
+    const CollisionDrawing drawing = makeCollisionDrawing(
+        collision,
+        CollisionLook{.coloring = view.collisionColoring,
+                      .isTranslucent = view.collision == viewport::CollisionDisplay::OverRooms});
+    const usize image = content.images.size();
+    content.draws.push_back(viewport::ViewportDraw{.image = image, .displayList = drawing.setup});
+    for (const u32 polygon : drawing.polygons) {
+        if (polygon != 0) {
+            content.draws.push_back(
+                viewport::ViewportDraw{.image = image, .displayList = polygon, .isEdged = true});
+        }
+    }
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(drawing.image));
+    labelImages(content, "Collision", viewport::ImageKind::Generated);
 }
 
 [[nodiscard]] usize findDefaultLightSetting(const SceneHeader& header) {
@@ -328,16 +349,25 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const SceneLayer& layer = shownLayer != nullptr ? *shownLayer : scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
+    const Collision* collision = layer.collision && *layer.collision < scene.collisions.size()
+                                     ? &scene.collisions[*layer.collision]
+                                     : nullptr;
+    const bool isCollisionOnly =
+        collision != nullptr && view.collision == viewport::CollisionDisplay::Only;
     const PassSource source{.layer = layer,
                             .view = view,
                             .setup = setup,
                             .imageCount = scene.images.size(),
                             .standInImage = content.images.size(),
-                            .standIn = runtime.standIn};
+                            .standIn = runtime.standIn,
+                            .drawsRooms = !isCollisionOnly};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
     content.draws = makePass(source, true);
+    if (isCollisionOnly) {
+        addCollision(content, *collision, view);
+    }
     std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
         Placed placed = collectPlaced(layer, view);
@@ -357,6 +387,9 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
+    if (collision != nullptr && view.collision == viewport::CollisionDisplay::OverRooms) {
+        addCollision(content, *collision, view);
+    }
 
     if (view.lightSetting < layer.header.lightSettings.size()) {
         content.lighting = makeLighting(layer.header.lightSettings[view.lightSetting]);

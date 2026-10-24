@@ -2,9 +2,11 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/scene/domain/ActorMarkers.h"
+#include "app/scene/domain/Collision.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Types.h"
 #include "n64/DisplayListWriter.h"
@@ -221,4 +223,38 @@ TEST_CASE("segments a scene's draw config fills as it runs neither move a room n
             REQUIRE(got->vertices[corner].position == want->vertices[corner].position);
         }
     }
+}
+
+TEST_CASE("a layer's collision is drawn over the rooms or in their place, every polygon edged",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.vertices = {{0, 0, 0}, {0, 0, 100}, {100, 0, 0}, {0, 100, 0}};
+    collision.polygons = {{.vertexData = {0, 1, 2}, .normal = {0, 0x7FFF, 0}},
+                          {.vertexData = {0, 3, 1}, .normal = {0x7FFF, 0, 0}},
+                          {.vertexData = {0, 9, 1}, .normal = {0x7FFF, 0, 0}}};
+    collision.surfaceTypes.resize(1);
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+
+    const toki::viewport::ViewportContent off =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::none_of(off.draws, &toki::viewport::ViewportDraw::isEdged));
+
+    view.collision = toki::viewport::CollisionDisplay::OverRooms;
+    const toki::viewport::ViewportContent over =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::count_if(over.draws, &toki::viewport::ViewportDraw::isEdged) == 2);
+    REQUIRE(over.draws.back().isEdged);
+    REQUIRE(over.labels.back().name == "Collision");
+    const toki::viewport::Frame overFrame = runScene(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(overFrame.diagnostics.empty());
+    REQUIRE(countTriangles(overFrame.rspResult) == 4);
+
+    view.collision = toki::viewport::CollisionDisplay::Only;
+    const toki::viewport::Frame only = runScene(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(only.diagnostics.empty());
+    REQUIRE(countTriangles(only.rspResult) == 2);
 }

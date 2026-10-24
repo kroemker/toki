@@ -60,6 +60,7 @@ namespace {
 
 constexpr f32 HighlightFill = 0.35F;
 constexpr LineStyle WireframeStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
+constexpr LineStyle EdgeStyle{.color = {20, 21, 25, 200}, .width = 1.0F};
 constexpr f32 HighlightEdgeWidth = 1.0F;
 
 constexpr f32 DegreesPerPoint = 0.4F;
@@ -513,8 +514,11 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
                        .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult),
                        .generation = generation,
                        .drawOutputs = std::move(frame.drawOutputs)};
-    for (const ViewportDraw& draw : viewportContent.draws) {
-        drawing.drawOwners.push_back(draw.owner);
+    for (usize i = 0; i < viewportContent.draws.size(); ++i) {
+        drawing.drawOwners.push_back(viewportContent.draws[i].owner);
+        if (viewportContent.draws[i].isEdged) {
+            drawing.edgedDraws.push_back(i);
+        }
     }
     selectionBoxes.reset();
     if (mode != RenderMode{}) {
@@ -565,6 +569,10 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
                                           WireframeStyle);
     }
     const f32 scale = ImGui::GetIO().DisplayFramebufferScale.x;
+    std::ranges::move(
+        makeOutlines(listDrawTriangles(drawing.rspResult, drawing.drawOutputs, drawing.edgedDraws),
+                     {.color = EdgeStyle.color, .width = EdgeStyle.width * scale}),
+        std::back_inserter(overlay.lines));
     if (overlays.isShown) {
         const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
         if (overlays.grid) {

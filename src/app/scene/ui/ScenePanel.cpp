@@ -11,6 +11,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/PathUsers.h"
 #include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
@@ -206,6 +207,14 @@ void ScenePanel::offerChoices() {
     for (usize i = 0; i < header.lightSettings.size(); ++i) {
         choices.lightSettings.push_back(makeLightSettingName(header, i));
     }
+    if (scene->layers[sceneView.layer].collision) {
+        choices.collision = sceneView.collision;
+        for (usize i = 0; i < CollisionColoringCount; ++i) {
+            choices.collisionColorings.emplace_back(
+                getCollisionColoringLabel(static_cast<CollisionColoring>(i)));
+        }
+        choices.collisionColoring = static_cast<usize>(sceneView.collisionColoring);
+    }
     viewportPanel.setChoices(std::move(choices), [this](const viewport::ViewportChoices& chosen) {
         sceneView.lightSetting = chosen.lightSetting;
         const viewport::ActorDisplay actors =
@@ -213,6 +222,10 @@ void ScenePanel::offerChoices() {
         sceneView.showsActors = actors != viewport::ActorDisplay::Hidden;
         if (sceneView.showsActors) {
             sceneView.drawsModels = actors == viewport::ActorDisplay::Models;
+        }
+        sceneView.collision = chosen.collision.value_or(viewport::CollisionDisplay::Off);
+        if (chosen.collisionColoring < CollisionColoringCount) {
+            sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }
         showScene();
     });
