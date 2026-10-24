@@ -167,6 +167,7 @@ private:
     void drawOverlay(const std::vector<SceneFlagUse>& flags, const SceneLayer& layer);
     void addFlagLinks(viewport::ViewportOverlay& overlay, const std::vector<SceneFlagUse>& flags);
     void addPathLines(viewport::ViewportOverlay& overlay, const std::vector<ScenePath>& paths);
+    void addFollowerLines(viewport::ViewportOverlay& overlay, const std::vector<ScenePath>& paths);
     void drawFlagUser(const FlagUser& user);
     /// The name cell of one placement's row of the outliner.
     void drawActor(const PlacementRow& row);

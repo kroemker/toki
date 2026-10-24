@@ -1022,7 +1022,7 @@ scale = 0.01
 
 [actors.ACTOR_EN_KO.params]
 Type = { mask = 0x00FF, kind = "choice", values = "KokiriChildren" }
-Path = { mask = 0xFF00, kind = "number", description = "The path it walks, for those that walk; 0xFF is none" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path it walks, for those that walk; 0xFF is none" }
 
 [[actors.ACTOR_EN_KO.variants]]
 match = { Type = 0 }
@@ -1859,7 +1859,7 @@ scale = 0.01
 
 [actors.ACTOR_EN_RIVER_SOUND.params]
 Sound = { mask = 0x00FF, kind = "choice", values = "RiverSoundType" }
-Path = { mask = 0xFF00, kind = "number", description = "The scene path a river sound follows; only the three river types read it" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The scene path a river sound follows; only the three river types read it" }
 
 [actors.ACTOR_EN_WONDER_ITEM]
 name = "Invisible collectible trigger"
@@ -2217,7 +2217,7 @@ rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_OBJ_BEAN.params]
 "Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", flag_use = "both", description = "Set when a bean is planted; the adult platform appears only while set" }
-Path = { mask = 0x1F00, kind = "number", description = "The path the adult platform flies along; 0x1F is none, and kills the adult one" }
+Path = { mask = 0x1F00, kind = "number", path = true, description = "The path the adult platform flies along; 0x1F is none, and kills the adult one" }
 Speed = { mask = 0x0003, source = "rotation_z", kind = "number", description = "Which of sBeanSpeeds the platform flies at" }
 
 [[actors.ACTOR_OBJ_BEAN.variants]]
@@ -2634,7 +2634,7 @@ object = "object_goroiwa"
 scale = 0.1
 
 [actors.ACTOR_EN_GOROIWA.params]
-Path = { mask = 0x00FF, kind = "number", description = "The path it rolls along; 0xFF, or a path of fewer than 2 points, kills it" }
+Path = { mask = 0x00FF, kind = "number", path = true, description = "The path it rolls along; 0xFF, or a path of fewer than 2 points, kills it" }
 "Loop Mode" = { mask = 0x0300, kind = "choice", values = { 0 = "One way, then back to the start", 1 = "One way, breaking at the end", 3 = "There and back" } }
 Falls = { mask = 0x0400, kind = "flag", description = "Falls and bounces between points, rather than rolling on the ground" }
 "Stops on Hit" = { mask = 0x0001, source = "rotation_z", kind = "flag", description = "Waits briefly after hitting Link and keeps going, rather than turning back" }
@@ -2856,7 +2856,7 @@ scale = 0.0075
 
 [actors.ACTOR_EN_DOG.params]
 Color = { mask = 0x000F, kind = "choice", values = { 0 = "White", 1 = "Brown" } }
-Path = { mask = 0x00F0, kind = "number", description = "The path it walks; 0xF is none" }
+Path = { mask = 0x00F0, kind = "number", path = true, description = "The path it walks; 0xF is none" }
 "Dog ID" = { mask = 0x0F00, kind = "number", description = "Which dog it is, compared with the one following Link. Init adds 1 unless Following is set" }
 Following = { mask = 0x8000, kind = "flag", description = "The dog following Link, as the game spawns it; not placed" }
 
@@ -2895,7 +2895,7 @@ scale = 0.01
 
 [actors.ACTOR_EN_HY.params]
 Type = { mask = 0x007F, kind = "choice", values = "EnHyType" }
-Path = { mask = 0x0780, kind = "number", description = "The path the bald man walks or the old man paces; 15 is none" }
+Path = { mask = 0x0780, kind = "number", path = true, description = "The path the bald man walks or the old man paces; 15 is none" }
 
 [[actors.ACTOR_EN_HY.variants]]
 match = { Type = 0, scene = "SCENE_MARKET_DAY" }
@@ -3126,7 +3126,7 @@ rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_EN_GO2.params]
 Type = { mask = 0x001F, kind = "choice", values = "GoronType" }
-Path = { mask = 0x03E0, kind = "number", description = "The path it rolls or walks; 31 is none" }
+Path = { mask = 0x03E0, kind = "number", path = true, description = "The path it rolls or walks; 31 is none" }
 "Switch Flag" = { mask = 0xFC00, kind = "number", scene_flag = "switch", description = "For a Fire Temple Goron: set when he is freed, and he is gone while set; other types use these bits to pick their text" }
 Waypoints = { mask = 0x00FF, source = "rotation_z", kind = "number", description = "Link the Goron's count of waypoints" }
 
@@ -3202,7 +3202,7 @@ scale = 0.01
 
 [actors.ACTOR_EN_NB.params]
 Type = { mask = 0x00FF, kind = "choice", values = { 0 = "Chamber of Sages", 2 = "Casting the seal", 3 = "Kidnapped", 4 = "Iron Knuckle", 5 = "Credits", 6 = "Crawlspace" } }
-Path = { mask = 0xFF00, kind = "number", description = "The path she walks after talking, for the crawlspace type" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path she walks after talking, for the crawlspace type" }
 
 [[actors.ACTOR_EN_NB.variants]]
 match = { Type = 2 }
@@ -3639,7 +3639,7 @@ scale = 0.01
 
 [actors.ACTOR_EN_DAIKU_KAKARIKO.params]
 Type = { mask = 0x0003, kind = "choice", values = "KakarikoCarpenterType" }
-Path = { mask = 0xFF00, kind = "number", description = "The path it runs along by day; 0xFF is none" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path it runs along by day; 0xFF is none" }
 
 [[actors.ACTOR_EN_DAIKU_KAKARIKO.variants]]
 match = { Type = 0 }
@@ -3882,7 +3882,7 @@ draw = "marker"
 rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_EN_HORSE_NORMAL.params]
-Path = { mask = 0x000F, kind = "number", description = "The path it walks when Follows Path is set; 15 is none" }
+Path = { mask = 0x000F, kind = "number", path = true, description = "The path it walks when Follows Path is set; 15 is none" }
 "Follows Path" = { mask = 0x0010, kind = "flag", description = "Walks its path" }
 "Ranch Time" = { mask = 0xFFFF, source = "rotation_z", kind = "choice", values = { 0 = "Never", 1 = "Child, before Talon returns", 3 = "Child, after Talon returns", 5 = "Adult, before Epona", 7 = "Adult, after Epona" }, description = "At Lon Lon Ranch only: when it appears" }
 
@@ -4191,7 +4191,7 @@ scale = 0.1
 [actors.ACTOR_BG_MIZU_MOVEBG.params]
 Type = { mask = 0xF000, kind = "choice", values = "BgMizuMovebgType" }
 "Switch Flag" = { mask = 0x003F, kind = "number", scene_flag = "switch", description = "Dragon statues 4 to 6 are raised while set; the hookshot platform reads bits 0-3 as its start point and 4-7 as its speed" }
-Path = { mask = 0x0F00, kind = "number", description = "The hookshot platform's path" }
+Path = { mask = 0x0F00, kind = "number", path = true, description = "The hookshot platform's path" }
 
 [[actors.ACTOR_BG_MIZU_MOVEBG.variants]]
 match = { Type = 0 }
@@ -4498,7 +4498,7 @@ object = "object_sd"
 scale = 0.01
 
 [actors.ACTOR_EN_HEISHI1.params]
-Path = { mask = 0x00FF, kind = "number", description = "The path it patrols; path 3 also spawns the courtyard's rupees. Unused by type 5" }
+Path = { mask = 0x00FF, kind = "number", path = true, description = "The path it patrols; path 3 also spawns the courtyard's rupees. Unused by type 5" }
 Type = { mask = 0xFF00, kind = "choice", values = { 0 = "Patrol (slow)", 1 = "Patrol (fast)", 2 = "Patrol (slow, skips points)", 3 = "Patrol (fast, skips points)", 5 = "Night guard" } }
 
 [[actors.ACTOR_EN_HEISHI1.variants]]
@@ -4517,7 +4517,7 @@ rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_EN_DAIKU.params]
 Type = { mask = 0x0003, kind = "choice", values = { 0 = "Carpenter 0 (red)", 1 = "Carpenter 1 (light blue)", 2 = "Carpenter 2 (green)", 3 = "Carpenter 3 (purple)" } }
-Path = { mask = 0x00F0, kind = "number", description = "The path he runs out of the hideout on once freed" }
+Path = { mask = 0x00F0, kind = "number", path = true, description = "The path he runs out of the hideout on once freed" }
 "Door Switch" = { mask = 0x3F00, kind = "number", scene_flag = "switch", description = "His cell door is open when set" }
 "Fight Switch" = { mask = 0x003F, source = "rotation_z", kind = "number", scene_flag = "switch", flag_use = "sets", description = "Set when talking to him starts the fight with his guard" }
 
@@ -4665,7 +4665,7 @@ object = "object_mm"
 scale = 0.01
 
 [actors.ACTOR_EN_MM.params]
-Path = { mask = 0x00FF, kind = "number", description = "The path he runs along" }
+Path = { mask = 0x00FF, kind = "number", path = true, description = "The path he runs along" }
 
 [[actors.ACTOR_EN_MM.variants]]
 parts = [{ skeleton = "gRunningManSkel", pose = "gRunningManRunAnim", segments = { 8 = "gRunningManMouthClosedTex" } }]
@@ -5062,7 +5062,7 @@ scale = 0.1
 
 [actors.ACTOR_BG_SPOT01_OBJECTS2.params]
 Type = { mask = 0x0007, kind = "choice", values = { 0 = "Potion shop sign", 1 = "Shooting gallery sign", 2 = "Bazaar sign", 3 = "Construction site", 4 = "Shooting gallery" } }
-Path = { mask = 0xFF00, kind = "number", description = "For the construction site: the path its carpenter starts on and walks" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "For the construction site: the path its carpenter starts on and walks" }
 
 [[actors.ACTOR_BG_SPOT01_OBJECTS2.variants]]
 match = { Type = 0 }
@@ -5809,7 +5809,7 @@ object = "object_mb"
 
 [actors.ACTOR_EN_MB.params]
 Kind = { mask = 0x00FF, kind = "choice", values = { 0 = "Club Moblin", 255 = "Spear Moblin" }, description = "With Path 0xFF, a spear guard; params 0 is the club Moblin" }
-Path = { mask = 0xFF00, kind = "number", description = "The path a spear Moblin patrols; 0xFF is a guard that does not" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path a spear Moblin patrols; 0xFF is a guard that does not" }
 
 [[actors.ACTOR_EN_MB.variants]]
 match = { Kind = 0, Path = 0 }
@@ -6718,7 +6718,7 @@ object = "object_kz"
 scale = 0.01
 
 [actors.ACTOR_EN_KZ.params]
-Path = { mask = 0xFF00, kind = "number", description = "The path he moves along once given Ruto's letter, standing at its last point; 0xFF is none" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path he moves along once given Ruto's letter, standing at its last point; 0xFF is none" }
 
 [[actors.ACTOR_EN_KZ.variants]]
 match = { age = "adult" }
@@ -7584,7 +7584,7 @@ object = "object_cs"
 scale = 0.01
 
 [actors.ACTOR_EN_CS.params]
-Path = { mask = 0x00FF, kind = "number", description = "The scene path he walks" }
+Path = { mask = 0x00FF, kind = "number", path = true, description = "The scene path he walks" }
 
 [[actors.ACTOR_EN_CS.variants]]
 parts = [{ skeleton = "gGraveyardKidSkel", pose = "gGraveyardKidWalkAnim", segments = { 8 = "gGraveyardKidEyesOpenTex" } }]
@@ -7732,7 +7732,7 @@ object = "object_gr"
 scale = 0.013
 
 [actors.ACTOR_EN_NIW_GIRL.params]
-Path = { mask = 0xFF00, kind = "number", description = "The path she chases the cucco along; the cucco takes the next one" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The path she chases the cucco along; the cucco takes the next one" }
 
 [[actors.ACTOR_EN_NIW_GIRL.variants]]
 parts = [{ skeleton = "gNiwGirlSkel", pose = "gNiwGirlJumpAnim", segments = { 8 = "gNiwGirlEyeOpenTex" } }]
@@ -7861,7 +7861,7 @@ object = "object_po_field"
 scale = 0.01
 
 [actors.ACTOR_EN_PO_DESERT.params]
-Path = { mask = 0xFF00, kind = "number", description = "The scene path it leads Link along" }
+Path = { mask = 0xFF00, kind = "number", path = true, description = "The scene path it leads Link along" }
 
 [[actors.ACTOR_EN_PO_DESERT.variants]]
 parts = [
@@ -8904,7 +8904,7 @@ scale = 0.01
 rotates = { x = true, y = true, z = false }
 
 [actors.ACTOR_EN_GO.params]
-Path = { mask = 0x000F, kind = "number", description = "The path it rolls along; 15 is none" }
+Path = { mask = 0x000F, kind = "number", path = true, description = "The path it rolls along; 15 is none" }
 Type = { mask = 0x00F0, kind = "choice", values = { 0 = "Link the Goron (Goron City)", 1 = "Fire Temple Goron", 2 = "Dodongo's Cavern entrance (DMT)", 3 = "Small roller (DMT)", 4 = "By the bomb flower (DMT)", 5 = "Goron City entrance", 6 = "Goron City island", 7 = "Goron City, by the Lost Woods", 8 = "Unused (killed)", 9 = "Biggoron", 10 = "Unused (killed)", 11 = "Unused (killed)", 12 = "Unused (killed)", 13 = "Unused (killed)", 14 = "Unused (killed)", 15 = "Unused (killed)" } }
 "Switch Flag" = { mask = 0xFF00, kind = "number", scene_flag = "switch", description = "Fire Temple Goron: gone while set. Link the Goron: stops rolling at his path's end once set" }
 Waypoints = { mask = 0xFFFF, source = "rotation_z", kind = "number", description = "How many waypoints a roller follows" }

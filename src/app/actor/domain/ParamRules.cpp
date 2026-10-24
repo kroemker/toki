@@ -35,6 +35,7 @@ struct KnownArgument {
     std::string_view collection;
     std::optional<SceneFlag> flag;
     FlagUse use = FlagUse::Reads;
+    bool isPath = false;
 };
 
 [[nodiscard]] constexpr KnownArgument makeFlagArgument(const std::string_view callee,
@@ -43,7 +44,7 @@ struct KnownArgument {
     return KnownArgument{.callee = callee, .argument = 1, .name = name, .flag = flag, .use = use};
 }
 
-constexpr std::array<KnownArgument, 26> KnownArguments{{
+constexpr std::array<KnownArgument, 27> KnownArguments{{
     makeFlagArgument("Flags_GetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Reads),
     makeFlagArgument("Flags_SetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Sets),
     makeFlagArgument("Flags_UnsetSwitch", "Switch Flag", SceneFlag::Switch, FlagUse::Sets),
@@ -81,6 +82,7 @@ constexpr std::array<KnownArgument, 26> KnownArguments{{
      .name = "Music",
      .collection = "NA_BGM"},
     {.callee = "SEQCMD_PLAY_SEQUENCE", .argument = 3, .name = "Music", .collection = "NA_BGM"},
+    {.callee = "Path_GetByIndex", .argument = 1, .name = "Path", .isPath = true},
 }};
 
 constexpr std::array<std::string_view, 6> VagueNames{"params", "temp", "tmp", "i", "j", "value"};
@@ -378,8 +380,13 @@ void applyKnownArgument(ActorParam& param, const KnownArgument& known,
     if (isVague(param) && !std::ranges::contains(params, known.name, &ActorParam::name)) {
         param.name = std::string(known.name);
     }
-    if (known.flag) {
+    if (known.isPath) {
         if (!param.sceneFlag) {
+            param.kind = ParamKind::Number;
+            param.isPath = true;
+        }
+    } else if (known.flag) {
+        if (!param.sceneFlag && !param.isPath) {
             param.kind = ParamKind::Number;
             param.sceneFlag = known.flag;
             param.flagUse = known.use;

@@ -164,8 +164,17 @@ A path or one of its points selected shows the path's points in the Properties p
 keeps at least one. The points are drawn in the viewport as markers smaller than an
 actor's, picked and moved with G and R like a placement, and the path as lines from each
 point to the next, headed in the direction it runs, the selected path brighter. The group's
-menu adds a path of one point where the camera looks. Actors name a path by its index, so a
-path deleted moves the ones after it down.
+menu adds a path of one point where the camera looks.
+
+Actors name a path by its index, in a param the actor database marks as a path
+(`listPathUsers`). Each actor that follows one is drawn a faint line to its path's first
+point, and the path's Properties count them. A path deleted moves the ones after it down,
+and the actors that follow them are renumbered with it, in the same step
+(`listPathRemovalChanges`). A path actors follow is deleted only once the panel has listed
+them and been told to: their params are left as they are, since an actor that indexes the
+path list without checking for none (En_Heishi1) would read past its end. The actors of a
+room header another layer reads too, as a layer reads the main header of a room with none of
+its own, are left as they are, since that layer keeps its paths.
 
 The Properties panel, below it, shows the placement selected in the panel or picked in the
 viewport, in three sections:

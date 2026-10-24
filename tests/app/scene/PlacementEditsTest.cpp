@@ -170,6 +170,22 @@ TEST_CASE("a transition actor set keeps the cameras of its sides", "[scene][edit
     REQUIRE(bytes == std::vector<u8>{2, 5, 3, 6, 0, 0x2E, 0, 4, 0, 5, 0, 6, 0x80, 0, 1, 2});
 }
 
+TEST_CASE("placements are set together, each in its own list", "[scene][edit]") {
+    toki::scene::SceneModel model(makeScene());
+    const std::vector<toki::scene::PlacementChange> changes{
+        {.list = {.kind = toki::scene::PlacementKind::Actor, .layer = 1},
+         .index = 1,
+         .placement = Moved},
+        {.list = {.kind = toki::scene::PlacementKind::TransitionActor},
+         .placement = toki::scene::TransitionActorPlacement{.id = 0x2E, .params = 0x0102}}};
+
+    REQUIRE(toki::scene::setPlacements(model, changes));
+
+    REQUIRE(readRoom(model, "room").actors[1] != Moved);
+    REQUIRE(readRoom(model, "roomAlt").actors[1] == Moved);
+    REQUIRE(model.findSymbol("doors")->bytes[5] == 0x2E);
+}
+
 TEST_CASE("a player entry is set but not removed", "[scene][edit]") {
     toki::scene::SceneModel model(makeScene());
     const toki::scene::PlacementList entries{.kind = toki::scene::PlacementKind::PlayerEntry};

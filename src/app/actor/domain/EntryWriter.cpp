@@ -130,6 +130,9 @@ void insertPlacement(toml::table& table, const PartPlacement& placement) {
             table.insert("flag_use", std::string(getEntryName(FlagUseNames, param.flagUse)));
         }
     }
+    if (param.isPath) {
+        table.insert("path", true);
+    }
     insertText(table, "description", param.description);
     return table;
 }

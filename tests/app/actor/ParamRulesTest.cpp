@@ -243,3 +243,19 @@ void EnTest_Init(Actor* thisx, PlayState* play) {
     REQUIRE(params.size() == 1);
     REQUIRE_FALSE(params[0].collection);
 }
+
+TEST_CASE("a read passed to Path_GetByIndex is a path", "[actor][params]") {
+    const std::vector<toki::actor::ActorParam> params = readParams(R"(
+void EnTest_Init(Actor* thisx, PlayState* play) {
+    EnTest* this = (EnTest*)thisx;
+    this->path = Path_GetByIndex(play, PARAMS_GET_S(thisx->params, 4, 4), 0xF);
+}
+)");
+
+    REQUIRE(params.size() == 1);
+    REQUIRE(params[0].name == "Path");
+    REQUIRE(params[0].mask == 0x00F0);
+    REQUIRE(params[0].kind == toki::actor::ParamKind::Number);
+    REQUIRE(params[0].isPath);
+    REQUIRE_FALSE(params[0].sceneFlag.has_value());
+}

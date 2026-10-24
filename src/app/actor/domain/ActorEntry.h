@@ -56,7 +56,8 @@ struct ChoiceValue {
 /// taken from the checkout's `collection` of that name, `GetItemID`; `offset`
 /// is added to the param's value before it is looked up among them, as a sign
 /// adds 0x300 to its message. A number may be the scene flag of `sceneFlag`
-/// that the actor uses as `flagUse` says.
+/// that the actor uses as `flagUse` says, or, `isPath`, the index of the path
+/// of the scene the actor follows.
 struct ActorParam {
     std::string name;
     ParamKind kind = ParamKind::Number;
@@ -69,6 +70,7 @@ struct ActorParam {
     s64 offset = 0;
     std::optional<SceneFlag> sceneFlag;
     FlagUse flagUse = FlagUse::Reads;
+    bool isPath = false;
     std::string description;
     base::SourceLocation location;
 };

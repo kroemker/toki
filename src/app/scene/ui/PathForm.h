@@ -48,6 +48,9 @@ public:
     /// `scene` holds; nothing otherwise.
     [[nodiscard]] std::optional<Draft> findChangedDraft(const Scene& scene) const;
 
+    /// Asks whether to delete a path actors follow, once one was asked to be.
+    void drawRemovalQuestion(const Scene& scene);
+
     /// Takes the path as the scene holds it again, after an edit.
     void reset() {
         draft.reset();
@@ -59,10 +62,13 @@ private:
                     std::optional<SceneNode> select);
     void pickInsert(const Scene& scene, const PathRef& path, usize after);
     void pickRemovePoint(const Scene& scene, const PathPointRef& point);
+    void askRemove(const Scene& scene, const PathRef& path);
     void pickRemove(const Scene& scene, const PathRef& path);
 
     Pick pick;
     std::optional<Draft> draft;
+    /// The path asked to be deleted while actors follow it.
+    std::optional<PathRef> askedRemoval;
 };
 
 /// The path `where` is, or is a point of.

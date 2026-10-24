@@ -11,9 +11,11 @@
 #include <expected>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -42,6 +44,22 @@ std::optional<Placement> findPlacement(const Scene& scene, const PlacementRef& w
         break;
     }
     return std::nullopt;
+}
+
+std::expected<void, base::Diagnostic>
+setPlacements(SceneModel& model, const std::span<const PlacementChange> changes) {
+    for (const PlacementChange& change : changes) {
+        const std::expected<void, base::Diagnostic> set =
+            std::holds_alternative<ActorPlacement>(change.placement)
+                ? setPlacement(model, change.list, change.index,
+                               std::get<ActorPlacement>(change.placement))
+                : setTransitionActor(model, change.list.layer, change.index,
+                                     std::get<TransitionActorPlacement>(change.placement));
+        if (!set) {
+            return set;
+        }
+    }
+    return {};
 }
 
 std::optional<LightSetting> findLightSetting(const Scene& scene, const usize layer,

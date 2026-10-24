@@ -12,6 +12,7 @@ target_sources(toki_core PRIVATE
         LightSettingEdits.cpp
         ListEditor.cpp
         PathEdits.cpp
+        PathUsers.cpp
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp

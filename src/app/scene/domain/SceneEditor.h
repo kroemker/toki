@@ -9,6 +9,7 @@
 #include <expected>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <variant>
 
@@ -98,6 +99,17 @@ using Placement = std::variant<ActorPlacement, TransitionActorPlacement>;
 
 /// The placement `where` names in `scene`, if it still holds one there.
 [[nodiscard]] std::optional<Placement> findPlacement(const Scene& scene, const PlacementRef& where);
+
+/// A placement as it is to be set, where the edits name it.
+struct PlacementChange {
+    PlacementList list;
+    usize index = 0;
+    Placement placement;
+};
+
+/// Sets each placement of `changes`, by `setPlacement` or `setTransitionActor`.
+[[nodiscard]] std::expected<void, base::Diagnostic>
+setPlacements(SceneModel& model, std::span<const PlacementChange> changes);
 
 /// The light setting of a layer `layer` and `index` name, an index into
 /// `Scene::layers` and one into its light settings, if it still holds one.

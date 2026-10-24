@@ -4,15 +4,20 @@
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/PathEdits.h"
+#include "app/scene/domain/PathUsers.h"
 #include "app/scene/domain/Scene.h"
+#include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
+#include "base/Diagnostic.h"
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <expected>
 #include <format>
 #include <optional>
 #include <span>
@@ -68,10 +73,14 @@ void PathForm::draw(const Scene& scene, const SceneNode& where, const usize sele
     ImGui::SameLine();
     ImGui::TextUnformatted(std::format("Path {}", path.path).c_str());
     ImGui::SetItemTooltip("Actors that follow a path name it by its index, in their params.");
+    const auto followers = static_cast<usize>(
+        std::ranges::count(listPathUsers(scene, path.layer), path.path, &PathUser::path));
     ImGui::TextColored(core::palette::TextMuted, "%s",
-                       std::format("{} points · {}", stored->points.size(),
+                       std::format("{} points · {} {} · {}", stored->points.size(), followers,
+                                   followers == 1 ? "actor follows it" : "actors follow it",
                                    makeLayerName(scene.layers[path.layer].index))
                            .c_str());
+    ImGui::SetItemTooltip("Counted by the params the actor database marks as paths.");
     if (selected > 1) {
         ImGui::TextColored(core::palette::Accent, "%zu selected; shown is the one picked last.",
                            selected);
@@ -84,10 +93,12 @@ void PathForm::draw(const Scene& scene, const SceneNode& where, const usize sele
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text, core::palette::Danger);
     if (ImGui::Button("Delete Path")) {
-        pickRemove(scene, path);
+        askRemove(scene, path);
     }
     ImGui::PopStyleColor();
-    ImGui::SetItemTooltip("The paths after it move down one, and actors name a path by its index.");
+    ImGui::SetItemTooltip("The paths after it move down one, and the actors that follow them are "
+                          "renumbered. Actors of a room header another layer reads too are left "
+                          "as they are.");
 }
 
 void PathForm::drawPoints(const Scene& scene, const PathRef& path,
@@ -150,7 +161,7 @@ void PathForm::drawMenu(const Scene& scene, const SceneNode& where) {
         pickInsert(scene, path, stored->points.size() - 1);
     }
     if (ImGui::MenuItem("Delete Path")) {
-        pickRemove(scene, path);
+        askRemove(scene, path);
     }
 }
 
@@ -205,11 +216,78 @@ void PathForm::pickRemovePoint(const Scene& scene, const PathPointRef& point) {
                PathRef{.layer = point.layer, .path = point.path});
 }
 
+void PathForm::askRemove(const Scene& scene, const PathRef& path) {
+    if (std::ranges::contains(listPathUsers(scene, path.layer), path.path, &PathUser::path)) {
+        askedRemoval = path;
+        return;
+    }
+    pickRemove(scene, path);
+}
+
+void PathForm::drawRemovalQuestion(const Scene& scene) {
+    constexpr const char* Title = "Delete Path###pathRemoval";
+    if (askedRemoval && !ImGui::IsPopupOpen(Title)) {
+        ImGui::OpenPopup(Title);
+    }
+    if (!ImGui::BeginPopupModal(Title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+    if (!askedRemoval || !findPath(scene, askedRemoval->layer, askedRemoval->path)) {
+        askedRemoval.reset();
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    const PathRef path = *askedRemoval;
+    ImGui::TextUnformatted(std::format("Path {} is followed by:", path.path).c_str());
+    for (const PathUser& user : listPathUsers(scene, path.layer)) {
+        if (user.path != path.path) {
+            continue;
+        }
+        const auto model = scene.actors.models.find(user.actorId);
+        const std::string name = model == scene.actors.models.end()
+                                     ? std::format("actor 0x{:04X}", static_cast<u16>(user.actorId))
+                                     : (model->second.entry && !model->second.entry->name.empty()
+                                            ? model->second.entry->name
+                                            : model->second.enumName);
+        const std::string where = user.where.kind == PlacementKind::Actor
+                                      ? std::format("room {}", user.where.room)
+                                      : std::string("between rooms");
+        ImGui::BulletText("%s", std::format("{}, {}, by \"{}\"", name, where, user.param).c_str());
+    }
+    ImGui::TextColored(core::palette::TextMuted, "%s",
+                       "Their params are left as they are: they follow the path that moves into "
+                       "its place, or none when it is the last.");
+    ImGui::TextColored(core::palette::TextMuted, "%s",
+                       "Not every actor reads a value as no path, so they are not set to one.");
+    ImGui::PushStyleColor(ImGuiCol_Text, core::palette::Danger);
+    if (ImGui::Button("Delete Path")) {
+        askedRemoval.reset();
+        ImGui::CloseCurrentPopup();
+        pickRemove(scene, path);
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    if (ImGui::Button("Keep It")) {
+        askedRemoval.reset();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
 void PathForm::pickRemove(const Scene& scene, const PathRef& path) {
     const usize gameLayer = scene.layers[path.layer].index;
-    pick([gameLayer,
-          index = path.path](SceneModel& model) { return removePath(model, gameLayer, index); },
-         std::nullopt);
+    pick(
+        [gameLayer, index = path.path,
+         changes = listPathRemovalChanges(scene, path.layer, path.path)](
+            SceneModel& model) -> std::expected<void, base::Diagnostic> {
+            if (std::expected<void, base::Diagnostic> removed = removePath(model, gameLayer, index);
+                !removed) {
+                return removed;
+            }
+            return setPlacements(model, changes);
+        },
+        std::nullopt);
 }
 
 } // namespace toki::scene

@@ -71,6 +71,9 @@ constexpr usize ShortList = 12;
         help += std::format(" A {} flag of the scene, which the actor {}.",
                             getSceneFlagName(*param.sceneFlag), getFlagUseWord(param.flagUse));
     }
+    if (param.isPath) {
+        help += " The index of the path of the scene the actor follows.";
+    }
     return help;
 }
 

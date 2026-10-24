@@ -11,6 +11,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/PathUsers.h"
 #include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -51,6 +52,16 @@ constexpr float DimmedLinkAlpha = 0.2F;
 constexpr glm::vec3 LinkLift{0.0F, 30.0F, 0.0F};
 constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 0.7F};
 constexpr ImVec4 SelectedPathColor{1.0F, 0.75F, 1.0F, 1.0F};
+constexpr float FollowerAlpha = 0.45F;
+
+[[nodiscard]] std::optional<usize> findSelectedPath(const SceneSelection& selection) {
+    const SceneNode* active = selection.findActive();
+    if (active == nullptr || (!std::holds_alternative<PathRef>(*active) &&
+                              !std::holds_alternative<PathPointRef>(*active))) {
+        return std::nullopt;
+    }
+    return findPathOf(*active).path;
+}
 
 [[nodiscard]] ImVec4 findFlagColor(const actor::SceneFlag kind) {
     switch (kind) {
@@ -220,6 +231,7 @@ void ScenePanel::draw() {
         return;
     }
     drawHeldScene();
+    placementEditor.getPathForm().drawRemovalQuestion(*scene);
     const Scene& shown = *scene;
     ImGui::TextUnformatted(shown.name.c_str());
     ImGui::SameLine();
@@ -757,19 +769,18 @@ void ScenePanel::drawOverlay(const std::vector<SceneFlagUse>& flags, const Scene
         addFlagLinks(overlay, flags);
     }
     if (sceneView.showsPaths) {
-        addPathLines(overlay, previewPaths ? *previewPaths : layer.header.paths);
+        const std::vector<ScenePath>& paths = previewPaths ? *previewPaths : layer.header.paths;
+        addPathLines(overlay, paths);
+        if (sceneView.showsActors) {
+            addFollowerLines(overlay, paths);
+        }
     }
     viewportPanel.setOverlay(std::move(overlay));
 }
 
 void ScenePanel::addPathLines(viewport::ViewportOverlay& overlay,
                               const std::vector<ScenePath>& paths) {
-    std::optional<usize> selected;
-    if (const SceneNode* active = placementEditor.getSelection().findActive();
-        active != nullptr && (std::holds_alternative<PathRef>(*active) ||
-                              std::holds_alternative<PathPointRef>(*active))) {
-        selected = findPathOf(*active).path;
-    }
+    const std::optional<usize> selected = findSelectedPath(placementEditor.getSelection());
     for (usize path = 0; path < paths.size(); ++path) {
         const u32 color = ImGui::GetColorU32(path == selected ? SelectedPathColor : PathColor);
         const std::vector<std::array<s16, 3>>& points = paths[path].points;
@@ -779,6 +790,25 @@ void ScenePanel::addPathLines(viewport::ViewportOverlay& overlay,
                                                           .color = color,
                                                           .hasArrowAtTo = true});
         }
+    }
+}
+
+void ScenePanel::addFollowerLines(viewport::ViewportOverlay& overlay,
+                                  const std::vector<ScenePath>& paths) {
+    const std::optional<usize> selected = findSelectedPath(placementEditor.getSelection());
+    for (const PathUser& user : listPathUsers(*scene, sceneView.layer)) {
+        const bool isHidden = user.where.kind == PlacementKind::Actor &&
+                              user.where.room < sceneView.hiddenRooms.size() &&
+                              sceneView.hiddenRooms[user.where.room];
+        if (isHidden || user.path >= paths.size() || paths[user.path].points.empty()) {
+            continue;
+        }
+        ImVec4 color = user.path == selected ? SelectedPathColor : PathColor;
+        color.w = FollowerAlpha;
+        overlay.lines.push_back(
+            viewport::OverlayLine{.from = makePoint(user.position) + LinkLift,
+                                  .to = makePoint(paths[user.path].points.front()),
+                                  .color = ImGui::GetColorU32(color)});
     }
 }
 
