@@ -1,5 +1,7 @@
 #include "HeaderForm.h"
 
+#include "app/assets/domain/ObjectNames.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
@@ -131,18 +133,11 @@ constexpr std::array<HeaderForm::SettingSection, 5> RoomSections{{
     {"Echo", EchoRows},
 }};
 
-[[nodiscard]] bool isFilteredIn(const std::string_view text, const std::string_view part) {
-    const auto lower = [](const char c) {
-        return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-    };
-    return part.empty() || std::ranges::search(text, part, {}, lower, lower).begin() != text.end();
-}
-
 [[nodiscard]] std::string makeObjectName(const hackeroot::Tables* tables, const s16 id) {
     const auto index = static_cast<usize>(static_cast<u16>(id));
     if (tables != nullptr && index < tables->objects.size() &&
         !tables->objects[index].enumName.empty()) {
-        return tables->objects[index].enumName;
+        return assets::makeObjectLabel(tables->objects[index]);
     }
     return std::format("0x{:04X}", index);
 }
@@ -293,7 +288,7 @@ void HeaderForm::drawNamed(const SettingRow& row, const s64 value,
                            const std::span<const NamedValue> values, const HeaderRef& where) {
     const auto current = std::ranges::find(values, value, &NamedValue::value);
     const std::string label =
-        current != values.end() ? current->name : std::format("{} (unnamed)", value);
+        current != values.end() ? current->label : std::format("{} (unnamed)", value);
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (!ImGui::BeginCombo("##named", label.c_str(), ImGuiComboFlags_HeightLarge)) {
         return;
@@ -309,11 +304,12 @@ void HeaderForm::drawNamed(const SettingRow& row, const s64 value,
     }
     for (usize i = 0; i < values.size(); ++i) {
         const NamedValue& named = values[i];
-        if (isFiltered && !isFilteredIn(named.name, filter)) {
+        if (isFiltered && !core::isConstantFilteredIn(named.label, named.name, filter)) {
             continue;
         }
         ImGui::PushID(static_cast<int>(i));
-        if (ImGui::Selectable(named.name.c_str(), named.value == value) && named.value != value) {
+        if (core::drawConstantSelectable(named.label, named.name, named.value == value) &&
+            named.value != value) {
             setSetting(where, row.setting, named.value);
         }
         ImGui::PopID();
@@ -345,6 +341,10 @@ void HeaderForm::drawObjectRow(const std::vector<s16>& objects, const usize inde
     const float buttons = ImGui::GetFrameHeight() * 3.0F + ImGui::GetStyle().ItemSpacing.x * 2.0F;
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(makeObjectName(tables, objects[index]).c_str());
+    if (const auto object = static_cast<usize>(static_cast<u16>(objects[index]));
+        tables != nullptr && object < tables->objects.size()) {
+        ImGui::SetItemTooltip("%s", tables->objects[object].enumName.c_str());
+    }
     ImGui::SameLine(ImGui::GetContentRegionMax().x - buttons);
     ImGui::BeginDisabled(index == 0);
     if (ImGui::SmallButton(core::icons::ArrowUp)) {
@@ -387,12 +387,13 @@ void HeaderForm::drawObjectPicker(const std::vector<s16>& objects, const hackero
     ImGui::InputTextWithHint("##filter", "Filter", &filter);
     for (const hackeroot::ObjectEntry& object : tables.objects) {
         const auto id = static_cast<s16>(object.id);
+        const std::string label = assets::makeObjectLabel(object);
         if (object.isUnset || std::ranges::contains(objects, id) ||
-            !isFilteredIn(object.enumName, filter)) {
+            !core::isConstantFilteredIn(label, object.enumName, filter)) {
             continue;
         }
         ImGui::PushID(static_cast<int>(object.id));
-        if (ImGui::Selectable(object.enumName.c_str())) {
+        if (core::drawConstantSelectable(label, object.enumName, false)) {
             std::vector<s16> added = objects;
             added.push_back(id);
             setObjects(where, std::move(added));

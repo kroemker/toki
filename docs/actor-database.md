@@ -148,8 +148,13 @@ number that is both, and a param named
 
 A choice whose values the checkout already lists names them instead of copying them, so
 they follow the checkout and never drift: `values = "GetItemID"`. Each value is labelled
-with its constant's name, `GI_HEART_PIECE`, since that is what modders search the code
-for; the file still holds numbers, in matches and `default_params` alike.
+with its constant's name, `GI_HEART_PIECE`, and shown as words, "Heart Piece": the words
+every constant of the collection starts with dropped, each word with only its first letter
+in capitals but for abbreviations (`ID`, `BGM`, `SFX`, ...), and the constant faint beside
+it, since that is what modders search the code for; a filter matches both
+(`core::makeConstantLabels`, `core::drawConstantSelectable`). Objects are shown by what
+they hold where that is known, and actors by their entry's name. The file still holds
+numbers, in matches and `default_params` alike.
 
 - **Shared collections** every actor can choose from: `GetItemID`, `ItemID` and
   `GetItemDrawID` from `include/item.h`, `Item00Type` from `include/z_en_item00.h`, sound

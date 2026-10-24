@@ -215,8 +215,11 @@ it. Labels are in title case and say exactly what is set ("Min. Log Level", not 
 from").
 
 Dropdown options that are words are capitalized ("Cube", not "cube"), whatever the config
-file stores. Options that are identifiers from the checkout (`ACTORCAT_BG`, a symbol name)
-are shown as written.
+file stores. Options that are constants of the checkout (`ACTORCAT_BG`) are shown as words,
+the prefix every option shares dropped ("Bg"), with the constant faint at the row's right,
+and a filter matches both (`core::makeConstantLabels`, `core::drawConstantSelectable`). An
+actor is shown by its database entry's name and an object by what it holds, where known.
+Symbol names (`gGoldenTorchDL`) are shown as written.
 
 ---
 

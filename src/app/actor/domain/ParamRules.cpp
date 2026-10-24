@@ -4,8 +4,8 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/OverlayCode.h"
 #include "app/actor/domain/ParamReads.h"
-#include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/core/domain/ReadableName.h"
 #include "cparser/Calls.h"
 #include "cparser/Parser.h"
 #include "cparser/Token.h"
@@ -165,7 +165,7 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     if (target == nullptr || std::ranges::contains(VagueNames, target->text)) {
         return std::nullopt;
     }
-    return makeReadableName(target->text);
+    return core::makeReadableName(target->text);
 }
 
 [[nodiscard]] std::string makeMacroName(const std::string_view macro) {
@@ -181,7 +181,7 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     std::ranges::transform(lowered, lowered.begin(), [](const char letter) {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
     });
-    return makeReadableName(lowered);
+    return core::makeReadableName(lowered);
 }
 
 [[nodiscard]] std::optional<TableLookup> findLocalLookup(const ParamContext& context,
@@ -241,7 +241,7 @@ findLookup(const ParamContext& context, const cparser::Token* first, const cpars
     } else if (assigned) {
         param.name = *assigned;
     } else if (lookup) {
-        param.name = makeReadableName(lookup->table);
+        param.name = core::makeReadableName(lookup->table);
     } else {
         param.name = makeBitsName(read.shift, read.width);
     }

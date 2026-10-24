@@ -1,5 +1,6 @@
 target_sources(toki PRIVATE
         App.cpp
+        ConstantSelectable.cpp
         Dialog.cpp
         FolderDialog.cpp
         Fonts.cpp

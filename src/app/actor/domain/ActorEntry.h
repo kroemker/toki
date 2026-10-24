@@ -45,10 +45,14 @@ enum class FlagUse : u8 {
     Both,
 };
 
-/// One value a choice param may be, and what it is called.
+/// One value a choice param may be, and what it is called. A value of a
+/// collection of the checkout is called by its constant, `GI_HEART_PIECE`,
+/// and shown to people as `readableLabel`, "Heart Piece", which is empty for a
+/// value the actor database labels.
 struct ChoiceValue {
     s64 value = 0;
     std::string label;
+    std::string readableLabel;
 };
 
 /// A named range of bits of a placed actor's params or rotation, given by its

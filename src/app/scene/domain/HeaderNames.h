@@ -15,10 +15,12 @@ class TypeTable;
 
 namespace toki::scene {
 
-/// A value of a header setting, by the name the checkout gives it.
+/// A value of a header setting, by the name the checkout gives it, and as
+/// it is shown to people: `SKYBOX_NORMAL_SKY` is "Normal Sky".
 struct NamedValue {
     std::string name;
     s64 value = 0;
+    std::string label;
 
     friend bool operator==(const NamedValue&, const NamedValue&) = default;
 };

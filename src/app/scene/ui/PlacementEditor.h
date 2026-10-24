@@ -53,6 +53,7 @@ public:
     /// Shows rotations as `format`; `changed` is told when the form's own
     /// button switches it.
     void setNameFinder(ActorForm::FindName finder) {
+        paramsForm.setNameFinder(finder);
         actorForm.setNameFinder(std::move(finder));
     }
 

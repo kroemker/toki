@@ -20,7 +20,6 @@ target_sources(toki_core PRIVATE
         ParamReads.cpp
         ParamRules.cpp
         ProblemText.cpp
-        ReadableName.cpp
         PartReader.cpp
         SymbolCatalog.cpp
         ValueCollection.cpp)

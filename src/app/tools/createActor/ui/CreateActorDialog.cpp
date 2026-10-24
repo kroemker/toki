@@ -1,9 +1,10 @@
 #include "CreateActorDialog.h"
 
 #include "app/actor/domain/CollectionCatalog.h"
-#include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/core/domain/ReadableName.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/Icons.h"
@@ -37,14 +38,6 @@ constexpr float ObjectListHeight = 12.0F;
 constexpr float PreviewLines = 18.0F;
 constexpr float TooltipWidth = 28.0F;
 constexpr float LabelWidth = 12.0F;
-
-[[nodiscard]] std::string makeLabel(const std::string_view name, const std::string_view prefix) {
-    std::string lowered(name.substr(std::min(prefix.size(), name.size())));
-    std::ranges::transform(lowered, lowered.begin(), [](const char letter) {
-        return static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
-    });
-    return actor::makeReadableName(lowered);
-}
 
 void drawComment(const std::string& comment) {
     if (comment.empty() || !ImGui::BeginItemTooltip()) {
@@ -138,10 +131,12 @@ void CreateActorDialog::drawOverlay() {
     }
     core::drawPropertyLabel("Allocation type",
                             "How the overlay is kept in memory, the actor table's allocType.");
-    if (ImGui::BeginCombo("##allocation", makeLabel(draft.allocation, "ACTOROVL_ALLOC_").c_str())) {
+    if (ImGui::BeginCombo("##allocation",
+                          core::makeConstantLabel(draft.allocation, "ACTOROVL_ALLOC_").c_str())) {
         for (const hackeroot::DocumentedDefine& allocation : (*choices)->allocations) {
-            if (ImGui::Selectable(makeLabel(allocation.name, "ACTOROVL_ALLOC_").c_str(),
-                                  allocation.name == draft.allocation)) {
+            if (core::drawConstantSelectable(
+                    core::makeConstantLabel(allocation.name, "ACTOROVL_ALLOC_"), allocation.name,
+                    allocation.name == draft.allocation)) {
                 draft.allocation = allocation.name;
             }
             drawComment(allocation.comment);
@@ -185,14 +180,15 @@ void CreateActorDialog::drawActor(const hackeroot::Workspace& workspace) {
 }
 
 void CreateActorDialog::drawCategory() {
-    if (!ImGui::BeginCombo("##category", makeLabel(draft.category, "ACTORCAT_").c_str())) {
+    if (!ImGui::BeginCombo("##category",
+                           core::makeConstantLabel(draft.category, "ACTORCAT_").c_str())) {
         return;
     }
     if (const actor::ValueCollection* categories =
             collectionCatalog.findSharedCollection("ActorCategory")) {
         for (const actor::ChoiceValue& category : categories->values) {
-            if (ImGui::Selectable(makeLabel(category.label, "ACTORCAT_").c_str(),
-                                  category.label == draft.category)) {
+            if (core::drawConstantSelectable(category.readableLabel, category.label,
+                                             category.label == draft.category)) {
                 draft.category = category.label;
             }
         }
@@ -203,7 +199,8 @@ void CreateActorDialog::drawCategory() {
 void CreateActorDialog::drawFlags() {
     std::string preview;
     for (const std::string& flag : draft.flags) {
-        preview += std::format("{}{}", preview.empty() ? "" : ", ", makeLabel(flag, "ACTOR_FLAG_"));
+        preview += std::format("{}{}", preview.empty() ? "" : ", ",
+                               core::makeConstantLabel(flag, "ACTOR_FLAG_"));
     }
     if (!ImGui::BeginCombo("##flags", preview.empty() ? "None" : preview.c_str(),
                            ImGuiComboFlags_HeightLargest)) {
@@ -211,7 +208,10 @@ void CreateActorDialog::drawFlags() {
     }
     for (const hackeroot::DocumentedDefine& flag : (*choices)->flags) {
         bool isOn = std::ranges::contains(draft.flags, flag.name);
-        if (ImGui::Checkbox(makeLabel(flag.name, "ACTOR_FLAG_").c_str(), &isOn)) {
+        const std::string label = core::makeConstantLabel(flag.name, "ACTOR_FLAG_");
+        const bool isToggled = ImGui::Checkbox(label.c_str(), &isOn);
+        core::drawConstantName(label, flag.name);
+        if (isToggled) {
             if (isOn) {
                 draft.flags.push_back(flag.name);
             } else {

@@ -3,7 +3,9 @@
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/core/domain/ReadableName.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
@@ -256,15 +258,20 @@ bool ConfigureDialog::drawControl(const ConfigSetting& setting, std::string& val
 
 bool ConfigureDialog::drawChoice(const ConfigSetting& setting, std::string& value) {
     std::vector<std::string> options = setting.options;
+    std::vector<std::string> labels = core::makeConstantLabels(setting.options);
     if (!setting.collection.empty()) {
         if (const actor::ValueCollection* collection =
                 collectionCatalog.findSharedCollection(setting.collection)) {
             for (const actor::ChoiceValue& choice : collection->values) {
                 options.push_back(choice.label);
+                labels.push_back(choice.readableLabel);
             }
         }
     }
-    if (!ImGui::BeginCombo("##value", value.c_str(), ImGuiComboFlags_HeightLargest)) {
+    const auto current = std::ranges::find(options, value);
+    const std::string& preview =
+        current != options.end() ? labels[static_cast<usize>(current - options.begin())] : value;
+    if (!ImGui::BeginCombo("##value", preview.c_str(), ImGuiComboFlags_HeightLargest)) {
         return false;
     }
     if (ImGui::IsWindowAppearing()) {
@@ -279,11 +286,12 @@ bool ConfigureDialog::drawChoice(const ConfigSetting& setting, std::string& valu
     if (ImGui::BeginChild("##options", ImVec2(0.0F, std::min(static_cast<float>(options.size()),
                                                              ChoiceListHeight) *
                                                         ImGui::GetFrameHeightWithSpacing()))) {
-        for (const std::string& option : options) {
-            if (!core::containsIgnoringCase(option, choiceFilter)) {
+        for (usize i = 0; i < options.size(); ++i) {
+            const std::string& option = options[i];
+            if (!core::isConstantFilteredIn(labels[i], option, choiceFilter)) {
                 continue;
             }
-            if (ImGui::Selectable(option.c_str(), option == value)) {
+            if (core::drawConstantSelectable(labels[i], option, option == value)) {
                 isChanged = option != value;
                 value = option;
                 ImGui::CloseCurrentPopup();

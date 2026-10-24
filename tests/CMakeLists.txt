@@ -9,7 +9,6 @@ add_executable(toki_tests
         app/actor/ParamReadingTest.cpp
         app/actor/ParamRulesTest.cpp
         app/actor/ProblemTextTest.cpp
-        app/actor/ReadableNameTest.cpp
         app/actor/ValueCollectionTest.cpp
         app/actor/ActorModelCheckoutTest.cpp
         app/actor/GuessedEntryTest.cpp
@@ -21,6 +20,7 @@ add_executable(toki_tests
         app/core/KeyBindingsTest.cpp
         app/core/LogTest.cpp
         app/core/MakeVariablesTest.cpp
+        app/core/ReadableNameTest.cpp
         app/displayList/FrameInspectionTest.cpp
         app/displayList/RdpStateTextTest.cpp
         app/core/SettingsSearchTest.cpp

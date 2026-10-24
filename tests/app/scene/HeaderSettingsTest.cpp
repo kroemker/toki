@@ -239,12 +239,13 @@ TEST_CASE("the names of settings' values come from the checkout's enumerations a
 
     REQUIRE(std::vector(names.findValues(HeaderSetting::Skybox).begin(),
                         names.findValues(HeaderSetting::Skybox).end()) ==
-            std::vector<toki::scene::NamedValue>{{"SKYBOX_NONE", 0}, {"SKYBOX_NORMAL_SKY", 1}});
-    REQUIRE(names.findValues(HeaderSetting::Sequence).back() ==
-            toki::scene::NamedValue{"NA_BGM_NO_MUSIC", 0x7F});
+            std::vector<toki::scene::NamedValue>{{"SKYBOX_NONE", 0, "None"},
+                                                 {"SKYBOX_NORMAL_SKY", 1, "Normal Sky"}});
+    REQUIRE(names.findValues(HeaderSetting::Sequence).back().name == "NA_BGM_NO_MUSIC");
+    REQUIRE(names.findValues(HeaderSetting::Sequence).back().value == 0x7F);
     REQUIRE(std::vector(names.findValues(HeaderSetting::CameraType).begin(),
                         names.findValues(HeaderSetting::CameraType).end()) ==
-            std::vector<toki::scene::NamedValue>{{"SCENE_CAM_TYPE_DEFAULT", 0},
-                                                 {"SCENE_CAM_TYPE_FIXED", 0x30}});
+            std::vector<toki::scene::NamedValue>{{"SCENE_CAM_TYPE_DEFAULT", 0, "Default"},
+                                                 {"SCENE_CAM_TYPE_FIXED", 0x30, "Fixed"}});
     REQUIRE(names.findValues(HeaderSetting::RoomType).empty());
 }

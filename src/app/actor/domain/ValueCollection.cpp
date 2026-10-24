@@ -3,6 +3,8 @@
 #include "app/actor/Types.h"
 #include "app/actor/domain/ActorEntry.h"
 #include "app/actor/domain/OverlayCode.h"
+#include "app/assets/domain/ObjectNames.h"
+#include "app/core/domain/ReadableName.h"
 #include "base/Diagnostic.h"
 #include "cparser/Expression.h"
 #include "cparser/Preprocessor.h"
@@ -58,6 +60,18 @@ constexpr std::array<std::string_view, 3> BoundSuffixes{"_BASE", "_END", "_MAX"}
         BoundSuffixes, [name](const std::string_view suffix) { return name.ends_with(suffix); });
 }
 
+void setReadableLabels(ValueCollection& collection) {
+    std::vector<std::string_view> labels;
+    labels.reserve(collection.values.size());
+    for (const ChoiceValue& value : collection.values) {
+        labels.emplace_back(value.label);
+    }
+    std::vector<std::string> readable = core::makeConstantLabels(labels);
+    for (usize i = 0; i < collection.values.size(); ++i) {
+        collection.values[i].readableLabel = std::move(readable[i]);
+    }
+}
+
 [[nodiscard]] ValueCollection makeCollection(const std::string_view name,
                                              const cparser::Enumeration& enumeration) {
     ValueCollection collection{.name = std::string(name)};
@@ -68,6 +82,7 @@ constexpr std::array<std::string_view, 3> BoundSuffixes{"_BASE", "_END", "_MAX"}
         }
         collection.values.push_back(ChoiceValue{.value = constant.value, .label = constant.name});
     }
+    setReadableLabels(collection);
     return collection;
 }
 
@@ -84,6 +99,7 @@ template <typename Entry>
         collection.values.push_back(
             ChoiceValue{.value = static_cast<s64>(entry.id), .label = entry.enumName});
     }
+    setReadableLabels(collection);
     return collection;
 }
 
@@ -93,7 +109,12 @@ template <typename Entry>
         return makeTableCollection(name, tables.actors);
     }
     if (name == "ObjectID") {
-        return makeTableCollection(name, tables.objects);
+        ValueCollection objects = makeTableCollection(name, tables.objects);
+        for (ChoiceValue& value : objects.values) {
+            value.readableLabel =
+                assets::makeObjectLabel(tables.objects[static_cast<usize>(value.value)]);
+        }
+        return objects;
     }
     if (name == "SceneID") {
         return makeTableCollection(name, tables.scenes);
@@ -231,6 +252,7 @@ std::vector<ValueCollection> listTableCollections(const OverlayCode& code) {
                 ChoiceValue{.value = static_cast<s64>(i),
                             .label = std::string(*findEntryLabel(array.elements[i]))});
         }
+        setReadableLabels(collection);
         tables.push_back(std::move(collection));
     }
     return tables;

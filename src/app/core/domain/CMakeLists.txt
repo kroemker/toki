@@ -2,6 +2,7 @@ target_sources(toki_core PRIVATE
         KeyBindings.cpp
         Log.cpp
         MakeVariables.cpp
+        ReadableName.cpp
         Settings.cpp
         SettingsSearch.cpp
         TextCase.cpp

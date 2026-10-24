@@ -1,8 +1,12 @@
 #include "ObjectNames.h"
 
+#include "app/core/domain/ReadableName.h"
+#include "hackeroot/Tables.h"
+
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -404,6 +408,13 @@ std::optional<std::string_view> findObjectName(const std::string_view folderName
         return std::nullopt;
     }
     return found->second;
+}
+
+std::string makeObjectLabel(const hackeroot::ObjectEntry& object) {
+    if (const std::optional<std::string_view> known = findObjectName(object.name)) {
+        return std::string(*known);
+    }
+    return core::makeConstantLabel(object.enumName, "OBJECT_");
 }
 
 } // namespace toki::assets
