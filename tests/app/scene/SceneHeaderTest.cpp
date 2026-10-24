@@ -3,12 +3,12 @@
 #include "base/Diagnostic.h"
 #include "base/Types.h"
 #include "hackeroot/SceneFiles.h"
+#include "support/SegmentBuilder.h"
 #include "z64/MemoryImage.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
-#include <initializer_list>
 #include <vector>
 
 using base::s16;
@@ -18,56 +18,7 @@ using base::u32;
 using base::u8;
 using base::usize;
 
-namespace {
-
-/// One segment's bytes written by hand, big-endian, the way the build lays out
-/// a scene or room header and the data it points at.
-class SegmentBuilder {
-public:
-    explicit SegmentBuilder(const u8 number) : number(number) {}
-
-    [[nodiscard]] u32 getAddress() const {
-        return (u32{number} << 24) | static_cast<u32>(bytes.size());
-    }
-
-    void addBytes(const std::initializer_list<u8> values) {
-        bytes.insert(bytes.end(), values);
-    }
-
-    void addHalf(const s16 value) {
-        bytes.push_back(static_cast<u8>(static_cast<u16>(value) >> 8));
-        bytes.push_back(static_cast<u8>(value));
-    }
-
-    void addWord(const u32 value) {
-        for (const int shift : {24, 16, 8, 0}) {
-            bytes.push_back(static_cast<u8>(value >> shift));
-        }
-    }
-
-    void addCommand(const u8 code, const u8 data1, const u32 data2) {
-        addBytes({code, data1, 0, 0});
-        addWord(data2);
-    }
-
-    void setWord(const usize offset, const u32 value) {
-        for (usize i = 0; i < 4; ++i) {
-            bytes[offset + i] = static_cast<u8>(value >> (24 - (i * 8)));
-        }
-    }
-
-    [[nodiscard]] z64::MemoryImage makeImage() const {
-        z64::MemoryImage image;
-        image.segments.push_back(z64::ImageSegment{.number = number, .bytes = bytes});
-        return image;
-    }
-
-private:
-    u8 number;
-    std::vector<u8> bytes;
-};
-
-} // namespace
+using testing::SegmentBuilder;
 
 TEST_CASE("a scene header gives its rooms, entries, light settings and light mode",
           "[scene][header]") {
@@ -242,4 +193,24 @@ TEST_CASE("a path list is as long as the array it points at, each path its own c
     REQUIRE(header.paths.size() == 2);
     REQUIRE(header.paths[0].points == std::vector<std::array<s16, 3>>{{1, 2, 3}, {-4, -5, -6}});
     REQUIRE(header.paths[1].points == std::vector<std::array<s16, 3>>{{70, 80, 90}});
+}
+
+TEST_CASE("a scene header points at its collision and lists its exits", "[scene][header]") {
+    SegmentBuilder scene(hackeroot::SceneSegment);
+    scene.addCommand(0x03, 0, 0x0200'0400);
+    scene.addCommand(0x13, 0, 0x0200'0018);
+    scene.addCommand(0x14, 0, 0);
+    for (const s16 entrance : {s16{0x00DB}, s16{0x0195}, s16{0x0000}}) {
+        scene.addHalf(entrance);
+    }
+    z64::MemoryImage image = scene.makeImage();
+    image.symbols.emplace(
+        "sceneExits",
+        z64::ImageSymbol{.segment = hackeroot::SceneSegment, .offset = 0x18, .size = 6});
+
+    const toki::scene::SceneHeader header = toki::scene::readSceneHeader(image);
+
+    REQUIRE(header.diagnostics.empty());
+    REQUIRE(header.collisionHeader == 0x0200'0400);
+    REQUIRE(header.exits == std::vector<u16>{0x00DB, 0x0195, 0x0000});
 }

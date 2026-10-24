@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/Collision.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -12,6 +13,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +27,8 @@ struct SceneLayer {
     usize index = 0;
     SceneHeader header;
     std::vector<RoomHeader> rooms;
+    /// Which of the scene's collisions the layer's header points at, if any.
+    std::optional<usize> collision;
 };
 
 /// A scene read from its folder: the images the game loads for it and what
@@ -39,6 +43,9 @@ struct Scene {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     /// The main layer first, then every alternate layer the scene has.
     std::vector<SceneLayer> layers;
+    /// Every collision header a layer points at, each read once however many
+    /// layers share it.
+    std::vector<Collision> collisions;
     /// The models of the actors the layers place, and the objects they are
     /// drawn from: read after the scene (`SceneActorLoader`), and empty until
     /// they are.

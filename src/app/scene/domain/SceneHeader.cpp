@@ -29,6 +29,7 @@ constexpr usize ObjectIdSize = 2;
 constexpr usize UnsizedAlternateHeaders = 3;
 constexpr usize PathSize = 0x08;
 constexpr usize PathPointSize = 6;
+constexpr usize ExitSize = 2;
 constexpr u16 FogNearMask = 0x03FF;
 constexpr u16 BlendRateShift = 10;
 
@@ -70,6 +71,8 @@ public:
     [[nodiscard]] std::vector<LightSetting> readLightSettings(const Command& command);
 
     [[nodiscard]] std::vector<ScenePath> readPaths(const Command& command);
+
+    [[nodiscard]] std::vector<u16> readExits(const Command& command);
 
     [[nodiscard]] RoomHeader readRoomShape(u32 address);
 
@@ -251,6 +254,28 @@ std::vector<ScenePath> HeaderReader::readPaths(const Command& command) {
     return paths;
 }
 
+std::vector<u16> HeaderReader::readExits(const Command& command) {
+    std::vector<u16> exits;
+    const std::optional<z64::ImageSymbol> list = image.findSymbolAt(command.data2);
+    if (!list) {
+        diagnostics.push_back(base::makeWarning(
+            {}, std::format("the exit list at 0x{:08X} is no symbol, so how many exits it holds "
+                            "is not known",
+                            command.data2)));
+        return exits;
+    }
+    const usize count = list->size / ExitSize;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, count, ExitSize, "exit list");
+    if (!bytes) {
+        return exits;
+    }
+    for (usize i = 0; i < count; ++i) {
+        exits.push_back(n64::readU16(*bytes, i * ExitSize));
+    }
+    return exits;
+}
+
 std::vector<RoomDisplayLists> HeaderReader::readEntries(const u32 address, const usize count,
                                                         const usize stride,
                                                         const usize listsOffset) {
@@ -319,6 +344,10 @@ SceneHeader readSceneHeader(const z64::MemoryImage& image, const u32 address) {
             scene.lightSettings = reader.readLightSettings(command);
         } else if (isCode(command, CommandCode::PathList)) {
             scene.paths = reader.readPaths(command);
+        } else if (isCode(command, CommandCode::CollisionHeader)) {
+            scene.collisionHeader = command.data2;
+        } else if (isCode(command, CommandCode::ExitList)) {
+            scene.exits = reader.readExits(command);
         } else if (isCode(command, CommandCode::SpecialFiles)) {
             scene.keepObjectId = static_cast<s16>(command.data2 & 0xFFFF);
         } else if (isCode(command, CommandCode::SkyboxSettings)) {

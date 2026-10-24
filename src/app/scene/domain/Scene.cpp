@@ -1,6 +1,7 @@
 #include "Scene.h"
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/Collision.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSave.h"
@@ -96,6 +97,26 @@ SceneLayer LayerReader::readLayer(const usize index, const u32 sceneHeader,
     return layer;
 }
 
+void readCollisions(Scene& scene, const HeaderFiles& files) {
+    scene.collisions.clear();
+    for (SceneLayer& layer : scene.layers) {
+        const u32 address = layer.header.collisionHeader;
+        if (address == 0) {
+            continue;
+        }
+        const auto shared = std::ranges::find(scene.collisions, address, &Collision::address);
+        if (shared != scene.collisions.end()) {
+            layer.collision = static_cast<usize>(shared - scene.collisions.begin());
+            continue;
+        }
+        Collision collision = readCollision(*scene.images[SceneImage], address);
+        std::ranges::move(placeIn(std::exchange(collision.diagnostics, {}), files.scene),
+                          std::back_inserter(scene.diagnostics));
+        layer.collision = scene.collisions.size();
+        scene.collisions.push_back(std::move(collision));
+    }
+}
+
 void readLayers(Scene& scene, const HeaderFiles& files) {
     scene.layers.clear();
     LayerReader layers(scene, files);
@@ -108,6 +129,7 @@ void readLayers(Scene& scene, const HeaderFiles& files) {
         }
     }
     std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
+    readCollisions(scene, files);
 }
 
 } // namespace

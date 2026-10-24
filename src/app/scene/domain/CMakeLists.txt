@@ -6,6 +6,7 @@ target_sources(toki_core PRIVATE
         ActorObjects.cpp
         ActorMarkers.cpp
         BinaryAngle.cpp
+        Collision.cpp
         HeaderNames.cpp
         HeaderSettings.cpp
         HeaderSymbols.cpp

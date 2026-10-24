@@ -73,6 +73,7 @@ enum class LightMode : u8 {
 enum class CommandCode : u8 {
     PlayerEntryList = 0x00,
     ActorList = 0x01,
+    CollisionHeader = 0x03,
     RoomList = 0x04,
     WindSettings = 0x05,
     SpecialFiles = 0x07,
@@ -85,6 +86,7 @@ enum class CommandCode : u8 {
     TimeSettings = 0x10,
     SkyboxSettings = 0x11,
     SkyboxDisables = 0x12,
+    ExitList = 0x13,
     End = 0x14,
     SoundSettings = 0x15,
     EchoSettings = 0x16,
@@ -122,6 +124,13 @@ struct SceneHeader {
     /// The paths of `SCENE_CMD_PATH_LIST`, which actors name by index. The
     /// list holds no count; it is as long as the array laid out at its address.
     std::vector<ScenePath> paths;
+    /// The collision header of `SCENE_CMD_COL_HEADER`, as a segmented address:
+    /// zero for none.
+    u32 collisionHeader = 0;
+    /// The entrances of `SCENE_CMD_EXIT_LIST`, which a surface's exit index
+    /// names counting from one. The list holds no count; it is as long as the
+    /// array laid out at its address.
+    std::vector<u16> exits;
     /// The headers of the scene's other layers, from layer 1 on, as segmented
     /// addresses: zero where a layer has none of its own.
     std::vector<u32> alternateHeaders;
