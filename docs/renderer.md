@@ -178,7 +178,11 @@ storage buffer.
 The vertex shader applies the viewport the RSP recorded with each triangle in clip space,
 `x * scale + translate * w`, so the GPU still clips and still interpolates with
 perspective. Depth is the N64's screen depth over its 0..1023 range; primitive depth
-replaces it when the other mode says so.
+replaces it when the other mode says so. The RDP passes a decal whose depth lies within the
+surface's per-pixel depth delta, so a decal with vertices of its own, a path laid over
+terrain, still lands on it. The GPU has no such test: a decal pipeline compares less or
+equal and pulls the triangle towards the camera by a slope-scaled depth bias instead, which
+without it flickers as the camera moves.
 
 The fragment shader repeats `n64/` in the same integer arithmetic: `findTileCoordinate`,
 `wrapTexel` and `fetchTexel` against the raw texture memory, the RDP's three-point and
