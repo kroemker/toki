@@ -145,7 +145,8 @@ catch_discover_tests(toki_tests)
 add_executable(toki_gpu_tests
         gpu/ActorRenderTest.cpp
         gpu/BlendSetupTest.cpp
-        gpu/RendererTest.cpp)
+        gpu/RendererTest.cpp
+        gpu/SceneRenderTest.cpp)
 target_include_directories(toki_gpu_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(toki_gpu_tests PRIVATE toki_core toki_gfx Catch2::Catch2WithMain toki_warnings)
 target_compile_definitions(toki_gpu_tests PRIVATE
