@@ -76,7 +76,6 @@ bool CollisionRows::drawSharing(const Scene& scene, const usize layer) {
 std::optional<u8> CollisionRows::drawCameraChoice(const Scene& scene, const Collision& collision,
                                                   const u8 index) {
     std::optional<u8> picked;
-    ImGui::SetNextItemWidth(-FLT_MIN);
     if (!ImGui::BeginCombo("##camera", makeCameraLabel(scene, collision, index).c_str(),
                            ImGuiComboFlags_HeightLarge)) {
         return picked;
@@ -114,7 +113,6 @@ std::optional<s64> CollisionRows::drawNamedChoice(const std::string_view id,
     const std::string label =
         current != values.end() ? current->label : std::format("{} (unnamed)", value);
     std::optional<s64> picked;
-    ImGui::SetNextItemWidth(-FLT_MIN);
     if (!ImGui::BeginCombo(std::string(id).c_str(), label.c_str(), ImGuiComboFlags_HeightLarge)) {
         if (current != values.end()) {
             core::drawConstantName(current->label, current->name);

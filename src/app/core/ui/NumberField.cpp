@@ -13,7 +13,6 @@ std::optional<s64> NumberField::draw(const std::string_view id, const s64 value,
     const std::string key(id);
     const bool isHeld = held && held->id == key;
     s64 shown = isHeld ? held->value : value;
-    ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputScalar(key.c_str(), ImGuiDataType_S64, &shown);
     if (ImGui::IsItemDeactivatedAfterEdit()) {
         held.reset();

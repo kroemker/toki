@@ -134,6 +134,16 @@ Each edit is one undo step.
   every polygon of that type, which the form says. The Surface Types group's menu adds one
   and removes those no polygon has, renumbering the polygons after them; the last is kept.
 - **A camera's setting** changes every surface type and waterbox naming that camera.
+- **A setting with no effect** is shown with a warning sign at the right of its row, its
+  tooltip saying why in the form "Ignored. Requires an exit." (`listIgnoredSettings`,
+  `findIgnoredFlag`). What has no effect is read from the game's code: exits, floor types,
+  floor properties, floor effects and conveyor speeds are read only from a floor; floor
+  types 10 and 11 and floor effect 2 only change how an exit is taken; a conveyor's
+  direction is read only with a speed, and a polygon's conveyor flag only with its surface
+  type's speed; Contact Damage (bit 27) is read only on a wall or a floor of type 2 or 3.
+  Bits 18 to 20 are always marked: only `func_80041D70` reads them, nothing calls it, and
+  every vanilla surface type leaves them 0. Every field stays shown, since the game still
+  reads what it holds.
 - **A waterbox** is edited by its numbers, or in the viewport: moved by the transform tools
   as placements are, by the middle of its surface, never turned; resized by the handles on
   its four sides, which drag one side alone, previewed while held and one edit once let go.

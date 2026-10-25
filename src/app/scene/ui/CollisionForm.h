@@ -5,6 +5,7 @@
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneSelection.h"
+#include "app/scene/domain/SurfaceRules.h"
 #include "app/scene/ui/CollisionRows.h"
 
 #include <functional>
@@ -62,11 +63,15 @@ private:
     [[nodiscard]] SurfaceFields drawSurfaceLinks(const Scene& scene, const SceneLayer& layer,
                                                  const Collision& collision,
                                                  const PolygonSelection& selection,
-                                                 const SurfaceFields& fields);
-    [[nodiscard]] SurfaceFields drawSurfaceNamedRows(const SurfaceFields& fields);
-    [[nodiscard]] SurfaceFields drawSurfaceOtherRows(const SurfaceFields& fields);
+                                                 const SurfaceFields& fields,
+                                                 const IgnoredSettings& ignored);
+    [[nodiscard]] SurfaceFields drawSurfaceNamedRows(const SurfaceFields& fields,
+                                                     const IgnoredSettings& ignored);
+    [[nodiscard]] SurfaceFields drawSurfaceOtherRows(const SurfaceFields& fields,
+                                                     const IgnoredSettings& ignored);
     [[nodiscard]] std::optional<s64> drawNamedField(std::string_view label, std::string_view help,
-                                                    SurfaceSetting setting, s64 value, s64 maximum);
+                                                    SurfaceSetting setting, s64 value, s64 maximum,
+                                                    std::string_view warning = {});
     void pickSurfaceType(const PolygonSelection& selection, u16 type, const SurfaceType& surface);
 
     Pick pick;

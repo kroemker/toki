@@ -18,4 +18,9 @@ void endProperties();
 /// fills it.
 void drawPropertyLabel(std::string_view label, std::string_view help = {});
 
+/// Starts a property row as `drawPropertyLabel` does, with a warning sign at
+/// the right of the input column saying `warning` when it is hovered, which
+/// the input leaves room for. Without a warning it is the plain row.
+void drawPropertyLabel(std::string_view label, std::string_view help, std::string_view warning);
+
 } // namespace toki::core
