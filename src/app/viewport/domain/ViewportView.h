@@ -2,7 +2,9 @@
 
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/RenderMode.h"
+#include "app/viewport/domain/ViewportChoices.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -36,8 +38,10 @@ struct ViewportView {
 /// What `shading` is called where it is chosen.
 [[nodiscard]] std::string_view getShadingLabel(Shading shading);
 
-/// What `view` draws differently from the frame the game would draw, each as
-/// a few words, for naming it over the image; empty when nothing does.
-[[nodiscard]] std::vector<std::string> listViewChanges(const ViewportView& view);
+/// What `view`, and the content's `choices`, draw differently from the frame
+/// the game would draw, each as a few words, for naming it over the image;
+/// empty when nothing does.
+[[nodiscard]] std::vector<std::string>
+listViewChanges(const ViewportView& view, const std::optional<ViewportChoices>& choices = {});
 
 } // namespace toki::viewport

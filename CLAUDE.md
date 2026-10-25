@@ -265,6 +265,12 @@ listed below is only what no change may break.
     never out of the C: the bytes are what the game sees.
   - What the game draws a room with comes from the checkout's own code (`sSetupDL`,
     `sDefaultDisplayList`), not from constants written down here.
+- **[Collision](docs/collision.md)** — how a scene's collision is read, drawn, picked and
+  named.
+  - Collision is read out of the scene's bytes, never out of the C, and nothing edits it yet.
+  - A broken polygon is a diagnostic naming it, never a failed read; it is kept as it is.
+  - Value names Toki gives (`assets/collision.toml`) are read from what the game's code does
+    with each value; a value nobody read the code for is shown as its number.
 - **[Writing scenes](docs/scene-writing.md)** — how a scene is saved: its C written again,
   whole, from the memory image, in fast64's layout.
   - A save writes declarations from their bytes, never edits the C it read.

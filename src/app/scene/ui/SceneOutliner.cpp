@@ -131,7 +131,8 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
-                   "Toki does not read the exit list yet. A save writes it back as it was.");
+                   "Toki reads the exit list only for the exits of collision. A save writes it "
+                   "back as it was.");
         ImGui::TreePop();
     } else {
         drawInfo(std::format("{} rooms", layer.rooms.size()));

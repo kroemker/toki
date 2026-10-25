@@ -13,8 +13,9 @@ it draws. The view is chosen in the bar above the image and kept in `config.toml
 `[viewport]`.
 
 Some choices belong to the content but are made in the bar, because they change how it
-looks rather than what it is: a scene's light setting, and whether its actors are hidden,
-marked, or drawn as their models. The content's owner offers them as `ViewportChoices` with a
+looks rather than what it is: a scene's light setting, whether its actors are hidden,
+marked, or drawn as their models, and whether its collision is shown and what colours it
+([collision.md](collision.md)). The content's owner offers them as `ViewportChoices` with a
 handler, the bar shows a row for each choice it was offered, and the owner applies what is
 picked to its own state and gives the viewport new content. The viewport never knows what a
 scene is; an owner that offers nothing gets no rows.
@@ -113,7 +114,9 @@ what they say is what is bound, and nothing is reached only by a key.
 Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading
 popover, and at the right the X-ray switch (Alt+Z), a switch
 that hides every overlay at once (Shift+Alt+Z), and the Overlays popover, whose button
-counts the overlays that are on. Every popover is a form of two-column rows. Hotkeys act
+counts the overlays that are on. The content's choices are rows of the Overlays popover:
+the scene's Actors, and its Collision with, while it is shown, Color By. Every popover is a
+form of two-column rows. Hotkeys act
 only while the cursor is over the viewport.
 
 ## Overlays
@@ -134,6 +137,12 @@ results are kept (`DrawnFrame`), so hovering a flag costs a draw, not the whole 
 
 A chip in the image's top right corner names everything the view draws differently from
 what the game would (`listViewChanges`), so that a debug view is never taken for the game.
+Collision the content's choices show is named there too, Over Rooms as "Collision" and Only
+as "Collision Only".
+
+A draw can ask for its edges (`ViewportDraw::isEdged`), as collision does: the edges of the
+faces its triangles make are drawn as lines in the overlay pass (`makeFaceEdges`), an edge
+two of its triangles share in one plane left out.
 
 ## Render modes
 

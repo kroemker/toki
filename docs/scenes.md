@@ -37,6 +37,8 @@ at a time until `SCENE_CMD_END`, and follows each pointer into the image's bytes
 - the skybox settings' light mode, which says whether the time of day picks the setting;
 - the special files' keep object, which the game loads into segment 5 for the whole scene
   (`gameplay_field_keep`, `gameplay_dangeon_keep`);
+- the collision header, read once however many layers point at it
+  ([collision.md](collision.md)), and the exit list, which a surface type's exit indexes;
 - the alternate header list.
 
 `readRoomHeader` does the same from the start of segment 3: the room shape, of any of the
@@ -123,8 +125,10 @@ scene's own eye shows every room when any is hidden, and hides them all otherwis
 by name from the checkout's actor table, with how each is drawn and its params, and the
 objects its object list loads; then the transition actors, the entrances, the light
 settings, a click on one selecting it and lighting the scene with it, and the paths, each
-with its points, and an eye that hides them all in the viewport. Collision, cutscenes and
-exits are rows that say they are not read yet. A filter keeps the placements whose name, enum name
+with its points, and an eye that hides them all in the viewport; then the collision, its
+surface types, waterboxes and cameras ([collision.md](collision.md)). Cutscenes are a row
+that says they are not read yet, and exits one that says their list is read only for
+collision. A filter keeps the placements whose name, enum name
 or database name holds it. A placement selected elsewhere, in the viewport, opens its group
 and is scrolled to.
 How it is drawn is chosen in the viewport's bar: the scene offers its light settings and how

@@ -25,7 +25,8 @@ std::string_view getShadingLabel(const Shading shading) {
     return ShadingLabels[static_cast<usize>(shading)];
 }
 
-std::vector<std::string> listViewChanges(const ViewportView& view) {
+std::vector<std::string> listViewChanges(const ViewportView& view,
+                                         const std::optional<ViewportChoices>& choices) {
     const RenderMode& mode = view.renderMode;
     std::vector<std::string> changes;
     if (mode.shading != Shading::N64) {
@@ -48,6 +49,11 @@ std::vector<std::string> listViewChanges(const ViewportView& view) {
     }
     if (!view.overlays.isShown) {
         changes.emplace_back("Overlays Off");
+    }
+    if (choices && choices->collision == CollisionDisplay::OverRooms) {
+        changes.emplace_back("Collision");
+    } else if (choices && choices->collision == CollisionDisplay::Only) {
+        changes.emplace_back("Collision Only");
     }
     return changes;
 }

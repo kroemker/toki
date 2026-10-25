@@ -368,7 +368,7 @@ gfx::Overlay ViewportPanel::makeHighlight(const f32 scale) const {
 
 void ViewportPanel::drawViewChanges(ImDrawList& drawList, const ImVec2 origin,
                                     const ImVec2 size) const {
-    const std::vector<std::string> changes = listViewChanges(viewportView);
+    const std::vector<std::string> changes = listViewChanges(viewportView, viewportChoices);
     if (changes.empty()) {
         return;
     }
