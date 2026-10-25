@@ -268,7 +268,10 @@ listed below is only what no change may break.
     `sDefaultDisplayList`), not from constants written down here.
 - **[Collision](docs/collision.md)** — how a scene's collision is read, drawn, picked and
   named.
-  - Collision is read out of the scene's bytes, never out of the C, and nothing edits it yet.
+  - Collision is read out of the scene's bytes, never out of the C, and an edit writes those
+    bytes, then reads them again.
+  - An edit of collision changes it for every layer that reads it, unless the layer is given
+    its own copy first.
   - A broken polygon is a diagnostic naming it, never a failed read; it is kept as it is.
   - Value names Toki gives (`assets/collision.toml`) are read from what the game's code does
     with each value; a value nobody read the code for is shown as its number.
@@ -277,6 +280,7 @@ listed below is only what no change may break.
   - A save writes declarations from their bytes, never edits the C it read.
   - Nothing is written that does not read back as the same symbols, bytes and relocations.
   - An edit of one layer never shows in another: a list two headers share is copied first.
+    Collision is the exception ([collision.md](docs/collision.md#editing)).
   - Unsaved edits are never thrown away without asking.
 - **[Objects](docs/objects.md)** — how an object folder becomes a catalog of assets, and how
   a skeleton is posed and drawn.

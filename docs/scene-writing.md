@@ -103,7 +103,8 @@ bytes of the list that layer's header points at, and the count in the header's c
 
 - A header another layer reads too is copied for the edited layer first
   (`<room>_header02`), and so is a list another header points at, named as fast64 names one
-  (`<room>_header02_actorList`), so an edit of one layer never shows in another. A shared
+  (`<room>_header02_actorList`), so an edit of one layer never shows in another (collision
+  excepted: [collision.md](collision.md#editing)). A shared
   main header keeps its place, and the layers that point at it get the copy, without the
   alternate header list, which only a main header holds. A room with no header of its own
   for a layer is edited in its main header, since that is what the game reads for it.

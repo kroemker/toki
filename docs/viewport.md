@@ -104,6 +104,13 @@ a vertical group floating over the image's top left: Select, Move, Rotate and Sc
 W and E, Scale unbound. Only Node, Select, Move and Rotate are built; the rest are shown
 disabled, saying so. Select is the tool the viewport starts with and draws no gizmo.
 
+What is selected may also offer handles (`setHandles`, `ViewportHandles`): points that drag
+along one direction alone, such as a waterbox's sides, drawn in Node mode with any tool. A
+handle under the mouse takes the press from the viewport's button, as the gizmo does. A drag
+is measured along its direction as that looks on the image (`findAxisDistance`), in whole
+units; it is shown through its preview handler while held and handed to its owner once let
+go, one edit however far it went, and Escape or a right click cancels it.
+
 Every key is bound through `core::KeyBindings`: each action has a name, a scope (the whole
 window, or the viewport while the cursor is over it) and a default chord, and `config.toml`
 binds another under `[keys]`, `move_tool = "G"`, writing only those changed from their

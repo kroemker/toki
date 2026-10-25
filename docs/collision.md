@@ -1,13 +1,14 @@
 # Collision
 
-How a scene's static collision is read out of its bytes, drawn in the viewport, picked and
-shown. Toki does not edit collision yet; a save writes it back as it was read
-([scene-writing.md](scene-writing.md)).
+How a scene's static collision is read out of its bytes, drawn in the viewport, picked,
+shown and edited. A save writes it as fast64 writes it ([scene-writing.md](scene-writing.md)).
+
 
 In scope is the scene's own collision, the `CollisionHeader` that `SCENE_CMD_COL_HEADER`
 points at: its polygons, surface types, cameras as their setting, and waterboxes. Out of
 scope for now: an actor's collision (`DynaPoly`), where a camera stands and looks, following
-an exit to its scene, and editing anything.
+an exit to its scene, and editing vertices and polygons' shapes, which waits for geometry
+editing.
 
 ## Reading it
 
@@ -101,12 +102,12 @@ Waterboxes leave the rooms their owners, and so a click through water picks the 
 the nearer of the two. A polygon or waterbox selected has no selection box around it
 (`ViewportDraw::isBoxed`): its highlight already shows all of it.
 
-A polygon selected shows in the Properties panel (`CollisionForm`), read-only: its kind, its
-vertices, what it lets through, its normal and distance, and its surface type: each setting
-decoded and named, the camera with its setting, the exit with the entrance it leads to, and
-the two words as they are. Every polygon of the same surface type is tinted
-(`findTintedSurfaceType`). A waterbox selected shows its bounds, surface, room, light setting,
-camera and properties word.
+A polygon selected shows in the Properties panel (`CollisionForm`): its kind, its vertices,
+what it lets through, its normal and distance, and its surface type: each setting decoded
+and named, the camera with its setting, the exit with the entrance it leads to, and the two
+words as they are. Every polygon of the same surface type is tinted
+(`findTintedSurfaceType`). A waterbox selected shows its bounds, surface, room, light
+setting, camera and flag (`WaterBoxForm`). Each of these is edited in place; see below.
 
 ## The Scene panel
 
@@ -115,6 +116,41 @@ surface types, each with how many polygons have it and a summary of what it sets
 tooltip (`makeSurfaceSummary`), a click selecting all of them, and the surface type of the
 polygon selected highlighted and scrolled to; and its cameras by setting. Waterboxes are a
 group of their own beside it, a click selecting one.
+
+## Editing
+
+Collision is edited the way placements are ([scene-writing.md](scene-writing.md)): an edit
+writes the bytes of the symbol it changes (`CollisionEdits`), the model lays the images out
+again, and the collision is read again out of them, so what is shown is what was written.
+Each edit is one undo step.
+
+- **What passes through a polygon** and whether it is a conveyor are its vertex words' flags,
+  set for every polygon selected at once. A flag some of them have and some not shows mixed.
+- **Which surface type a polygon has** is picked from the collision's list, for every polygon
+  selected. New gives them a copy of the one they have, so its settings can change without
+  changing any other polygon.
+- **A surface type's settings** are written field by field into its two words at the masks
+  the game reads them with (`makeSurfaceType`); bits no field covers are kept. It changes
+  every polygon of that type, which the form says. The Surface Types group's menu adds one
+  and removes those no polygon has, renumbering the polygons after them; the last is kept.
+- **A camera's setting** changes every surface type and waterbox naming that camera.
+- **A waterbox** is edited by its numbers, or in the viewport: moved by the transform tools
+  as placements are, by the middle of its surface, never turned; resized by the handles on
+  its four sides, which drag one side alone, previewed while held and one edit once let go.
+  The Waterboxes group's menu adds one at the camera's target; a waterbox's menu duplicates
+  or deletes it. A collision without waterboxes is given a list for the first, named as
+  fast64 names it; deleting the last removes the list.
+
+Collision is the exception to an edit of one layer never showing in another. The layers of
+a vanilla scene almost always share one collision, and a change to the ground is meant for
+all of them, so an edit changes the collision the layer reads, wherever else it is read.
+The form says how many layers share it, and Make Own Copy gives the layer a copy of the
+header and every list it points at (`makeOwnCollision`), named after the layer
+(`<scene>_header02_collisionHeader`), after which its edits are its own.
+
+Every vanilla scene's collision, edited (a polygon given a new surface type and a flag, a
+waterbox added, the unused surface types removed, the second layer given its own copy), saves
+and reads back as edited (`SceneSaveCheckoutTest`).
 
 ## Names
 
