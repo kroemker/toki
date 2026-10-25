@@ -177,8 +177,12 @@ private:
     /// The name cell of one placement's row of the outliner.
     void drawActor(const PlacementRow& row);
     /// Selects `nodes` as a click in the tree does: Ctrl toggles them and
-    /// Shift adds them. True when they alone are selected now.
+    /// Shift adds them. True when they alone are selected now, and the camera
+    /// turns to them.
     bool pickInTree(std::span<const SceneNode> nodes);
+    /// Turns the camera to what `nodes` stand at, from near enough to make
+    /// it out, when they stand somewhere.
+    void focusNodes(std::span<const SceneNode> nodes);
     /// Selects a light setting, path or point clicked in the tree, and
     /// lights the scene with the setting or turns the camera to the path.
     void pickListNode(const SceneNode& node);

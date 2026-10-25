@@ -356,6 +356,11 @@ SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session
     view.lightSetting = session.lightSetting;
     view.showsActors = session.marksActors;
     view.drawsModels = session.drawsModels;
+    view.showsPaths = session.showsPaths;
+    view.showsCollision = session.showsCollision;
+    view.showsWaterBoxes = session.showsWaterBoxes;
+    view.collisionColoring =
+        findCollisionColoring(session.collisionColoring).value_or(CollisionColoring::Kind);
     view = keepSceneView(scene, std::move(view));
     for (const usize room : session.hiddenRooms) {
         if (room < view.hiddenRooms.size()) {
@@ -369,7 +374,12 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
     core::SceneSession session{.directory = scene.directory,
                                .lightSetting = view.lightSetting,
                                .marksActors = view.showsActors,
-                               .drawsModels = view.drawsModels};
+                               .drawsModels = view.drawsModels,
+                               .showsPaths = view.showsPaths,
+                               .showsCollision = view.showsCollision,
+                               .showsWaterBoxes = view.showsWaterBoxes,
+                               .collisionColoring =
+                                   makeCollisionColoringKey(view.collisionColoring)};
     if (view.layer < scene.layers.size()) {
         session.layer = scene.layers[view.layer].index;
     }

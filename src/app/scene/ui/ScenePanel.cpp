@@ -12,6 +12,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/CollisionDrawing.h"
+#include "app/scene/domain/NodeBounds.h"
 #include "app/scene/domain/PathUsers.h"
 #include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
@@ -31,6 +32,7 @@
 #include "z64/MemoryImage.h"
 
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 #include <imgui.h>
 
 #include <algorithm>
@@ -611,14 +613,6 @@ void ScenePanel::pickListNode(const SceneNode& node) {
             sceneView.lightSetting = light->index;
             showScene();
         }
-        return;
-    }
-    const PathRef path = findPathOf(node);
-    const std::optional<ScenePath> found = findPath(*scene, path.layer, path.path);
-    const auto* point = std::get_if<PathPointRef>(&node);
-    const usize index = point != nullptr ? point->point : 0;
-    if (found && index < found->points.size()) {
-        viewportPanel.focus(makePoint(found->points[index]));
     }
 }
 
@@ -668,7 +662,26 @@ bool ScenePanel::pickInTree(const std::span<const SceneNode> nodes) {
         return false;
     }
     placementEditor.pick(nodes, viewport::PickMode::Replace);
+    focusNodes(nodes);
     return true;
+}
+
+void ScenePanel::focusNodes(const std::span<const SceneNode> nodes) {
+    constexpr f32 CloseUpRadius = 150.0F;
+    if (!scene) {
+        return;
+    }
+    const std::optional<NodeBounds> bounds = findNodeBounds(*scene, nodes);
+    if (!bounds) {
+        return;
+    }
+    const glm::vec3 center = (bounds->min + bounds->max) * 0.5F;
+    const f32 radius = glm::length(bounds->max - bounds->min) * 0.5F;
+    if (radius < 1.0F) {
+        viewportPanel.focus(center);
+    } else {
+        viewportPanel.frameView(center, std::max(radius, CloseUpRadius));
+    }
 }
 
 void ScenePanel::setCollisionNames(CollisionNames names) {
@@ -704,9 +717,8 @@ void ScenePanel::drawActor(const PlacementRow& row) {
     }
     ImGui::TreeNodeEx("##placement", flags, "%s", "");
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        if (const SceneNode node = where; pickInTree(std::span(&node, 1))) {
-            viewportPanel.focus(makePoint(row.position));
-        }
+        const SceneNode node = where;
+        static_cast<void>(pickInTree(std::span(&node, 1)));
         if (where.kind == PlacementKind::PlayerEntry && where.index != sceneView.shownEntrance) {
             sceneView.shownEntrance = where.index;
             showScene();

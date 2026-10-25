@@ -34,6 +34,7 @@ target_sources(toki_core PRIVATE
         PlacementTransform.cpp
         SceneSave.cpp
         SceneSelection.cpp
+        NodeBounds.cpp
         SurfaceRules.cpp
         WaterBoxShape.cpp
         SceneView.cpp)

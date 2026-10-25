@@ -6,6 +6,7 @@
 
 #include <array>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -29,6 +30,12 @@ inline constexpr usize CollisionColoringCount = static_cast<usize>(CollisionColo
 
 /// What `coloring` is called where it is chosen.
 [[nodiscard]] std::string_view getCollisionColoringLabel(CollisionColoring coloring);
+
+/// How `coloring` is written in the config: its label in snake case.
+[[nodiscard]] std::string makeCollisionColoringKey(CollisionColoring coloring);
+
+/// The colouring `key` names, as `makeCollisionColoringKey` writes it.
+[[nodiscard]] std::optional<CollisionColoring> findCollisionColoring(std::string_view key);
 
 /// How a collision is drawn.
 struct CollisionLook {

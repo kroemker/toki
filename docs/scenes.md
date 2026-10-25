@@ -135,8 +135,10 @@ and is scrolled to.
 How it is drawn is chosen in the viewport's bar: the scene offers its light settings and how
 its actors are shown (hidden, marked, or drawn as their models) there as
 `viewport::ViewportChoices`, and applies what is picked to its view. The viewport knows no
-scene; it only shows the rows it was offered. Choosing an actor
-turns the camera to it. A scene read again keeps its view, kept within what the scene now
+scene; it only shows the rows it was offered. Whatever a click in the tree selects alone,
+the camera turns to (`findNodeBounds`): a placement or a path point close up, and a path,
+the polygons of a surface type or a waterbox framed whole. A light setting, a room or the
+scene stands nowhere, and leaves the camera where it is. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
 The scene is selected by its row, and a room or an actor by its row or by clicking anything
@@ -224,7 +226,9 @@ of the end it points at (`makeArrowLines`). Actors in hidden rooms are not linke
 viewport bar's Flag Links overlay hides the lines.
 
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
-view and the camera, and opened again once the checkout has been read. The layer is saved as
+view and the camera, and opened again once the checkout has been read. The view saved is
+the layer, the light setting, the hidden rooms, how actors are shown, whether paths,
+collision and waterboxes are, and what collision is coloured by. The layer is saved as
 the game's layer number rather than a position in the scene's list, so it means the same
 layer after the scene gains or loses one; anything the scene no longer has falls back as
 `keepSceneView` keeps a view. A folder that is gone is a warning in the log.

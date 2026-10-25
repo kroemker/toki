@@ -177,8 +177,13 @@ TEST_CASE("a session opens the scene again on the same layer of the game", "[sce
     view.lightSetting = 0;
     view.hiddenRooms[0] = true;
     view.showsActors = false;
+    view.showsPaths = false;
+    view.showsCollision = true;
+    view.showsWaterBoxes = false;
+    view.collisionColoring = toki::scene::CollisionColoring::SurfaceType;
 
     const toki::core::SceneSession session = toki::scene::makeSceneSession(scene, view);
+    REQUIRE(session.collisionColoring == "surface_type");
     REQUIRE(session.layer == 1);
     REQUIRE(session.hiddenRooms == std::vector<usize>{0});
 
@@ -187,6 +192,10 @@ TEST_CASE("a session opens the scene again on the same layer of the game", "[sce
     REQUIRE(restored.lightSetting == 0);
     REQUIRE(restored.hiddenRooms == std::vector<bool>{true, false});
     REQUIRE_FALSE(restored.showsActors);
+    REQUIRE_FALSE(restored.showsPaths);
+    REQUIRE(restored.showsCollision);
+    REQUIRE_FALSE(restored.showsWaterBoxes);
+    REQUIRE(restored.collisionColoring == toki::scene::CollisionColoring::SurfaceType);
 }
 
 TEST_CASE("a session's layer the scene no longer has opens the main one", "[scene][view]") {

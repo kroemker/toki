@@ -11,9 +11,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -210,6 +212,25 @@ void addWaterBoxes(n64::DisplayListWriter& writer, const Collision& collision,
 
 std::string_view getCollisionColoringLabel(const CollisionColoring coloring) {
     return ColoringLabels[static_cast<usize>(coloring)];
+}
+
+std::string makeCollisionColoringKey(const CollisionColoring coloring) {
+    std::string key;
+    for (const char letter : getCollisionColoringLabel(coloring)) {
+        key += letter == ' ' ? '_'
+                             : static_cast<char>(std::tolower(static_cast<unsigned char>(letter)));
+    }
+    return key;
+}
+
+std::optional<CollisionColoring> findCollisionColoring(const std::string_view key) {
+    for (usize i = 0; i < CollisionColoringCount; ++i) {
+        const auto coloring = static_cast<CollisionColoring>(i);
+        if (makeCollisionColoringKey(coloring) == key) {
+            return coloring;
+        }
+    }
+    return std::nullopt;
 }
 
 std::array<u8, 3> findSurfaceTypeColor(const usize type) {
