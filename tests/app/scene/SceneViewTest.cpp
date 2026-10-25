@@ -5,6 +5,7 @@
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/viewport/domain/OrbitCamera.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
@@ -287,4 +288,39 @@ TEST_CASE("a waterbox is hidden with its room, unless it belongs to every room",
     const toki::viewport::ViewportContent hidden =
         toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
     REQUIRE(std::ranges::count_if(hidden.draws, &toki::viewport::ViewportDraw::isEdged) == 2);
+}
+
+TEST_CASE("collision draws are owned by their polygons and waterboxes, and the rooms by nothing",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.vertices = {{0, 0, 0}, {0, 0, 100}, {100, 0, 0}};
+    collision.polygons = {{.type = 1, .vertexData = {0, 1, 2}, .normal = {0, 0x7FFF, 0}}};
+    collision.surfaceTypes.resize(2);
+    collision.waterBoxes = {
+        {.xLength = 100, .zLength = 100, .properties = u32{toki::scene::WaterBoxAllRooms} << 13}};
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+    view.collision = toki::viewport::CollisionDisplay::OverRooms;
+
+    const toki::viewport::ViewportContent content =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    std::vector<toki::scene::SceneNode> owners;
+    for (const toki::viewport::ViewportDraw& draw : content.draws) {
+        if (draw.owner) {
+            owners.push_back(*toki::scene::findNode(*draw.owner));
+        }
+    }
+    REQUIRE(owners == std::vector<toki::scene::SceneNode>{
+                          toki::scene::CollisionPolygonRef{.layer = 0, .polygon = 0},
+                          toki::scene::WaterBoxRef{.layer = 0, .box = 0}});
+
+    const toki::scene::SceneNode polygon = toki::scene::CollisionPolygonRef{.polygon = 0};
+    REQUIRE(toki::scene::findTintedSurfaceType(scene, view, &polygon) == 1);
+    const toki::scene::SceneNode room = toki::scene::RoomRef{};
+    REQUIRE_FALSE(toki::scene::findTintedSurfaceType(scene, view, &room));
+    view.layer = 1;
+    REQUIRE_FALSE(toki::scene::findTintedSurfaceType(scene, view, &polygon));
 }

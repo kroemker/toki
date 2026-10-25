@@ -99,6 +99,14 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
     if (const auto* path = std::get_if<PathRef>(&node)) {
         return findPath(scene, path->layer, path->path).has_value();
     }
+    if (const auto* polygon = std::get_if<CollisionPolygonRef>(&node)) {
+        const Collision* collision = findLayerCollision(scene, polygon->layer);
+        return collision != nullptr && polygon->polygon < collision->polygons.size();
+    }
+    if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
+        const Collision* collision = findLayerCollision(scene, box->layer);
+        return collision != nullptr && box->box < collision->waterBoxes.size();
+    }
     const auto& point = std::get<PathPointRef>(node);
     const std::optional<ScenePath> path = findPath(scene, point.layer, point.path);
     return path && point.point < path->points.size();
@@ -253,12 +261,20 @@ void PlacementEditor::drawInspector(Scene& scene) {
         pathForm.draw(scene, *node, selection.getNodes().size());
         return;
     }
+    if (const auto* polygon = node != nullptr ? std::get_if<CollisionPolygonRef>(node) : nullptr) {
+        collisionForm.drawPolygon(scene, *polygon, selection.getNodes().size());
+        return;
+    }
+    if (const auto* box = node != nullptr ? std::get_if<WaterBoxRef>(node) : nullptr) {
+        collisionForm.drawWaterBox(scene, *box, selection.getNodes().size());
+        return;
+    }
     const std::optional<PlacementRef> active = findSelected();
     if (!active) {
         ImGui::TextColored(
             core::palette::TextMuted,
-            "Select the scene, a room, a placement, a light setting or a path in the Scene panel "
-            "or the viewport.");
+            "Select the scene, a room, a placement, a light setting, a path or a piece of "
+            "collision in the Scene panel or the viewport.");
         return;
     }
     if (!draft) {

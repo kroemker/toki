@@ -330,6 +330,12 @@ void ScenePanel::update() {
         return;
     }
     placementEditor.applyPicked(*scene);
+    if (const std::optional<u16> tinted =
+            findTintedSurfaceType(*scene, sceneView, placementEditor.getSelection().findActive());
+        tinted != sceneView.tintedSurfaceType) {
+        sceneView.tintedSurfaceType = tinted;
+        showScene();
+    }
     if (isPreviewEnding) {
         isPreviewEnding = false;
         showScene();

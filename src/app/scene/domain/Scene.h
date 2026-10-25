@@ -71,6 +71,10 @@ inline constexpr usize FirstRoomImage = 2;
 /// once the images were laid out again after an edit.
 void readSceneLayers(Scene& scene);
 
+/// The collision the layer numbered `layer`, an index into `Scene::layers`,
+/// points at, if it has one.
+[[nodiscard]] const Collision* findLayerCollision(const Scene& scene, usize layer);
+
 /// What a scene layer is called: the four the game plays in, then its
 /// cutscenes.
 [[nodiscard]] std::string makeLayerName(usize index);

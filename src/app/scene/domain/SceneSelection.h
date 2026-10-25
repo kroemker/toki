@@ -52,10 +52,27 @@ struct PathPointRef {
     friend bool operator==(const PathPointRef&, const PathPointRef&) = default;
 };
 
+/// One polygon of a layer's collision.
+struct CollisionPolygonRef {
+    usize layer = 0;
+    usize polygon = 0;
+
+    friend bool operator==(const CollisionPolygonRef&, const CollisionPolygonRef&) = default;
+};
+
+/// One waterbox of a layer's collision.
+struct WaterBoxRef {
+    usize layer = 0;
+    usize box = 0;
+
+    friend bool operator==(const WaterBoxRef&, const WaterBoxRef&) = default;
+};
+
 /// Something of the scene that can be selected: a placement, a room, the
-/// scene, a light setting, a path or one of its points.
-using SceneNode =
-    std::variant<PlacementRef, RoomRef, SceneRef, LightSettingRef, PathRef, PathPointRef>;
+/// scene, a light setting, a path or one of its points, or a polygon or
+/// waterbox of its collision.
+using SceneNode = std::variant<PlacementRef, RoomRef, SceneRef, LightSettingRef, PathRef,
+                               PathPointRef, CollisionPolygonRef, WaterBoxRef>;
 
 using viewport::PickMode;
 

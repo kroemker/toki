@@ -50,10 +50,12 @@ TEST_CASE("a node is the same node again from its key", "[scene][selection]") {
           SceneNode{PlacementRef{.layer = 1, .room = 3, .index = 40}}, Room,
           SceneNode{toki::scene::LightSettingRef{.layer = 1, .index = 9}},
           SceneNode{toki::scene::PathRef{.layer = 3, .path = 2}},
-          SceneNode{toki::scene::PathPointRef{.layer = 3, .path = 2, .point = 17}}}) {
+          SceneNode{toki::scene::PathPointRef{.layer = 3, .path = 2, .point = 17}},
+          SceneNode{toki::scene::CollisionPolygonRef{.layer = 2, .polygon = 70000}},
+          SceneNode{toki::scene::WaterBoxRef{.layer = 1, .box = 4}}}) {
         REQUIRE(toki::scene::findNode(toki::scene::makeNodeKey(node)) == node);
     }
-    REQUIRE_FALSE(toki::scene::findNode(usize{9} << 56U));
+    REQUIRE_FALSE(toki::scene::findNode(usize{10} << 56U));
 }
 
 TEST_CASE("the placements of a selection leave its rooms out", "[scene][selection]") {

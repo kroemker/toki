@@ -26,6 +26,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -214,6 +215,9 @@ struct PassSource {
     usize standInImage = 0;
     u32 standIn = 0;
     bool drawsRooms = true;
+    /// Whether a click on a room picks it, which it does not while collision
+    /// drawn over it is what is picked.
+    bool ownsRooms = true;
 };
 
 [[nodiscard]] viewport::ViewportDraw makeRuntimeSegmentsDraw(const PassSource& source) {
@@ -245,10 +249,11 @@ struct PassSource {
         for (const RoomDisplayLists& lists : rooms[room].displayLists) {
             const u32 displayList = opaque ? lists.opaque : lists.translucent;
             if (displayList != 0) {
-                draws.push_back(viewport::ViewportDraw{
-                    .image = FirstRoomImage + room,
-                    .displayList = displayList,
-                    .owner = makeNodeKey(RoomRef{.layer = source.view.layer, .room = room})});
+                viewport::ViewportDraw& draw = draws.emplace_back(viewport::ViewportDraw{
+                    .image = FirstRoomImage + room, .displayList = displayList});
+                if (source.ownsRooms) {
+                    draw.owner = makeNodeKey(RoomRef{.layer = source.view.layer, .room = room});
+                }
             }
         }
     }
@@ -265,22 +270,28 @@ struct AddedCollision {
                                                const Collision& collision, const SceneView& view) {
     AddedCollision added{
         .drawing = makeCollisionDrawing(
-            collision, CollisionLook{.coloring = view.collisionColoring,
-                                     .isTranslucent =
-                                         view.collision == viewport::CollisionDisplay::OverRooms}),
+            collision,
+            CollisionLook{.coloring = view.collisionColoring,
+                          .isTranslucent = view.collision == viewport::CollisionDisplay::OverRooms,
+                          .tintedSurfaceType = view.tintedSurfaceType}),
         .image = content.images.size()};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(added.drawing.image));
     labelImages(content, "Collision", viewport::ImageKind::Generated);
     return added;
 }
 
-void addPolygons(viewport::ViewportContent& content, const AddedCollision& added) {
+void addPolygons(viewport::ViewportContent& content, const AddedCollision& added,
+                 const SceneView& view) {
     content.draws.push_back(
         viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.setup});
-    for (const u32 polygon : added.drawing.polygons) {
-        if (polygon != 0) {
+    const std::vector<u32>& polygons = added.drawing.polygons;
+    for (usize i = 0; i < polygons.size(); ++i) {
+        if (polygons[i] != 0) {
             content.draws.push_back(viewport::ViewportDraw{
-                .image = added.image, .displayList = polygon, .isEdged = true});
+                .image = added.image,
+                .displayList = polygons[i],
+                .owner = makeNodeKey(CollisionPolygonRef{.layer = view.layer, .polygon = i}),
+                .isEdged = true});
         }
     }
 }
@@ -296,7 +307,10 @@ void addWaterBoxes(viewport::ViewportContent& content, const AddedCollision& add
         const u8 room = getWaterBoxRoom(collision.waterBoxes[i]);
         if (room == WaterBoxAllRooms || isShown(view, room)) {
             content.draws.push_back(viewport::ViewportDraw{
-                .image = added.image, .displayList = added.drawing.waterBoxes[i], .isEdged = true});
+                .image = added.image,
+                .displayList = added.drawing.waterBoxes[i],
+                .owner = makeNodeKey(WaterBoxRef{.layer = view.layer, .box = i}),
+                .isEdged = true});
         }
     }
 }
@@ -377,9 +391,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const SceneLayer& layer = shownLayer != nullptr ? *shownLayer : scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
-    const Collision* collision = layer.collision && *layer.collision < scene.collisions.size()
-                                     ? &scene.collisions[*layer.collision]
-                                     : nullptr;
+    const Collision* collision = findLayerCollision(scene, view.layer);
     const bool showsCollision =
         collision != nullptr && view.collision != viewport::CollisionDisplay::Off;
     const bool isCollisionOnly =
@@ -390,7 +402,8 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
                             .imageCount = scene.images.size(),
                             .standInImage = content.images.size(),
                             .standIn = runtime.standIn,
-                            .drawsRooms = !isCollisionOnly};
+                            .drawsRooms = !isCollisionOnly,
+                            .ownsRooms = !showsCollision};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
@@ -400,7 +413,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         added = addCollisionImage(content, *collision, view);
     }
     if (isCollisionOnly) {
-        addPolygons(content, *added);
+        addPolygons(content, *added, view);
     }
     std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
@@ -423,7 +436,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
     if (added) {
         if (!isCollisionOnly) {
-            addPolygons(content, *added);
+            addPolygons(content, *added, view);
         }
         addWaterBoxes(content, *added, *collision, view);
     }
@@ -432,6 +445,19 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         content.lighting = makeLighting(layer.header.lightSettings[view.lightSetting]);
     }
     return content;
+}
+
+std::optional<u16> findTintedSurfaceType(const Scene& scene, const SceneView& view,
+                                         const SceneNode* active) {
+    const auto* polygon = active != nullptr ? std::get_if<CollisionPolygonRef>(active) : nullptr;
+    if (polygon == nullptr || polygon->layer != view.layer) {
+        return std::nullopt;
+    }
+    const Collision* collision = findLayerCollision(scene, polygon->layer);
+    if (collision == nullptr || polygon->polygon >= collision->polygons.size()) {
+        return std::nullopt;
+    }
+    return collision->polygons[polygon->polygon].type;
 }
 
 viewport::ViewportLighting makeLighting(const LightSetting& setting) {

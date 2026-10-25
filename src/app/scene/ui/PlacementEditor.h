@@ -8,6 +8,7 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/ui/ActorForm.h"
+#include "app/scene/ui/CollisionForm.h"
 #include "app/scene/ui/HeaderForm.h"
 #include "app/scene/ui/LightSettingForm.h"
 #include "app/scene/ui/ParamsForm.h"
@@ -227,6 +228,7 @@ private:
     HeaderForm headerForm;
     LightSettingForm lightSettingForm;
     PathForm pathForm;
+    CollisionForm collisionForm;
     std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;

@@ -5,6 +5,7 @@
 #include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 
@@ -30,6 +31,8 @@ struct SceneView {
     usize shownEntrance = 0;
     viewport::CollisionDisplay collision = viewport::CollisionDisplay::Off;
     CollisionColoring collisionColoring = CollisionColoring::Kind;
+    /// The surface type whose polygons are tinted, as the selected polygon's.
+    std::optional<u16> tintedSurfaceType;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of
@@ -58,10 +61,17 @@ struct SceneView {
 /// of the shown layer's, as an edit is previewed before it is made. The
 /// layer's collision is drawn after everything else over the rooms, or after
 /// the opaque pass in place of the rooms, as `view` shows it, every polygon a
-/// draw of its own with its edges drawn.
+/// draw of its own with its edges drawn, owned by its node, and its waterboxes
+/// after everything else. While it is drawn, the rooms are owned by nothing, so
+/// that a click picks the collision over them.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                                          core::MarkerShape markerShape,
                                                          const SceneLayer* shownLayer = nullptr);
+
+/// The surface type of the polygon `active` is, when it is one of the shown
+/// layer's, whose polygons are tinted with it.
+[[nodiscard]] std::optional<u16> findTintedSurfaceType(const Scene& scene, const SceneView& view,
+                                                       const SceneNode* active);
 
 /// The light and fog the game draws a scene under while `setting` is its
 /// current light setting.

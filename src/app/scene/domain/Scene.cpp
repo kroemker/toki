@@ -21,6 +21,7 @@
 #include <format>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -141,6 +142,14 @@ void readSceneLayers(Scene& scene) {
     readLayers(scene, HeaderFiles{.scene = scene.directory,
                                   .rooms = std::vector<std::filesystem::path>(
                                       scene.images.size() - FirstRoomImage, scene.directory)});
+}
+
+const Collision* findLayerCollision(const Scene& scene, const usize layer) {
+    if (layer >= scene.layers.size()) {
+        return nullptr;
+    }
+    const std::optional<usize> index = scene.layers[layer].collision;
+    return index && *index < scene.collisions.size() ? &scene.collisions[*index] : nullptr;
 }
 
 std::string makeLayerName(const usize index) {
