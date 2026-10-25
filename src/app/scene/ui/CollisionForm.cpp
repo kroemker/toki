@@ -82,18 +82,6 @@ void drawVertices(const Collision& collision, const CollisionPolygon& polygon) {
     return values;
 }
 
-[[nodiscard]] std::string makeSurfaceLabel(const CollisionNames* names, const Collision& collision,
-                                           const usize type) {
-    if (type >= collision.surfaceTypes.size()) {
-        return std::format("{} (past the end of the list)", type);
-    }
-    if (names == nullptr) {
-        return std::format("{}", type);
-    }
-    return std::format("{} · {}", type,
-                       makeSurfaceSummary(*names, readSurfaceFields(collision.surfaceTypes[type])));
-}
-
 } // namespace
 
 void CollisionForm::drawPolygons(const Scene& scene,
@@ -177,9 +165,6 @@ void CollisionForm::drawSurfaceSection(const Scene& scene, const SceneLayer& lay
     drawSurfaceChoice(collision, selection, type);
     if (type < collision.surfaceTypes.size()) {
         drawSurfaceRows(scene, layer, collision, selection, type);
-        const SurfaceType& surface = collision.surfaceTypes[type];
-        drawRow("Words", "The surface type's two words, as the game reads them.",
-                std::format("0x{:08X} 0x{:08X}", surface.data[0], surface.data[1]));
     }
     core::endProperties();
 }
@@ -197,11 +182,11 @@ void CollisionForm::drawSurfaceChoice(const Collision& collision, const PolygonS
     const float buttonWidth = ImGui::CalcTextSize("New").x + ImGui::GetStyle().FramePadding.x * 4;
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - buttonWidth);
     if (ImGui::BeginCombo("##surfaceType",
-                          makeSurfaceLabel(collisionNames, collision, type).c_str(),
+                          makeSurfaceTypeLabel(collisionNames, collision, type).c_str(),
                           ImGuiComboFlags_HeightLarge)) {
         for (usize i = 0; i < collision.surfaceTypes.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
-            if (ImGui::Selectable(makeSurfaceLabel(collisionNames, collision, i).c_str(),
+            if (ImGui::Selectable(makeSurfaceTypeLabel(collisionNames, collision, i).c_str(),
                                   i == type)) {
                 pick(
                     [gameLayer = selection.gameLayer, polygons = selection.polygons,

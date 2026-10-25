@@ -53,6 +53,11 @@ struct CollisionNames {
 [[nodiscard]] std::string makeSurfaceSummary(const CollisionNames& names,
                                              const SurfaceFields& fields);
 
+/// Surface type `type` of `collision` as a list shows it: its index and its
+/// summary, or its index alone without `names`.
+[[nodiscard]] std::string makeSurfaceTypeLabel(const CollisionNames* names,
+                                               const Collision& collision, usize type);
+
 /// Where Toki's collision names are installed: `collision.toml` in the assets
 /// folder beside the executable.
 [[nodiscard]] std::filesystem::path

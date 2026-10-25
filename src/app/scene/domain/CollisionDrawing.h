@@ -63,6 +63,9 @@ struct CollisionDrawing {
 [[nodiscard]] CollisionDrawing makeCollisionDrawing(const Collision& collision,
                                                     const CollisionLook& look);
 
+/// The colour polygons of surface type `type` are coloured by Surface Type.
+[[nodiscard]] std::array<u8, 3> findSurfaceTypeColor(usize type);
+
 /// The colour `look` gives `polygon` before it is shaded.
 [[nodiscard]] std::array<u8, 3> findPolygonColor(const Collision& collision,
                                                  const CollisionPolygon& polygon,

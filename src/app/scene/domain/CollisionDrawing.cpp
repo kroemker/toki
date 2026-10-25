@@ -212,13 +212,17 @@ std::string_view getCollisionColoringLabel(const CollisionColoring coloring) {
     return ColoringLabels[static_cast<usize>(coloring)];
 }
 
+std::array<u8, 3> findSurfaceTypeColor(const usize type) {
+    return makeValueColor(type);
+}
+
 std::array<u8, 3> findPolygonColor(const Collision& collision, const CollisionPolygon& polygon,
                                    const CollisionLook& look) {
     std::array<u8, 3> color = PlainColor;
     if (look.coloring == CollisionColoring::Kind) {
         color = findKindColor(polygon);
     } else if (look.coloring == CollisionColoring::SurfaceType) {
-        color = makeValueColor(polygon.type);
+        color = findSurfaceTypeColor(polygon.type);
     } else if (polygon.type < collision.surfaceTypes.size()) {
         color = findSettingColor(readSurfaceFields(collision.surfaceTypes[polygon.type]),
                                  look.coloring);

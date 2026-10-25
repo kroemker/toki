@@ -104,6 +104,18 @@ std::string makeSurfaceValueLabel(const CollisionNames& names, const SurfaceSett
     return named != nullptr ? named->name : std::format("{}", value);
 }
 
+std::string makeSurfaceTypeLabel(const CollisionNames* names, const Collision& collision,
+                                 const usize type) {
+    if (type >= collision.surfaceTypes.size()) {
+        return std::format("{} (past the end of the list)", type);
+    }
+    if (names == nullptr) {
+        return std::format("{}", type);
+    }
+    return std::format("{} · {}", type,
+                       makeSurfaceSummary(*names, readSurfaceFields(collision.surfaceTypes[type])));
+}
+
 std::string makeSurfaceSummary(const CollisionNames& names, const SurfaceFields& fields) {
     std::string summary = makeSurfaceValueLabel(names, SurfaceSetting::Material, fields);
     for (const SettingTable& table : Tables) {

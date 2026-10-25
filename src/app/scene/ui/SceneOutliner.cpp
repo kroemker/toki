@@ -4,6 +4,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
@@ -14,6 +15,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <format>
 #include <span>
@@ -64,6 +66,20 @@ void drawLabel(const char* icon, const ImVec4& color, const std::string& name,
     ImGui::SameLine();
     ImGui::TextColored(isDimmed ? core::palette::TextDisabled : core::palette::Text, "%s",
                        name.c_str());
+}
+
+/// A square of `color` in place of a row's icon, as what it is drawn in.
+void drawSwatch(const std::array<u8, 3>& color) {
+    constexpr f32 Inset = 0.2F;
+    constexpr f32 Rounding = 2.0F;
+    ImGui::SameLine(0.0F, 0.0F);
+    const f32 size = ImGui::GetTextLineHeight();
+    const ImVec2 corner = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(size, size));
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(corner.x + (size * Inset), corner.y + (size * Inset)),
+        ImVec2(corner.x + (size * (1.0F - Inset)), corner.y + (size * (1.0F - Inset))),
+        IM_COL32(color[0], color[1], color[2], 0xFF), Rounding);
 }
 
 bool drawNode(const char* id, const ImGuiTreeNodeFlags flags, const char* icon, const ImVec4& color,
@@ -480,7 +496,9 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
                 makeSurfaceSummary(*collisionNames, readSurfaceFields(collision.surfaceTypes[i]))
                     .c_str());
         }
-        drawLabel(core::icons::Square, CollisionColor, std::format("Surface Type {}", i));
+        drawSwatch(findSurfaceTypeColor(i));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(makeSurfaceTypeLabel(collisionNames, collision, i).c_str());
         drawInfo(std::format("{} polys", counts[i]));
         ImGui::PopID();
     }
