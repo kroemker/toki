@@ -190,9 +190,13 @@ void ViewportPanel::draw() {
             viewportTransform.applyHotkeys(viewportTools.tool, transformView);
         }
     }
+    const bool isHandleHeld = viewportTools.mode == SelectionMode::Node && !isModal &&
+                              !viewportTransform.isModal() && !isTransforming() &&
+                              viewportHandles.update(transformView);
     // ImGuizmo takes the mouse only while no item is hovered, so over its
-    // gizmo the viewport's own button gives way to a dummy of the same size.
-    if (isTransforming()) {
+    // gizmo the viewport's own button gives way to a dummy of the same size,
+    // and so it does over a handle.
+    if (isTransforming() || isHandleHeld) {
         ImGui::Dummy(size);
     } else {
         ImGui::InvisibleButton("##viewport", size,
@@ -264,6 +268,7 @@ void ViewportPanel::draw() {
     drawSelectionBoxes(*drawList, transformView);
     viewportTransform.drawOverlay(*drawList, transformView, viewportTools.tool);
     if (viewportTools.mode == SelectionMode::Node) {
+        viewportHandles.draw(*drawList, transformView);
         viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
     }
     viewportTransform.updatePreview();

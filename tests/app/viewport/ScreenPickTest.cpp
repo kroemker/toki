@@ -111,3 +111,18 @@ TEST_CASE("a segment falls on the image, cut where it passes behind the camera",
     REQUIRE_FALSE(toki::viewport::findScreenSegment(viewProjection, size, behind,
                                                     behind + glm::vec3(10.0F, 0.0F, 0.0F)));
 }
+
+TEST_CASE("a drag along an axis is measured as the axis looks on the image", "[viewport][pick]") {
+    const glm::mat4 identity(1.0F);
+    const glm::vec2 size{200.0F, 100.0F};
+    const glm::vec3 origin{0.0F, 0.0F, 0.0F};
+
+    REQUIRE(toki::viewport::findAxisDistance(identity, size, origin, {2.0F, 0.0F, 0.0F},
+                                             {100.0F, 50.0F},
+                                             {150.0F, 80.0F}) == Catch::Approx(0.5F));
+    REQUIRE(toki::viewport::findAxisDistance(identity, size, origin, {0.0F, 1.0F, 0.0F},
+                                             {100.0F, 50.0F},
+                                             {100.0F, 75.0F}) == Catch::Approx(-0.5F));
+    REQUIRE_FALSE(toki::viewport::findAxisDistance(identity, size, origin, {0.0F, 0.0F, 1.0F},
+                                                   {100.0F, 50.0F}, {150.0F, 50.0F}));
+}

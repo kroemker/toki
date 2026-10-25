@@ -41,6 +41,15 @@ findScreenLine(const glm::mat4& viewProjection, glm::vec2 size, const glm::vec3&
 findScreenSegment(const glm::mat4& viewProjection, glm::vec2 size, const glm::vec3& start,
                   const glm::vec3& end);
 
+/// How far along `direction` from `point` a drag of the mouse from `start` to
+/// `mouse` on an image of `size` that `viewProjection` draws takes it, in
+/// world units, as the line looks where `point` is; nothing when the line
+/// points at the camera, or `point` is behind it.
+[[nodiscard]] std::optional<f32> findAxisDistance(const glm::mat4& viewProjection, glm::vec2 size,
+                                                  const glm::vec3& point,
+                                                  const glm::vec3& direction, glm::vec2 start,
+                                                  glm::vec2 mouse);
+
 /// The indices of the points of `points` in front of the camera that fall in
 /// the rectangle between `corner` and `otherCorner` on the image, in order.
 [[nodiscard]] std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, glm::vec2 size,

@@ -4,6 +4,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/CollisionEdits.h"
 #include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/PlacementTransform.h"
@@ -12,6 +13,7 @@
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
+#include "app/scene/domain/WaterBoxShape.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -574,6 +576,21 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
             made.nodes.push_back(node);
             continue;
         }
+        if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
+            const Collision* collision = findLayerCollision(scene, box->layer);
+            if (collision == nullptr || box->box >= collision->waterBoxes.size()) {
+                continue;
+            }
+            if (active != nullptr && *active == node) {
+                target.activePoint = target.points.size();
+            }
+            target.points.push_back(findWaterBoxCenter(collision->waterBoxes[box->box]));
+            sum += target.points.back();
+            made.nodes.push_back(node);
+            target.isTurnable = {false, false, false};
+            target.turnNote = "a waterbox does not turn";
+            continue;
+        }
         const auto& where = std::get<PlacementRef>(node);
         const std::optional<Placement> placement = findPlacement(scene, where);
         if (!placement) {
@@ -644,7 +661,8 @@ void PlacementEditor::applyTransform(std::vector<SceneNode> nodes,
                     isJoined) ||
                 isJoined;
         }
-        static_cast<void>(applyPathMoves(edited, nodes, edit.points, isJoined));
+        isJoined = applyPathMoves(edited, nodes, edit.points, isJoined);
+        static_cast<void>(applyWaterBoxMoves(edited, nodes, edit.points, isJoined));
     };
 }
 
@@ -680,6 +698,30 @@ bool PlacementEditor::applyPathMoves(Scene& scene, const std::span<const SceneNo
                                    },
                                    isJoined)) ||
             isJoined;
+    }
+    return isJoined;
+}
+
+bool PlacementEditor::applyWaterBoxMoves(Scene& scene, const std::span<const SceneNode> nodes,
+                                         const std::span<const glm::vec3> points,
+                                         const bool joinsLast) {
+    bool isJoined = joinsLast;
+    for (usize i = 0; i < nodes.size() && i < points.size(); ++i) {
+        const auto* box = std::get_if<WaterBoxRef>(&nodes[i]);
+        const Collision* collision =
+            box != nullptr ? findLayerCollision(scene, box->layer) : nullptr;
+        if (collision == nullptr || box->box >= collision->waterBoxes.size()) {
+            continue;
+        }
+        const WaterBox moved = makeMovedWaterBox(collision->waterBoxes[box->box], points[i]);
+        const usize gameLayer = scene.layers[box->layer].index;
+        isJoined = showApplied(scene, sceneEditor.applyToModel(
+                                          scene,
+                                          [gameLayer, index = box->box, moved](SceneModel& model) {
+                                              return setWaterBox(model, gameLayer, index, moved);
+                                          },
+                                          isJoined)) ||
+                   isJoined;
     }
     return isJoined;
 }

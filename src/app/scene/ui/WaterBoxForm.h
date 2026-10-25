@@ -35,8 +35,10 @@ public:
     /// `Scene::layers`: a waterbox with its surface at `position`.
     void drawGroupMenu(const Scene& scene, usize layer, const std::array<s16, 3>& position);
 
-private:
+    /// Sets the waterbox to `box`, as one step once the panels are drawn.
     void pickBox(const Scene& scene, const WaterBoxRef& where, const WaterBox& box);
+
+private:
     void pickAdd(const Scene& scene, usize layer, const WaterBox& box);
 
     Pick pick;

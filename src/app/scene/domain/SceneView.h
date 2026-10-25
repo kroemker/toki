@@ -61,7 +61,8 @@ struct SceneView {
 /// player entries, are marked by `markerShape` between the two passes, and so
 /// are the points of the layer's paths, smaller, while `view` shows them. With
 /// `shownLayer`, its placements, paths and light settings are drawn in place
-/// of the shown layer's, as an edit is previewed before it is made. The
+/// of the shown layer's, as an edit is previewed before it is made, and with
+/// `shownCollision`, its waterboxes and polygons in place of the layer's. The
 /// layer's collision is drawn after everything else over the rooms, or after
 /// the opaque pass in place of the rooms, as `view` shows it, every polygon a
 /// draw of its own with its edges drawn, owned by its node, and its waterboxes
@@ -69,7 +70,8 @@ struct SceneView {
 /// that a click picks the collision over them.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                                          core::MarkerShape markerShape,
-                                                         const SceneLayer* shownLayer = nullptr);
+                                                         const SceneLayer* shownLayer = nullptr,
+                                                         const Collision* shownCollision = nullptr);
 
 /// The surface type of the polygon `active` is, when it is one of the shown
 /// layer's, whose polygons are tinted with it.

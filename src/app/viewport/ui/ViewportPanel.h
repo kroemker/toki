@@ -11,6 +11,7 @@
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ViewportHandles.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
 #include "app/viewport/ui/ViewportTransform.h"
 #include "base/Diagnostic.h"
@@ -199,6 +200,13 @@ public:
         viewportTransform.setTarget(std::move(target), std::move(handler), std::move(preview));
     }
 
+    /// Handles of what is selected that the mouse drags in node mode, and
+    /// what is done with a drag once it is let go.
+    void setHandles(std::vector<ViewportHandle> handles, ViewportHandles::Handler handler,
+                    ViewportHandles::PreviewHandler preview = nullptr) {
+        viewportHandles.setHandles(std::move(handles), std::move(handler), std::move(preview));
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -257,6 +265,7 @@ private:
     /// drew back to the world.
     glm::mat4 frameViewProjection{1.0F};
     ViewportTransform viewportTransform;
+    ViewportHandles viewportHandles;
     std::vector<usize> selectedOwners;
     /// The boxes around what is selected, found once per frame drawn.
     std::optional<std::vector<std::optional<WorldBox>>> selectionBoxes;

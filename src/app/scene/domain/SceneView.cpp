@@ -383,7 +383,8 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
 
 viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                            const core::MarkerShape markerShape,
-                                           const SceneLayer* shownLayer) {
+                                           const SceneLayer* shownLayer,
+                                           const Collision* shownCollision) {
     viewport::ViewportContent content{.images = scene.images};
     labelSceneImages(content, scene);
     if (scene.images.empty() || view.layer >= scene.layers.size()) {
@@ -392,7 +393,8 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const SceneLayer& layer = shownLayer != nullptr ? *shownLayer : scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
-    const Collision* collision = findLayerCollision(scene, view.layer);
+    const Collision* collision =
+        shownCollision != nullptr ? shownCollision : findLayerCollision(scene, view.layer);
     const bool showsCollision = collision != nullptr && view.showsCollision;
     const bool showsWaterBoxes = collision != nullptr && view.showsWaterBoxes;
     const bool isCollisionOnly = showsCollision && areRoomsHidden(view);

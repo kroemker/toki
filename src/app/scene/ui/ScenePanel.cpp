@@ -19,6 +19,7 @@
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/domain/WaterBoxShape.h"
 #include "app/scene/ui/PathForm.h"
 #include "app/scene/ui/SceneOutliner.h"
 #include "app/viewport/domain/ViewportChoices.h"
@@ -273,6 +274,7 @@ void ScenePanel::draw() {
     drawFlags(flags);
     drawOverlay(flags, layer);
     offerPlacements(layer);
+    offerWaterBoxHandles();
 }
 
 void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
@@ -285,7 +287,20 @@ void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
         return;
     }
     SceneLayer layer = scene->layers[sceneView.layer];
+    const Collision* found = findLayerCollision(*scene, sceneView.layer);
+    std::optional<Collision> collision;
+    if (found != nullptr) {
+        collision = *found;
+    }
     for (usize i = 0; i < nodes.size() && i < edit->points.size(); ++i) {
+        if (const auto* box = std::get_if<WaterBoxRef>(&nodes[i])) {
+            if (collision && box->layer == sceneView.layer &&
+                box->box < collision->waterBoxes.size()) {
+                collision->waterBoxes[box->box] =
+                    makeMovedWaterBox(collision->waterBoxes[box->box], edit->points[i]);
+            }
+            continue;
+        }
         if (const auto* point = std::get_if<PathPointRef>(&nodes[i])) {
             if (point->layer == sceneView.layer && point->path < layer.header.paths.size() &&
                 point->point < layer.header.paths[point->path].points.size()) {
@@ -301,7 +316,53 @@ void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
                 layer, where, makeTransformedPlacement(*placement, edit->points[i], edit->result)));
         }
     }
-    showLayer(layer, sceneView);
+    showLayer(layer, sceneView, collision ? &*collision : nullptr);
+}
+
+void ScenePanel::showWaterBox(const usize index, const WaterBox& box) {
+    const Collision* found = findLayerCollision(*scene, sceneView.layer);
+    if (found == nullptr || index >= found->waterBoxes.size()) {
+        return;
+    }
+    Collision collision = *found;
+    collision.waterBoxes[index] = box;
+    showLayer(scene->layers[sceneView.layer], sceneView, &collision);
+}
+
+void ScenePanel::offerWaterBoxHandles() {
+    const SceneNode* active = placementEditor.getSelection().findActive();
+    const auto* where = active != nullptr ? std::get_if<WaterBoxRef>(active) : nullptr;
+    const Collision* collision =
+        where != nullptr ? findLayerCollision(*scene, where->layer) : nullptr;
+    if (!sceneView.showsWaterBoxes || collision == nullptr || where->layer != sceneView.layer ||
+        where->box >= collision->waterBoxes.size()) {
+        viewportPanel.setHandles({}, nullptr);
+        return;
+    }
+    constexpr std::array<const char*, 4> SideNames{"lowest X", "highest X", "lowest Z",
+                                                   "highest Z"};
+    const WaterBox& box = collision->waterBoxes[where->box];
+    std::vector<viewport::ViewportHandle> handles;
+    for (usize i = 0; i < WaterBoxSides.size(); ++i) {
+        handles.push_back(viewport::ViewportHandle{
+            .position = findWaterBoxSidePoint(box, WaterBoxSides[i]),
+            .direction = getWaterBoxSideDirection(WaterBoxSides[i]),
+            .tooltip = std::format("Drag to move the waterbox's {} side alone.", SideNames[i])});
+    }
+    viewportPanel.setHandles(
+        std::move(handles),
+        [this, where = *where, box](const viewport::HandleDrag& drag) {
+            placementEditor.getWaterBoxForm().pickBox(
+                *scene, where, makeResizedWaterBox(box, WaterBoxSides[drag.handle], drag.distance));
+        },
+        [this, index = where->box, box](const std::optional<viewport::HandleDrag>& drag) {
+            if (!drag) {
+                isPreviewEnding = true;
+                return;
+            }
+            showWaterBox(index,
+                         makeResizedWaterBox(box, WaterBoxSides[drag->handle], drag->distance));
+        });
 }
 
 void ScenePanel::showEdited(const PlacementEditor::Preview& preview) {
@@ -325,9 +386,10 @@ void ScenePanel::showEdited(const PlacementEditor::Preview& preview) {
     showLayer(layer, view);
 }
 
-void ScenePanel::showLayer(const SceneLayer& layer, const SceneView& view) {
+void ScenePanel::showLayer(const SceneLayer& layer, const SceneView& view,
+                           const Collision* collision) {
     previewPaths = layer.header.paths;
-    viewportPanel.setNextFrame(makeSceneContent(*scene, view, markerShape, &layer));
+    viewportPanel.setNextFrame(makeSceneContent(*scene, view, markerShape, &layer, collision));
 }
 
 void ScenePanel::update() {

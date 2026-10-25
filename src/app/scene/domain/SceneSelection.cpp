@@ -130,7 +130,8 @@ std::vector<SceneNode> SceneSelection::listMovable() const {
     std::vector<SceneNode> movable;
     for (const SceneNode& node : nodes) {
         if (std::holds_alternative<PlacementRef>(node) ||
-            std::holds_alternative<PathPointRef>(node)) {
+            std::holds_alternative<PathPointRef>(node) ||
+            std::holds_alternative<WaterBoxRef>(node)) {
             movable.push_back(node);
         }
     }

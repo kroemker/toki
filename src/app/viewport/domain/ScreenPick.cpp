@@ -97,6 +97,24 @@ std::optional<std::array<glm::vec2, 2>> findScreenSegment(const glm::mat4& viewP
                               viewProjection * glm::vec4(end, 1.0F), size);
 }
 
+std::optional<f32> findAxisDistance(const glm::mat4& viewProjection, const glm::vec2 size,
+                                    const glm::vec3& point, const glm::vec3& direction,
+                                    const glm::vec2 start, const glm::vec2 mouse) {
+    constexpr f32 ShortestUnit = 1.0e-4F;
+    const std::optional<glm::vec2> from = findScreenPosition(viewProjection, size, point);
+    const std::optional<glm::vec2> to =
+        findScreenPosition(viewProjection, size, point + glm::normalize(direction));
+    if (!from || !to) {
+        return std::nullopt;
+    }
+    const glm::vec2 unit = *to - *from;
+    const f32 squared = glm::dot(unit, unit);
+    if (!std::isfinite(squared) || squared < ShortestUnit * ShortestUnit) {
+        return std::nullopt;
+    }
+    return glm::dot(mouse - start, unit) / squared;
+}
+
 std::optional<std::array<glm::vec2, 2>> findScreenLine(const glm::mat4& viewProjection,
                                                        const glm::vec2 size, const glm::vec3& point,
                                                        const glm::vec3& direction) {

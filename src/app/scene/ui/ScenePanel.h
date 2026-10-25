@@ -86,6 +86,7 @@ public:
         viewportPanel.clearChoices();
         viewportPanel.setPickables({}, {});
         viewportPanel.setTransformTarget(std::nullopt, {});
+        viewportPanel.setHandles({}, nullptr);
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing
@@ -189,7 +190,13 @@ private:
     /// holds there.
     void showEdited(const PlacementEditor::Preview& preview);
     /// Shows `layer` in place of the shown layer of the scene, as `view` says.
-    void showLayer(const SceneLayer& layer, const SceneView& view);
+    void showLayer(const SceneLayer& layer, const SceneView& view,
+                   const Collision* collision = nullptr);
+    /// Offers the viewport the sides of the waterbox picked last, to drag.
+    void offerWaterBoxHandles();
+    /// Shows the scene with `box` in place of waterbox `index` of the shown
+    /// layer's collision.
+    void showWaterBox(usize index, const WaterBox& box);
     [[nodiscard]] std::array<s16, 3> findCameraTarget() const;
     [[nodiscard]] std::string findOutlinerName(s16 actorId) const;
     void drawActorTooltip(s16 actorId, const std::array<s16, 3>& position,
