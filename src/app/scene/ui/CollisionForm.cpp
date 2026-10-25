@@ -1,17 +1,23 @@
 #include "CollisionForm.h"
 
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionNames.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace toki::scene {
 
@@ -61,11 +67,16 @@ void drawRow(const std::string_view label, const std::string_view help, const st
     return ignored.empty() ? "Nothing" : ignored;
 }
 
-[[nodiscard]] std::string makeCamera(const Collision& collision, const u8 index) {
+[[nodiscard]] std::string makeCamera(const Scene& scene, const Collision& collision,
+                                     const u8 index) {
     if (index >= collision.cameras.size()) {
         return std::format("{} (not in the list)", index);
     }
-    return std::format("{} · setting {}", index, collision.cameras[index].setting);
+    const u16 setting = collision.cameras[index].setting;
+    const std::vector<NamedValue>& names = scene.headerNames.cameraSettings;
+    const auto named = std::ranges::find(names, s64{setting}, &NamedValue::value);
+    return named != names.end() ? std::format("{} · {}", index, named->label)
+                                : std::format("{} · setting {}", index, setting);
 }
 
 [[nodiscard]] std::string makeExit(const SceneLayer& layer, const u8 exitIndex) {
@@ -119,70 +130,6 @@ void drawPolygonSection(const Collision& collision, const CollisionPolygon& poly
     core::endProperties();
 }
 
-void drawSurfaceRows(const Collision& collision, const SceneLayer& layer,
-                     const SurfaceFields& fields) {
-    drawRow("Camera", "The index into the collision's camera list, and that camera's setting.",
-            makeCamera(collision, fields.bgCamIndex));
-    drawRow("Exit", "The index into the scene's exit list, and the entrance it leads to.",
-            makeExit(layer, fields.exitIndex));
-    drawRow("Floor Type",
-            "SurfaceType_GetFloorType: what standing on it does, such as hurting or sinking.",
-            std::format("{}", fields.floorType));
-    drawRow("Floor Property",
-            "SurfaceType_GetFloorProperty: what Link does at its edge or landing on it, such as "
-            "voiding out or grabbing the ledge.",
-            std::format("{}", fields.floorProperty));
-    drawRow("Wall Type",
-            "SurfaceType_GetWallType: what Link can do against it, such as climbing or crawling.",
-            std::format("{}", fields.wallType));
-    drawRow("Material", "SurfaceType_GetMaterial: the sound and effects of walking on it.",
-            std::format("{}", fields.material));
-    drawRow("Floor Effect", "SurfaceType_GetFloorEffect, which Player reads as Link walks on it.",
-            std::format("{}", fields.floorEffect));
-    drawRow("Light Setting",
-            "SurfaceType_GetLightSetting: the light setting standing on it switches to.",
-            std::format("{}", fields.lightSetting));
-    drawRow("Echo", "SurfaceType_GetEcho: the echo of sounds made on it.",
-            std::format("{}", fields.echo));
-    drawRow("Hookshotable", "Whether the hookshot and longshot hold on to it.",
-            makeYesNo(fields.canHookshot));
-    drawRow("Soft",
-            "SurfaceType_IsSoft: whether what stands on it sinks in, the ground check "
-            "finding it one unit lower.",
-            makeYesNo(fields.isSoft));
-    drawRow("Horse Blocked", "SurfaceType_IsHorseBlocked: whether Epona cannot pass over it.",
-            makeYesNo(fields.isHorseBlocked));
-    drawRow("Conveyor Speed", "How fast it moves what stands on it; zero for not at all.",
-            std::format("{}", fields.conveyorSpeed));
-    drawRow("Conveyor Direction", "Which way it moves what stands on it.",
-            std::format("{:.1f}°", fields.conveyorDirection * DegreesPerConveyorStep));
-    drawRow("Unknown 18", "Bit 18 of the first word, which the game reads but does not name.",
-            std::format("{}", fields.unk18));
-    drawRow("Unknown 27", "Bit 27 of the second word, which the game reads but does not name.",
-            makeYesNo(fields.unk27));
-}
-
-void drawSurfaceSection(const Collision& collision, const SceneLayer& layer, const u16 type) {
-    if (!ImGui::CollapsingHeader("Surface Type", ImGuiTreeNodeFlags_DefaultOpen) ||
-        !core::beginProperties("##surface", LabelWidth)) {
-        return;
-    }
-    drawRow("Index",
-            "Which of the collision's surface types the polygon has. Polygons that "
-            "share it are tinted.",
-            std::format("{}", type));
-    if (type >= collision.surfaceTypes.size()) {
-        drawRow("Settings", "", "Past the end of the surface type list");
-        core::endProperties();
-        return;
-    }
-    const SurfaceType& surface = collision.surfaceTypes[type];
-    drawSurfaceRows(collision, layer, readSurfaceFields(surface));
-    drawRow("Words", "The surface type's two words, as the game reads them.",
-            std::format("0x{:08X} 0x{:08X}", surface.data[0], surface.data[1]));
-    core::endProperties();
-}
-
 } // namespace
 
 void CollisionForm::drawPolygon(const Scene& scene, const CollisionPolygonRef& where,
@@ -198,7 +145,89 @@ void CollisionForm::drawPolygon(const Scene& scene, const CollisionPolygonRef& w
                           collision->polygons.size(), makeLayerName(layer.index)),
               selected);
     drawPolygonSection(*collision, polygon);
-    drawSurfaceSection(*collision, layer, polygon.type);
+    drawSurfaceSection(scene, layer, *collision, polygon.type);
+}
+
+void CollisionForm::drawNamedRow(const std::string_view label, const std::string_view help,
+                                 const SurfaceSetting setting, const s64 value) const {
+    core::drawPropertyLabel(label, help);
+    const SurfaceValueName* named =
+        collisionNames != nullptr ? collisionNames->findName(setting, value) : nullptr;
+    if (named == nullptr) {
+        ImGui::TextUnformatted(std::format("{}", value).c_str());
+        return;
+    }
+    ImGui::TextUnformatted(named->name.c_str());
+    if (!named->tooltip.empty()) {
+        ImGui::SetItemTooltip("%s", named->tooltip.c_str());
+    }
+    core::drawConstantName(named->name, named->constant);
+}
+
+void CollisionForm::drawSurfaceRows(const Scene& scene, const SceneLayer& layer,
+                                    const Collision& collision, const SurfaceFields& fields) const {
+    drawRow("Camera", "The index into the collision's camera list, and that camera's setting.",
+            makeCamera(scene, collision, fields.bgCamIndex));
+    drawRow("Exit", "The index into the scene's exit list, and the entrance it leads to.",
+            makeExit(layer, fields.exitIndex));
+    drawNamedRow("Floor Type",
+                 "SurfaceType_GetFloorType: what standing on it does, such as hurting or sinking.",
+                 SurfaceSetting::FloorType, fields.floorType);
+    drawNamedRow("Floor Property",
+                 "SurfaceType_GetFloorProperty: what Link does at its edge or landing on it.",
+                 SurfaceSetting::FloorProperty, fields.floorProperty);
+    drawNamedRow("Wall Type",
+                 "SurfaceType_GetWallType: what Link can do against it, such as crawling.",
+                 SurfaceSetting::WallType, fields.wallType);
+    drawNamedRow("Material", "SurfaceType_GetMaterial: the sound and effects of walking on it.",
+                 SurfaceSetting::Material, fields.material);
+    drawNamedRow("Floor Effect",
+                 "SurfaceType_GetFloorEffect, which Player reads as Link walks on it.",
+                 SurfaceSetting::FloorEffect, fields.floorEffect);
+    drawRow("Light Setting",
+            "SurfaceType_GetLightSetting: the light setting standing on it switches to.",
+            std::format("{}", fields.lightSetting));
+    drawRow("Echo", "SurfaceType_GetEcho: the echo of sounds made on it.",
+            std::format("{}", fields.echo));
+    drawRow("Hookshotable", "Whether the hookshot and longshot hold on to it.",
+            makeYesNo(fields.canHookshot));
+    drawRow("Soft",
+            "SurfaceType_IsSoft: whether what stands on it sinks in, the ground check finding it "
+            "one unit lower.",
+            makeYesNo(fields.isSoft));
+    drawRow("Horse Blocked", "SurfaceType_IsHorseBlocked: whether Epona cannot pass over it.",
+            makeYesNo(fields.isHorseBlocked));
+    drawNamedRow("Conveyor Speed", "How fast it moves what stands on it.",
+                 SurfaceSetting::ConveyorSpeed, fields.conveyorSpeed);
+    drawRow("Conveyor Direction", "Which way it moves what stands on it.",
+            std::format("{:.1f}°", fields.conveyorDirection * DegreesPerConveyorStep));
+    drawRow("Unknown 18",
+            "Bits 18 to 20 of the first word, which the game reads but does not name.",
+            std::format("{}", fields.unk18));
+    drawRow("Unknown 27", "Bit 27 of the second word, which the game reads but does not name.",
+            makeYesNo(fields.unk27));
+}
+
+void CollisionForm::drawSurfaceSection(const Scene& scene, const SceneLayer& layer,
+                                       const Collision& collision, const u16 type) const {
+    if (!ImGui::CollapsingHeader("Surface Type", ImGuiTreeNodeFlags_DefaultOpen) ||
+        !core::beginProperties("##surface", LabelWidth)) {
+        return;
+    }
+    drawRow("Index",
+            "Which of the collision's surface types the polygon has. Polygons that share it are "
+            "tinted.",
+            std::format("{}", type));
+    if (type >= collision.surfaceTypes.size()) {
+        drawRow("Settings", "", "Past the end of the surface type list");
+        core::endProperties();
+        return;
+    }
+    const SurfaceType& surface = collision.surfaceTypes[type];
+    drawSurfaceRows(scene, layer, collision, readSurfaceFields(surface));
+    drawRow("Words", "The surface type's two words, as the game reads them.",
+            std::format("0x{:08X} 0x{:08X}", surface.data[0], surface.data[1]));
+    core::endProperties();
 }
 
 void CollisionForm::drawWaterBox(const Scene& scene, const WaterBoxRef& where,
@@ -228,7 +257,7 @@ void CollisionForm::drawWaterBox(const Scene& scene, const WaterBoxRef& where,
     drawRow("Light Setting", "The light setting being in it switches to.",
             std::format("{}", getWaterBoxLightSetting(box)));
     drawRow("Camera", "The index into the collision's camera list, and that camera's setting.",
-            makeCamera(*collision, getWaterBoxCamera(box)));
+            makeCamera(scene, *collision, getWaterBoxCamera(box)));
     drawRow("Flag 19", "Bit 19 of its properties, which the game reads but does not name.",
             makeYesNo((box.properties & WaterBoxFlag19) != 0));
     drawRow("Properties", "Its properties word, as the game reads it.",

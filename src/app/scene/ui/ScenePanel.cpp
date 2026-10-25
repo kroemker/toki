@@ -131,12 +131,17 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
           .isSelected = [this](const SceneNode& node) { return placementEditor.isSelected(node); },
           .pickRoom =
               [this](const usize room) {
-                  static_cast<void>(pickInTree(RoomRef{.layer = sceneView.layer, .room = room}));
+                  const SceneNode node = RoomRef{.layer = sceneView.layer, .room = room};
+                  static_cast<void>(pickInTree(std::span(&node, 1)));
               },
           .pickScene =
-              [this] { static_cast<void>(pickInTree(SceneRef{.layer = sceneView.layer})); },
+              [this] {
+                  const SceneNode node = SceneRef{.layer = sceneView.layer};
+                  static_cast<void>(pickInTree(std::span(&node, 1)));
+              },
           .showScene = [this] { showScene(); },
           .pickNode = [this](const SceneNode& node) { pickListNode(node); },
+          .pickNodes = [this](const std::span<const SceneNode> nodes) { pickInTree(nodes); },
           .drawNodeMenu = [this](const SceneNode& node) { drawNodeMenu(node); },
           .drawGroupMenu = [this](const OutlinerGroup group) { drawGroupMenu(group); },
       }) {}
@@ -536,7 +541,7 @@ std::array<s16, 3> ScenePanel::findCameraTarget() const {
 }
 
 void ScenePanel::pickListNode(const SceneNode& node) {
-    if (!pickInTree(node) || !scene) {
+    if (!pickInTree(std::span(&node, 1)) || !scene) {
         return;
     }
     if (const auto* light = std::get_if<LightSettingRef>(&node)) {
@@ -581,18 +586,24 @@ void ScenePanel::drawGroupMenu(const OutlinerGroup group) {
     }
 }
 
-bool ScenePanel::pickInTree(const SceneNode& node) {
+bool ScenePanel::pickInTree(const std::span<const SceneNode> nodes) {
     const ImGuiIO& io = ImGui::GetIO();
     if (io.KeyCtrl) {
-        placementEditor.pick(std::span(&node, 1), viewport::PickMode::Toggle);
+        placementEditor.pick(nodes, viewport::PickMode::Toggle);
         return false;
     }
     if (io.KeyShift) {
-        placementEditor.pick(std::span(&node, 1), viewport::PickMode::Add);
+        placementEditor.pick(nodes, viewport::PickMode::Add);
         return false;
     }
-    placementEditor.pick(std::span(&node, 1), viewport::PickMode::Replace);
+    placementEditor.pick(nodes, viewport::PickMode::Replace);
     return true;
+}
+
+void ScenePanel::setCollisionNames(CollisionNames names) {
+    collisionNames = std::move(names);
+    sceneOutliner.setCollisionNames(&collisionNames);
+    placementEditor.setCollisionNames(&collisionNames);
 }
 
 void ScenePanel::drawActor(const PlacementRow& row) {
@@ -622,7 +633,7 @@ void ScenePanel::drawActor(const PlacementRow& row) {
     }
     ImGui::TreeNodeEx("##placement", flags, "%s", "");
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        if (pickInTree(where)) {
+        if (const SceneNode node = where; pickInTree(std::span(&node, 1))) {
             viewportPanel.focus(makePoint(row.position));
         }
         if (where.kind == PlacementKind::PlayerEntry && where.index != sceneView.shownEntrance) {

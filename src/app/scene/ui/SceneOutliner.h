@@ -2,6 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSelection.h"
@@ -61,6 +62,9 @@ public:
         std::function<void()> showScene;
         /// Selects a light setting, a path or a point when its row is clicked.
         std::function<void(const SceneNode&)> pickNode;
+        /// Selects a waterbox, or the polygons of a surface type, when its row
+        /// is clicked.
+        std::function<void(std::span<const SceneNode>)> pickNodes;
         /// Draws the items of a light setting's, a path's or a point's
         /// context menu.
         std::function<void(const SceneNode&)> drawNodeMenu;
@@ -70,6 +74,11 @@ public:
     explicit SceneOutliner(Hooks hooks) : hooks(std::move(hooks)) {}
 
     void draw(const Scene& scene, SceneView& view, const hackeroot::Tables* tables);
+
+    /// Names surface types' settings in their rows' tooltips as `names` does.
+    void setCollisionNames(const CollisionNames* names) {
+        collisionNames = names;
+    }
 
 private:
     void drawRoom(const Scene& scene, const SceneLayer& layer, SceneView& view, usize room,
@@ -81,6 +90,10 @@ private:
     void drawLightSettings(const SceneLayer& layer, SceneView& view);
     void drawPaths(const SceneLayer& layer, SceneView& view);
     void drawPathPoints(const ScenePath& path, const SceneNode& pathNode);
+    void drawCollision(const Scene& scene, const SceneView& view);
+    void drawSurfaceTypes(const Collision& collision, usize layer);
+    void drawWaterBoxes(const Collision& collision, usize layer);
+    void drawCameras(const Scene& scene, const Collision& collision) const;
     void drawGroupMenu(OutlinerGroup group) const;
     void drawNodeMenu(const SceneNode& node) const;
     void drawPlacement(const PlacementRow& row);
@@ -88,6 +101,7 @@ private:
     [[nodiscard]] bool isRevealing(PlacementKind kind, std::optional<usize> room) const;
 
     Hooks hooks;
+    const CollisionNames* collisionNames = nullptr;
     std::string filter;
     /// The selection the tree last opened its group for, so a selection made
     /// elsewhere opens it once and leaves it closable.

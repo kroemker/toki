@@ -24,6 +24,7 @@ namespace toki::scene {
 namespace {
 
 constexpr std::string_view CameraTypePrefix = "SCENE_CAM_TYPE_";
+constexpr std::string_view CameraSettingEnumeration = "CameraSettingType";
 
 struct NamedSetting {
     HeaderSetting setting;
@@ -74,6 +75,17 @@ void setLabels(std::vector<NamedValue>& values) {
     }
 }
 
+[[nodiscard]] std::vector<NamedValue> listEnumerators(const cparser::Enumeration& enumeration) {
+    std::vector<NamedValue> values;
+    for (const cparser::Enumerator& constant : enumeration.constants) {
+        if (!constant.name.ends_with("_MAX")) {
+            values.push_back({.name = constant.name, .value = constant.value});
+        }
+    }
+    setLabels(values);
+    return values;
+}
+
 } // namespace
 
 std::span<const NamedValue> HeaderNames::findValues(const HeaderSetting setting) const {
@@ -85,17 +97,12 @@ std::span<const NamedValue> HeaderNames::findValues(const HeaderSetting setting)
 HeaderNames readHeaderNames(const cparser::TypeTable& types, const cparser::MacroTable& macros) {
     HeaderNames names;
     for (const auto& [setting, enumeration] : Enumerations) {
-        const cparser::Enumeration* found = types.findEnumeration(enumeration);
-        if (found == nullptr) {
-            continue;
+        if (const cparser::Enumeration* found = types.findEnumeration(enumeration)) {
+            names.values[setting] = listEnumerators(*found);
         }
-        std::vector<NamedValue>& values = names.values[setting];
-        for (const cparser::Enumerator& constant : found->constants) {
-            if (!constant.name.ends_with("_MAX")) {
-                values.push_back({.name = constant.name, .value = constant.value});
-            }
-        }
-        setLabels(values);
+    }
+    if (const cparser::Enumeration* found = types.findEnumeration(CameraSettingEnumeration)) {
+        names.cameraSettings = listEnumerators(*found);
     }
     if (std::vector<NamedValue> cameraTypes = listCameraTypes(macros); !cameraTypes.empty()) {
         setLabels(cameraTypes);

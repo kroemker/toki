@@ -3,6 +3,9 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionNames.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneView.h"
@@ -13,6 +16,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <format>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -33,6 +37,8 @@ constexpr ImVec4 RoomColor{0.498F, 0.706F, 1.0F, 1.0F};
 constexpr ImVec4 DoorColor{0.788F, 0.612F, 1.0F, 1.0F};
 constexpr ImVec4 EntranceColor{1.0F, 0.549F, 0.420F, 1.0F};
 constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 1.0F};
+constexpr ImVec4 CollisionColor{0.878F, 0.627F, 0.251F, 1.0F};
+constexpr ImVec4 WaterColor{0.314F, 0.612F, 1.0F, 1.0F};
 
 [[nodiscard]] bool containsIgnoringCase(const std::string_view text, const std::string_view part) {
     const auto lower = [](const char c) {
@@ -121,8 +127,7 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawEntrances(scene, layer, view);
         drawLightSettings(layer, view);
         drawPaths(layer, view);
-        drawUnread(core::icons::Polygon, "Collision",
-                   "Toki does not read collision yet. A save writes it back as it was.");
+        drawCollision(scene, view);
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
@@ -393,6 +398,118 @@ void SceneOutliner::drawPathPoints(const ScenePath& path, const SceneNode& pathN
         drawInfo("");
         ImGui::PopID();
     }
+}
+
+void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
+    const Collision* collision = findLayerCollision(scene, view.layer);
+    if (!filter.empty() || collision == nullptr) {
+        return;
+    }
+    const bool isOpen = beginNode("##collision", GroupFlags);
+    ImGui::SetItemTooltip("The layer's collision, read but not edited. The viewport bar's "
+                          "Overlays show it.");
+    drawLabel(core::icons::Polygon, CollisionColor, "Collision");
+    drawInfo(std::format("{} polys", collision->polygons.size()));
+    if (!isOpen) {
+        return;
+    }
+    beginNode("##vertices", LeafFlags);
+    ImGui::SetItemTooltip("Bounds from %d, %d, %d to %d, %d, %d.", collision->minBounds[0],
+                          collision->minBounds[1], collision->minBounds[2], collision->maxBounds[0],
+                          collision->maxBounds[1], collision->maxBounds[2]);
+    drawLabel(core::icons::DotsNine, core::palette::TextMuted, "Vertices");
+    drawInfo(std::format("{}", collision->vertices.size()));
+    drawSurfaceTypes(*collision, view.layer);
+    drawWaterBoxes(*collision, view.layer);
+    drawCameras(scene, *collision);
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawSurfaceTypes(const Collision& collision, const usize layer) {
+    const bool isOpen = beginNode("##surfaces", GroupFlags);
+    ImGui::SetItemTooltip("The settings polygons share. Click one to select its polygons.");
+    drawLabel(core::icons::Stack, CollisionColor, "Surface Types");
+    drawInfo(std::format("{}", collision.surfaceTypes.size()));
+    if (!isOpen) {
+        return;
+    }
+    const std::vector<usize> counts = countSurfacePolygons(collision);
+    for (usize i = 0; i < collision.surfaceTypes.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        beginNode("##surface", LeafFlags);
+        if (ImGui::IsItemClicked() && hooks.pickNodes) {
+            std::vector<SceneNode> polygons;
+            for (usize polygon = 0; polygon < collision.polygons.size(); ++polygon) {
+                if (collision.polygons[polygon].type == i) {
+                    polygons.emplace_back(CollisionPolygonRef{.layer = layer, .polygon = polygon});
+                }
+            }
+            hooks.pickNodes(polygons);
+        }
+        if (collisionNames != nullptr) {
+            ImGui::SetItemTooltip(
+                "%s",
+                makeSurfaceSummary(*collisionNames, readSurfaceFields(collision.surfaceTypes[i]))
+                    .c_str());
+        }
+        drawLabel(core::icons::Square, CollisionColor, std::format("Surface Type {}", i));
+        drawInfo(std::format("{} polys", counts[i]));
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawWaterBoxes(const Collision& collision, const usize layer) {
+    const bool isOpen = beginNode("##waterBoxes", GroupFlags);
+    ImGui::SetItemTooltip("Where there is water, from each box's surface down.");
+    drawLabel(core::icons::Waves, WaterColor, "Waterboxes");
+    drawInfo(std::format("{}", collision.waterBoxes.size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize i = 0; i < collision.waterBoxes.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const SceneNode node = WaterBoxRef{.layer = layer, .box = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##waterBox", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNodes) {
+            hooks.pickNodes(std::span(&node, 1));
+        }
+        const WaterBox& box = collision.waterBoxes[i];
+        ImGui::SetItemTooltip("Surface at %d.", box.ySurface);
+        drawLabel(core::icons::Waves, WaterColor, std::format("Waterbox {}", i));
+        const u8 room = getWaterBoxRoom(box);
+        drawInfo(room == WaterBoxAllRooms ? std::string("all rooms")
+                                          : std::format("room {}", room));
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawCameras(const Scene& scene, const Collision& collision) const {
+    const bool isOpen = beginNode("##cameras", GroupFlags);
+    ImGui::SetItemTooltip("The camera settings surface types and waterboxes name by index.");
+    drawLabel(core::icons::VideoCamera, core::palette::TextMuted, "Cameras");
+    drawInfo(std::format("{}", collision.cameras.size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize i = 0; i < collision.cameras.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const CollisionCamera& camera = collision.cameras[i];
+        beginNode("##camera", LeafFlags);
+        ImGui::SetItemTooltip("Setting %u, data at 0x%08X, count %d.", camera.setting, camera.data,
+                              camera.count);
+        const auto named = std::ranges::find(scene.headerNames.cameraSettings, s64{camera.setting},
+                                             &NamedValue::value);
+        drawLabel(core::icons::VideoCamera, core::palette::TextMuted,
+                  named != scene.headerNames.cameraSettings.end()
+                      ? std::format("Camera {} · {}", i, named->label)
+                      : std::format("Camera {} · setting {}", i, camera.setting));
+        drawInfo("");
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
 }
 
 void SceneOutliner::drawGroupMenu(const OutlinerGroup group) const {

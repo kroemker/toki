@@ -39,6 +39,7 @@ add_executable(toki_tests
         app/scene/ActorEntryWriterTest.cpp
         app/scene/CollisionCheckoutTest.cpp
         app/scene/CollisionDrawingTest.cpp
+        app/scene/CollisionNamesTest.cpp
         app/scene/CollisionTest.cpp
         app/scene/SceneCheckoutTest.cpp
         app/scene/BinaryAngleTest.cpp
@@ -135,6 +136,7 @@ file(TO_CMAKE_PATH "${TOKI_HACKEROOT}" TOKI_HACKEROOT_PATH)
 target_compile_definitions(toki_tests PRIVATE
         TOKI_TEST_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}"
         TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
+        TOKI_SHIPPED_COLLISION="${CMAKE_SOURCE_DIR}/assets/collision.toml"
         TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 
 include(Catch)

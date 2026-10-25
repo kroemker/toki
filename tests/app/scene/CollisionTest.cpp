@@ -210,3 +210,11 @@ TEST_CASE("a collision header outside the image is an error, not a failed read",
     REQUIRE(collision.diagnostics.size() == 1);
     REQUIRE(collision.diagnostics[0].severity == base::Severity::Error);
 }
+
+TEST_CASE("polygons are counted by their surface type", "[scene][collision]") {
+    toki::scene::Collision collision;
+    collision.surfaceTypes.resize(3);
+    collision.polygons = {{.type = 2}, {.type = 0}, {.type = 2}, {.type = 7}};
+
+    REQUIRE(toki::scene::countSurfacePolygons(collision) == std::vector<usize>{1, 0, 2});
+}

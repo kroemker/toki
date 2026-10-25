@@ -7,6 +7,7 @@
 #include "app/core/ui/Panel.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneView.h"
@@ -120,6 +121,9 @@ public:
         showScene();
     }
 
+    /// Names the values of surface types' settings as `names` does.
+    void setCollisionNames(CollisionNames names);
+
     void draw() override;
 
     /// Draws the properties of what is selected, for the Properties panel.
@@ -171,9 +175,9 @@ private:
     void drawFlagUser(const FlagUser& user);
     /// The name cell of one placement's row of the outliner.
     void drawActor(const PlacementRow& row);
-    /// Selects `node` as a click in the tree does: Ctrl toggles it and Shift
-    /// adds it. True when it alone is selected now.
-    [[nodiscard]] bool pickInTree(const SceneNode& node);
+    /// Selects `nodes` as a click in the tree does: Ctrl toggles them and
+    /// Shift adds them. True when they alone are selected now.
+    bool pickInTree(std::span<const SceneNode> nodes);
     /// Selects a light setting, path or point clicked in the tree, and
     /// lights the scene with the setting or turns the camera to the path.
     void pickListNode(const SceneNode& node);
@@ -216,6 +220,7 @@ private:
     /// The paths of the layer a preview shows, which the overlay draws in
     /// place of the layer's own until the scene is shown as it is again.
     std::optional<std::vector<ScenePath>> previewPaths;
+    CollisionNames collisionNames;
     SceneOutliner sceneOutliner;
     /// A scene read while the open one had edits no save wrote, until the
     /// person says whether to throw them away for it.

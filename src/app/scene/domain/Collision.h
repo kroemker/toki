@@ -119,6 +119,9 @@ struct Collision {
 
 [[nodiscard]] SurfaceFields readSurfaceFields(const SurfaceType& surface);
 
+/// How many polygons have each of the collision's surface types, by index.
+[[nodiscard]] std::vector<usize> countSurfacePolygons(const Collision& collision);
+
 [[nodiscard]] u8 getWaterBoxCamera(const WaterBox& box);
 
 [[nodiscard]] u8 getWaterBoxLightSetting(const WaterBox& box);

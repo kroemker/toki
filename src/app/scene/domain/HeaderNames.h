@@ -29,6 +29,8 @@ struct NamedValue {
 /// in the order it defines them.
 struct HeaderNames {
     std::map<HeaderSetting, std::vector<NamedValue>> values;
+    /// The camera settings a collision's cameras name (`CameraSettingType`).
+    std::vector<NamedValue> cameraSettings;
 
     /// The names of `setting`'s values, empty when the checkout names none.
     [[nodiscard]] std::span<const NamedValue> findValues(HeaderSetting setting) const;
@@ -36,8 +38,9 @@ struct HeaderNames {
 
 /// The names of the settings' values from the enumerations the scene
 /// headers declare them with (`SkyboxId`, `NA_BGM`, `RoomType`, ...), and the
-/// camera type's from the `SCENE_CAM_TYPE_*` macros. An enumeration's count,
-/// a name ending in `_MAX`, is left out.
+/// camera type's from the `SCENE_CAM_TYPE_*` macros, and the camera settings
+/// from `CameraSettingType`. An enumeration's count, a name ending in `_MAX`,
+/// is left out.
 [[nodiscard]] HeaderNames readHeaderNames(const cparser::TypeTable& types,
                                           const cparser::MacroTable& macros);
 

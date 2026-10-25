@@ -338,6 +338,16 @@ SurfaceFields readSurfaceFields(const SurfaceType& surface) {
     };
 }
 
+std::vector<usize> countSurfacePolygons(const Collision& collision) {
+    std::vector<usize> counts(collision.surfaceTypes.size(), 0);
+    for (const CollisionPolygon& polygon : collision.polygons) {
+        if (polygon.type < counts.size()) {
+            ++counts[polygon.type];
+        }
+    }
+    return counts;
+}
+
 u8 getWaterBoxCamera(const WaterBox& box) {
     return static_cast<u8>(readBits(box.properties, 0, 0xFF));
 }

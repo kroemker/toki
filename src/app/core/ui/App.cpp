@@ -27,6 +27,7 @@
 #include "app/object/domain/Object.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
+#include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/PropertiesPanel.h"
@@ -162,6 +163,14 @@ void App::registerPanels() {
     scenePanel = sceneView.get();
     scenePanel->setMarkerShape(settings.markerShape);
     setSceneAngleFormat();
+    if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
+        scene::CollisionNames collisionNames =
+            scene::readCollisionNames(scene::makeShippedCollisionNamesPath(*assets));
+        for (const base::Diagnostic& diagnostic : collisionNames.diagnostics) {
+            logWarn("{}", base::describe(diagnostic));
+        }
+        scenePanel->setCollisionNames(std::move(collisionNames));
+    }
     auto textures = std::make_unique<texture::TexturePanel>(*device);
     texturePanel = textures.get();
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);

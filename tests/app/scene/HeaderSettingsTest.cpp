@@ -230,7 +230,9 @@ TEST_CASE("the names of settings' values come from the checkout's enumerations a
         "#define SCENE_CAM_TYPE_FIXED (0x30)\n"
         "#define SCENE_CAM_TYPE_SHIFT(x) (x)\n"
         "typedef enum SkyboxId { SKYBOX_NONE, SKYBOX_NORMAL_SKY, SKYBOX_MAX } SkyboxId;\n"
-        "typedef enum { NA_BGM_GENERAL_SFX, NA_BGM_NO_MUSIC = 0x7F } NA_BGM;\n",
+        "typedef enum { NA_BGM_GENERAL_SFX, NA_BGM_NO_MUSIC = 0x7F } NA_BGM;\n"
+        "typedef enum CameraSettingType { CAM_SET_NONE, CAM_SET_NORMAL0, CAM_SET_MAX } "
+        "CameraSettingType;\n",
         cparser::PreprocessOptions{.dialect = &z64::getDecompDialect(), .expandMacros = true});
     const cparser::TypeParseResult parsed =
         cparser::parseTypes(unit, cparser::EvalContext{.dialect = &z64::getDecompDialect()});
@@ -248,4 +250,7 @@ TEST_CASE("the names of settings' values come from the checkout's enumerations a
             std::vector<toki::scene::NamedValue>{{"SCENE_CAM_TYPE_DEFAULT", 0, "Default"},
                                                  {"SCENE_CAM_TYPE_FIXED", 0x30, "Fixed"}});
     REQUIRE(names.findValues(HeaderSetting::RoomType).empty());
+    REQUIRE(names.cameraSettings ==
+            std::vector<toki::scene::NamedValue>{{"CAM_SET_NONE", 0, "None"},
+                                                 {"CAM_SET_NORMAL0", 1, "Normal0"}});
 }

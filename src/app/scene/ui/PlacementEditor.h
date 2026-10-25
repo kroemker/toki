@@ -58,6 +58,10 @@ public:
         actorForm.setNameFinder(std::move(finder));
     }
 
+    void setCollisionNames(const CollisionNames* names) {
+        collisionForm.setNames(names);
+    }
+
     void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
         actorForm.setAngleFormat(format, std::move(changed));
     }

@@ -1,4 +1,5 @@
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
@@ -9,14 +10,17 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+using base::s64;
 using base::usize;
 
 namespace {
@@ -64,6 +68,13 @@ TEST_CASE("every vanilla scene's collision reads without a diagnostic",
             polygons += collision.polygons.size();
             if (collision.polygons.empty() || collision.surfaceTypes.empty()) {
                 failures.push_back(asset.name + ": an empty collision");
+            }
+            for (const toki::scene::CollisionCamera& camera : collision.cameras) {
+                if (!std::ranges::contains(scene.headerNames.cameraSettings, s64{camera.setting},
+                                           &toki::scene::NamedValue::value)) {
+                    failures.push_back(std::format("{}: camera setting {} has no name", asset.name,
+                                                   camera.setting));
+                }
             }
         }
         for (const base::Diagnostic& diagnostic : scene.diagnostics) {

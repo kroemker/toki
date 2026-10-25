@@ -8,6 +8,7 @@ target_sources(toki_core PRIVATE
         BinaryAngle.cpp
         Collision.cpp
         CollisionDrawing.cpp
+        CollisionNames.cpp
         HeaderNames.cpp
         HeaderSettings.cpp
         HeaderSymbols.cpp
