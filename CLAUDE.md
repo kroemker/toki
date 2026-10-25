@@ -9,8 +9,6 @@ This is a C++ rewrite of an earlier Rust prototype (`../Toki64`). The prototype 
 reference for *what problems were already solved*, never for how to structure or style
 this codebase.
 
-The port is broken down in [WORK_PACKAGES.md](WORK_PACKAGES.md).
-
 ---
 
 ## Why this exists

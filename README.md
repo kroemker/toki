@@ -113,5 +113,4 @@ or a GPU. Namespaces are `base::`, `cparser::`, `makeparser::`, `z64::`, `hacker
 - [CLAUDE.md](CLAUDE.md): architecture, dependency rules and code style
 - [docs/](docs/README.md): reading C, build configuration, the memory image, the renderer,
   scenes, objects, textures, the actor database and actor rendering
-- [WORK_PACKAGES.md](WORK_PACKAGES.md): what is done and what is planned
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
