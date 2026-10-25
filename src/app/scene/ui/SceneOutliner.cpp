@@ -95,6 +95,9 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
     const std::optional<PlacementRef> selected =
         hooks.findSelected ? hooks.findSelected() : std::nullopt;
     revealing = selected != revealed ? selected : std::nullopt;
+    revealingSurface =
+        view.tintedSurfaceType != revealedSurface ? view.tintedSurfaceType : std::nullopt;
+    revealedSurface = view.tintedSurfaceType;
     revealed = selected;
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##filter", "Filter actors", &filter);
@@ -406,6 +409,9 @@ void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
     if (!filter.empty() || collision == nullptr) {
         return;
     }
+    if (revealingSurface) {
+        ImGui::SetNextItemOpen(true);
+    }
     const bool isOpen = beginNode("##collision", GroupFlags);
     ImGui::SetItemTooltip("The layer's collision, read but not edited. The viewport bar's "
                           "Overlays show it.");
@@ -420,13 +426,16 @@ void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
                           collision->maxBounds[1], collision->maxBounds[2]);
     drawLabel(core::icons::DotsNine, core::palette::TextMuted, "Vertices");
     drawInfo(std::format("{}", collision->vertices.size()));
-    drawSurfaceTypes(*collision, view.layer);
+    drawSurfaceTypes(*collision, view);
     drawWaterBoxes(*collision, view.layer);
     drawCameras(scene, *collision);
     ImGui::TreePop();
 }
 
-void SceneOutliner::drawSurfaceTypes(const Collision& collision, const usize layer) {
+void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView& view) {
+    if (revealingSurface) {
+        ImGui::SetNextItemOpen(true);
+    }
     const bool isOpen = beginNode("##surfaces", GroupFlags);
     ImGui::SetItemTooltip("The settings polygons share. Click one to select its polygons.");
     drawLabel(core::icons::Stack, CollisionColor, "Surface Types");
@@ -437,12 +446,17 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const usize lay
     const std::vector<usize> counts = countSurfacePolygons(collision);
     for (usize i = 0; i < collision.surfaceTypes.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
-        beginNode("##surface", LeafFlags);
+        const bool isSelected = view.tintedSurfaceType == i;
+        beginNode("##surface", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (isSelected && revealingSurface) {
+            ImGui::SetScrollHereY();
+        }
         if (ImGui::IsItemClicked() && hooks.pickNodes) {
             std::vector<SceneNode> polygons;
             for (usize polygon = 0; polygon < collision.polygons.size(); ++polygon) {
                 if (collision.polygons[polygon].type == i) {
-                    polygons.emplace_back(CollisionPolygonRef{.layer = layer, .polygon = polygon});
+                    polygons.emplace_back(
+                        CollisionPolygonRef{.layer = view.layer, .polygon = polygon});
                 }
             }
             hooks.pickNodes(polygons);

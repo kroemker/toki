@@ -57,6 +57,8 @@ struct DrawnFrame {
     /// What each of the content's draws made, and what owns it.
     std::vector<std::optional<OutputRange>> drawOutputs;
     std::vector<std::optional<usize>> drawOwners;
+    /// `drawOwners`, without the owners of draws that are not boxed.
+    std::vector<std::optional<usize>> boxedOwners;
     /// The draws whose triangles have their edges drawn.
     std::vector<usize> edgedDraws;
 };

@@ -322,7 +322,7 @@ void ViewportPanel::drawSelectionBoxes(ImDrawList& drawList, const TransformView
     if (!selectionBoxes) {
         selectionBoxes =
             findOwnedBoxes(drawnFrame->rspResult,
-                           {.ranges = drawnFrame->drawOutputs, .owners = drawnFrame->drawOwners},
+                           {.ranges = drawnFrame->drawOutputs, .owners = drawnFrame->boxedOwners},
                            selectedOwners, glm::inverse(frameViewProjection));
     }
     const glm::mat4 viewProjection = view.projection * view.view;
@@ -516,6 +516,8 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
                        .drawOutputs = std::move(frame.drawOutputs)};
     for (usize i = 0; i < viewportContent.draws.size(); ++i) {
         drawing.drawOwners.push_back(viewportContent.draws[i].owner);
+        drawing.boxedOwners.push_back(
+            viewportContent.draws[i].isBoxed ? viewportContent.draws[i].owner : std::nullopt);
         if (viewportContent.draws[i].isEdged) {
             drawing.edgedDraws.push_back(i);
         }

@@ -5,6 +5,7 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <format>
 #include <string>
 #include <string_view>
@@ -24,7 +25,11 @@ void drawConstantName(const std::string_view label, const std::string_view name)
         return;
     }
     const std::string shown(name);
-    ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize(shown.c_str()).x);
+    ImGui::SameLine();
+    const ImVec2 cursor = ImGui::GetCursorScreenPos();
+    const float right = cursor.x + ImGui::GetContentRegionAvail().x;
+    const float width = ImGui::CalcTextSize(shown.c_str()).x;
+    ImGui::SetCursorScreenPos(ImVec2(std::max(cursor.x, right - width), cursor.y));
     ImGui::TextColored(palette::TextMuted, "%s", shown.c_str());
 }
 

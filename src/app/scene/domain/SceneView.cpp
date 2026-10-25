@@ -291,7 +291,8 @@ void addPolygons(viewport::ViewportContent& content, const AddedCollision& added
                 .image = added.image,
                 .displayList = polygons[i],
                 .owner = makeNodeKey(CollisionPolygonRef{.layer = view.layer, .polygon = i}),
-                .isEdged = true});
+                .isEdged = true,
+                .isBoxed = false});
         }
     }
 }
@@ -310,7 +311,8 @@ void addWaterBoxes(viewport::ViewportContent& content, const AddedCollision& add
                 .image = added.image,
                 .displayList = added.drawing.waterBoxes[i],
                 .owner = makeNodeKey(WaterBoxRef{.layer = view.layer, .box = i}),
-                .isEdged = true});
+                .isEdged = true,
+                .isBoxed = false});
         }
     }
 }

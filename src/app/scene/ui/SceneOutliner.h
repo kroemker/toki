@@ -91,7 +91,7 @@ private:
     void drawPaths(const SceneLayer& layer, SceneView& view);
     void drawPathPoints(const ScenePath& path, const SceneNode& pathNode);
     void drawCollision(const Scene& scene, const SceneView& view);
-    void drawSurfaceTypes(const Collision& collision, usize layer);
+    void drawSurfaceTypes(const Collision& collision, const SceneView& view);
     void drawWaterBoxes(const Collision& collision, usize layer);
     void drawCameras(const Scene& scene, const Collision& collision) const;
     void drawGroupMenu(OutlinerGroup group) const;
@@ -107,6 +107,9 @@ private:
     /// elsewhere opens it once and leaves it closable.
     std::optional<PlacementRef> revealed;
     std::optional<PlacementRef> revealing;
+    /// The same for the surface type of the polygon selected.
+    std::optional<u16> revealedSurface;
+    std::optional<u16> revealingSurface;
 };
 
 } // namespace toki::scene

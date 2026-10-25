@@ -77,6 +77,9 @@ struct ViewportDraw {
     /// Whether the edges of the triangles the draw makes are drawn over the
     /// frame as lines, as a collision's are to show its shape.
     bool isEdged = false;
+    /// Whether its owner, selected, has a box drawn around what it drew. A
+    /// collision polygon has not: its highlight already shows all of it.
+    bool isBoxed = true;
 };
 
 /// The outputs of `n64::RspResult::outputs` one draw made, from `first` to

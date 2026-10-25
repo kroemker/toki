@@ -94,6 +94,8 @@ Each polygon's draw is owned by its node (`CollisionPolygonRef`) and each waterb
 own (`WaterBoxRef`), so a click selects the one under the mouse. While collision is shown, the
 rooms' draws are owned by nothing: the collision lies on the room's surfaces, and a click on
 it would otherwise pick the room drawn first. Rooms stay selectable in the Scene panel.
+A polygon or waterbox selected has no selection box around it (`ViewportDraw::isBoxed`): its
+highlight already shows all of it.
 
 A polygon selected shows in the Properties panel (`CollisionForm`), read-only: its kind, its
 vertices, what it lets through, its normal and distance, and its surface type: each setting
@@ -106,8 +108,9 @@ camera and properties word.
 
 The layer's tree has a Collision group (`SceneOutliner`): its vertex count and bounds, its
 surface types, each with how many polygons have it and a summary of what it sets as its
-tooltip (`makeSurfaceSummary`), a click selecting all of them; its waterboxes, a click
-selecting one; and its cameras by setting.
+tooltip (`makeSurfaceSummary`), a click selecting all of them, and the surface type of the
+polygon selected highlighted and scrolled to; its waterboxes, a click selecting one; and its
+cameras by setting.
 
 ## Names
 

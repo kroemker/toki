@@ -311,6 +311,7 @@ TEST_CASE("collision draws are owned by their polygons and waterboxes, and the r
     for (const toki::viewport::ViewportDraw& draw : content.draws) {
         if (draw.owner) {
             owners.push_back(*toki::scene::findNode(*draw.owner));
+            REQUIRE_FALSE(draw.isBoxed);
         }
     }
     REQUIRE(owners == std::vector<toki::scene::SceneNode>{
