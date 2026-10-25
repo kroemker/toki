@@ -38,6 +38,11 @@ struct LineStyle {
 [[nodiscard]] std::vector<gfx::OverlayLine> makeOutlines(const std::vector<ClipTriangle>& triangles,
                                                          const LineStyle& style);
 
+/// The edges of the faces `triangles` make: each edge once, leaving out one
+/// two triangles in the same plane share, as a quad's diagonal is.
+[[nodiscard]] std::vector<gfx::OverlayLine>
+makeFaceEdges(const std::vector<ClipTriangle>& triangles, const LineStyle& style);
+
 /// How the lines of a `ViewportOverlay` are drawn, in target pixels.
 struct ArrowStyle {
     f32 width = 2.0F;

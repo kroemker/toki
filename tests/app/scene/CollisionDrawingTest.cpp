@@ -39,6 +39,20 @@ TEST_CASE("a collision is a display list per polygon it can draw", "[scene][coll
     REQUIRE(drawing.image.segments.front().number == toki::scene::CollisionSegment);
 }
 
+TEST_CASE("a waterbox is a box down to the lowest point, or only its surface above it",
+          "[scene][collision]") {
+    toki::scene::Collision collision;
+    collision.minBounds = {0, -200, 0};
+    collision.waterBoxes = {{.ySurface = 0, .xLength = 100, .zLength = 100},
+                            {.ySurface = -200, .xLength = 100, .zLength = 100}};
+
+    const toki::scene::CollisionDrawing drawing = toki::scene::makeCollisionDrawing(collision, {});
+
+    REQUIRE(drawing.waterBoxSetup != 0);
+    REQUIRE(drawing.waterBoxes.size() == 2);
+    REQUIRE(drawing.waterBoxes[0] != drawing.waterBoxes[1]);
+}
+
 TEST_CASE("polygons are coloured by kind, surface type or one setting", "[scene][collision]") {
     const toki::scene::Collision collision = makeCollision();
     const toki::scene::CollisionPolygon& floor = collision.polygons[0];

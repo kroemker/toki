@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace toki::scene {
@@ -30,6 +32,9 @@ constexpr u32 OpaqueRenderMode = 0x0F0A'0230;
 /// `G_RM_ZB_XLU_DECAL` in both cycles: blended over what is drawn, compared as
 /// a decal and not written to the depth buffer.
 constexpr u32 TranslucentRenderMode = 0x0050'4E50;
+
+/// `G_RM_ZB_XLU_SURF` in both cycles.
+constexpr u32 WaterRenderMode = 0x0050'4A50;
 
 /// `G_CC_SHADE` in both cycles.
 constexpr u32 ShadeCombine0 =
@@ -49,6 +54,13 @@ constexpr f32 Saturation = 0.6F;
 constexpr f32 Value = 0.92F;
 constexpr f32 AmbientShade = 0.55F;
 constexpr glm::vec3 LightDirection{0.35F, 0.85F, 0.4F};
+constexpr std::array<u8, 4> WaterSurfaceColor{0x50, 0x9C, 0xFF, 0x78};
+constexpr std::array<u8, 4> WaterDepthColor{0x18, 0x3C, 0xA0, 0x78};
+constexpr u32 BoxCorners = 4;
+constexpr u32 UnwantedGeometry = n64::geometry::Lighting | n64::geometry::Fog |
+                                 n64::geometry::TextureGen | n64::geometry::CullFront |
+                                 n64::geometry::CullBack;
+constexpr u32 WantedGeometry = n64::geometry::ZBuffer | n64::geometry::Shade;
 
 [[nodiscard]] std::array<u8, 3> makeHueColor(const f32 hue) {
     const f32 sector = std::fmod(hue, 1.0F) * 6.0F;
@@ -138,6 +150,62 @@ constexpr glm::vec3 LightDirection{0.35F, 0.85F, 0.4F};
     return true;
 }
 
+[[nodiscard]] s16 clampToS16(const s32 value) {
+    return static_cast<s16>(std::clamp<s32>(value, INT16_MIN, INT16_MAX));
+}
+
+/// The box's corners on its surface, then the same below it at `bottom`.
+[[nodiscard]] u32 addWaterBoxVertices(n64::DisplayListWriter& writer, const WaterBox& box,
+                                      const s16 bottom) {
+    const s16 xMax = clampToS16(s32{box.xMin} + box.xLength);
+    const s16 zMax = clampToS16(s32{box.zMin} + box.zLength);
+    const std::array<std::array<s16, 2>, BoxCorners> corners{
+        {{box.xMin, box.zMin}, {xMax, box.zMin}, {xMax, zMax}, {box.xMin, zMax}}};
+    const u32 address = writer.getAddress();
+    for (const auto& [y, color] :
+         {std::pair{box.ySurface, WaterSurfaceColor}, std::pair{bottom, WaterDepthColor}}) {
+        for (const std::array<s16, 2>& corner : corners) {
+            static_cast<void>(
+                writer.addVertex({.position = {corner[0], y, corner[1]}, .color = color}));
+        }
+    }
+    return address;
+}
+
+void drawWaterBox(n64::DisplayListWriter& writer, const u32 vertices, const bool hasDepth) {
+    writer.loadVertices(vertices, hasDepth ? BoxCorners * 2 : BoxCorners, 0);
+    writer.drawTriangles({0, 1, 2}, {0, 2, 3});
+    if (!hasDepth) {
+        return;
+    }
+    writer.drawTriangles({4, 6, 5}, {4, 7, 6});
+    for (u32 corner = 0; corner < BoxCorners; ++corner) {
+        const u32 next = (corner + 1) % BoxCorners;
+        writer.drawTriangles({corner, next, next + BoxCorners},
+                             {corner, next + BoxCorners, corner + BoxCorners});
+    }
+}
+
+void addWaterBoxes(n64::DisplayListWriter& writer, const Collision& collision,
+                   CollisionDrawing& drawing) {
+    std::vector<u32> vertices;
+    for (const WaterBox& box : collision.waterBoxes) {
+        vertices.push_back(
+            addWaterBoxVertices(writer, box, std::min(collision.minBounds[1], box.ySurface)));
+    }
+    drawing.waterBoxSetup = writer.syncPipe();
+    writer.setCombine(ShadeCombine0, ShadeCombine1);
+    writer.setOtherMode(0, WaterRenderMode);
+    writer.setGeometryMode(UnwantedGeometry, WantedGeometry);
+    writer.endDisplayList();
+    for (usize i = 0; i < collision.waterBoxes.size(); ++i) {
+        const WaterBox& box = collision.waterBoxes[i];
+        drawing.waterBoxes.push_back(writer.getAddress());
+        drawWaterBox(writer, vertices[i], collision.minBounds[1] < box.ySurface);
+        writer.endDisplayList();
+    }
+}
+
 } // namespace
 
 std::string_view getCollisionColoringLabel(const CollisionColoring coloring) {
@@ -179,14 +247,10 @@ CollisionDrawing makeCollisionDrawing(const Collision& collision, const Collisio
         }
     }
 
-    constexpr u32 Unwanted = n64::geometry::Lighting | n64::geometry::Fog |
-                             n64::geometry::TextureGen | n64::geometry::CullFront |
-                             n64::geometry::CullBack;
-    constexpr u32 Wanted = n64::geometry::ZBuffer | n64::geometry::Shade;
     CollisionDrawing drawing{.setup = writer.syncPipe()};
     writer.setCombine(ShadeCombine0, ShadeCombine1);
     writer.setOtherMode(0, look.isTranslucent ? TranslucentRenderMode : OpaqueRenderMode);
-    writer.setGeometryMode(Unwanted, Wanted);
+    writer.setGeometryMode(UnwantedGeometry, WantedGeometry);
     writer.endDisplayList();
     for (const u32 address : vertices) {
         if (address == 0) {
@@ -197,6 +261,7 @@ CollisionDrawing makeCollisionDrawing(const Collision& collision, const Collisio
         writer.drawTriangle({0, 1, 2});
         writer.endDisplayList();
     }
+    addWaterBoxes(writer, collision, drawing);
     drawing.image.segments.push_back(
         z64::ImageSegment{.number = CollisionSegment, .bytes = writer.getBytes()});
     return drawing;

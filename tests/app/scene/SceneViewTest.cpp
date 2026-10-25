@@ -258,3 +258,33 @@ TEST_CASE("a layer's collision is drawn over the rooms or in their place, every 
     REQUIRE(only.diagnostics.empty());
     REQUIRE(countTriangles(only.rspResult) == 2);
 }
+
+TEST_CASE("a waterbox is hidden with its room, unless it belongs to every room",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.minBounds = {0, -100, 0};
+    const auto makeBox = [](const u32 room) {
+        return toki::scene::WaterBox{.xMin = 0,
+                                     .ySurface = 0,
+                                     .zMin = 0,
+                                     .xLength = 100,
+                                     .zLength = 100,
+                                     .properties = room << 13};
+    };
+    collision.waterBoxes = {makeBox(0), makeBox(1), makeBox(toki::scene::WaterBoxAllRooms)};
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+    view.collision = toki::viewport::CollisionDisplay::Only;
+
+    const toki::viewport::Frame all = runScene(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(all.diagnostics.empty());
+    REQUIRE(countTriangles(all.rspResult) == 36);
+
+    view.hiddenRooms[0] = true;
+    const toki::viewport::ViewportContent hidden =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::count_if(hidden.draws, &toki::viewport::ViewportDraw::isEdged) == 2);
+}

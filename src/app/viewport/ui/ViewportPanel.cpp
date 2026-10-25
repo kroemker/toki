@@ -569,10 +569,12 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
                                           WireframeStyle);
     }
     const f32 scale = ImGui::GetIO().DisplayFramebufferScale.x;
-    std::ranges::move(
-        makeOutlines(listDrawTriangles(drawing.rspResult, drawing.drawOutputs, drawing.edgedDraws),
-                     {.color = EdgeStyle.color, .width = EdgeStyle.width * scale}),
-        std::back_inserter(overlay.lines));
+    for (const usize draw : drawing.edgedDraws) {
+        std::ranges::move(
+            makeFaceEdges(listDrawTriangles(drawing.rspResult, drawing.drawOutputs, {&draw, 1}),
+                          {.color = EdgeStyle.color, .width = EdgeStyle.width * scale}),
+            std::back_inserter(overlay.lines));
+    }
     if (overlays.isShown) {
         const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
         if (overlays.grid) {

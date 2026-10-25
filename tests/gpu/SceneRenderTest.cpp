@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -147,16 +148,16 @@ TEST_CASE("scenes are drawn to images with their collision over the rooms and al
                 toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
             const toki::viewport::FrameSize size{.width = ImageWidth, .height = ImageHeight};
             const toki::viewport::Frame frame = toki::viewport::runFrame(content, camera, size);
-            std::vector<usize> edged;
+            gfx::Overlay overlay{.viewport = toki::viewport::makeFrameViewport(size)};
             for (usize i = 0; i < content.draws.size(); ++i) {
                 if (content.draws[i].isEdged) {
-                    edged.push_back(i);
+                    std::ranges::move(toki::viewport::makeFaceEdges(
+                                          toki::viewport::listDrawTriangles(
+                                              frame.rspResult, frame.drawOutputs, {&i, 1}),
+                                          {.color = {20, 21, 25, 200}, .width = 1.0F}),
+                                      std::back_inserter(overlay.lines));
                 }
             }
-            gfx::Overlay overlay{.viewport = toki::viewport::makeFrameViewport(size)};
-            overlay.lines = toki::viewport::makeOutlines(
-                toki::viewport::listDrawTriangles(frame.rspResult, frame.drawOutputs, edged),
-                {.color = {20, 21, 25, 200}, .width = 1.0F});
             static_cast<void>(renderer->render(frame.rspResult, frame.rdpResult, *target,
                                                {.width = ImageWidth, .height = ImageHeight},
                                                overlay));

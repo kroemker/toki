@@ -44,19 +44,22 @@ struct CollisionLook {
 inline constexpr u8 CollisionSegment = 0x0F;
 
 /// A collision as a memory image of display lists built by hand: one that
-/// sets up how it is drawn, then one per polygon, so each is a draw of its own
-/// that can be picked.
+/// sets up how its polygons are drawn, then one per polygon, so each is a draw
+/// of its own that can be picked, and the same for its waterboxes.
 struct CollisionDrawing {
     z64::MemoryImage image;
     u32 setup = 0;
     /// Zero for a polygon that names a vertex the collision does not hold.
     std::vector<u32> polygons;
+    u32 waterBoxSetup = 0;
+    std::vector<u32> waterBoxes;
 };
 
 /// Draws each polygon of `collision` flat in the colour `look` picks for it,
 /// shaded by which way it faces, depth tested and not culled. Translucent, it
 /// is drawn as a decal, so that it shows on the room surface it lies on or
-/// just behind.
+/// just behind. Each waterbox is a see-through blue box from its surface down
+/// to the collision's lowest point, drawn over whatever is drawn before it.
 [[nodiscard]] CollisionDrawing makeCollisionDrawing(const Collision& collision,
                                                     const CollisionLook& look);
 

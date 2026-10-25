@@ -255,22 +255,50 @@ struct PassSource {
     return draws;
 }
 
-void addCollision(viewport::ViewportContent& content, const Collision& collision,
-                  const SceneView& view) {
-    const CollisionDrawing drawing = makeCollisionDrawing(
-        collision,
-        CollisionLook{.coloring = view.collisionColoring,
-                      .isTranslucent = view.collision == viewport::CollisionDisplay::OverRooms});
-    const usize image = content.images.size();
-    content.draws.push_back(viewport::ViewportDraw{.image = image, .displayList = drawing.setup});
-    for (const u32 polygon : drawing.polygons) {
+/// The collision's drawing, its image added to `content`.
+struct AddedCollision {
+    CollisionDrawing drawing;
+    usize image = 0;
+};
+
+[[nodiscard]] AddedCollision addCollisionImage(viewport::ViewportContent& content,
+                                               const Collision& collision, const SceneView& view) {
+    AddedCollision added{
+        .drawing = makeCollisionDrawing(
+            collision, CollisionLook{.coloring = view.collisionColoring,
+                                     .isTranslucent =
+                                         view.collision == viewport::CollisionDisplay::OverRooms}),
+        .image = content.images.size()};
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(added.drawing.image));
+    labelImages(content, "Collision", viewport::ImageKind::Generated);
+    return added;
+}
+
+void addPolygons(viewport::ViewportContent& content, const AddedCollision& added) {
+    content.draws.push_back(
+        viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.setup});
+    for (const u32 polygon : added.drawing.polygons) {
         if (polygon != 0) {
-            content.draws.push_back(
-                viewport::ViewportDraw{.image = image, .displayList = polygon, .isEdged = true});
+            content.draws.push_back(viewport::ViewportDraw{
+                .image = added.image, .displayList = polygon, .isEdged = true});
         }
     }
-    content.images.push_back(std::make_shared<const z64::MemoryImage>(drawing.image));
-    labelImages(content, "Collision", viewport::ImageKind::Generated);
+}
+
+void addWaterBoxes(viewport::ViewportContent& content, const AddedCollision& added,
+                   const Collision& collision, const SceneView& view) {
+    if (collision.waterBoxes.empty()) {
+        return;
+    }
+    content.draws.push_back(
+        viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.waterBoxSetup});
+    for (usize i = 0; i < added.drawing.waterBoxes.size(); ++i) {
+        const u8 room = getWaterBoxRoom(collision.waterBoxes[i]);
+        if (room == WaterBoxAllRooms || isShown(view, room)) {
+            content.draws.push_back(viewport::ViewportDraw{
+                .image = added.image, .displayList = added.drawing.waterBoxes[i], .isEdged = true});
+        }
+    }
 }
 
 [[nodiscard]] usize findDefaultLightSetting(const SceneHeader& header) {
@@ -352,8 +380,10 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const Collision* collision = layer.collision && *layer.collision < scene.collisions.size()
                                      ? &scene.collisions[*layer.collision]
                                      : nullptr;
+    const bool showsCollision =
+        collision != nullptr && view.collision != viewport::CollisionDisplay::Off;
     const bool isCollisionOnly =
-        collision != nullptr && view.collision == viewport::CollisionDisplay::Only;
+        showsCollision && view.collision == viewport::CollisionDisplay::Only;
     const PassSource source{.layer = layer,
                             .view = view,
                             .setup = setup,
@@ -365,8 +395,12 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
     content.draws = makePass(source, true);
+    std::optional<AddedCollision> added;
+    if (showsCollision) {
+        added = addCollisionImage(content, *collision, view);
+    }
     if (isCollisionOnly) {
-        addCollision(content, *collision, view);
+        addPolygons(content, *added);
     }
     std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
@@ -387,8 +421,11 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
-    if (collision != nullptr && view.collision == viewport::CollisionDisplay::OverRooms) {
-        addCollision(content, *collision, view);
+    if (added) {
+        if (!isCollisionOnly) {
+            addPolygons(content, *added);
+        }
+        addWaterBoxes(content, *added, *collision, view);
     }
 
     if (view.lightSetting < layer.header.lightSettings.size()) {

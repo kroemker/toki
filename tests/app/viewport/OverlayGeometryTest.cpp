@@ -21,6 +21,7 @@ using base::f32;
 using base::usize;
 using toki::viewport::clipToNearPlane;
 using toki::viewport::LineStyle;
+using toki::viewport::makeFaceEdges;
 using toki::viewport::makeOutlines;
 using toki::viewport::makeTriangleEdges;
 
@@ -177,4 +178,16 @@ TEST_CASE("an outline has each triangle's three edges, cut at the near plane",
         REQUIRE(lines[i].from[2] >= -lines[i].from[3] - 1.0e-3F);
         REQUIRE(lines[i].to[2] >= -lines[i].to[3] - 1.0e-3F);
     }
+}
+
+TEST_CASE("a face's edges leave out the diagonal two triangles in its plane share",
+          "[viewport][overlay]") {
+    const toki::viewport::ClipPosition a{0.0F, 0.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition b{1.0F, 0.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition c{1.0F, 1.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition d{0.0F, 1.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition raised{0.0F, 1.0F, 0.5F, 1.0F};
+
+    REQUIRE(makeFaceEdges({{a, b, c}, {a, c, d}}, Style).size() == 4);
+    REQUIRE(makeFaceEdges({{a, b, c}, {a, c, raised}}, Style).size() == 5);
 }
