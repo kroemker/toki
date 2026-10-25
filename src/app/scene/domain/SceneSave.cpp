@@ -450,8 +450,9 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
                         input.name, getFolder().generic_string()));
     } else if (!scan.isTokiScene) {
         plan.warnings.push_back(
-            "This scene was exported by fast64. Once Toki writes it, its .blend and its C go "
-            "separate ways: exporting from Blender again replaces what Toki wrote.");
+            "This scene was exported by fast64. Once Toki saves it, Toki owns it: exporting it "
+            "from Blender again replaces everything Toki changed, so edit it in Toki from now "
+            "on.");
     }
     std::ranges::move(listObjectOverflows(), std::back_inserter(plan.warnings));
     if (const std::vector<std::string> literal = listLiteralAddresses(); !literal.empty()) {

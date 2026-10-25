@@ -153,7 +153,7 @@ row. A setting the checkout names a value of is a dropdown of those names, read 
 enumerations the scene headers declare (`SkyboxId`, `NA_BGM`, `RoomType`) and from the
 `SCENE_CAM_TYPE_*` defines (`readHeaderNames`), and a number where it names none. A header
 without one of these commands says so, with a button that adds it. A room also shows its
-shape, parts and actors, read-only since its mesh is authored in fast64, and its object
+shape, parts and actors, read-only until Toki edits geometry, and its object
 list, which can be added to, reordered and removed from. A room with no header of its own in
 the layer shown says that an edit changes its main header.
 

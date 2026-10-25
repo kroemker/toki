@@ -195,8 +195,7 @@ void HeaderForm::drawRoom(Scene& scene, const RoomRef& where, const usize select
         constexpr std::array<const char*, 3> ShapeNames{"Normal", "Image", "Cullable"};
         core::drawPropertyLabel("Shape", "How the room's mesh is drawn, from its "
                                          "SCENE_CMD_ROOM_SHAPE: every part, a prerendered "
-                                         "image, or the parts the camera sees. The mesh is "
-                                         "authored in fast64.");
+                                         "image, or the parts the camera sees.");
         ImGui::TextUnformatted(ShapeNames[static_cast<usize>(header.shapeType)]);
         core::drawPropertyLabel("Parts", "The display list pairs of the room's mesh.");
         ImGui::Text("%zu", header.displayLists.size());

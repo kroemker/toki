@@ -1,8 +1,8 @@
 # Collision
 
 How a scene's static collision is read out of its bytes, drawn in the viewport, picked and
-shown. Toki only reads collision; nothing here edits it, and a save writes it back as it was
-read ([scene-writing.md](scene-writing.md)).
+shown. Toki does not edit collision yet; a save writes it back as it was read
+([scene-writing.md](scene-writing.md)).
 
 In scope is the scene's own collision, the `CollisionHeader` that `SCENE_CMD_COL_HEADER`
 points at: its polygons, surface types, cameras as their setting, and waterboxes. Out of

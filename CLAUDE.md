@@ -35,11 +35,12 @@ Nothing is an IDE for decomp. This is trying to be that.
 Reads the HackerOoT source tree and renders, inspects, and edits its assets without a
 build. Generates the boilerplate the decomp requires. Drives the build.
 
+Once Toki saves a scene, Toki owns it: a scene fast64 exported is edited in Toki from then
+on, geometry included once Toki edits geometry, and a re-export from Blender replaces it.
+
 ## Non-goals
 
 - **No ROM parsing.** The decomp source tree is the only input.
-- **No geometry editing** for now. fast64 stays the authoring tool; this is a viewer.
-  Editing is far back on the backlog.
 - **No embedded emulator** for now. Architecture must not exclude it later.
 - **Not multi-game.** OoT only. `z64` naming keeps the door open, nothing more.
 
