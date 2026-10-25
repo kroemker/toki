@@ -399,7 +399,10 @@ void SceneOutliner::drawPathPoints(const ScenePath& path, const SceneNode& pathN
 
 void SceneOutliner::drawShownSwitch(bool& isShown, const std::string_view what) const {
     ImGui::TableNextColumn();
-    if (ImGui::SmallButton(isShown ? core::icons::Eye : core::icons::EyeSlash)) {
+    ImGui::PushID(what.data(), what.data() + what.size());
+    const bool isClicked = ImGui::SmallButton(isShown ? core::icons::Eye : core::icons::EyeSlash);
+    ImGui::PopID();
+    if (isClicked) {
         isShown = !isShown;
         if (hooks.showScene) {
             hooks.showScene();
