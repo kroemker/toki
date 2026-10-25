@@ -64,26 +64,29 @@ depth buffer on), then each polygon is a list of its own, three vertices and a t
 each is a draw of its own the viewport can pick. Each polygon's colour is written into its
 vertices, shaded by how its normal faces a fixed light, so that faces apart show apart.
 
-How it is shown is a choice of the viewport bar's Overlays popover, offered by the scene
-([viewport.md](viewport.md#the-bar)):
+Whether collision and waterboxes are drawn is the eye on their groups in the Scene panel,
+each on its own, as paths are; collision starts hidden and waterboxes shown, since the
+common view while editing is the rooms with their water. What the rooms are is the rooms'
+own eyes, never the collision's: while any room is shown, collision is drawn after
+everything else, see-through and as a decal (`G_RM_ZB_XLU_DECAL`), so it shows on the room
+surface it lies on and is not written to the depth buffer; with every room hidden, it is
+drawn opaque in their place, after the opaque pass, so actors still stand on it.
 
-- **Collision**: Off, Over Rooms or Only. Over Rooms draws it after everything else, see-through
-  and as a decal (`G_RM_ZB_XLU_DECAL`), so it shows on the room surface it lies on and is not
-  written to the depth buffer. Only draws it opaque in the rooms' place, after the opaque pass,
-  so actors still stand on it.
-- **Color By**: Kind (floors, walls and ceilings apart, the default), Surface Type (a colour
-  of its own for each), or one setting: Material, Floor Type, Wall Type, Exit, Hookshotable or
-  Conveyor, where a polygon without the setting is grey. Colours of adjacent values are kept
-  apart by stepping the hue by the golden ratio.
+What collision is coloured by is the viewport bar's Collision Color, in its Overlays popover
+while collision is shown ([viewport.md](viewport.md#the-bar)): Kind (floors, walls and
+ceilings apart, the default), Surface Type (a colour of its own for each), or one setting:
+Material, Floor Type, Wall Type, Exit, Hookshotable or Conveyor, where a polygon without the
+setting is grey. Colours of adjacent values are kept apart by stepping the hue by the golden
+ratio.
 
 Every polygon has its edges drawn as lines in the overlay pass, so its shape reads at any
 colour. Edges are drawn per draw by its faces (`makeFaceEdges`): an edge two triangles of one
 draw share in one plane is inside a face and left out, so a quad shows no diagonal.
 
 A waterbox is a see-through blue box from its surface down to the collision's lowest point,
-its faces edged the same way, drawn after everything else (`G_RM_ZB_XLU_SURF`). It is hidden
-with its room; one of every room is always shown. Polygons ignore which rooms are hidden: the
-game keeps all of a scene's collision whatever room Link is in.
+its faces edged the same way, drawn after everything else (`G_RM_ZB_XLU_SURF`). Neither
+waterboxes nor polygons hide with their room: hiding every room is how collision is seen
+alone, and the water belongs in that view.
 
 A change of Color By, or of the tinted surface type, builds the collision's image again; the
 scene's own images are shared and untouched.
@@ -94,8 +97,9 @@ Each polygon's draw is owned by its node (`CollisionPolygonRef`) and each waterb
 own (`WaterBoxRef`), so a click selects the one under the mouse. While collision is shown, the
 rooms' draws are owned by nothing: the collision lies on the room's surfaces, and a click on
 it would otherwise pick the room drawn first. Rooms stay selectable in the Scene panel.
-A polygon or waterbox selected has no selection box around it (`ViewportDraw::isBoxed`): its
-highlight already shows all of it.
+Waterboxes leave the rooms their owners, and so a click through water picks the waterbox,
+the nearer of the two. A polygon or waterbox selected has no selection box around it
+(`ViewportDraw::isBoxed`): its highlight already shows all of it.
 
 A polygon selected shows in the Properties panel (`CollisionForm`), read-only: its kind, its
 vertices, what it lets through, its normal and distance, and its surface type: each setting
@@ -109,8 +113,8 @@ camera and properties word.
 The layer's tree has a Collision group (`SceneOutliner`): its vertex count and bounds, its
 surface types, each with how many polygons have it and a summary of what it sets as its
 tooltip (`makeSurfaceSummary`), a click selecting all of them, and the surface type of the
-polygon selected highlighted and scrolled to; its waterboxes, a click selecting one; and its
-cameras by setting.
+polygon selected highlighted and scrolled to; and its cameras by setting. Waterboxes are a
+group of their own beside it, a click selecting one.
 
 ## Names
 

@@ -50,10 +50,11 @@ std::vector<std::string> listViewChanges(const ViewportView& view,
     if (!view.overlays.isShown) {
         changes.emplace_back("Overlays Off");
     }
-    if (choices && choices->collision == CollisionDisplay::OverRooms) {
+    if (choices && choices->showsCollision) {
         changes.emplace_back("Collision");
-    } else if (choices && choices->collision == CollisionDisplay::Only) {
-        changes.emplace_back("Collision Only");
+    }
+    if (choices && choices->showsWaterBoxes) {
+        changes.emplace_back("Waterboxes");
     }
     return changes;
 }

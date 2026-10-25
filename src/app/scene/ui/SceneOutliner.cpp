@@ -131,6 +131,7 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawLightSettings(layer, view);
         drawPaths(layer, view);
         drawCollision(scene, view);
+        drawWaterBoxes(scene, view);
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
@@ -352,15 +353,7 @@ void SceneOutliner::drawPaths(const SceneLayer& layer, SceneView& view) {
     drawGroupMenu(OutlinerGroup::Paths);
     drawLabel(core::icons::Path, PathColor, "Paths");
     drawInfo(std::format("{}", paths.size()));
-    ImGui::TableNextColumn();
-    if (ImGui::SmallButton(view.showsPaths ? core::icons::Eye : core::icons::EyeSlash)) {
-        view.showsPaths = !view.showsPaths;
-        if (hooks.showScene) {
-            hooks.showScene();
-        }
-    }
-    ImGui::SetItemTooltip(view.showsPaths ? "Click to hide the paths in the viewport."
-                                          : "Hidden. Click to show the paths in the viewport.");
+    drawShownSwitch(view.showsPaths, "the paths");
     if (!isOpen) {
         return;
     }
@@ -404,7 +397,21 @@ void SceneOutliner::drawPathPoints(const ScenePath& path, const SceneNode& pathN
     }
 }
 
-void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
+void SceneOutliner::drawShownSwitch(bool& isShown, const std::string_view what) const {
+    ImGui::TableNextColumn();
+    if (ImGui::SmallButton(isShown ? core::icons::Eye : core::icons::EyeSlash)) {
+        isShown = !isShown;
+        if (hooks.showScene) {
+            hooks.showScene();
+        }
+    }
+    ImGui::SetItemTooltip("%s",
+                          (isShown ? std::format("Click to hide {} in the viewport.", what)
+                                   : std::format("Hidden. Click to show {} in the viewport.", what))
+                              .c_str());
+}
+
+void SceneOutliner::drawCollision(const Scene& scene, SceneView& view) {
     const Collision* collision = findLayerCollision(scene, view.layer);
     if (!filter.empty() || collision == nullptr) {
         return;
@@ -413,10 +420,12 @@ void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
         ImGui::SetNextItemOpen(true);
     }
     const bool isOpen = beginNode("##collision", GroupFlags);
-    ImGui::SetItemTooltip("The layer's collision, read but not edited. The viewport bar's "
-                          "Overlays show it.");
+    ImGui::SetItemTooltip("The layer's collision. Shown, it is drawn see-through over the rooms "
+                          "shown, or opaque with every room hidden; the viewport bar's Overlays "
+                          "choose its colours.");
     drawLabel(core::icons::Polygon, CollisionColor, "Collision");
     drawInfo(std::format("{} polys", collision->polygons.size()));
+    drawShownSwitch(view.showsCollision, "the collision");
     if (!isOpen) {
         return;
     }
@@ -427,7 +436,6 @@ void SceneOutliner::drawCollision(const Scene& scene, const SceneView& view) {
     drawLabel(core::icons::DotsNine, core::palette::TextMuted, "Vertices");
     drawInfo(std::format("{}", collision->vertices.size()));
     drawSurfaceTypes(*collision, view);
-    drawWaterBoxes(*collision, view.layer);
     drawCameras(scene, *collision);
     ImGui::TreePop();
 }
@@ -474,11 +482,19 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
     ImGui::TreePop();
 }
 
-void SceneOutliner::drawWaterBoxes(const Collision& collision, const usize layer) {
+void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {
+    const Collision* found = findLayerCollision(scene, view.layer);
+    if (!filter.empty() || found == nullptr || found->waterBoxes.empty()) {
+        return;
+    }
+    const Collision& collision = *found;
+    const usize layer = view.layer;
     const bool isOpen = beginNode("##waterBoxes", GroupFlags);
-    ImGui::SetItemTooltip("Where there is water, from each box's surface down.");
+    ImGui::SetItemTooltip("Where there is water, from each box's surface down. Shown whichever "
+                          "rooms are hidden, as the collision is.");
     drawLabel(core::icons::Waves, WaterColor, "Waterboxes");
     drawInfo(std::format("{}", collision.waterBoxes.size()));
+    drawShownSwitch(view.showsWaterBoxes, "the waterboxes");
     if (!isOpen) {
         return;
     }

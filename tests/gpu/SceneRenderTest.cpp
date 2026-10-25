@@ -140,10 +140,9 @@ TEST_CASE("scenes are drawn to images with their collision over the rooms and al
         }
         toki::scene::SceneView view = toki::scene::makeSceneView(scene);
         view.showsActors = false;
-        for (const toki::viewport::CollisionDisplay display :
-             {toki::viewport::CollisionDisplay::Off, toki::viewport::CollisionDisplay::OverRooms,
-              toki::viewport::CollisionDisplay::Only}) {
-            view.collision = display;
+        for (const int display : {0, 1, 2}) {
+            view.showsCollision = display != 0;
+            std::ranges::fill(view.hiddenRooms, display == 2);
             const toki::viewport::ViewportContent content =
                 toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
             const toki::viewport::FrameSize size{.width = ImageWidth, .height = ImageHeight};
@@ -168,8 +167,7 @@ TEST_CASE("scenes are drawn to images with their collision over the rooms and al
             }
             const auto png = z64::encodePng(*pixels, ImageWidth, ImageHeight);
             REQUIRE(png.has_value());
-            std::ofstream(output / std::format("{}_{}.png", name, static_cast<int>(display)),
-                          std::ios::binary)
+            std::ofstream(output / std::format("{}_{}.png", name, display), std::ios::binary)
                 .write(reinterpret_cast<const char*>(png->data()),
                        static_cast<std::streamsize>(png->size()));
         }

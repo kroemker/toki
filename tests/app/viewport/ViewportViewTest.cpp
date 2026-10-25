@@ -30,10 +30,12 @@ TEST_CASE("a render mode names its shading and each stage it turns off", "[viewp
     REQUIRE(listViewChanges(view) == std::vector<std::string>{"Normals", "No Fog", "Point Filter"});
 }
 
-TEST_CASE("collision the content shows is named as a change", "[viewport][view]") {
-    toki::viewport::ViewportChoices choices{.collision = toki::viewport::CollisionDisplay::Off};
+TEST_CASE("collision and waterboxes the content shows are named as changes", "[viewport][view]") {
+    toki::viewport::ViewportChoices choices;
     REQUIRE(listViewChanges(ViewportView{}, choices).empty());
 
-    choices.collision = toki::viewport::CollisionDisplay::Only;
-    REQUIRE(listViewChanges(ViewportView{}, choices) == std::vector<std::string>{"Collision Only"});
+    choices.showsCollision = true;
+    choices.showsWaterBoxes = true;
+    REQUIRE(listViewChanges(ViewportView{}, choices) ==
+            std::vector<std::string>{"Collision", "Waterboxes"});
 }

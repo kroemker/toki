@@ -212,8 +212,9 @@ void ScenePanel::offerChoices() {
     for (usize i = 0; i < header.lightSettings.size(); ++i) {
         choices.lightSettings.push_back(makeLightSettingName(header, i));
     }
-    if (scene->layers[sceneView.layer].collision) {
-        choices.collision = sceneView.collision;
+    if (const Collision* collision = findLayerCollision(*scene, sceneView.layer)) {
+        choices.showsCollision = sceneView.showsCollision;
+        choices.showsWaterBoxes = sceneView.showsWaterBoxes && !collision->waterBoxes.empty();
         for (usize i = 0; i < CollisionColoringCount; ++i) {
             choices.collisionColorings.emplace_back(
                 getCollisionColoringLabel(static_cast<CollisionColoring>(i)));
@@ -228,7 +229,6 @@ void ScenePanel::offerChoices() {
         if (sceneView.showsActors) {
             sceneView.drawsModels = actors == viewport::ActorDisplay::Models;
         }
-        sceneView.collision = chosen.collision.value_or(viewport::CollisionDisplay::Off);
         if (chosen.collisionColoring < CollisionColoringCount) {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }

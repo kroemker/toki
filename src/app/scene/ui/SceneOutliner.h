@@ -13,6 +13,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace toki::scene {
@@ -90,9 +91,12 @@ private:
     void drawLightSettings(const SceneLayer& layer, SceneView& view);
     void drawPaths(const SceneLayer& layer, SceneView& view);
     void drawPathPoints(const ScenePath& path, const SceneNode& pathNode);
-    void drawCollision(const Scene& scene, const SceneView& view);
+    void drawCollision(const Scene& scene, SceneView& view);
     void drawSurfaceTypes(const Collision& collision, const SceneView& view);
-    void drawWaterBoxes(const Collision& collision, usize layer);
+    void drawWaterBoxes(const Scene& scene, SceneView& view);
+    /// The eye at the end of a group's row that shows or hides `what` in the
+    /// viewport.
+    void drawShownSwitch(bool& isShown, std::string_view what) const;
     void drawCameras(const Scene& scene, const Collision& collision) const;
     void drawGroupMenu(OutlinerGroup group) const;
     void drawNodeMenu(const SceneNode& node) const;

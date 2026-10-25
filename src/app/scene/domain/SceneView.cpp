@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -39,6 +40,10 @@ constexpr f32 PathPointScale = 0.5F;
 
 [[nodiscard]] bool isShown(const SceneView& view, const usize room) {
     return room >= view.hiddenRooms.size() || !view.hiddenRooms[room];
+}
+
+[[nodiscard]] bool areRoomsHidden(const SceneView& view) {
+    return !view.hiddenRooms.empty() && std::ranges::all_of(view.hiddenRooms, std::identity{});
 }
 
 struct Placed {
@@ -214,7 +219,6 @@ struct PassSource {
     usize imageCount = 0;
     usize standInImage = 0;
     u32 standIn = 0;
-    bool drawsRooms = true;
     /// Whether a click on a room picks it, which it does not while collision
     /// drawn over it is what is picked.
     bool ownsRooms = true;
@@ -243,7 +247,7 @@ struct PassSource {
     }
     const std::vector<RoomHeader>& rooms = source.layer.rooms;
     for (usize room = 0; room < rooms.size() && FirstRoomImage + room < source.imageCount; ++room) {
-        if (!source.drawsRooms || !isShown(source.view, room)) {
+        if (!isShown(source.view, room)) {
             continue;
         }
         for (const RoomDisplayLists& lists : rooms[room].displayLists) {
@@ -268,13 +272,11 @@ struct AddedCollision {
 
 [[nodiscard]] AddedCollision addCollisionImage(viewport::ViewportContent& content,
                                                const Collision& collision, const SceneView& view) {
-    AddedCollision added{
-        .drawing = makeCollisionDrawing(
-            collision,
-            CollisionLook{.coloring = view.collisionColoring,
-                          .isTranslucent = view.collision == viewport::CollisionDisplay::OverRooms,
-                          .tintedSurfaceType = view.tintedSurfaceType}),
-        .image = content.images.size()};
+    AddedCollision added{.drawing = makeCollisionDrawing(
+                             collision, CollisionLook{.coloring = view.collisionColoring,
+                                                      .isTranslucent = !areRoomsHidden(view),
+                                                      .tintedSurfaceType = view.tintedSurfaceType}),
+                         .image = content.images.size()};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(added.drawing.image));
     labelImages(content, "Collision", viewport::ImageKind::Generated);
     return added;
@@ -305,15 +307,12 @@ void addWaterBoxes(viewport::ViewportContent& content, const AddedCollision& add
     content.draws.push_back(
         viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.waterBoxSetup});
     for (usize i = 0; i < added.drawing.waterBoxes.size(); ++i) {
-        const u8 room = getWaterBoxRoom(collision.waterBoxes[i]);
-        if (room == WaterBoxAllRooms || isShown(view, room)) {
-            content.draws.push_back(viewport::ViewportDraw{
-                .image = added.image,
-                .displayList = added.drawing.waterBoxes[i],
-                .owner = makeNodeKey(WaterBoxRef{.layer = view.layer, .box = i}),
-                .isEdged = true,
-                .isBoxed = false});
-        }
+        content.draws.push_back(
+            viewport::ViewportDraw{.image = added.image,
+                                   .displayList = added.drawing.waterBoxes[i],
+                                   .owner = makeNodeKey(WaterBoxRef{.layer = view.layer, .box = i}),
+                                   .isEdged = true,
+                                   .isBoxed = false});
     }
 }
 
@@ -394,24 +393,22 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
     const Collision* collision = findLayerCollision(scene, view.layer);
-    const bool showsCollision =
-        collision != nullptr && view.collision != viewport::CollisionDisplay::Off;
-    const bool isCollisionOnly =
-        showsCollision && view.collision == viewport::CollisionDisplay::Only;
+    const bool showsCollision = collision != nullptr && view.showsCollision;
+    const bool showsWaterBoxes = collision != nullptr && view.showsWaterBoxes;
+    const bool isCollisionOnly = showsCollision && areRoomsHidden(view);
     const PassSource source{.layer = layer,
                             .view = view,
                             .setup = setup,
                             .imageCount = scene.images.size(),
                             .standInImage = content.images.size(),
                             .standIn = runtime.standIn,
-                            .drawsRooms = !isCollisionOnly,
                             .ownsRooms = !showsCollision};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
     content.draws = makePass(source, true);
     std::optional<AddedCollision> added;
-    if (showsCollision) {
+    if (showsCollision || showsWaterBoxes) {
         added = addCollisionImage(content, *collision, view);
     }
     if (isCollisionOnly) {
@@ -436,10 +433,10 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
-    if (added) {
-        if (!isCollisionOnly) {
-            addPolygons(content, *added, view);
-        }
+    if (showsCollision && !isCollisionOnly) {
+        addPolygons(content, *added, view);
+    }
+    if (showsWaterBoxes) {
         addWaterBoxes(content, *added, *collision, view);
     }
 

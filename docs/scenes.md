@@ -126,7 +126,8 @@ by name from the checkout's actor table, with how each is drawn and its params, 
 objects its object list loads; then the transition actors, the entrances, the light
 settings, a click on one selecting it and lighting the scene with it, and the paths, each
 with its points, and an eye that hides them all in the viewport; then the collision, its
-surface types, waterboxes and cameras ([collision.md](collision.md)). Cutscenes are a row
+surface types and cameras, and the waterboxes, each group with an eye of its own
+([collision.md](collision.md)). Cutscenes are a row
 that says they are not read yet, and exits one that says their list is read only for
 collision. A filter keeps the placements whose name, enum name
 or database name holds it. A placement selected elsewhere, in the viewport, opens its group

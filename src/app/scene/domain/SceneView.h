@@ -29,7 +29,10 @@ struct SceneView {
     bool showsPaths = true;
     /// The player entry Link is drawn at; the others are marked.
     usize shownEntrance = 0;
-    viewport::CollisionDisplay collision = viewport::CollisionDisplay::Off;
+    /// Whether the layer's collision is drawn: see-through over the rooms
+    /// shown, or opaque when every room is hidden.
+    bool showsCollision = false;
+    bool showsWaterBoxes = true;
     CollisionColoring collisionColoring = CollisionColoring::Kind;
     /// The surface type whose polygons are tinted, as the selected polygon's.
     std::optional<u16> tintedSurfaceType;
