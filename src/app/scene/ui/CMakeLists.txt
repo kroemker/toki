@@ -1,6 +1,7 @@
 target_sources(toki PRIVATE
         ActorForm.cpp
         CollisionForm.cpp
+        CollisionRows.cpp
         ParamsForm.cpp
         HeaderForm.cpp
         LightSettingForm.cpp
@@ -9,4 +10,5 @@ target_sources(toki PRIVATE
         PropertiesPanel.cpp
         SaveSceneDialog.cpp
         SceneOutliner.cpp
+        WaterBoxForm.cpp
         ScenePanel.cpp)

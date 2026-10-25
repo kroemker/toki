@@ -150,6 +150,12 @@ PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceSer
       }),
       pathForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
           pickModelEdit(std::move(edit), std::move(select));
+      }),
+      collisionForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }),
+      waterBoxForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
       }) {}
 
 void PlacementEditor::refresh(const Scene& scene) {
@@ -262,11 +268,19 @@ void PlacementEditor::drawInspector(Scene& scene) {
         return;
     }
     if (const auto* polygon = node != nullptr ? std::get_if<CollisionPolygonRef>(node) : nullptr) {
-        collisionForm.drawPolygon(scene, *polygon, selection.getNodes().size());
+        std::vector<CollisionPolygonRef> polygons;
+        for (const SceneNode& selected : selection.getNodes()) {
+            const auto* other = std::get_if<CollisionPolygonRef>(&selected);
+            if (other != nullptr && other->layer == polygon->layer && *other != *polygon) {
+                polygons.push_back(*other);
+            }
+        }
+        polygons.push_back(*polygon);
+        collisionForm.drawPolygons(scene, polygons, selection.getNodes().size());
         return;
     }
     if (const auto* box = node != nullptr ? std::get_if<WaterBoxRef>(node) : nullptr) {
-        collisionForm.drawWaterBox(scene, *box, selection.getNodes().size());
+        waterBoxForm.draw(scene, *box, selection.getNodes().size());
         return;
     }
     const std::optional<PlacementRef> active = findSelected();

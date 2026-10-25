@@ -13,6 +13,7 @@
 #include "app/scene/ui/LightSettingForm.h"
 #include "app/scene/ui/ParamsForm.h"
 #include "app/scene/ui/PathForm.h"
+#include "app/scene/ui/WaterBoxForm.h"
 #include "app/viewport/ui/ViewportTransform.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
@@ -163,6 +164,14 @@ public:
         return pathForm;
     }
 
+    [[nodiscard]] CollisionForm& getCollisionForm() {
+        return collisionForm;
+    }
+
+    [[nodiscard]] WaterBoxForm& getWaterBoxForm() {
+        return waterBoxForm;
+    }
+
     /// Why the last edit was not made, or empty.
     [[nodiscard]] const std::string& getFailure() const {
         return failure;
@@ -233,6 +242,7 @@ private:
     LightSettingForm lightSettingForm;
     PathForm pathForm;
     CollisionForm collisionForm;
+    WaterBoxForm waterBoxForm;
     std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;

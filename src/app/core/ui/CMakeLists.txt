@@ -7,6 +7,7 @@ target_sources(toki PRIVATE
         Hotkeys.cpp
         LogPanel.cpp
         MenuBar.cpp
+        NumberField.cpp
         Panel.cpp
         PanelManager.cpp
         Paths.cpp

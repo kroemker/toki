@@ -448,7 +448,9 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
         ImGui::SetNextItemOpen(true);
     }
     const bool isOpen = beginNode("##surfaces", GroupFlags);
-    ImGui::SetItemTooltip("The settings polygons share. Click one to select its polygons.");
+    ImGui::SetItemTooltip("The settings polygons share. Click one to select its polygons. "
+                          "Right-click to add one or remove those no polygon has.");
+    drawGroupMenu(OutlinerGroup::SurfaceTypes);
     drawLabel(core::icons::Stack, CollisionColor, "Surface Types");
     drawInfo(std::format("{}", collision.surfaceTypes.size()));
     if (!isOpen) {
@@ -487,14 +489,15 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
 
 void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {
     const Collision* found = findLayerCollision(scene, view.layer);
-    if (!filter.empty() || found == nullptr || found->waterBoxes.empty()) {
+    if (!filter.empty() || found == nullptr) {
         return;
     }
     const Collision& collision = *found;
     const usize layer = view.layer;
     const bool isOpen = beginNode("##waterBoxes", GroupFlags);
     ImGui::SetItemTooltip("Where there is water, from each box's surface down. Shown whichever "
-                          "rooms are hidden, as the collision is.");
+                          "rooms are hidden, as the collision is. Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::WaterBoxes);
     drawLabel(core::icons::Waves, WaterColor, "Waterboxes");
     drawInfo(std::format("{}", collision.waterBoxes.size()));
     drawShownSwitch(view.showsWaterBoxes, "the waterboxes");
@@ -509,6 +512,7 @@ void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {
         if (ImGui::IsItemClicked() && hooks.pickNodes) {
             hooks.pickNodes(std::span(&node, 1));
         }
+        drawNodeMenu(node);
         const WaterBox& box = collision.waterBoxes[i];
         ImGui::SetItemTooltip("Surface at %d.", box.ySurface);
         drawLabel(core::icons::Waves, WaterColor, std::format("Waterbox {}", i));

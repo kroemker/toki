@@ -38,6 +38,8 @@ struct PlacementRow {
 enum class OutlinerGroup : u8 {
     LightSettings,
     Paths,
+    SurfaceTypes,
+    WaterBoxes,
 };
 
 /// The Scene panel's tree of one layer: the scene, each room with its actors

@@ -569,6 +569,8 @@ void ScenePanel::drawNodeMenu(const SceneNode& node) {
     } else if (std::holds_alternative<PathRef>(node) ||
                std::holds_alternative<PathPointRef>(node)) {
         placementEditor.getPathForm().drawMenu(*scene, node);
+    } else if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
+        placementEditor.getWaterBoxForm().drawMenu(*scene, *box);
     }
 }
 
@@ -582,6 +584,13 @@ void ScenePanel::drawGroupMenu(const OutlinerGroup group) {
         break;
     case OutlinerGroup::Paths:
         placementEditor.getPathForm().drawGroupMenu(*scene, sceneView.layer, findCameraTarget());
+        break;
+    case OutlinerGroup::SurfaceTypes:
+        placementEditor.getCollisionForm().drawSurfaceTypesMenu(*scene, sceneView.layer);
+        break;
+    case OutlinerGroup::WaterBoxes:
+        placementEditor.getWaterBoxForm().drawGroupMenu(*scene, sceneView.layer,
+                                                        findCameraTarget());
         break;
     }
 }
