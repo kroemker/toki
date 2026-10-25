@@ -33,6 +33,8 @@ constexpr f32 FloorNormalY = 0.5F;
 constexpr f32 CeilingNormalY = -0.8F;
 constexpr f32 NormalTolerance = 0.98F;
 constexpr usize NamedPolygons = 8;
+constexpr u32 UnheldSurfaceBits = 0xF000'0000;
+constexpr u32 UnheldWaterBoxBits = 0xFFF0'0000;
 
 [[nodiscard]] std::array<s16, 3> readVector(const std::span<const u8> bytes, const usize offset) {
     return {n64::readS16(bytes, offset), n64::readS16(bytes, offset + 2),
@@ -348,6 +350,24 @@ std::vector<usize> countSurfacePolygons(const Collision& collision) {
     return counts;
 }
 
+SurfaceType makeSurfaceType(const SurfaceFields& fields, const SurfaceType& kept) {
+    const auto pack = [](const u32 value, const u32 shift, const u32 mask) {
+        return (value & mask) << shift;
+    };
+    return SurfaceType{
+        .data = {
+            pack(fields.bgCamIndex, 0, 0xFF) | pack(fields.exitIndex, 8, 0x1F) |
+                pack(fields.floorType, 13, 0x1F) | pack(fields.unk18, 18, 0x07) |
+                pack(fields.wallType, 21, 0x1F) | pack(fields.floorProperty, 26, 0x0F) |
+                pack(fields.isSoft ? 1 : 0, 30, 1) | pack(fields.isHorseBlocked ? 1 : 0, 31, 1),
+            (kept.data[1] & UnheldSurfaceBits) | pack(fields.material, 0, 0x0F) |
+                pack(fields.floorEffect, 4, 0x03) | pack(fields.lightSetting, 6, 0x1F) |
+                pack(fields.echo, 11, 0x3F) | pack(fields.canHookshot ? 1 : 0, 17, 1) |
+                pack(fields.conveyorSpeed, 18, 0x07) | pack(fields.conveyorDirection, 21, 0x3F) |
+                pack(fields.unk27 ? 1 : 0, 27, 1),
+        }};
+}
+
 u8 getWaterBoxCamera(const WaterBox& box) {
     return static_cast<u8>(readBits(box.properties, 0, 0xFF));
 }
@@ -358,6 +378,16 @@ u8 getWaterBoxLightSetting(const WaterBox& box) {
 
 u8 getWaterBoxRoom(const WaterBox& box) {
     return static_cast<u8>(readBits(box.properties, 13, 0x3F));
+}
+
+bool hasWaterBoxFlag19(const WaterBox& box) {
+    return readBits(box.properties, 19, 1) != 0;
+}
+
+u32 makeWaterBoxProperties(const u8 camera, const u8 lightSetting, const u8 room,
+                           const bool setsFlag19, const u32 kept) {
+    return (kept & UnheldWaterBoxBits) | u32{camera} | ((u32{lightSetting} & 0x1F) << 8) |
+           ((u32{room} & 0x3F) << 13) | ((setsFlag19 ? 1U : 0U) << 19);
 }
 
 } // namespace toki::scene

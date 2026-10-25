@@ -7,6 +7,7 @@ target_sources(toki_core PRIVATE
         ActorMarkers.cpp
         BinaryAngle.cpp
         Collision.cpp
+        CollisionEdits.cpp
         CollisionDrawing.cpp
         CollisionNames.cpp
         CollisionWriters.cpp

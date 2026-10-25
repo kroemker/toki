@@ -119,6 +119,12 @@ struct Collision {
 
 [[nodiscard]] SurfaceFields readSurfaceFields(const SurfaceType& surface);
 
+/// The surface type that holds `fields`, as `SURFACETYPE0` and `SURFACETYPE1`
+/// pack them, each masked to its width. The bits no field holds are kept from
+/// `kept`.
+[[nodiscard]] SurfaceType makeSurfaceType(const SurfaceFields& fields,
+                                          const SurfaceType& kept = {});
+
 /// How many polygons have each of the collision's surface types, by index.
 [[nodiscard]] std::vector<usize> countSurfacePolygons(const Collision& collision);
 
@@ -127,5 +133,13 @@ struct Collision {
 [[nodiscard]] u8 getWaterBoxLightSetting(const WaterBox& box);
 
 [[nodiscard]] u8 getWaterBoxRoom(const WaterBox& box);
+
+/// Whether the waterbox sets the flag `WATERBOX_FLAG_19` names.
+[[nodiscard]] bool hasWaterBoxFlag19(const WaterBox& box);
+
+/// A waterbox's properties word, as `WATERBOX_PROPERTIES` packs it, each
+/// field masked to its width. The bits no field holds are kept from `kept`.
+[[nodiscard]] u32 makeWaterBoxProperties(u8 camera, u8 lightSetting, u8 room, bool setsFlag19,
+                                         u32 kept = 0);
 
 } // namespace toki::scene
