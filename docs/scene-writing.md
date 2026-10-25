@@ -67,6 +67,9 @@ and comparing the bytes, falling back to the generic form where they differ:
 - actor, transition actor and player entries, actor IDs and object IDs by the names of the
   checkout's tables;
 - vertices as fast64 writes them;
+- collision as fast64 writes it: polygons with `COLPOLY_VTX` and `COLPOLY_SNORMAL` (the
+  shortest fraction that truncates to the stored normal), surface types as `SURFACETYPE0` and
+  `SURFACETYPE1`, waterboxes with `WATERBOX_PROPERTIES`, and cameras by their setting's name;
 - display lists as one `gs*` macro a command;
 - textures, palettes and binaries built from a file the build reads (`.png`, `.jpg`,
   `.bin`) as an include of that file again, copied with the scene. fast64 writes textures

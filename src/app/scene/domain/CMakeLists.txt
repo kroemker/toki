@@ -9,6 +9,7 @@ target_sources(toki_core PRIVATE
         Collision.cpp
         CollisionDrawing.cpp
         CollisionNames.cpp
+        CollisionWriters.cpp
         HeaderNames.cpp
         HeaderSettings.cpp
         HeaderSymbols.cpp

@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -83,6 +84,15 @@ TEST_CASE("a vanilla scene saved without an edit is copied out and reads back th
         return edit.file.generic_string().starts_with("spec/");
     }));
     REQUIRE_FALSE(plan->copies.empty());
+    const auto collision = std::ranges::find_if(plan->files, [](const hackeroot::FileEdit& edit) {
+        return edit.file.filename() == "spot04_scene_col.c";
+    });
+    REQUIRE(collision != plan->files.end());
+    for (const std::string_view macro : {"COLPOLY_VTX(", "COLPOLY_SNORMAL(", "SURFACETYPE0(",
+                                         "WATERBOX_PROPERTIES(", "CAM_SET_"}) {
+        INFO(macro);
+        CHECK(collision->after.contains(macro));
+    }
 }
 
 TEST_CASE("every vanilla scene saved without an edit reads back the same",

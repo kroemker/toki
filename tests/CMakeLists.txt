@@ -40,6 +40,7 @@ add_executable(toki_tests
         app/scene/CollisionCheckoutTest.cpp
         app/scene/CollisionDrawingTest.cpp
         app/scene/CollisionNamesTest.cpp
+        app/scene/CollisionWritersTest.cpp
         app/scene/CollisionTest.cpp
         app/scene/SceneCheckoutTest.cpp
         app/scene/BinaryAngleTest.cpp

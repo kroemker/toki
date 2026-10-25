@@ -1,6 +1,7 @@
 #include "SceneSave.h"
 
 #include "app/scene/domain/ActorEntryWriter.h"
+#include "app/scene/domain/CollisionWriters.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneCommandWriter.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -212,6 +213,10 @@ z64::DeclarationWriter SceneSaver::makeWriter() const {
                            {"ActorEntry", makeActorEntryWriter(prelude.types)},
                            {"TransitionActorEntry", makeTransitionActorEntryWriter(prelude.types)},
                            {"Vtx", z64::makeVertexWriter()},
+                           {"CollisionPoly", makeCollisionPolyWriter()},
+                           {"SurfaceType", makeSurfaceTypeWriter()},
+                           {"WaterBox", makeWaterBoxWriter()},
+                           {"BgCamInfo", makeBgCamInfoWriter(prelude.types)},
                            {"Gfx", z64::makeDisplayListWriter(gbiNames)}},
         .elementConditions = {{"SceneCmd", makeSceneCommandCondition(prelude.types)}},
         .isExact = z64::makeEncodingCheck(data)});
