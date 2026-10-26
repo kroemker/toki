@@ -221,22 +221,29 @@ findDrawOutputs(const n64::RspResult& result, const FrameList& frameList, const 
     return ranges;
 }
 
+/// Where a frame is seen from: the view, what takes the world to clip space,
+/// and the eye and what it looks at.
+struct FrameCamera {
+    glm::mat4 view{1.0F};
+    glm::mat4 viewProjection{1.0F};
+    glm::vec3 eye{0.0F, 0.0F, 1.0F};
+    glm::vec3 target{0.0F};
+};
+
 FrameList writeFrameList(const ViewportContent& content, const MappedImages& mapped,
-                         const OrbitCamera& camera, const FrameSize size) {
-    const glm::mat4 view = camera.makeViewMatrix();
+                         const FrameCamera& camera, const FrameSize size) {
     n64::DisplayListWriter writer(FrameSegment);
     static_cast<void>(
-        writer.addMatrix(makeFixedMatrix(makeBillboardMatrix(glm::mat4(1.0F), view))));
+        writer.addMatrix(makeFixedMatrix(makeBillboardMatrix(glm::mat4(1.0F), camera.view))));
     const u32 viewport = writer.addViewport(makeFrameViewport(size));
-    const u32 projection =
-        writer.addMatrix(makeFixedMatrix(makeViewProjection(content, camera, size)));
+    const u32 projection = writer.addMatrix(makeFixedMatrix(camera.viewProjection));
     const std::optional<LightAddresses> lights =
         content.lighting ? std::optional(addLights(writer, *content.lighting)) : std::nullopt;
     const DrawData data{
-        .matrices = addDrawMatrices(writer, content, view),
-        .lookAts = addDrawLookAts(writer, content, camera.getEye()),
+        .matrices = addDrawMatrices(writer, content, camera.view),
+        .lookAts = addDrawLookAts(writer, content, camera.eye),
         .identity = writer.addMatrix(n64::makeIdentityMatrix()),
-        .lookAt = addLookAt(writer, camera.getEye(), camera.getTarget()),
+        .lookAt = addLookAt(writer, camera.eye, camera.target),
     };
 
     const u32 start = writer.setViewport(viewport);
@@ -356,7 +363,7 @@ mapImages(const ViewportContent& content, PlacedFrame& placed, const u64 limit) 
 }
 
 [[nodiscard]] std::expected<PlacedFrame, base::Diagnostic>
-placeFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size) {
+placeFrame(const ViewportContent& content, const FrameCamera& camera, const FrameSize size) {
     u64 limit = n64::AddressSpaceSize;
     while (true) {
         PlacedFrame placed;
@@ -403,8 +410,17 @@ glm::mat4 makeViewProjection(const ViewportContent& content, const OrbitCamera& 
     return OrbitCamera::makeProjectionMatrix(aspect, zFar) * camera.makeViewMatrix();
 }
 
-Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size,
-               const bool recordsTrace, const n64::RspOverrides& overrides) {
+namespace {
+
+struct FrameRun {
+    bool recordsTrace = false;
+    bool recordsSources = false;
+    bool runsRdp = true;
+    n64::RspOverrides overrides;
+};
+
+[[nodiscard]] Frame runFrameFrom(const ViewportContent& content, const FrameCamera& camera,
+                                 const FrameSize size, const FrameRun& run) {
     Frame frame;
     if (size.width == 0 || size.height == 0) {
         return frame;
@@ -438,17 +454,39 @@ Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const 
     const Clock::time_point placedAt = Clock::now();
     frame.rspResult = n64::runTask(memory, n64::RspTask{.displayList = frameList.start,
                                                         .segments = segments,
-                                                        .recordsTrace = recordsTrace,
-                                                        .overrides = overrides});
+                                                        .recordsTrace = run.recordsTrace,
+                                                        .recordsSources = run.recordsSources,
+                                                        .overrides = run.overrides});
     const Clock::time_point ranAt = Clock::now();
     frame.drawOutputs = findDrawOutputs(frame.rspResult, frameList, physical);
-    frame.rdpResult = n64::runRdp(frame.rspResult, memory);
+    if (run.runsRdp) {
+        frame.rdpResult = n64::runRdp(frame.rspResult, memory);
+    }
     frame.timings = FrameTimings{.place = makeMilliseconds(placedAt - started),
                                  .rsp = makeMilliseconds(ranAt - placedAt),
                                  .rdp = makeMilliseconds(Clock::now() - ranAt)};
     std::ranges::move(frame.rspResult.diagnostics, std::back_inserter(frame.diagnostics));
     std::ranges::move(frame.rdpResult.diagnostics, std::back_inserter(frame.diagnostics));
     return frame;
+}
+
+} // namespace
+
+Frame runFrame(const ViewportContent& content, const OrbitCamera& camera, const FrameSize size,
+               const bool recordsTrace, const n64::RspOverrides& overrides) {
+    const FrameCamera frameCamera{.view = camera.makeViewMatrix(),
+                                  .viewProjection = makeViewProjection(content, camera, size),
+                                  .eye = camera.getEye(),
+                                  .target = camera.getTarget()};
+    return runFrameFrom(content, frameCamera, size,
+                        FrameRun{.recordsTrace = recordsTrace, .overrides = overrides});
+}
+
+Frame runWorldFrame(const ViewportContent& content) {
+    return runFrameFrom(content, FrameCamera{}, FrameSize{},
+                        FrameRun{.recordsSources = true,
+                                 .runsRdp = false,
+                                 .overrides = n64::RspOverrides{.ignoresCulling = true}});
 }
 
 } // namespace toki::viewport

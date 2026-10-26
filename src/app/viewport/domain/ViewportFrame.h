@@ -202,4 +202,11 @@ inline constexpr u8 FrameSegment = 0x01;
                              FrameSize size, bool recordsTrace = false,
                              const n64::RspOverrides& overrides = {});
 
+/// Runs the content's display lists as `runFrame` does, but seen from nowhere:
+/// the view and projection are the identity, so the RSP puts every vertex at
+/// its place in the world, and no triangle is culled. Every triangle records
+/// where its vertices came from (`n64::RspTask::recordsSources`), for reading
+/// the meshes the lists draw. The RDP is not run.
+[[nodiscard]] Frame runWorldFrame(const ViewportContent& content);
+
 } // namespace toki::viewport

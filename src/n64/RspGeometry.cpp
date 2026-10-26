@@ -49,11 +49,15 @@ void RspInterpreter::runVertex(const u32 word0, const u32 word1) {
     }
     const LightSetup& setup = getLightSetup();
     const usize viewportSlot = findViewportIndex();
+    const usize modelviewSlot = recordsSources ? findModelviewIndex() : 0;
+    const u32 address = resolve(word1) & DmaMask;
     result.statistics.vertices += count;
     for (usize i = 0; i < count; ++i) {
         vertices[end - count + i] = VertexSlot{
             .vertex = shadeVertex(bytes->subspan(i * VertexSize, VertexSize), setup),
             .viewport = viewportSlot,
+            .source = VertexSource{.address = static_cast<u32>(address + (i * VertexSize)),
+                                   .modelview = modelviewSlot},
             .loaded = true,
         };
     }
@@ -139,6 +143,13 @@ usize RspInterpreter::findViewportIndex() {
         result.viewports.push_back(viewport);
     }
     return *viewportIndex;
+}
+
+usize RspInterpreter::findModelviewIndex() {
+    if (result.modelviews.empty() || result.modelviews.back() != modelview) {
+        result.modelviews.push_back(modelview);
+    }
+    return result.modelviews.size() - 1;
 }
 
 std::optional<usize> RspInterpreter::findVertexIndex(const u32 index) {
@@ -228,9 +239,11 @@ void RspInterpreter::drawTriangle(const u32 indices) {
         .shade = (geometryMode & geometry::Shade) != 0,
         .textured = texture.enabled,
         .depth = (geometryMode & geometry::ZBuffer) != 0,
+        .lit = (geometryMode & geometry::Lighting) != 0,
         .tile = texture.tile,
         .levels = texture.levels,
         .address = commandAddress,
+        .sources = {vertices[*a].source, vertices[*b].source, vertices[*c].source},
     };
     if (cull != 0) {
         const Viewport& screen = getViewport(vertices[*a]);

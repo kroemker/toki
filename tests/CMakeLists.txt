@@ -52,6 +52,8 @@ add_executable(toki_tests
         app/scene/LightSettingEditsTest.cpp
         app/scene/PathEditsTest.cpp
         app/scene/PathUsersTest.cpp
+        app/scene/RoomMeshTest.cpp
+        app/scene/MeshCheckoutTest.cpp
         app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp
         app/scene/SceneHeaderTest.cpp

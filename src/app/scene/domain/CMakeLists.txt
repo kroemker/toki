@@ -18,6 +18,7 @@ target_sources(toki_core PRIVATE
         ListEditor.cpp
         PathEdits.cpp
         PathUsers.cpp
+        RoomMesh.cpp
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp
