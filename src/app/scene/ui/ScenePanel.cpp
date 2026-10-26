@@ -125,6 +125,7 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
                               readActors(*scene);
                           }
                       }),
+      meshEditor(viewportPanel),
       sceneOutliner(SceneOutliner::Hooks{
           .drawPlacement = [this](const PlacementRow& row) { drawActor(row); },
           .drawRoomMenu = [this](const usize room,
@@ -167,6 +168,9 @@ void ScenePanel::setScene(Scene read) {
     }
     scene = std::move(read);
     placementEditor.refresh(*scene);
+    if (isNew) {
+        meshEditor.reset();
+    }
 
     std::optional<glm::vec3> target;
     if (isNew && !isRestored && !scene->layers.empty() &&
@@ -224,6 +228,13 @@ void ScenePanel::offerChoices() {
         }
         choices.collisionColoring = static_cast<usize>(sceneView.collisionColoring);
     }
+    choices.editTargets.emplace_back("Mesh");
+    if (findLayerCollision(*scene, sceneView.layer) != nullptr) {
+        choices.editTargets.emplace_back("Collision");
+    } else {
+        meshEditor.setTarget(EditTarget::Mesh);
+    }
+    choices.editTarget = static_cast<usize>(meshEditor.getTarget());
     viewportPanel.setChoices(std::move(choices), [this](const viewport::ViewportChoices& chosen) {
         sceneView.lightSetting = chosen.lightSetting;
         const viewport::ActorDisplay actors =
@@ -235,6 +246,7 @@ void ScenePanel::offerChoices() {
         if (chosen.collisionColoring < CollisionColoringCount) {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }
+        meshEditor.setTarget(static_cast<EditTarget>(chosen.editTarget));
         showScene();
     });
 }
@@ -275,7 +287,9 @@ void ScenePanel::draw() {
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
     drawFlags(flags);
     drawOverlay(flags, layer);
-    offerPlacements(layer);
+    if (viewportPanel.getSelectionMode() == viewport::SelectionMode::Node) {
+        offerPlacements(layer);
+    }
     offerWaterBoxHandles();
 }
 
@@ -472,7 +486,7 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
         }
     }
     viewportPanel.setPickables(
-        std::move(points),
+        {.points = std::move(points)},
         [this, placements = std::move(placements)](const viewport::ViewportPanel::ViewportPick& hit,
                                                    const viewport::PickMode mode) {
             std::vector<SceneNode> nodes;
@@ -887,6 +901,9 @@ void ScenePanel::drawOverlay(const std::vector<SceneFlagUse>& flags, const Scene
         if (sceneView.showsActors) {
             addFollowerLines(overlay, paths);
         }
+    }
+    if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node) {
+        meshEditor.offer(*scene, sceneView, overlay);
     }
     viewportPanel.setOverlay(std::move(overlay));
 }

@@ -56,4 +56,27 @@ findScreenSegment(const glm::mat4& viewProjection, glm::vec2 size, const glm::ve
                                                   glm::vec2 corner, glm::vec2 otherCorner,
                                                   std::span<const glm::vec3> points);
 
+/// The index of the segment of `segments` that passes nearest `mouse` on the
+/// image, if one passes within `radius` of it.
+[[nodiscard]] std::optional<usize>
+findPickedSegment(const glm::mat4& viewProjection, glm::vec2 size, glm::vec2 mouse,
+                  std::span<const std::array<glm::vec3, 2>> segments, f32 radius);
+
+/// The indices of the segments of `segments` both of whose ends fall in the
+/// rectangle between `corner` and `otherCorner` on the image, in order.
+[[nodiscard]] std::vector<usize>
+findSegmentsInRect(const glm::mat4& viewProjection, glm::vec2 size, glm::vec2 corner,
+                   glm::vec2 otherCorner, std::span<const std::array<glm::vec3, 2>> segments);
+
+/// A ray from the camera into the world.
+struct PickRay {
+    glm::vec3 origin{0.0F};
+    /// Of unit length.
+    glm::vec3 direction{0.0F, 0.0F, -1.0F};
+};
+
+/// The ray through `mouse` on an image of `size` that `viewProjection` draws,
+/// from the near plane on.
+[[nodiscard]] PickRay makePickRay(const glm::mat4& viewProjection, glm::vec2 size, glm::vec2 mouse);
+
 } // namespace toki::viewport

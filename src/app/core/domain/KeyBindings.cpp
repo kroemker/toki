@@ -34,6 +34,8 @@ constexpr auto Actions = std::to_array<ActionInfo>({
     {Action::FaceMode, "face_mode", "Face Mode", ActionScope::Viewport, "2"},
     {Action::EdgeMode, "edge_mode", "Edge Mode", ActionScope::Viewport, "3"},
     {Action::VertexMode, "vertex_mode", "Vertex Mode", ActionScope::Viewport, "4"},
+    {Action::ToggleEditMode, "toggle_edit_mode", "Toggle Node and Last Edit Mode",
+     ActionScope::Viewport, "Tab"},
     {Action::SelectTool, "select_tool", "Select Tool", ActionScope::Viewport, "Q"},
     {Action::MoveTool, "move_tool", "Move Tool", ActionScope::Viewport, "W"},
     {Action::RotateTool, "rotate_tool", "Rotate Tool", ActionScope::Viewport, "E"},

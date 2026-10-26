@@ -32,6 +32,15 @@ struct ViewportChoices {
     /// them.
     std::vector<std::string> collisionColorings;
     usize collisionColoring = 0;
+    /// What faces, edges and vertices are picked of, as a scene's mesh or its
+    /// collision, and which, an index into them. Empty when the content has
+    /// nothing to edit by them, and only node mode is offered.
+    std::vector<std::string> editTargets;
+    usize editTarget = 0;
+    /// Whether what the edit target is linked to follows its edits, where
+    /// the target has a link; `linkTooltip` says what the link does.
+    std::optional<bool> isLinked;
+    std::string linkTooltip;
 
     friend bool operator==(const ViewportChoices&, const ViewportChoices&) = default;
 };

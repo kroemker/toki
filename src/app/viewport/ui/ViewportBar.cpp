@@ -326,6 +326,34 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
     return edit;
 }
 
+std::optional<ViewportChoices> drawEditTargets(const ViewportChoices& choices) {
+    std::optional<ViewportChoices> edit;
+    for (usize i = 0; i < choices.editTargets.size(); ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0F, 1.0F);
+        }
+        ImGui::PushID(static_cast<int>(i));
+        const std::string tooltip =
+            std::format("Pick faces, edges and vertices of the {}", choices.editTargets[i]);
+        if (drawToggleButton(choices.editTargets[i], choices.editTarget == i, tooltip.c_str()) &&
+            choices.editTarget != i) {
+            edit = choices;
+            edit->editTarget = i;
+        }
+        ImGui::PopID();
+    }
+    if (choices.isLinked) {
+        ImGui::SameLine();
+        const std::string label = std::format(
+            "{}###link", *choices.isLinked ? core::icons::Link : core::icons::LinkBreak);
+        if (drawToggleButton(label, *choices.isLinked, choices.linkTooltip.c_str())) {
+            edit = edit.value_or(choices);
+            edit->isLinked = !*choices.isLinked;
+        }
+    }
+    return edit;
+}
+
 std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
     if (core::isActionPressed(core::Action::ToggleOverlays)) {
         ViewportView changed = view;

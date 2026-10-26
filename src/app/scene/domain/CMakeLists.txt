@@ -11,6 +11,8 @@ target_sources(toki_core PRIVATE
         CollisionDrawing.cpp
         CollisionNames.cpp
         CollisionWriters.cpp
+        ComponentSelection.cpp
+        EditMesh.cpp
         HeaderNames.cpp
         HeaderSettings.cpp
         HeaderSymbols.cpp

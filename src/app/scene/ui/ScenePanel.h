@@ -11,6 +11,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneFlags.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/ui/MeshEditor.h"
 #include "app/scene/ui/PlacementEditor.h"
 #include "app/scene/ui/SceneOutliner.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -82,9 +83,10 @@ public:
         sceneView = {};
         previewPaths.reset();
         pendingSession.reset();
+        meshEditor.reset();
         viewportPanel.setOverlay({});
         viewportPanel.clearChoices();
-        viewportPanel.setPickables({}, {});
+        viewportPanel.setPickables({}, nullptr);
         viewportPanel.setTransformTarget(std::nullopt, {});
         viewportPanel.setHandles({}, nullptr);
     }
@@ -222,6 +224,7 @@ private:
     std::function<void(const std::string&)> inspectDisplayList;
     std::function<void(const Scene&)> readActors;
     PlacementEditor placementEditor;
+    MeshEditor meshEditor;
     /// Whether a preview of a transform ended this frame, so the scene is
     /// shown as it is again.
     bool isPreviewEnding = false;

@@ -3,6 +3,7 @@
 #include <glm/common.hpp>
 #include <glm/ext/vector_float4.hpp>
 #include <glm/geometric.hpp>
+#include <glm/matrix.hpp>
 
 #include <algorithm>
 #include <array>
@@ -61,6 +62,62 @@ std::vector<usize> findPointsInRect(const glm::mat4& viewProjection, const glm::
         }
     }
     return found;
+}
+
+std::optional<usize> findPickedSegment(const glm::mat4& viewProjection, const glm::vec2 size,
+                                       const glm::vec2 mouse,
+                                       const std::span<const std::array<glm::vec3, 2>> segments,
+                                       const f32 radius) {
+    std::optional<usize> picked;
+    f32 nearest = radius;
+    for (usize i = 0; i < segments.size(); ++i) {
+        const std::optional<std::array<glm::vec2, 2>> ends =
+            findScreenSegment(viewProjection, size, segments[i][0], segments[i][1]);
+        if (!ends) {
+            continue;
+        }
+        const glm::vec2 along = (*ends)[1] - (*ends)[0];
+        const f32 length = glm::dot(along, along);
+        const f32 t = length > 0.0F
+                          ? std::clamp(glm::dot(mouse - (*ends)[0], along) / length, 0.0F, 1.0F)
+                          : 0.0F;
+        const f32 distance = glm::length((*ends)[0] + (along * t) - mouse);
+        if (distance < nearest) {
+            picked = i;
+            nearest = distance;
+        }
+    }
+    return picked;
+}
+
+std::vector<usize> findSegmentsInRect(const glm::mat4& viewProjection, const glm::vec2 size,
+                                      const glm::vec2 corner, const glm::vec2 otherCorner,
+                                      const std::span<const std::array<glm::vec3, 2>> segments) {
+    std::vector<glm::vec3> ends;
+    ends.reserve(segments.size() * 2);
+    for (const std::array<glm::vec3, 2>& segment : segments) {
+        ends.push_back(segment[0]);
+        ends.push_back(segment[1]);
+    }
+    const std::vector<usize> inside =
+        findPointsInRect(viewProjection, size, corner, otherCorner, ends);
+    std::vector<usize> found;
+    for (usize i = 0; i + 1 < inside.size(); ++i) {
+        if (inside[i] % 2 == 0 && inside[i + 1] == inside[i] + 1) {
+            found.push_back(inside[i] / 2);
+            ++i;
+        }
+    }
+    return found;
+}
+
+PickRay makePickRay(const glm::mat4& viewProjection, const glm::vec2 size, const glm::vec2 mouse) {
+    const glm::mat4 inverse = glm::inverse(viewProjection);
+    const glm::vec2 device{(mouse.x / size.x * 2.0F) - 1.0F, 1.0F - (mouse.y / size.y * 2.0F)};
+    const glm::vec4 near = inverse * glm::vec4(device, -1.0F, 1.0F);
+    const glm::vec4 far = inverse * glm::vec4(device, 1.0F, 1.0F);
+    const glm::vec3 origin = glm::vec3(near) / near.w;
+    return {.origin = origin, .direction = glm::normalize((glm::vec3(far) / far.w) - origin)};
 }
 
 namespace {

@@ -202,6 +202,48 @@ std::vector<gfx::OverlayLine> makeArrowLines(const ViewportOverlay& overlay,
     return lines;
 }
 
+gfx::Overlay makeComponentOverlay(const ViewportOverlay& overlay, const glm::mat4& viewProjection,
+                                  const FrameSize size, const f32 scale) {
+    const glm::vec2 halfSize(static_cast<f32>(size.width) / 2.0F,
+                             static_cast<f32>(size.height) / 2.0F);
+    gfx::Overlay drawn;
+    for (const OverlayFace& face : overlay.faces) {
+        gfx::OverlayTriangle triangle{.color = unpackColor(face.color)};
+        bool isInFront = true;
+        for (usize corner = 0; corner < 3; ++corner) {
+            triangle.corners[corner] = makeClip(viewProjection, face.corners[corner]);
+            isInFront &= findNearDistance(triangle.corners[corner]) > NearMargin;
+        }
+        if (isInFront) {
+            drawn.triangles.push_back(triangle);
+        }
+    }
+    std::vector<gfx::OverlayLine>& lines = drawn.lines;
+    lines.reserve(overlay.edges.size() + overlay.points.size());
+    for (const OverlayEdge& edge : overlay.edges) {
+        if (const std::optional<gfx::OverlayLine> clipped =
+                clipToNearPlane({.from = makeClip(viewProjection, edge.from),
+                                 .to = makeClip(viewProjection, edge.to),
+                                 .color = unpackColor(edge.color),
+                                 .width = edge.width * scale})) {
+            lines.push_back(*clipped);
+        }
+    }
+    for (const OverlayPoint& point : overlay.points) {
+        const Position clip = makeClip(viewProjection, point.position);
+        if (findNearDistance(clip) <= NearMargin || clip[3] <= 0.0F) {
+            continue;
+        }
+        const glm::vec2 screen = findScreenPoint(clip, halfSize);
+        const glm::vec2 half(point.size * scale / 2.0F, 0.0F);
+        lines.push_back({.from = placeAtDepth(screen - half, halfSize, clip),
+                         .to = placeAtDepth(screen + half, halfSize, clip),
+                         .color = unpackColor(point.color),
+                         .width = point.size * scale});
+    }
+    return drawn;
+}
+
 std::vector<gfx::OverlayLine> makeGridLines(const glm::mat4& viewProjection,
                                             const glm::vec3& center) {
     const f32 extent = GridSpacing * static_cast<f32>(GridCells);

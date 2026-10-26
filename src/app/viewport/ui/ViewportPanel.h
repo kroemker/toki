@@ -5,6 +5,7 @@
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ScreenPick.h"
 #include "app/viewport/domain/SelectionShape.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
@@ -108,8 +109,10 @@ public:
     /// Replaces what is drawn over the image, hidden by what stands in front
     /// of it. The frame is drawn again, not run again.
     void setOverlay(ViewportOverlay overlay) {
-        viewportOverlay = std::move(overlay);
-        isOverlayStale = true;
+        if (overlay != viewportOverlay) {
+            viewportOverlay = std::move(overlay);
+            isOverlayStale = true;
+        }
     }
 
     [[nodiscard]] const ViewportView& getView() const {
@@ -166,20 +169,39 @@ public:
     }
 
     /// What a click or a box in the viewport hit: the indices of the points
-    /// it picked, and, for a click that picked none, the owner of the draw
-    /// that drew what is under it, if anything is and one owns it.
+    /// and segments it picked, and the boxed points a box held; for a click
+    /// that picked none, the owner of the draw that drew what is under it, if
+    /// anything is and one owns it, and the ray from the camera through it.
     struct ViewportPick {
         std::span<const usize> points;
+        std::span<const usize> segments;
+        std::span<const usize> boxedPoints;
         std::optional<usize> owner;
+        std::optional<PickRay> ray;
+    };
+
+    /// What a click or a box can pick: points, near which a click picks them;
+    /// segments, near which a click picks them and which a box picks when it
+    /// holds both their ends; and points only a box picks, as the middles of
+    /// faces, which a click picks by its ray instead.
+    struct Pickables {
+        std::vector<glm::vec3> points;
+        std::vector<std::array<glm::vec3, 2>> segments;
+        std::vector<glm::vec3> boxedPoints;
     };
 
     /// The points a click or a box in the viewport picks, and what picking
     /// does, as the pick changes the selection.
     using PickHandler = std::function<void(const ViewportPick&, PickMode)>;
 
-    void setPickables(std::vector<glm::vec3> points, PickHandler pick) {
-        pickables = std::move(points);
+    void setPickables(Pickables picked, PickHandler pick) {
+        pickables = std::move(picked);
         pickHandler = std::move(pick);
+    }
+
+    /// What clicks in the viewport select: nodes, or faces, edges or vertices.
+    [[nodiscard]] SelectionMode getSelectionMode() const {
+        return viewportTools.mode;
     }
 
     /// The owners of the draws selected, shown as the overlays say: what
@@ -217,6 +239,10 @@ public:
 
 private:
     void drawBar();
+    /// Whether the content offers faces, edges or vertices to pick.
+    [[nodiscard]] bool canEdit() const;
+    /// Takes `chosen` as the bar's choices and hands it to their owner.
+    void choose(const ViewportChoices& chosen);
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     [[nodiscard]] TransformView makeTransformView(ImVec2 origin, ImVec2 size) const;
@@ -257,7 +283,7 @@ private:
     std::vector<std::optional<z64::MappedImage>> mappedImages;
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
-    std::vector<glm::vec3> pickables;
+    Pickables pickables;
     PickHandler pickHandler;
     /// Where a box being dragged to select began, on the screen.
     std::optional<ImVec2> boxStart;

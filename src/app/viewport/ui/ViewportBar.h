@@ -19,6 +19,11 @@ struct ViewportBarEdit {
 [[nodiscard]] ViewportBarEdit drawViewportBar(const ViewportView& view,
                                               const std::optional<ViewportChoices>& choices);
 
+/// Draws the edit targets `choices` offers as a group of buttons, the one
+/// picked lit, and the link toggle where it offers one. The choices as they
+/// were changed, or nothing.
+[[nodiscard]] std::optional<ViewportChoices> drawEditTargets(const ViewportChoices& choices);
+
 /// The view as the bar's hotkeys pressed this frame change it, or nothing.
 /// Called only while the cursor is over the viewport.
 [[nodiscard]] std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view);

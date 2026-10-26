@@ -24,9 +24,9 @@ struct ToolButton {
 
 constexpr std::array<ToolButton, 4> ModeButtons{{
     {core::icons::Cube, "Node", core::Action::NodeMode, true},
-    {core::icons::Polygon, "Face", core::Action::FaceMode, false},
-    {core::icons::LineSegment, "Edge", core::Action::EdgeMode, false},
-    {core::icons::DotOutline, "Vertex", core::Action::VertexMode, false},
+    {core::icons::Polygon, "Face", core::Action::FaceMode, true},
+    {core::icons::LineSegment, "Edge", core::Action::EdgeMode, true},
+    {core::icons::DotOutline, "Vertex", core::Action::VertexMode, true},
 }};
 
 constexpr std::array<ToolButton, 4> ToolButtons{{
@@ -54,10 +54,12 @@ constexpr float StripPadding = 3.0F;
 constexpr float StripAlpha = 0.92F;
 constexpr float StripButtonSize = 1.2F;
 
-/// An icon button drawn as pressed while `isActive`, disabled and saying so
-/// when what it picks is not built. True when it was clicked.
-bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 size) {
-    ImGui::BeginDisabled(!button.isBuilt);
+/// An icon button drawn as pressed while `isActive`, disabled and saying why
+/// when `whyNot` says it cannot be used. True when it was clicked.
+bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 size,
+                    const char* whyNot = nullptr) {
+    const bool isUsable = button.isBuilt && whyNot == nullptr;
+    ImGui::BeginDisabled(!isUsable);
     if (isActive) {
         ImGui::PushStyleColor(ImGuiCol_Button, core::palette::AccentMuted);
     }
@@ -68,16 +70,29 @@ bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
         const std::string named = core::makeShortcutText(button.name, button.action);
-        const std::string tooltip =
-            button.isBuilt ? named : std::format("{}, not built yet", named);
+        std::string tooltip = named;
+        if (!button.isBuilt) {
+            tooltip = std::format("{}, not built yet", named);
+        } else if (whyNot != nullptr) {
+            tooltip = std::format("{}. {}", named, whyNot);
+        }
         ImGui::SetTooltip("%s", tooltip.c_str());
     }
-    return isClicked && button.isBuilt;
+    return isClicked && isUsable;
 }
+
+constexpr const char* NothingToEdit = "What is shown has no faces, edges or vertices to edit.";
 
 } // namespace
 
-bool drawSelectionModes(ViewportTools& tools) {
+void setSelectionMode(ViewportTools& tools, const SelectionMode mode) {
+    tools.mode = mode;
+    if (mode != SelectionMode::Node) {
+        tools.lastEditMode = mode;
+    }
+}
+
+bool drawSelectionModes(ViewportTools& tools, const bool canEdit) {
     bool isPicked = false;
     for (usize i = 0; i < ModeButtons.size(); ++i) {
         if (i > 0) {
@@ -85,8 +100,9 @@ bool drawSelectionModes(ViewportTools& tools) {
         }
         ImGui::PushID(static_cast<int>(i));
         const auto mode = static_cast<SelectionMode>(i);
-        if (drawIconButton(ModeButtons[i], tools.mode == mode, ImVec2(0.0F, 0.0F))) {
-            tools.mode = mode;
+        const char* whyNot = mode != SelectionMode::Node && !canEdit ? NothingToEdit : nullptr;
+        if (drawIconButton(ModeButtons[i], tools.mode == mode, ImVec2(0.0F, 0.0F), whyNot)) {
+            setSelectionMode(tools, mode);
             isPicked = true;
         }
         ImGui::PopID();
@@ -153,14 +169,19 @@ void drawToolStrip(ViewportTools& tools, const ImVec2 position) {
     ImGui::PopStyleVar(2);
 }
 
-void applyToolHotkeys(ViewportTools& tools) {
+void applyToolHotkeys(ViewportTools& tools, const bool canEdit) {
     for (usize i = 0; i < ModeButtons.size(); ++i) {
-        if (ModeButtons[i].isBuilt && core::isActionPressed(ModeButtons[i].action)) {
-            tools.mode = static_cast<SelectionMode>(i);
+        const auto mode = static_cast<SelectionMode>(i);
+        if (ModeButtons[i].isBuilt && (canEdit || mode == SelectionMode::Node) &&
+            core::isActionPressed(ModeButtons[i].action)) {
+            setSelectionMode(tools, mode);
         }
         if (ToolButtons[i].isBuilt && core::isActionPressed(ToolButtons[i].action)) {
             tools.tool = static_cast<EditTool>(i);
         }
+    }
+    if (canEdit && core::isActionPressed(core::Action::ToggleEditMode)) {
+        tools.mode = tools.mode == SelectionMode::Node ? tools.lastEditMode : SelectionMode::Node;
     }
 }
 

@@ -60,6 +60,15 @@ struct ArrowStyle {
                                                            const glm::mat4& viewProjection,
                                                            FrameSize size, const ArrowStyle& style);
 
+/// The faces, edges and points of `overlay` in the clip space
+/// `viewProjection` takes the world to, on a screen of `size` pixels, `scale`
+/// pixels to a point: a face as a triangle, left out when a corner is behind
+/// the camera; an edge as a line; and a point as a short line as wide as it
+/// is long, lying flat on the screen at the point's depth.
+[[nodiscard]] gfx::Overlay makeComponentOverlay(const ViewportOverlay& overlay,
+                                                const glm::mat4& viewProjection, FrameSize size,
+                                                f32 scale);
+
 /// A floor grid on the XZ plane, `GridCells` cells each way from the cell
 /// under `center`, each `GridSpacing` units, with the X axis red and the Z
 /// axis blue where they pass through it.

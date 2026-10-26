@@ -32,6 +32,7 @@ enum class Action : u8 {
     FaceMode,
     EdgeMode,
     VertexMode,
+    ToggleEditMode,
     SelectTool,
     MoveTool,
     RotateTool,

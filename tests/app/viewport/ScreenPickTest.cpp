@@ -7,6 +7,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 
 #include <array>
 #include <cmath>
@@ -60,6 +61,38 @@ TEST_CASE("a box picks the points that fall in it, whichever corner it was dragg
                                              points) == std::vector<usize>{0, 1});
     REQUIRE(toki::viewport::findPointsInRect(identity, size, {0.0F, 0.0F}, {10.0F, 10.0F}, points)
                 .empty());
+}
+
+TEST_CASE("a click picks the segment passing nearest it, and a box those whose ends it holds",
+          "[viewport][pick]") {
+    const glm::mat4 identity(1.0F);
+    const glm::vec2 size{200.0F, 100.0F};
+    const std::array<std::array<glm::vec3, 2>, 2> segments{{
+        {glm::vec3{-0.5F, 0.0F, 0.0F}, glm::vec3{0.5F, 0.0F, 0.0F}},
+        {glm::vec3{-0.5F, 0.5F, 0.0F}, glm::vec3{0.0F, 0.5F, 0.0F}},
+    }};
+
+    REQUIRE(toki::viewport::findPickedSegment(identity, size, {130.0F, 53.0F}, segments, 8.0F) ==
+            0U);
+    REQUIRE(toki::viewport::findPickedSegment(identity, size, {60.0F, 26.0F}, segments, 8.0F) ==
+            1U);
+    REQUIRE_FALSE(
+        toki::viewport::findPickedSegment(identity, size, {180.0F, 80.0F}, segments, 8.0F));
+    REQUIRE(toki::viewport::findSegmentsInRect(identity, size, {40.0F, 10.0F}, {110.0F, 40.0F},
+                                               segments) == std::vector<usize>{1});
+}
+
+TEST_CASE("a click's ray runs from the camera through the point clicked", "[viewport][pick]") {
+    const toki::viewport::OrbitCamera camera;
+    const glm::vec2 size{200.0F, 100.0F};
+    const glm::mat4 viewProjection =
+        toki::viewport::OrbitCamera::makeProjectionMatrix(2.0F) * camera.makeViewMatrix();
+
+    const toki::viewport::PickRay ray =
+        toki::viewport::makePickRay(viewProjection, size, {100.0F, 50.0F});
+
+    const glm::vec3 toTarget = glm::normalize(camera.getTarget() - camera.getEye());
+    REQUIRE(glm::dot(ray.direction, toTarget) == Catch::Approx(1.0F).margin(1e-4));
 }
 
 TEST_CASE("an axis line runs from edge to edge of the image, cut where it passes the camera",

@@ -1,0 +1,55 @@
+#pragma once
+
+#include "app/scene/Types.h"
+#include "app/scene/domain/EditMesh.h"
+#include "app/viewport/domain/ViewportTools.h"
+
+#include <set>
+#include <span>
+#include <vector>
+
+namespace toki::scene {
+
+/// The faces, edges or vertices of an `EditMesh` selected, which of them
+/// as the selection mode says, kept apart from the nodes selected.
+class ComponentSelection {
+public:
+    [[nodiscard]] viewport::SelectionMode getMode() const {
+        return mode;
+    }
+
+    /// Selects by `next` from now on, what was selected carried over as
+    /// Blender carries it: going to vertices, the vertices of what was
+    /// selected; going from vertices or edges to more, what they wholly hold.
+    void setMode(viewport::SelectionMode next, const EditMesh& mesh);
+
+    void pick(std::span<const ComponentRef> picked, viewport::PickMode pickMode);
+
+    void clear() {
+        components.clear();
+    }
+
+    [[nodiscard]] bool contains(const ComponentRef& component) const {
+        return components.contains(component);
+    }
+
+    [[nodiscard]] bool isEmpty() const {
+        return components.empty();
+    }
+
+    [[nodiscard]] const std::set<ComponentRef>& getComponents() const {
+        return components;
+    }
+
+    /// The vertices of what is selected: what a transform moves.
+    [[nodiscard]] std::vector<ComponentRef> listVertices(const EditMesh& mesh) const;
+
+    /// Forgets what `mesh` no longer holds.
+    void keepWithin(const EditMesh& mesh);
+
+private:
+    viewport::SelectionMode mode = viewport::SelectionMode::Face;
+    std::set<ComponentRef> components;
+};
+
+} // namespace toki::scene
