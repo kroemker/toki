@@ -156,6 +156,11 @@ public:
     /// `applyPicked`, as one step. A path point is moved, never turned.
     void applyTransform(std::vector<SceneNode> nodes, const viewport::TransformEdit& edit);
 
+    /// Makes `edit` by `applyPicked`, as one step.
+    void pickSceneEdit(SceneEditor::ModelEdit edit) {
+        pickModelEdit(std::move(edit), std::nullopt);
+    }
+
     [[nodiscard]] LightSettingForm& getLightSettingForm() {
         return lightSettingForm;
     }

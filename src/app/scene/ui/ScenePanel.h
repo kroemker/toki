@@ -198,6 +198,9 @@ private:
     /// Shows `layer` in place of the shown layer of the scene, as `view` says.
     void showLayer(const SceneLayer& layer, const SceneView& view,
                    const Collision* collision = nullptr);
+    /// Shows the scene with what `preview` writes made, or as it is once a
+    /// preview ended.
+    void showMeshPreview(const std::optional<MeshEditor::Preview>& preview);
     /// Offers the viewport the sides of the waterbox picked last, to drag.
     void offerWaterBoxHandles();
     /// Shows the scene with `box` in place of waterbox `index` of the shown

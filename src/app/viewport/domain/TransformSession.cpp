@@ -135,6 +135,9 @@ std::vector<usize> TransformSession::listFieldAxes(const AxisConstraint& constra
     if (kind == TransformKind::Rotate) {
         return {constraint.findRotationAxis()};
     }
+    if (kind == TransformKind::Scale) {
+        return {0};
+    }
     std::vector<usize> axes;
     for (usize axis = 0; axis < 3; ++axis) {
         if (constraint.isFree() || constraint.axes[axis]) {
@@ -160,6 +163,18 @@ TransformResult TransformSession::makeResult(const AxisConstraint& constraint,
         result.degrees = isSnapped ? roundToStep(degrees, snapping.angleStep) : degrees;
         return result;
     }
+    if (kind == TransformKind::Scale) {
+        for (usize axis = 0; axis < 3; ++axis) {
+            if (!constraint.isFree() && !constraint.axes[axis]) {
+                continue;
+            }
+            const auto index = static_cast<glm::length_t>(axis);
+            const f32 typedFactor = typed[0].empty() ? 1.0F : findTyped(0);
+            const f32 factor = isTyped ? typedFactor : draggedFactor[index];
+            result.factor[index] = isSnapped ? roundToStep(factor, snapping.factorStep) : factor;
+        }
+        return result;
+    }
     const std::vector<usize> axes = listFieldAxes(constraint);
     for (usize i = 0; i < axes.size(); ++i) {
         const auto axis = static_cast<glm::length_t>(axes[i]);
@@ -173,16 +188,31 @@ std::string TransformSession::describe(const AxisConstraint& constraint,
                                        const Snapping& snapping) const {
     const TransformResult result = makeResult(constraint, snapping);
     const std::vector<usize> axes = listFieldAxes(constraint);
-    std::string text = kind == TransformKind::Move ? "Move" : "Rotate";
+    std::string text = kind == TransformKind::Move     ? "Move"
+                       : kind == TransformKind::Rotate ? "Rotate"
+                                                       : "Scale";
     for (usize i = 0; i < axes.size(); ++i) {
-        const f32 value = kind == TransformKind::Move
-                              ? result.offset[static_cast<glm::length_t>(axes[i])]
-                              : result.degrees;
-        const std::string shown = !isTyped ? std::format("{:g}", std::round(value * 10.0F) / 10.0F)
-                                  : i == field ? std::format("[{}|]", typed[i])
-                                               : (typed[i].empty() ? "0" : typed[i]);
-        text += std::format("  {} {}{}", AxisNames[axes[i]], shown,
-                            kind == TransformKind::Rotate ? "°" : "");
+        const auto axis = static_cast<glm::length_t>(axes[i]);
+        f32 value = result.degrees;
+        f32 precision = 10.0F;
+        std::string name = AxisNames[axes[i]];
+        if (kind == TransformKind::Move) {
+            value = result.offset[axis];
+        } else if (kind == TransformKind::Scale) {
+            name.clear();
+            for (usize held = 0; held < 3; ++held) {
+                if (constraint.isFree() || constraint.axes[held]) {
+                    name += AxisNames[held];
+                    value = result.factor[static_cast<glm::length_t>(held)];
+                }
+            }
+            precision = 1000.0F;
+        }
+        const std::string shown =
+            !isTyped     ? std::format("{:g}", std::round(value * precision) / precision)
+            : i == field ? std::format("[{}|]", typed[i])
+                         : (typed[i].empty() ? "0" : typed[i]);
+        text += std::format("  {} {}{}", name, shown, kind == TransformKind::Rotate ? "°" : "");
     }
     if (snapping.isGridOn) {
         text += "  · Grid";
@@ -230,6 +260,15 @@ f32 findDragAngle(const glm::vec2 pivot, const glm::vec2 start, const glm::vec2 
     return sign * turned * 180.0F / Pi;
 }
 
+f32 findDragFactor(const glm::vec2 pivot, const glm::vec2 start, const glm::vec2 mouse) {
+    constexpr f32 Closest = 1.0F;
+    const f32 from = glm::length(start - pivot);
+    if (from < Closest) {
+        return 1.0F;
+    }
+    return glm::length(mouse - pivot) / from;
+}
+
 std::optional<f32> findGroundBelow(const std::span<const glm::vec3> triangles,
                                    const glm::vec3& point, const f32 reach) {
     const f32 top = point.y + reach;
@@ -268,6 +307,12 @@ std::vector<glm::vec3> makeTransformedPoints(const std::span<const glm::vec3> po
         const glm::mat4 turn = glm::rotate(glm::mat4(1.0F), glm::radians(result.degrees), axis);
         for (const glm::vec3& point : points) {
             transformed.push_back(pivot + glm::vec3(turn * glm::vec4(point - pivot, 0.0F)));
+        }
+        return transformed;
+    }
+    if (result.kind == TransformKind::Scale) {
+        for (const glm::vec3& point : points) {
+            transformed.push_back(pivot + ((point - pivot) * result.factor));
         }
         return transformed;
     }

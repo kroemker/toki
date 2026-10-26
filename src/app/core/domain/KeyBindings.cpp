@@ -42,6 +42,7 @@ constexpr auto Actions = std::to_array<ActionInfo>({
     {Action::ScaleTool, "scale_tool", "Scale Tool", ActionScope::Viewport, ""},
     {Action::Grab, "grab", "Move with the Mouse", ActionScope::Viewport, "G"},
     {Action::Turn, "turn", "Rotate with the Mouse", ActionScope::Viewport, "R"},
+    {Action::Stretch, "stretch", "Scale with the Mouse", ActionScope::Viewport, "S"},
     {Action::ConstrainX, "constrain_x", "Hold to X", ActionScope::Viewport, "X"},
     {Action::ConstrainY, "constrain_y", "Hold to Y", ActionScope::Viewport, "Y"},
     {Action::ConstrainZ, "constrain_z", "Hold to Z", ActionScope::Viewport, "Z"},

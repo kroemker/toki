@@ -49,8 +49,8 @@ struct TransformView {
     ImVec2 size{};
 };
 
-/// Moves and turns what is selected in the viewport, by a gizmo or with the
-/// mouse alone, as G and R begin, its axes held and snapped as the bar's
+/// Moves, turns and scales what is selected in the viewport, by a gizmo or
+/// with the mouse alone, as G, R and S begin, its axes held and snapped as the bar's
 /// options say. Every way runs one `TransformSession`, so a drag, a typed
 /// number, the grid and the ground mean the same in all of them.
 class ViewportTransform {
@@ -112,6 +112,7 @@ private:
     [[nodiscard]] Snapping findSnapping() const;
     [[nodiscard]] const AxisConstraint& findConstraint() const;
     [[nodiscard]] bool isTurnable(const AxisConstraint& constraint) const;
+    [[nodiscard]] bool isScalable() const;
     [[nodiscard]] std::vector<glm::vec3> makePoints() const;
     void begin(TransformKind kind);
     void confirm();

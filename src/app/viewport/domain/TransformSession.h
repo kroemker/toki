@@ -18,12 +18,13 @@ namespace toki::viewport {
 enum class TransformKind : u8 {
     Move,
     Rotate,
+    Scale,
 };
 
 /// The world axes a transform is held to, X, Y and Z; none held leaves it
 /// free. A move held to one axis slides along it, held to two slides in
 /// their plane; a rotation turns about the one axis held, or Y when it is
-/// free.
+/// free; a scale stretches along the axes held, or along all of them.
 struct AxisConstraint {
     std::array<bool, 3> axes{};
 
@@ -52,15 +53,17 @@ struct Snapping {
     bool isGroundOn = false;
     f32 gridStep = 10.0F;
     f32 angleStep = 15.0F;
+    f32 factorStep = 0.1F;
 };
 
-/// What a transform comes to: a move's offset, or a rotation's angle in
-/// degrees about an axis, right-handed.
+/// What a transform comes to: a move's offset, a rotation's angle in
+/// degrees about an axis, right-handed, or a scale's factor along each axis.
 struct TransformResult {
     TransformKind kind = TransformKind::Move;
     glm::vec3 offset{0.0F};
     usize axis = 1;
     f32 degrees = 0.0F;
+    glm::vec3 factor{1.0F};
 
     friend bool operator==(const TransformResult&, const TransformResult&) = default;
 };
@@ -84,6 +87,10 @@ public:
 
     void setDraggedAngle(const f32 degrees) {
         draggedDegrees = degrees;
+    }
+
+    void setDraggedFactor(const glm::vec3& factor) {
+        draggedFactor = factor;
     }
 
     /// Types `character` into the field being typed: a digit, a point, or a
@@ -113,6 +120,7 @@ private:
     TransformKind kind;
     glm::vec3 draggedOffset{0.0F};
     f32 draggedDegrees = 0.0F;
+    glm::vec3 draggedFactor{1.0F};
     std::array<std::string, 3> typed;
     usize field = 0;
     bool isTyped = false;
@@ -137,8 +145,12 @@ private:
 /// a little into a slope or a step still lands on top of it.
 inline constexpr f32 GroundReach = 100.0F;
 
+/// How much a drag from `start` to `mouse` stretches what is around `pivot`,
+/// all three on the image: how much farther from it the mouse is.
+[[nodiscard]] f32 findDragFactor(glm::vec2 pivot, glm::vec2 start, glm::vec2 mouse);
+
 /// `points` as `result` transforms them: moved by its offset, or turned about
-/// `pivot`. With `ground` given, three corners per triangle, each moved
+/// or stretched from `pivot`. With `ground` given, three corners per triangle, each moved
 /// point is set down on the ground below it, if there is any.
 [[nodiscard]] std::vector<glm::vec3> makeTransformedPoints(std::span<const glm::vec3> points,
                                                            const glm::vec3& pivot,

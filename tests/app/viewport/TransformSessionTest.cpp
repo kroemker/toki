@@ -2,8 +2,10 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
 
 #include <array>
+#include <vector>
 
 using Catch::Approx;
 using toki::viewport::AxisConstraint;
@@ -123,4 +125,28 @@ TEST_CASE("points are moved and set down on the ground, or turned about the pivo
         points, {0.0F, 20.0F, 0.0F}, {.kind = TransformKind::Rotate, .axis = 1, .degrees = 90.0F});
     REQUIRE(turned[0].x == Approx(0.0F).margin(1e-4));
     REQUIRE(turned[0].z == Approx(-10.0F));
+}
+
+TEST_CASE("a scale stretches from the pivot along the axes held, by a drag or a typed factor",
+          "[viewport][transform]") {
+    TransformSession session(TransformKind::Scale);
+    session.setDraggedFactor(glm::vec3(1.23F));
+    AxisConstraint free;
+    AxisConstraint alongX;
+    alongX.constrainTo(0);
+
+    REQUIRE(session.makeResult(free, {}).factor == glm::vec3(1.23F));
+    REQUIRE(session.makeResult(alongX, {}).factor == glm::vec3(1.23F, 1.0F, 1.0F));
+    REQUIRE(session.makeResult(free, {.isGridOn = true}).factor.y == Approx(1.2F));
+    REQUIRE(session.describe(alongX, {}) == "Scale  X 1.23");
+
+    REQUIRE(session.type('2'));
+    REQUIRE(session.makeResult(free, {}).factor == glm::vec3(2.0F));
+
+    const std::array<glm::vec3, 1> points{glm::vec3(3.0F, 1.0F, 1.0F)};
+    const std::vector<glm::vec3> scaled = toki::viewport::makeTransformedPoints(
+        points, glm::vec3(1.0F), session.makeResult(alongX, {}));
+    REQUIRE(scaled[0] == glm::vec3(5.0F, 1.0F, 1.0F));
+    REQUIRE(toki::viewport::findDragFactor({0.0F, 0.0F}, {10.0F, 0.0F}, {0.0F, 25.0F}) ==
+            Approx(2.5F));
 }

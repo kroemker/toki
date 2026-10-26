@@ -12,6 +12,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/CollisionDrawing.h"
+#include "app/scene/domain/MeshEdits.h"
 #include "app/scene/domain/NodeBounds.h"
 #include "app/scene/domain/PathUsers.h"
 #include "app/scene/domain/PlacementTransform.h"
@@ -42,6 +43,7 @@
 #include <cstdint>
 #include <format>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -125,7 +127,10 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
                               readActors(*scene);
                           }
                       }),
-      meshEditor(viewportPanel),
+      meshEditor(
+          viewportPanel,
+          [this](SceneEditor::ModelEdit edit) { placementEditor.pickSceneEdit(std::move(edit)); },
+          [this](const std::optional<MeshEditor::Preview>& preview) { showMeshPreview(preview); }),
       sceneOutliner(SceneOutliner::Hooks{
           .drawPlacement = [this](const PlacementRow& row) { drawActor(row); },
           .drawRoomMenu = [this](const usize room,
@@ -231,6 +236,11 @@ void ScenePanel::offerChoices() {
     choices.editTargets.emplace_back("Mesh");
     if (findLayerCollision(*scene, sceneView.layer) != nullptr) {
         choices.editTargets.emplace_back("Collision");
+        choices.isLinked = meshEditor.isLinked();
+        choices.linkTooltip =
+            "Link collision with the mesh, so that the positions of matching mesh and collision "
+            "vertices stay synced: moving a vertex of either moves every vertex of the other "
+            "that stands where it stood.";
     } else {
         meshEditor.setTarget(EditTarget::Mesh);
     }
@@ -247,6 +257,7 @@ void ScenePanel::offerChoices() {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }
         meshEditor.setTarget(static_cast<EditTarget>(chosen.editTarget));
+        meshEditor.setLinked(chosen.isLinked.value_or(meshEditor.isLinked()));
         showScene();
     });
 }
@@ -333,6 +344,25 @@ void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
         }
     }
     showLayer(layer, sceneView, collision ? &*collision : nullptr);
+}
+
+void ScenePanel::showMeshPreview(const std::optional<MeshEditor::Preview>& preview) {
+    if (!preview) {
+        isPreviewEnding = true;
+        return;
+    }
+    if (!scene || sceneView.layer >= scene->layers.size()) {
+        return;
+    }
+    viewport::ViewportContent content =
+        makeSceneContent(*scene, sceneView, markerShape, nullptr,
+                         preview->collision ? &*preview->collision : nullptr);
+    const std::vector<std::shared_ptr<const z64::MemoryImage>> written =
+        makeWrittenImages(*scene, preview->writes);
+    for (usize i = 0; i < written.size() && i < content.images.size(); ++i) {
+        content.images[i] = written[i];
+    }
+    viewportPanel.setNextFrame(std::move(content));
 }
 
 void ScenePanel::showWaterBox(const usize index, const WaterBox& box) {

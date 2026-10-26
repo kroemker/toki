@@ -56,7 +56,7 @@ constexpr f32 NoteMargin = 8.0F;
 }
 
 [[nodiscard]] bool isTransformTool(const EditTool tool) {
-    return tool == EditTool::Move || tool == EditTool::Rotate;
+    return tool == EditTool::Move || tool == EditTool::Rotate || tool == EditTool::Scale;
 }
 
 [[nodiscard]] glm::vec2 makeLocal(const ImVec2 point, const TransformView& view) {
@@ -181,6 +181,10 @@ void ViewportTransform::cancel() {
     gizmoConstraint.reset();
 }
 
+bool ViewportTransform::isScalable() const {
+    return transformTarget && transformTarget->scaleNote.empty();
+}
+
 bool ViewportTransform::isTurnable(const AxisConstraint& constraint) const {
     return transformTarget && transformTarget->isTurnable[constraint.findRotationAxis()];
 }
@@ -217,6 +221,8 @@ void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& v
         startModal(TransformKind::Move);
     } else if (core::isActionPressed(core::Action::Turn) && isTurnable(AxisConstraint{})) {
         startModal(TransformKind::Rotate);
+    } else if (core::isActionPressed(core::Action::Stretch) && isScalable()) {
+        startModal(TransformKind::Scale);
     } else if (isTransformTool(tool)) {
         applyConstraintKeys();
     }
@@ -243,6 +249,12 @@ bool ViewportTransform::updateModal(const TransformView& view) {
     if (session->getKind() == TransformKind::Move) {
         session->setDragged(findDragOffset(viewProjection, size, {modalStart.x, modalStart.y},
                                            {mouse.x, mouse.y}, pivot, view.eye, axisConstraint));
+    } else if (session->getKind() == TransformKind::Scale) {
+        if (const std::optional<glm::vec2> center =
+                findScreenPosition(viewProjection, size, pivot)) {
+            session->setDraggedFactor(glm::vec3(
+                findDragFactor(*center, {modalStart.x, modalStart.y}, {mouse.x, mouse.y})));
+        }
     } else if (const std::optional<glm::vec2> center =
                    findScreenPosition(viewProjection, size, pivot)) {
         glm::vec3 axis(0.0F);
@@ -314,13 +326,18 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
         return;
     }
     const bool isMove = tool == EditTool::Move;
+    const bool isScale = tool == EditTool::Scale;
     unsigned operation = 0;
     for (usize axis = 0; axis < AxisLabels.size(); ++axis) {
-        if (isMove && (axisConstraint.isFree() || axisConstraint.axes[axis])) {
+        const bool isAlong = axisConstraint.isFree() || axisConstraint.axes[axis];
+        if (isMove && isAlong) {
             operation |= ImGuizmo::TRANSLATE_X << axis;
         }
+        if (isScale && isAlong && isScalable()) {
+            operation |= ImGuizmo::SCALE_X << axis;
+        }
         const bool isHeld = axisConstraint.isFree() || axisConstraint.findRotationAxis() == axis;
-        if (!isMove && isHeld && transformTarget->isTurnable[axis]) {
+        if (tool == EditTool::Rotate && isHeld && transformTarget->isTurnable[axis]) {
             operation |= ImGuizmo::ROTATE_X << axis;
         }
     }
@@ -343,6 +360,13 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
                 begin(TransformKind::Move);
             }
             session->setDragged(glm::vec3(gizmoMatrix[3]) - transformTarget->pivot);
+        } else if (isScale) {
+            if (!session) {
+                begin(TransformKind::Scale);
+            }
+            session->setDraggedFactor({glm::length(glm::vec3(gizmoMatrix[0])),
+                                       glm::length(glm::vec3(gizmoMatrix[1])),
+                                       glm::length(glm::vec3(gizmoMatrix[2]))});
         } else {
             const std::array<f32, 3> turns = findTurns(delta);
             if (!session) {
@@ -427,9 +451,14 @@ bool ViewportTransform::drawOptions(const EditTool tool) {
     if (!isTransformTool(tool) && !session) {
         return false;
     }
-    const TransformKind kind = session                  ? session->getKind()
-                               : tool == EditTool::Move ? TransformKind::Move
-                                                        : TransformKind::Rotate;
+    TransformKind kind = TransformKind::Rotate;
+    if (session) {
+        kind = session->getKind();
+    } else if (tool == EditTool::Move) {
+        kind = TransformKind::Move;
+    } else if (tool == EditTool::Scale) {
+        kind = TransformKind::Scale;
+    }
     drawAxisOptions(kind);
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * 2.0F);
     const Snapping shown = findSnapping();
@@ -437,8 +466,9 @@ bool ViewportTransform::drawOptions(const EditTool tool) {
         snapping.isGridOn = !snapping.isGridOn;
     }
     ImGui::SetItemTooltip(
-        "Snap to the grid: %g units, %g° (hold Ctrl while transforming to switch it)",
-        snapping.gridStep, snapping.angleStep);
+        "Snap to the grid: %g units, %g°, a factor of %g (hold Ctrl while transforming to "
+        "switch it)",
+        snapping.gridStep, snapping.angleStep, snapping.factorStep);
     if (kind == TransformKind::Move) {
         ImGui::SameLine(0.0F, 1.0F);
         if (drawToggle(core::icons::ArrowLineDown, shown.isGroundOn)) {
@@ -458,8 +488,9 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
             ImGui::SameLine(0.0F, 1.0F);
         }
         ImGui::PushID(static_cast<int>(axis));
-        const bool isBlocked =
-            kind == TransformKind::Rotate && transformTarget && !transformTarget->isTurnable[axis];
+        const bool isBlocked = (kind == TransformKind::Rotate && transformTarget &&
+                                !transformTarget->isTurnable[axis]) ||
+                               (kind == TransformKind::Scale && transformTarget && !isScalable());
         const bool isLit = kind == TransformKind::Rotate
                                ? findConstraint().findRotationAxis() == axis
                                : findConstraint().axes[axis];
@@ -475,6 +506,11 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled |
                                  ImGuiHoveredFlags_ForTooltip)) {
             const std::string name = axis == 1 ? "Y (up)" : AxisLabels[axis];
+            std::string note;
+            if (transformTarget) {
+                note = kind == TransformKind::Scale ? transformTarget->scaleNote
+                                                    : transformTarget->turnNote;
+            }
             const std::string held =
                 kind == TransformKind::Rotate
                     ? core::makeShortcutText(std::format("Turn about {}", name),
@@ -483,9 +519,8 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
                                   core::makeShortcutText(std::format("Hold to {}", name),
                                                          findConstrainAction(axis)),
                                   core::getShortcutLabel(findPlaneAction(axis)));
-            ImGui::SetTooltip(
-                "%s", isBlocked ? std::format("{}: {}", held, transformTarget->turnNote).c_str()
-                                : held.c_str());
+            ImGui::SetTooltip("%s",
+                              isBlocked ? std::format("{}: {}", held, note).c_str() : held.c_str());
         }
         ImGui::PopID();
     }

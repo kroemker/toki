@@ -39,6 +39,7 @@ enum class Action : u8 {
     ScaleTool,
     Grab,
     Turn,
+    Stretch,
     ConstrainX,
     ConstrainY,
     ConstrainZ,

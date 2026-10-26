@@ -34,7 +34,7 @@ constexpr std::array<ToolButton, 4> ToolButtons{{
     {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true},
     {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, true},
     {core::icons::Resize, "Scale, for geometry; actors set their own scale",
-     core::Action::ScaleTool, false},
+     core::Action::ScaleTool, true},
 }};
 
 struct PickModeButton {
