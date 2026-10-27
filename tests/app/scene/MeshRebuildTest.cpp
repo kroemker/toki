@@ -250,8 +250,8 @@ TEST_CASE("a run of more vertices than the buffer holds is loaded 32 at a time",
 
 TEST_CASE("a run that draws what an earlier one loaded is rebuilt with it", "[scene][mesh]") {
     RoomParts parts;
-    for (const std::array<s16, 3>& position : std::vector<std::array<s16, 3>>{
-             {0, 0, 0}, {100, 0, 0}, {100, 0, 100}, {0, 0, 100}}) {
+    for (const std::array<s16, 3>& position :
+         std::vector<std::array<s16, 3>>{{0, 0, 0}, {100, 0, 0}, {100, 0, 100}, {0, 0, 100}}) {
         addVertex(parts.vertices, position);
     }
     addLoad(parts.list, 4);
@@ -312,7 +312,8 @@ TEST_CASE("what points past a rebuilt run is moved with the commands after it", 
     const auto room = std::make_shared<const z64::MemoryImage>(z64::layOutImage(
         {makeObject("room_vtx", "Vtx", std::move(parts.vertices), 3),
          makeObject("room_dl", "Gfx", std::move(parts.list), 3, std::move(parts.relocations)),
-         makeObject("tail_dl", "Gfx", std::move(parts.other), 3, {{.offset = 4, .symbol = "room_dl"}})},
+         makeObject("tail_dl", "Gfx", std::move(parts.other), 3,
+                    {{.offset = 4, .symbol = "room_dl"}})},
         {}));
     scene.images.push_back(room);
     toki::scene::RoomHeader header;

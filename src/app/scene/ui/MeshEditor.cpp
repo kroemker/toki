@@ -28,10 +28,10 @@
 #include <expected>
 #include <iterator>
 #include <map>
-#include <set>
-#include <string>
 #include <optional>
+#include <set>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -171,7 +171,7 @@ void MeshEditor::pickWanted() {
 std::vector<MeshPick> MeshEditor::makePicks() const {
     std::map<usize, MeshPick> picks;
     const auto add = [&picks](const std::vector<ComponentRef>& refs,
-                              std::vector<usize> MeshPick::* list) {
+                              std::vector<usize> MeshPick::*list) {
         for (const ComponentRef& ref : refs) {
             MeshPick& pick = picks[ref.piece];
             pick.room = ref.piece;
@@ -248,9 +248,8 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated, const bool g
     }
     keptMesh = planned->kept;
     isGrabWanted = grabs;
-    applyEdit([made = std::move(*planned)](SceneModel& model) {
-        return applyMeshRebuild(model, made);
-    });
+    applyEdit(
+        [made = std::move(*planned)](SceneModel& model) { return applyMeshRebuild(model, made); });
 }
 
 void MeshEditor::applyHotkeys() {

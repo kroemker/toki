@@ -158,8 +158,8 @@ class FaceReader {
 public:
     FaceReader(const Scene& scene, const viewport::Frame& frame, const usize roomCount)
         : scene(scene), frame(frame), arrays(listMappedArrays(scene, frame, "Vtx")),
-          lists(listMappedArrays(scene, frame, "Gfx")), rooms(roomCount),
-          entryIndices(roomCount), leftOut(roomCount, 0) {
+          lists(listMappedArrays(scene, frame, "Gfx")), rooms(roomCount), entryIndices(roomCount),
+          leftOut(roomCount, 0) {
         for (usize room = 0; room < roomCount; ++room) {
             rooms[room].room = room;
         }

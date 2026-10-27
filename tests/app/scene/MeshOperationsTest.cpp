@@ -140,8 +140,8 @@ usize findVertexAt(const toki::scene::RoomMesh& mesh, const glm::vec3& position)
 } // namespace
 
 TEST_CASE("faces deleted are taken out of the list that drew them", "[scene][mesh]") {
-    const Operated made = operate(makeScene(), MeshOperation::Delete,
-                                  MeshPick{.room = 0, .touchedFaces = {2, 3}});
+    const Operated made =
+        operate(makeScene(), MeshOperation::Delete, MeshPick{.room = 0, .touchedFaces = {2, 3}});
 
     REQUIRE(made.mesh.rooms[0].faces.size() == 2);
     REQUIRE(findVertexAt(made.mesh.rooms[0], {200.0F, 0.0F, 0.0F}) ==
@@ -170,8 +170,8 @@ TEST_CASE("vertices merged are one vertex at their middle, and faces they flatte
     const usize corner = findVertexAt(room, {200.0F, 0.0F, 100.0F});
     const usize other = findVertexAt(room, {200.0F, 0.0F, 0.0F});
 
-    const Operated made = operate(scene, MeshOperation::Merge,
-                                  MeshPick{.room = 0, .vertices = {corner, other}});
+    const Operated made =
+        operate(scene, MeshOperation::Merge, MeshPick{.room = 0, .vertices = {corner, other}});
 
     REQUIRE(made.mesh.rooms[0].faces.size() == 3);
     REQUIRE(findVertexAt(made.mesh.rooms[0], {200.0F, 0.0F, 50.0F}) <

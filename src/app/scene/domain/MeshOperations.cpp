@@ -54,8 +54,8 @@ std::optional<usize> mergeVertices(RoomDraft& draft, const std::span<const usize
         sum += draft.vertices[vertex].position;
     }
     const usize target = *merged.begin();
-    draft.vertices[target] = DraftVertex{.position = sum / static_cast<f32>(merged.size()),
-                                         .isMoved = true};
+    draft.vertices[target] =
+        DraftVertex{.position = sum / static_cast<f32>(merged.size()), .isMoved = true};
     for (DraftFace& face : draft.faces) {
         for (DraftCorner& corner : face.corners) {
             if (merged.contains(corner.vertex)) {

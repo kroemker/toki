@@ -260,8 +260,7 @@ private:
                 if (room->faces[face].draw.list.empty()) {
                     continue;
                 }
-                std::expected<ListState*, base::Diagnostic> list =
-                    findList(room->faces[face].draw);
+                std::expected<ListState*, base::Diagnostic> list = findList(room->faces[face].draw);
                 if (!list) {
                     return std::unexpected(list.error());
                 }
@@ -398,9 +397,8 @@ private:
             sums.assign(drafted.vertices.size(), glm::vec3(0.0F));
             for (const DraftFace& face : drafted.faces) {
                 const glm::vec3 first = findCornerPosition(drafted, face, 0);
-                const glm::vec3 facing =
-                    glm::cross(findCornerPosition(drafted, face, 1) - first,
-                               findCornerPosition(drafted, face, 2) - first);
+                const glm::vec3 facing = glm::cross(findCornerPosition(drafted, face, 1) - first,
+                                                    findCornerPosition(drafted, face, 2) - first);
                 for (const DraftCorner& corner : face.corners) {
                     if (isTurned[corner.vertex]) {
                         sums[corner.vertex] += facing;
@@ -414,8 +412,7 @@ private:
                                                   const usize corner) const {
         std::array<u8, 16> vtx = makeCornerVtx(drafts[draft], face, corner);
         const usize vertex = face.corners[corner].vertex;
-        if (face.isLit && turned[draft][vertex] &&
-            glm::length(normals[draft][vertex]) >= Flat) {
+        if (face.isLit && turned[draft][vertex] && glm::length(normals[draft][vertex]) >= Flat) {
             const std::array<u8, 3> normal = makeVtxNormal(face.transform, normals[draft][vertex]);
             std::ranges::copy(normal, vtx.begin() + NormalOffset);
         }
@@ -442,12 +439,12 @@ private:
             addWord(output.commands, static_cast<u32>(start * VtxSize));
             for (usize i = 0; i < pending.size(); i += 2) {
                 if (i + 1 < pending.size()) {
-                    addWord(output.commands, (u32{Triangle2Opcode} << 24) |
-                                                 packTriangle(pending[i].second));
+                    addWord(output.commands,
+                            (u32{Triangle2Opcode} << 24) | packTriangle(pending[i].second));
                     addWord(output.commands, packTriangle(pending[i + 1].second));
                 } else {
-                    addWord(output.commands, (u32{Triangle1Opcode} << 24) |
-                                                 packTriangle(pending[i].second));
+                    addWord(output.commands,
+                            (u32{Triangle1Opcode} << 24) | packTriangle(pending[i].second));
                     addWord(output.commands, 0);
                 }
             }
@@ -513,8 +510,7 @@ private:
     }
 
     [[nodiscard]] bool isTaken(const std::string& name) const {
-        return model.findSymbol(name) != nullptr ||
-               std::ranges::contains(takenNames, name);
+        return model.findSymbol(name) != nullptr || std::ranges::contains(takenNames, name);
     }
 
     void nameArrays() {
@@ -579,8 +575,8 @@ private:
             if (run && list.isRebuilt[*run]) {
                 const RunOutput& output = list.outputs[*run];
                 for (const usize load : output.loads) {
-                    relocations.push_back(z64::Relocation{.offset = bytes.size() + load + 4,
-                                                          .symbol = output.array});
+                    relocations.push_back(
+                        z64::Relocation{.offset = bytes.size() + load + 4, .symbol = output.array});
                 }
                 bytes.insert(bytes.end(), output.commands.begin(), output.commands.end());
                 command = list.runs[*run].end;
@@ -629,7 +625,8 @@ private:
                                         symbol.name, relocation.symbol)));
                 }
                 if (*moved[command] != addend) {
-                    n64::writeU32(symbol.bytes, relocation.offset, static_cast<u32>(*moved[command]));
+                    n64::writeU32(symbol.bytes, relocation.offset,
+                                  static_cast<u32>(*moved[command]));
                     isPatched = true;
                 }
             }
@@ -888,7 +885,8 @@ checkRebuild(const Scene& scene, const SceneModel& model, const SceneMesh& mesh,
                                                                     const u32 address) {
     for (const auto& [name, symbol] : image.symbols) {
         const u32 start = (u32{symbol.segment} << 24) | static_cast<u32>(symbol.offset);
-        if (address >= start && address < start + static_cast<u32>(std::max<usize>(symbol.size, 1))) {
+        if (address >= start &&
+            address < start + static_cast<u32>(std::max<usize>(symbol.size, 1))) {
             return std::pair{name, address - start};
         }
     }
@@ -929,10 +927,9 @@ findMovedRooms(const Scene& scene, const usize layer,
     return rooms;
 }
 
-std::expected<MeshRebuild, base::Diagnostic> planMeshRebuild(const Scene& scene,
-                                                             const SceneModel& model,
-                                                             const SceneMesh& mesh,
-                                                             const std::span<const RoomDraft> drafts) {
+std::expected<MeshRebuild, base::Diagnostic>
+planMeshRebuild(const Scene& scene, const SceneModel& model, const SceneMesh& mesh,
+                const std::span<const RoomDraft> drafts) {
     RebuildPlanner planner(scene, model, mesh, drafts);
     std::expected<MeshRebuild, base::Diagnostic> rebuild = planner.plan();
     if (!rebuild || rebuild->isEmpty()) {

@@ -89,8 +89,7 @@ glm::vec3 findCornerPosition(const RoomDraft& draft, const DraftFace& face, cons
 void setVtxPosition(std::array<u8, 16>& vtx, const glm::mat4& transform, const glm::vec3& world) {
     const glm::vec4 local = glm::inverse(transform) * glm::vec4(world, 1.0F);
     for (glm::length_t axis = 0; axis < 3; ++axis) {
-        n64::writeU16(vtx, static_cast<usize>(axis) * 2,
-                      static_cast<u16>(roundToS16(local[axis])));
+        n64::writeU16(vtx, static_cast<usize>(axis) * 2, static_cast<u16>(roundToS16(local[axis])));
     }
 }
 
@@ -114,8 +113,8 @@ std::array<u8, 16> makeProjectedVtx(const RoomDraft& draft, const DraftFace& fac
     for (usize axis = 0; axis < 2; ++axis) {
         f32 texture = 0.0F;
         for (usize corner = 0; corner < 3; ++corner) {
-            texture += weights[corner] * static_cast<f32>(n64::readS16(
-                                             face.corners[corner].vtx, TextureOffset + (axis * 2)));
+            texture += weights[corner] * static_cast<f32>(n64::readS16(face.corners[corner].vtx,
+                                                                       TextureOffset + (axis * 2)));
         }
         n64::writeU16(vtx, TextureOffset + (axis * 2), static_cast<u16>(roundToS16(texture)));
     }

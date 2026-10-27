@@ -136,10 +136,10 @@ std::vector<ComponentRef> ComponentSelection::listTouchedFaces(const EditMesh& m
                 const usize to = corners[(corner + 1) % 3];
                 const MeshEdge edge{.vertices = {std::min(from, to), std::max(from, to)}};
                 const auto found = std::ranges::lower_bound(shown.edges, edge);
-                isTouched = found != shown.edges.end() && *found == edge &&
-                            components.contains(
-                                {.piece = piece,
-                                 .index = static_cast<usize>(found - shown.edges.begin())});
+                isTouched =
+                    found != shown.edges.end() && *found == edge &&
+                    components.contains(
+                        {.piece = piece, .index = static_cast<usize>(found - shown.edges.begin())});
             }
             if (isTouched) {
                 faces.push_back({.piece = piece, .index = face});
