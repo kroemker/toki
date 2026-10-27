@@ -17,6 +17,9 @@ enum class MeshOperation : u8 {
     Flip,
     Merge,
     Split,
+    Extrude,
+    Inset,
+    Subdivide,
 };
 
 /// What of a room's mesh an operation is done to: the faces what is picked
@@ -35,6 +38,26 @@ struct OperatedRoom {
     std::vector<usize> faces;
     std::vector<usize> vertices;
 };
+
+/// Grows the region the faces `faces` names out of the rest: the faces get
+/// vertices of their own, and every edge the region shares with no other of
+/// its faces a side of two faces from where it stood to where the region's
+/// faces now are. Nothing moves; the region is moved after. Returns the
+/// region's faces.
+std::vector<usize> extrudeFaces(RoomDraft& draft, std::span<const usize> faces);
+
+/// How far toward its middle a face is shrunk by an inset.
+inline constexpr f32 InsetFraction = 0.25F;
+
+/// Shrinks each face `faces` names toward its middle and joins it to where it
+/// was by a ring of faces, their texture coordinates and colours projected
+/// from the face. Returns the shrunk faces.
+std::vector<usize> insetFaces(RoomDraft& draft, std::span<const usize> faces);
+
+/// Cuts each edge of the faces `faces` names in two, and each face that holds
+/// a cut edge, picked or not, into the triangles its cuts make, so that no
+/// crack opens. Returns the faces the picked ones were cut into.
+std::vector<usize> subdivideFaces(RoomDraft& draft, std::span<const usize> faces);
 
 /// Does `operation` to what `picks` names of `mesh`'s rooms, a draft for
 /// each room it changes.

@@ -16,6 +16,7 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include <array>
+#include <cmath>
 #include <expected>
 #include <memory>
 #include <span>
@@ -192,4 +193,44 @@ TEST_CASE("faces split off keep their place but no longer share vertices with th
     REQUIRE(room.faces[0].vertices[2] != room.faces[2].vertices[1]);
     REQUIRE(room.vertices[room.faces[0].vertices[2]].position ==
             room.vertices[room.faces[2].vertices[1]].position);
+}
+
+TEST_CASE("faces extruded get vertices of their own and sides at their open edges",
+          "[scene][mesh]") {
+    const Operated made =
+        operate(makeScene(), MeshOperation::Extrude, MeshPick{.room = 0, .faces = {0, 1}});
+
+    const toki::scene::RoomMesh& room = made.mesh.rooms[0];
+    REQUIRE(room.faces.size() == 12);
+    REQUIRE(room.vertices.size() == 10);
+    REQUIRE(room.faces[0].vertices[2] != room.faces[10].vertices[0]);
+    REQUIRE(room.vertices[room.faces[0].vertices[2]].position ==
+            room.vertices[room.faces[10].vertices[1]].position);
+}
+
+TEST_CASE("a face inset is shrunk toward its middle and ringed, its texture projected",
+          "[scene][mesh]") {
+    const Operated made =
+        operate(makeScene(), MeshOperation::Inset, MeshPick{.room = 0, .faces = {0}});
+
+    const toki::scene::RoomMesh& room = made.mesh.rooms[0];
+    REQUIRE(room.faces.size() == 10);
+    const toki::scene::MeshFace& inner = room.faces[0];
+    const glm::vec3 corner = room.vertices[inner.vertices[0]].position;
+    REQUIRE(corner.x > 0.0F);
+    REQUIRE(corner.z > 0.0F);
+    const toki::scene::MeshEntry& entry = room.entries[inner.corners[0]];
+    REQUIRE(n64::readS16(entry.vtx, 8) == static_cast<s16>(std::lround(corner.x)));
+    REQUIRE(n64::readS16(entry.vtx, 10) == static_cast<s16>(std::lround(corner.z)));
+}
+
+TEST_CASE("a face subdivided is cut in four, and its neighbour where it meets a cut edge",
+          "[scene][mesh]") {
+    const Operated made =
+        operate(makeScene(), MeshOperation::Subdivide, MeshPick{.room = 0, .faces = {0}});
+
+    const toki::scene::RoomMesh& room = made.mesh.rooms[0];
+    REQUIRE(room.faces.size() == 8);
+    REQUIRE(room.vertices.size() == 9);
+    REQUIRE(findVertexAt(room, {50.0F, 0.0F, 50.0F}) < room.vertices.size());
 }

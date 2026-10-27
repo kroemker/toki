@@ -243,10 +243,10 @@ public:
         return isViewportHovered;
     }
 
-    /// Begins moving what is offered to transform with the mouse, as G does,
-    /// once there is something to move.
-    void startGrab() {
-        viewportTransform.requestModal(TransformKind::Move);
+    /// Begins a transform of `kind` of what is offered to transform with the
+    /// mouse, as G or S do, once there is something to transform.
+    void startTransform(const TransformKind kind) {
+        viewportTransform.requestModal(kind);
     }
 
     /// The scene being read for the panel, shown over what is drawn until it

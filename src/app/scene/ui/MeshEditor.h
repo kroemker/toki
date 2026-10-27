@@ -11,6 +11,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/ui/ViewportPanel.h"
@@ -99,8 +100,9 @@ private:
     [[nodiscard]] bool canOperate(MeshOperation operation) const;
     void operate(MeshOperation operation);
     /// Writes what `operated` made of rooms, and picks what it says once
-    /// the scene is read again, then moves it with the mouse if `grabs`.
-    void rebuild(const std::vector<OperatedRoom>& operated, bool grabs);
+    /// the scene is read again, then begins a transform of it of `then`.
+    void rebuild(const std::vector<OperatedRoom>& operated,
+                 std::optional<viewport::TransformKind> then);
     [[nodiscard]] std::vector<MeshPick> makePicks() const;
     /// Picks what the last rebuild asked for, in the mesh read after it.
     void pickWanted();
@@ -133,7 +135,7 @@ private:
     /// the entries their corners load from, and vertices by one entry each.
     std::vector<std::array<MeshEntryKey, 3>> wantedFaces;
     std::vector<MeshEntryKey> wantedVertices;
-    bool isGrabWanted = false;
+    std::optional<viewport::TransformKind> wantedTransform;
     std::string failure;
     ComponentSelection selection;
     viewport::ViewportPanel::Pickables pickables;

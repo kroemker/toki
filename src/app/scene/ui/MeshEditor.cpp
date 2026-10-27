@@ -80,7 +80,7 @@ void MeshEditor::reset() {
     keptMesh.reset();
     wantedFaces.clear();
     wantedVertices.clear();
-    isGrabWanted = false;
+    wantedTransform.reset();
     failure.clear();
     selection.clear();
 }
@@ -162,10 +162,10 @@ void MeshEditor::pickWanted() {
     }
     wantedFaces.clear();
     wantedVertices.clear();
-    if (isGrabWanted && !selection.isEmpty()) {
-        viewportPanel.startGrab();
+    if (wantedTransform && !selection.isEmpty()) {
+        viewportPanel.startTransform(*wantedTransform);
     }
-    isGrabWanted = false;
+    wantedTransform.reset();
 }
 
 std::vector<MeshPick> MeshEditor::makePicks() const {
@@ -200,18 +200,29 @@ bool MeshEditor::canOperate(const MeshOperation operation) const {
         return selection.listVertices(*editMesh).size() >= 2;
     case MeshOperation::Flip:
     case MeshOperation::Split:
+    case MeshOperation::Extrude:
+    case MeshOperation::Inset:
+    case MeshOperation::Subdivide:
         return !selection.listFaces(*editMesh).empty();
     }
     return false;
 }
 
 void MeshEditor::operate(const MeshOperation operation) {
-    if (canOperate(operation)) {
-        rebuild(operateMesh(*sceneMesh, operation, makePicks()), false);
+    if (!canOperate(operation)) {
+        return;
     }
+    std::optional<viewport::TransformKind> then;
+    if (operation == MeshOperation::Extrude) {
+        then = viewport::TransformKind::Move;
+    } else if (operation == MeshOperation::Inset) {
+        then = viewport::TransformKind::Scale;
+    }
+    rebuild(operateMesh(*sceneMesh, operation, makePicks()), then);
 }
 
-void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated, const bool grabs) {
+void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
+                         const std::optional<viewport::TransformKind> then) {
     failure.clear();
     if (operated.empty() || shownScene == nullptr || !sceneMesh) {
         return;
@@ -247,7 +258,7 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated, const bool g
         }
     }
     keptMesh = planned->kept;
-    isGrabWanted = grabs;
+    wantedTransform = then;
     applyEdit(
         [made = std::move(*planned)](SceneModel& model) { return applyMeshRebuild(model, made); });
 }
@@ -260,6 +271,10 @@ void MeshEditor::applyHotkeys() {
         operate(MeshOperation::Delete);
     } else if (core::isActionPressed(core::Action::MergeVertices)) {
         operate(MeshOperation::Merge);
+    } else if (core::isActionPressed(core::Action::ExtrudeFaces)) {
+        operate(MeshOperation::Extrude);
+    } else if (core::isActionPressed(core::Action::InsetFaces)) {
+        operate(MeshOperation::Inset);
     }
 }
 
@@ -284,6 +299,15 @@ void MeshEditor::drawMenu() {
         }
         ImGui::SetItemTooltip("%s", tooltip);
     };
+    drawItem("Extrude Faces", MeshOperation::Extrude, core::Action::ExtrudeFaces,
+             "Grow the picked faces out of the rest, joined to where they stood by new faces at "
+             "their open edges, and move them with the mouse.");
+    drawItem("Inset Faces", MeshOperation::Inset, core::Action::InsetFaces,
+             "Shrink each picked face toward its middle, joined to where it was by a ring of new "
+             "faces textured as it is, and scale it with the mouse.");
+    drawItem("Subdivide", MeshOperation::Subdivide, std::nullopt,
+             "Cut each edge of the picked faces in two, and the faces into four. Faces beside "
+             "them are cut where they meet a cut edge, so no crack opens.");
     drawItem("Flip Faces", MeshOperation::Flip, std::nullopt,
              "Turn the picked faces around, so that they face and are culled the other way.");
     ImGui::Separator();

@@ -6,6 +6,7 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <optional>
 #include <set>
@@ -21,6 +22,50 @@ namespace {
     return face.corners[0].vertex == face.corners[1].vertex ||
            face.corners[1].vertex == face.corners[2].vertex ||
            face.corners[0].vertex == face.corners[2].vertex;
+}
+
+[[nodiscard]] DraftFace makeGrownFace(const RoomDraft& draft, const DraftFace& source,
+                                      const std::array<usize, 3>& vertices) {
+    DraftFace grown = source;
+    grown.original.reset();
+    for (usize corner = 0; corner < 3; ++corner) {
+        const glm::vec3& position = draft.vertices[vertices[corner]].position;
+        grown.corners[corner] = DraftCorner{.vertex = vertices[corner],
+                                            .vtx = makeProjectedVtx(draft, source, position)};
+    }
+    return grown;
+}
+
+/// The faces one face is made into, the first `picked` of them to pick.
+struct Grown {
+    std::vector<DraftFace> faces;
+    usize picked = 0;
+};
+
+/// Replaces each face with what `grow` makes of it, in its place, and
+/// returns where the faces to pick ended up.
+template <typename Grow>
+std::vector<usize> growFaces(RoomDraft& draft, Grow grow) {
+    std::vector<DraftFace> faces;
+    std::vector<usize> made;
+    const std::vector<DraftFace> before = draft.faces;
+    for (usize face = 0; face < before.size(); ++face) {
+        const Grown grown = grow(face, before[face]);
+        for (usize i = 0; i < grown.faces.size(); ++i) {
+            if (i < grown.picked) {
+                made.push_back(faces.size());
+            }
+            faces.push_back(grown.faces[i]);
+        }
+    }
+    draft.faces = std::move(faces);
+    return made;
+}
+
+using EdgeKey = std::pair<usize, usize>;
+
+[[nodiscard]] EdgeKey makeEdgeKey(const usize first, const usize second) {
+    return {std::min(first, second), std::max(first, second)};
 }
 
 } // namespace
@@ -96,6 +141,168 @@ void splitFaces(RoomDraft& draft, const std::span<const usize> faces) {
     }
 }
 
+std::vector<usize> extrudeFaces(RoomDraft& draft, const std::span<const usize> faces) {
+    const std::set<usize> region(faces.begin(), faces.end());
+    std::map<EdgeKey, usize> uses;
+    for (const usize face : region) {
+        if (face >= draft.faces.size()) {
+            continue;
+        }
+        for (usize corner = 0; corner < 3; ++corner) {
+            ++uses[makeEdgeKey(draft.faces[face].corners[corner].vertex,
+                               draft.faces[face].corners[(corner + 1) % 3].vertex)];
+        }
+    }
+    std::map<usize, usize> copies;
+    const auto copyOf = [&draft, &copies](const usize vertex) {
+        const auto [copy, isNew] = copies.emplace(vertex, draft.vertices.size());
+        if (isNew) {
+            draft.vertices.push_back(DraftVertex{.position = draft.vertices[vertex].position});
+        }
+        return copy->second;
+    };
+    std::vector<usize> capped;
+    const std::vector<DraftFace> before = draft.faces;
+    std::vector<DraftFace> made;
+    for (usize face = 0; face < before.size(); ++face) {
+        if (!region.contains(face)) {
+            made.push_back(before[face]);
+            continue;
+        }
+        const DraftFace& source = before[face];
+        DraftFace cap = source;
+        for (DraftCorner& corner : cap.corners) {
+            corner.vertex = copyOf(corner.vertex);
+        }
+        capped.push_back(made.size());
+        made.push_back(cap);
+        for (usize corner = 0; corner < 3; ++corner) {
+            const usize from = source.corners[corner].vertex;
+            const usize to = source.corners[(corner + 1) % 3].vertex;
+            if (uses[makeEdgeKey(from, to)] != 1) {
+                continue;
+            }
+            const usize fromCopy = copyOf(from);
+            const usize toCopy = copyOf(to);
+            DraftFace first = source;
+            first.original.reset();
+            first.corners = {
+                source.corners[corner], source.corners[(corner + 1) % 3],
+                DraftCorner{.vertex = toCopy, .vtx = source.corners[(corner + 1) % 3].vtx}};
+            DraftFace second = first;
+            second.corners = {
+                source.corners[corner],
+                DraftCorner{.vertex = toCopy, .vtx = source.corners[(corner + 1) % 3].vtx},
+                DraftCorner{.vertex = fromCopy, .vtx = source.corners[corner].vtx}};
+            made.push_back(first);
+            made.push_back(second);
+        }
+    }
+    draft.faces = std::move(made);
+    return capped;
+}
+
+std::vector<usize> insetFaces(RoomDraft& draft, const std::span<const usize> faces) {
+    const std::set<usize> picked(faces.begin(), faces.end());
+    return growFaces(draft, [&](const usize index, const DraftFace& face) {
+        if (!picked.contains(index)) {
+            return Grown{.faces = {face}};
+        }
+        glm::vec3 middle(0.0F);
+        for (usize corner = 0; corner < 3; ++corner) {
+            middle += findCornerPosition(draft, face, corner);
+        }
+        middle /= 3.0F;
+        std::array<usize, 3> inner{};
+        for (usize corner = 0; corner < 3; ++corner) {
+            const glm::vec3 outer = findCornerPosition(draft, face, corner);
+            inner[corner] = addDraftVertex(draft, outer + ((middle - outer) * InsetFraction));
+        }
+        std::vector<DraftFace> grown{makeGrownFace(draft, face, inner)};
+        for (usize corner = 0; corner < 3; ++corner) {
+            const usize next = (corner + 1) % 3;
+            DraftFace first = makeGrownFace(
+                draft, face, {face.corners[corner].vertex, face.corners[next].vertex, inner[next]});
+            first.corners[0] = face.corners[corner];
+            first.corners[1] = face.corners[next];
+            DraftFace second = makeGrownFace(
+                draft, face, {face.corners[corner].vertex, inner[next], inner[corner]});
+            second.corners[0] = face.corners[corner];
+            grown.push_back(first);
+            grown.push_back(second);
+        }
+        return Grown{.faces = std::move(grown), .picked = 1};
+    });
+}
+
+std::vector<usize> subdivideFaces(RoomDraft& draft, const std::span<const usize> faces) {
+    const std::set<usize> picked(faces.begin(), faces.end());
+    std::map<EdgeKey, usize> middles;
+    for (const usize face : picked) {
+        if (face >= draft.faces.size()) {
+            continue;
+        }
+        for (usize corner = 0; corner < 3; ++corner) {
+            const usize from = draft.faces[face].corners[corner].vertex;
+            const usize to = draft.faces[face].corners[(corner + 1) % 3].vertex;
+            const EdgeKey key = makeEdgeKey(from, to);
+            if (!middles.contains(key)) {
+                const glm::vec3 middle =
+                    (draft.vertices[from].position + draft.vertices[to].position) / 2.0F;
+                middles.emplace(key, addDraftVertex(draft, middle));
+            }
+        }
+    }
+    return growFaces(draft, [&](const usize index, const DraftFace& face) {
+        std::array<std::optional<usize>, 3> cuts{};
+        usize count = 0;
+        for (usize corner = 0; corner < 3; ++corner) {
+            const auto found = middles.find(
+                makeEdgeKey(face.corners[corner].vertex, face.corners[(corner + 1) % 3].vertex));
+            if (found != middles.end()) {
+                cuts[corner] = found->second;
+                ++count;
+            }
+        }
+        if (count == 0) {
+            return Grown{.faces = {face}};
+        }
+        usize first = 0;
+        while (count < 3 && (!cuts[first] || (count == 2 && !cuts[(first + 1) % 3]))) {
+            ++first;
+        }
+        const usize a = face.corners[first].vertex;
+        const usize b = face.corners[(first + 1) % 3].vertex;
+        const usize c = face.corners[(first + 2) % 3].vertex;
+        const auto cut = [&cuts, first](const usize edge) { return *cuts[(first + edge) % 3]; };
+        std::vector<std::array<usize, 3>> pieces;
+        if (count == 1) {
+            pieces = {{a, cut(0), c}, {cut(0), b, c}};
+        } else if (count == 2) {
+            pieces = {{cut(0), b, cut(1)}, {a, cut(0), cut(1)}, {a, cut(1), c}};
+        } else {
+            pieces = {{a, cut(0), cut(2)},
+                      {cut(0), b, cut(1)},
+                      {cut(2), cut(1), c},
+                      {cut(0), cut(1), cut(2)}};
+        }
+        std::vector<DraftFace> grown;
+        for (const std::array<usize, 3>& piece : pieces) {
+            DraftFace made = makeGrownFace(draft, face, piece);
+            for (usize corner = 0; corner < 3; ++corner) {
+                for (const DraftCorner& kept : face.corners) {
+                    if (kept.vertex == piece[corner]) {
+                        made.corners[corner] = kept;
+                    }
+                }
+            }
+            grown.push_back(made);
+        }
+        const usize pickedCount = picked.contains(index) ? grown.size() : 0;
+        return Grown{.faces = std::move(grown), .picked = pickedCount};
+    });
+}
+
 std::vector<OperatedRoom> operateMesh(const SceneMesh& mesh, const MeshOperation operation,
                                       const std::span<const MeshPick> picks) {
     std::vector<OperatedRoom> operated;
@@ -133,6 +340,24 @@ std::vector<OperatedRoom> operateMesh(const SceneMesh& mesh, const MeshOperation
             }
             splitFaces(made.draft, pick.faces);
             made.faces = pick.faces;
+            break;
+        case MeshOperation::Extrude:
+            if (pick.faces.empty()) {
+                continue;
+            }
+            made.faces = extrudeFaces(made.draft, pick.faces);
+            break;
+        case MeshOperation::Inset:
+            if (pick.faces.empty()) {
+                continue;
+            }
+            made.faces = insetFaces(made.draft, pick.faces);
+            break;
+        case MeshOperation::Subdivide:
+            if (pick.faces.empty()) {
+                continue;
+            }
+            made.faces = subdivideFaces(made.draft, pick.faces);
             break;
         }
         operated.push_back(std::move(made));
