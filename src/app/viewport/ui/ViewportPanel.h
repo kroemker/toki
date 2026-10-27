@@ -243,6 +243,11 @@ public:
         return isViewportHovered;
     }
 
+    /// Opens the edit menu at the cursor, as a right click on the image does.
+    void openEditMenu() {
+        isEditMenuWanted = true;
+    }
+
     /// Begins a transform of `kind` of what is offered to transform with the
     /// mouse, as G or S do, once there is something to transform.
     void startTransform(const TransformKind kind) {
@@ -321,6 +326,7 @@ private:
     ViewportTools viewportTools;
     std::string editMenuLabel;
     std::function<void()> editMenu;
+    bool isEditMenuWanted = false;
     bool isViewportHovered = false;
     bool stale = true;
     bool isOverlayStale = false;

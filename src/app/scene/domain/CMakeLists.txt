@@ -24,6 +24,7 @@ target_sources(toki_core PRIVATE
         MeshEdits.cpp
         MeshOperations.cpp
         MeshRebuild.cpp
+        MeshShapes.cpp
         PathEdits.cpp
         PathUsers.cpp
         RoomMesh.cpp

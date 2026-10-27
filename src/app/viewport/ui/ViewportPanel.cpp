@@ -242,6 +242,10 @@ void ViewportPanel::draw() {
             ClickDistance * ClickDistance) {
         ImGui::OpenPopup(EditContextPopup);
     }
+    if (isEditMenuWanted && editMenu && viewportTools.mode != SelectionMode::Node && !isModal) {
+        ImGui::OpenPopup(EditContextPopup);
+    }
+    isEditMenuWanted = false;
     if (ImGui::BeginPopup(EditContextPopup)) {
         editMenu();
         ImGui::EndPopup();

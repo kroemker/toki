@@ -4,6 +4,7 @@
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
+#include "app/scene/domain/MeshShapes.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -14,10 +15,13 @@
 #include "z64/Relocation.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 
 #include <algorithm>
 #include <array>
 #include <expected>
+#include <format>
 #include <memory>
 #include <span>
 #include <string>
@@ -32,9 +36,6 @@ using base::usize;
 using toki::scene::SceneMaterial;
 
 namespace {
-
-constexpr std::string_view FirstList = "mat_room_dl_stone_layerOpaque";
-constexpr std::string_view SecondList = "mat_room_dl_grass_layerOpaque";
 
 z64::ImageObject makeObject(std::string name, std::string type, std::vector<u8> bytes,
                             const u8 segment = 3, std::vector<z64::Relocation> relocations = {}) {
@@ -83,14 +84,17 @@ std::vector<u8> makeMaterialList(const u32 combine) {
     return list;
 }
 
-/// Two quads of a room, each drawn under a material list of its own.
-toki::scene::Scene makeScene() {
+/// Two quads of a room, each drawn under a material list of its own, the
+/// names of its symbols starting `prefix`.
+std::shared_ptr<const z64::MemoryImage> makeRoom(const std::string& prefix, const s16 x) {
+    const std::string first = std::format("mat_{}_dl_stone_layerOpaque", prefix);
+    const std::string second = std::format("mat_{}_dl_grass_layerOpaque", prefix);
     std::vector<u8> list;
     std::vector<z64::Relocation> relocations;
     for (const auto& [material, vertices] :
-         std::array{std::pair{FirstList, "room_vtx_0"}, std::pair{SecondList, "room_vtx_1"}}) {
+         std::array{std::pair{first, prefix + "_vtx_0"}, std::pair{second, prefix + "_vtx_1"}}) {
         addWord(list, 0xDE00'0000U);
-        relocations.push_back({.offset = list.size(), .symbol = std::string(material)});
+        relocations.push_back({.offset = list.size(), .symbol = material});
         addWord(list, 0);
         addWord(list, 0x0100'0000U | (4U << 12) | (4U << 1));
         relocations.push_back({.offset = list.size(), .symbol = vertices});
@@ -100,25 +104,39 @@ toki::scene::Scene makeScene() {
     }
     addWord(list, 0xDF00'0000U);
     addWord(list, 0);
+    return std::make_shared<const z64::MemoryImage>(z64::layOutImage(
+        {makeObject(first, "Gfx", makeMaterialList(1)),
+         makeObject(second, "Gfx", makeMaterialList(2)),
+         makeObject(prefix + "_vtx_0", "Vtx", makeVertices(x)),
+         makeObject(prefix + "_vtx_1", "Vtx", makeVertices(static_cast<s16>(x + 200))),
+         makeObject(prefix + "_dl", "Gfx", std::move(list), 3, std::move(relocations))},
+        {}));
+}
 
+/// A scene of `rooms` rooms as `makeRoom` makes them, side by side.
+toki::scene::Scene makeScene(const usize rooms = 1) {
     toki::scene::Scene scene;
     scene.images.push_back(std::make_shared<const z64::MemoryImage>(
         z64::layOutImage({makeObject("code", "u8", std::vector<u8>(8, 0), 0)}, {})));
     scene.images.push_back(std::make_shared<const z64::MemoryImage>(
         z64::layOutImage({makeObject("scene", "u8", std::vector<u8>(8, 0), 2)}, {})));
-    const auto room = std::make_shared<const z64::MemoryImage>(
-        z64::layOutImage({makeObject(std::string(FirstList), "Gfx", makeMaterialList(1)),
-                          makeObject(std::string(SecondList), "Gfx", makeMaterialList(2)),
-                          makeObject("room_vtx_0", "Vtx", makeVertices(0)),
-                          makeObject("room_vtx_1", "Vtx", makeVertices(200)),
-                          makeObject("room_dl", "Gfx", std::move(list), 3, std::move(relocations))},
-                         {}));
-    scene.images.push_back(room);
-    toki::scene::RoomHeader header;
-    header.displayLists.push_back({.opaque = *room->findAddress("room_dl")});
-    scene.layers.push_back(toki::scene::SceneLayer{.rooms = {header}});
+    toki::scene::SceneLayer layer;
+    for (usize room = 0; room < rooms; ++room) {
+        const std::string prefix = room == 0 ? "room" : std::format("room{}", room);
+        const auto image = makeRoom(prefix, static_cast<s16>(room * 1000));
+        scene.images.push_back(image);
+        toki::scene::RoomHeader header;
+        header.displayLists.push_back({.opaque = *image->findAddress(prefix + "_dl")});
+        layer.rooms.push_back(header);
+    }
+    scene.layers.push_back(std::move(layer));
     return scene;
 }
+
+/// What `operated` makes of `scene`, read back once its rebuild is made.
+toki::scene::SceneMesh makeRebuilt(const toki::scene::Scene& scene,
+                                   const toki::scene::SceneMesh& mesh,
+                                   const std::vector<toki::scene::OperatedRoom>& operated);
 
 const SceneMaterial& findMaterial(const std::vector<SceneMaterial>& materials,
                                   const std::string_view name) {
@@ -133,6 +151,20 @@ toki::scene::Scene makeLaidOut(const toki::scene::Scene& scene,
     made.images = model.layOut();
     made.layers[0].rooms = toki::scene::findMovedRooms(scene, 0, made.images);
     return made;
+}
+
+toki::scene::SceneMesh makeRebuilt(const toki::scene::Scene& scene,
+                                   const toki::scene::SceneMesh& mesh,
+                                   const std::vector<toki::scene::OperatedRoom>& operated) {
+    std::vector<toki::scene::RoomDraft> drafts;
+    for (const toki::scene::OperatedRoom& room : operated) {
+        drafts.push_back(room.draft);
+    }
+    toki::scene::SceneModel model(scene);
+    const auto rebuild = toki::scene::planMeshRebuild(scene, model, mesh, drafts);
+    REQUIRE(rebuild.has_value());
+    REQUIRE(toki::scene::applyMeshRebuild(model, *rebuild).has_value());
+    return toki::scene::readSceneMesh(makeLaidOut(scene, model), 0, &rebuild->kept);
 }
 
 } // namespace
@@ -198,4 +230,54 @@ TEST_CASE("a material renamed renames its list and what points at it, and one du
     REQUIRE(findMaterial(after, "moss").countFaces() == 2);
     REQUIRE(findMaterial(after, "brick").countFaces() == 0);
     REQUIRE(std::ranges::find(after, "grass", &SceneMaterial::name) == after.end());
+}
+
+TEST_CASE("a box added to a room is drawn in the run of the face it is drawn like, closed and "
+          "faced outward",
+          "[scene][mesh]") {
+    const toki::scene::Scene scene = makeScene();
+    const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+    toki::scene::OperatedRoom operated{.draft = toki::scene::makeRoomDraft(mesh.rooms[0])};
+    const toki::scene::DraftFace like = operated.draft.faces[2];
+    operated.faces = toki::scene::addMeshShape(operated.draft, toki::scene::MeshShape::Box,
+                                               {50.0F, 0.0F, 50.0F}, 100.0F, like);
+    REQUIRE(operated.faces.size() == 12);
+
+    const toki::scene::SceneMesh read = makeRebuilt(scene, mesh, {operated});
+    const toki::scene::RoomMesh& room = read.rooms[0];
+    REQUIRE(room.faces.size() == 16);
+    const std::vector<SceneMaterial> materials = toki::scene::listSceneMaterials(scene, read);
+    REQUIRE(findMaterial(materials, "grass").countFaces() == 14);
+    for (const toki::scene::MeshFace& face : room.faces) {
+        const glm::vec3 first = room.vertices[face.vertices[0]].position;
+        const glm::vec3 facing = glm::cross(room.vertices[face.vertices[1]].position - first,
+                                            room.vertices[face.vertices[2]].position - first);
+        const glm::vec3 middle = (first + room.vertices[face.vertices[1]].position +
+                                  room.vertices[face.vertices[2]].position) /
+                                 3.0F;
+        if (middle.x > 0.0F && middle.x < 100.0F && middle.y > 0.0F) {
+            REQUIRE(glm::dot(facing, middle - glm::vec3(50.0F, 50.0F, 50.0F)) > 0.0F);
+        }
+    }
+}
+
+TEST_CASE("faces moved to another room are drawn there in the run of their material",
+          "[scene][mesh]") {
+    const toki::scene::Scene scene = makeScene(2);
+    const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+    const std::vector<SceneMaterial> materials = toki::scene::listSceneMaterials(scene, mesh);
+    REQUIRE(findMaterial(materials, "stone").rooms.size() == 2);
+    const toki::scene::MeshPick pick{.room = 0, .faces = {0, 1}};
+
+    const auto operated = toki::scene::moveFacesToRoom(mesh, std::span(&pick, 1), 1, materials);
+    REQUIRE(operated.has_value());
+    REQUIRE(operated->size() == 2);
+
+    const toki::scene::SceneMesh read = makeRebuilt(scene, mesh, *operated);
+    REQUIRE(read.rooms[0].faces.size() == 2);
+    REQUIRE(read.rooms[1].faces.size() == 6);
+    const std::vector<SceneMaterial> after = toki::scene::listSceneMaterials(scene, read);
+    const SceneMaterial& stone = findMaterial(after, "stone");
+    REQUIRE(stone.findRoom(1)->faces == 4);
+    REQUIRE(stone.findRoom(0) == nullptr);
 }

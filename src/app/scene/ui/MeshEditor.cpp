@@ -326,6 +326,75 @@ void MeshEditor::drawAssignMenu() {
     ImGui::EndMenu();
 }
 
+const RoomMesh* MeshEditor::findShapeRoom() const {
+    if (!sceneMesh) {
+        return nullptr;
+    }
+    if (editMesh) {
+        const std::vector<ComponentRef> faces = selection.listFaces(*editMesh);
+        if (!faces.empty()) {
+            return findRoomMesh(*sceneMesh, faces.front().piece);
+        }
+    }
+    for (const RoomMesh& room : sceneMesh->rooms) {
+        if (!room.faces.empty() && isPieceShown(readHiddenRooms, target, room.room)) {
+            return &room;
+        }
+    }
+    return nullptr;
+}
+
+void MeshEditor::addShape(const MeshShape shape) {
+    failure.clear();
+    const RoomMesh* room = findShapeRoom();
+    if (target != EditTarget::Mesh || room == nullptr || !editMesh) {
+        return;
+    }
+    OperatedRoom made{.draft = makeRoomDraft(*room)};
+    usize like = 0;
+    for (const ComponentRef& face : selection.listFaces(*editMesh)) {
+        if (face.piece == room->room) {
+            like = face.index;
+            break;
+        }
+    }
+    const std::array<f32, 3> looked = viewportPanel.getCameraPose().target;
+    const glm::vec3 center(std::round(looked[0]), std::round(looked[1]), std::round(looked[2]));
+    made.faces = addMeshShape(made.draft, shape, center, ShapeSize, made.draft.faces[like]);
+    rebuild({made}, std::nullopt);
+}
+
+void MeshEditor::moveToRoom(const usize room) {
+    failure.clear();
+    if (!canOperate(MeshOperation::Flip)) {
+        return;
+    }
+    const std::expected<std::vector<OperatedRoom>, base::Diagnostic> operated =
+        moveFacesToRoom(*sceneMesh, makePicks(), room, materials);
+    if (!operated) {
+        failure = operated.error().message;
+        core::logWarn("{}: {}", shownScene->name, failure);
+        return;
+    }
+    rebuild(*operated, std::nullopt);
+}
+
+void MeshEditor::drawRoomMenu() {
+    if (!ImGui::BeginMenu("Move to Room", canOperate(MeshOperation::Flip))) {
+        return;
+    }
+    for (const RoomMesh& room : sceneMesh->rooms) {
+        const std::string label = std::format("Room {}", room.room);
+        if (ImGui::MenuItem(label.c_str(), nullptr, false, !room.faces.empty())) {
+            moveToRoom(room.room);
+        }
+        ImGui::SetItemTooltip("Take the picked faces out of their rooms and draw them in room "
+                              "%zu, each in the run that draws its material there.",
+                              room.room);
+    }
+    ImGui::EndMenu();
+}
+
 void MeshEditor::drawMaterialMenu(const usize material) {
     if (material >= materials.size()) {
         return;
@@ -389,6 +458,8 @@ void MeshEditor::applyHotkeys() {
         operate(MeshOperation::Extrude);
     } else if (core::isActionPressed(core::Action::InsetFaces)) {
         operate(MeshOperation::Inset);
+    } else if (core::isActionPressed(core::Action::AddMesh) && target == EditTarget::Mesh) {
+        viewportPanel.openEditMenu();
     }
 }
 
@@ -423,6 +494,7 @@ void MeshEditor::drawMenu() {
              "Cut each edge of the picked faces in two, and the faces into four. Faces beside "
              "them are cut where they meet a cut edge, so no crack opens.");
     drawAssignMenu();
+    drawRoomMenu();
     ImGui::Separator();
     drawItem("Flip Faces", MeshOperation::Flip, std::nullopt,
              "Turn the picked faces around, so that they face and are culled the other way.");
@@ -437,6 +509,20 @@ void MeshEditor::drawMenu() {
     drawItem("Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents,
              "Take out every face that holds anything picked. Lists that drew them are rebuilt "
              "without them.");
+    ImGui::Separator();
+    const RoomMesh* shapeRoom = findShapeRoom();
+    const std::string shortcut = core::getShortcutLabel(core::Action::AddMesh);
+    for (const auto& [label, shape] :
+         {std::pair{"Add Box", MeshShape::Box}, std::pair{"Add Plane", MeshShape::Plane}}) {
+        if (ImGui::MenuItem(label, shortcut.c_str(), false, shapeRoom != nullptr)) {
+            addShape(shape);
+        }
+        if (shapeRoom != nullptr) {
+            ImGui::SetItemTooltip("Add it where the camera looks, %.0f units wide, to room %zu, "
+                                  "drawn as the first picked face is, or the room's first face.",
+                                  ShapeSize, shapeRoom->room);
+        }
+    }
 }
 
 void MeshEditor::offer(const Scene& scene, const SceneView& view,

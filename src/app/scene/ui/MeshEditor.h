@@ -7,6 +7,7 @@
 #include "app/scene/domain/MeshEdits.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
+#include "app/scene/domain/MeshShapes.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
@@ -120,6 +121,12 @@ private:
     void pickWanted();
     void assignPicked(usize material);
     void drawAssignMenu();
+    void addShape(MeshShape shape);
+    void moveToRoom(usize room);
+    void drawRoomMenu();
+    /// The room a shape is added to: that of the faces picked, else the
+    /// first shown room that has faces.
+    [[nodiscard]] const RoomMesh* findShapeRoom() const;
 
     viewport::ViewportPanel& viewportPanel;
     ApplyEdit applyEdit;
