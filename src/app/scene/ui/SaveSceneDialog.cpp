@@ -4,6 +4,7 @@
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/GeometryChanges.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/scene/domain/SceneSave.h"
@@ -15,6 +16,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <functional>
 #include <string>
 #include <utility>
@@ -25,6 +27,9 @@ namespace {
 
 constexpr float Width = 44.0F;
 constexpr float Height = 30.0F;
+constexpr float TableHeight = 10.0F;
+constexpr float ChangeWidth = 8.0F;
+constexpr float NumberWidth = 5.0F;
 
 } // namespace
 
@@ -42,6 +47,7 @@ void SaveSceneDialog::open(const Scene& opened, const SceneModel* edited, const 
                   .images = opened.images,
                   .files = opened.files};
     sceneModel = edited != nullptr ? std::optional(*edited) : std::nullopt;
+    geometryChanges = edited != nullptr ? listGeometryChanges(opened, *edited) : GeometryChanges{};
     isDoNotShowAgain = false;
     isSavingUnshown = !isReviewed;
     if (isReviewed) {
@@ -119,9 +125,57 @@ void SaveSceneDialog::draw() {
         ImGui::SetItemTooltip("Saves are written at once from now on, and what they warn of goes "
                               "to the log. Settings > Scenes > Review Saves shows them again.");
     }
+    if (editFlow.isReviewing()) {
+        drawGeometryChanges();
+    }
     if (editFlow.draw(workspace->getRoot())) {
         finishSave(workspace->getRoot());
     }
+}
+
+void SaveSceneDialog::drawGeometryChanges() const {
+    if (geometryChanges.changes.empty()) {
+        return;
+    }
+    const std::string header =
+        std::format("Geometry · {} changed, {} lists and arrays unchanged",
+                    geometryChanges.changes.size(), geometryChanges.unchanged);
+    if (!ImGui::CollapsingHeader(header.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+        return;
+    }
+    ImGui::TextColored(core::palette::TextMuted, "%s",
+                       "Every list rebuilt was run on the RSP and read back as the same faces "
+                       "before it was made. Lists not named are written byte for byte as read.");
+    constexpr ImGuiTableFlags Flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp;
+    const f32 font = ImGui::GetFontSize();
+    if (!ImGui::BeginTable("##geometry", 4, Flags, ImVec2(0.0F, font * TableHeight))) {
+        return;
+    }
+    ImGui::TableSetupScrollFreeze(0, 1);
+    ImGui::TableSetupColumn("Symbol", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("Change", ImGuiTableColumnFlags_WidthFixed, font * ChangeWidth);
+    ImGui::TableSetupColumn("Commands", ImGuiTableColumnFlags_WidthFixed, font * NumberWidth);
+    ImGui::TableSetupColumn("Bytes", ImGuiTableColumnFlags_WidthFixed, font * NumberWidth);
+    ImGui::TableHeadersRow();
+    for (const GeometryChange& change : geometryChanges.changes) {
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(change.symbol.c_str());
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(getGeometryChangeName(change.kind));
+        ImGui::TableNextColumn();
+        if (change.commandsBefore != change.commandsAfter) {
+            ImGui::Text("%zu → %zu", change.commandsBefore, change.commandsAfter);
+        } else if (change.commandsAfter > 0) {
+            ImGui::TextColored(core::palette::TextMuted, "%zu", change.commandsAfter);
+        }
+        ImGui::TableNextColumn();
+        if (change.byteDelta != 0) {
+            ImGui::Text("%+lld", static_cast<long long>(change.byteDelta));
+        }
+    }
+    ImGui::EndTable();
 }
 
 } // namespace toki::scene

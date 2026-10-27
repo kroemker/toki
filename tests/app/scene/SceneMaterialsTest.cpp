@@ -1,5 +1,7 @@
 #include "app/scene/domain/SceneMaterials.h"
 
+#include "app/scene/domain/ComponentSummary.h"
+#include "app/scene/domain/GeometryChanges.h"
 #include "app/scene/domain/MaterialEdits.h"
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
@@ -280,4 +282,48 @@ TEST_CASE("faces moved to another room are drawn there in the run of their mater
     const SceneMaterial& stone = findMaterial(after, "stone");
     REQUIRE(stone.findRoom(1)->faces == 4);
     REQUIRE(stone.findRoom(0) == nullptr);
+}
+
+TEST_CASE("a save lists the lists a topology edit rebuilt, and none it left as read",
+          "[scene][mesh]") {
+    const toki::scene::Scene scene = makeScene(2);
+    const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+    toki::scene::OperatedRoom operated{.draft = toki::scene::makeRoomDraft(mesh.rooms[0])};
+    toki::scene::deleteFaces(operated.draft, std::vector<usize>{0});
+    const std::array<toki::scene::RoomDraft, 1> drafts{operated.draft};
+    toki::scene::SceneModel model(scene);
+    const auto rebuild = toki::scene::planMeshRebuild(scene, model, mesh, drafts);
+    REQUIRE(rebuild.has_value());
+    REQUIRE(toki::scene::applyMeshRebuild(model, *rebuild).has_value());
+
+    const toki::scene::GeometryChanges listed = toki::scene::listGeometryChanges(scene, model);
+    const auto list =
+        std::ranges::find(listed.changes, "room_dl", &toki::scene::GeometryChange::symbol);
+    REQUIRE(list != listed.changes.end());
+    REQUIRE(list->kind == toki::scene::GeometryChangeKind::Rebuilt);
+    REQUIRE(std::ranges::find(listed.changes, "room1_dl", &toki::scene::GeometryChange::symbol) ==
+            listed.changes.end());
+    REQUIRE(listed.unchanged > 0);
+}
+
+TEST_CASE("picked vertices are summed up where they agree, and coloured as one", "[scene][mesh]") {
+    const toki::scene::Scene scene = makeScene();
+    const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+    const std::vector<SceneMaterial> materials = toki::scene::listSceneMaterials(scene, mesh);
+    const std::vector<toki::scene::ComponentRef> vertices{{.piece = 0, .index = 0},
+                                                          {.piece = 0, .index = 1}};
+    const std::vector<toki::scene::ComponentRef> faces{{.piece = 0, .index = 0},
+                                                       {.piece = 0, .index = 2}};
+
+    const toki::scene::ComponentSummary summary =
+        toki::scene::summarizeComponents(mesh, materials, vertices, faces);
+    REQUIRE(summary.color == std::array<u8, 3>{0xFF, 0xFF, 0xFF});
+    REQUIRE(summary.alpha == u8{0xFF});
+    REQUIRE_FALSE(summary.material.has_value());
+    REQUIRE(summary.isTranslucent == false);
+
+    const std::vector<toki::scene::SymbolWrite> writes =
+        toki::scene::makeColorWrites(mesh, vertices, std::array<u8, 3>{1, 2, 3}, std::nullopt);
+    REQUIRE(writes.size() == 2);
+    REQUIRE(writes[0].bytes == std::vector<u8>{1, 2, 3});
 }

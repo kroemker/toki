@@ -6,6 +6,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/ComponentSelection.h"
+#include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MaterialEdits.h"
 #include "app/scene/domain/MeshEdits.h"
@@ -393,6 +394,40 @@ void MeshEditor::drawRoomMenu() {
                               room.room);
     }
     ImGui::EndMenu();
+}
+
+void MeshEditor::drawProperties() {
+    if (!hasPicked()) {
+        return;
+    }
+    const std::vector<ComponentRef> vertices = selection.listVertices(*editMesh);
+    const ComponentSummary summary =
+        summarizeComponents(*sceneMesh, materials, vertices, selection.listFaces(*editMesh));
+    const ComponentEdit edit = componentForm.draw(summary, materials, isCollisionLinked);
+    if (edit.isLinked) {
+        isCollisionLinked = *edit.isLinked;
+    }
+    if (edit.material) {
+        assignPicked(*edit.material);
+    }
+    if (edit.middle) {
+        transformed = vertices;
+        std::vector<glm::vec3> points;
+        for (const ComponentRef& vertex : vertices) {
+            points.push_back(editMesh->pieces[vertex.piece].vertices[vertex.index] +
+                             (*edit.middle - summary.middle));
+        }
+        commit(points);
+    }
+    if (edit.color || edit.alpha) {
+        std::vector<SymbolWrite> writes =
+            makeColorWrites(*sceneMesh, vertices, edit.color, edit.alpha);
+        if (!writes.empty()) {
+            applyEdit([writes = std::move(writes)](SceneModel& model) {
+                return applySymbolWrites(model, writes);
+            });
+        }
+    }
 }
 
 void MeshEditor::drawMaterialMenu(const usize material) {

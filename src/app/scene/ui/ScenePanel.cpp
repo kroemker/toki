@@ -473,6 +473,11 @@ void ScenePanel::drawProperties() {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
     }
+    if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node &&
+        meshEditor.hasPicked()) {
+        meshEditor.drawProperties();
+        return;
+    }
     placementEditor.drawInspector(*scene);
 }
 

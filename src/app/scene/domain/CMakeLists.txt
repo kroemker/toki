@@ -12,7 +12,9 @@ target_sources(toki_core PRIVATE
         CollisionNames.cpp
         CollisionWriters.cpp
         ComponentSelection.cpp
+        ComponentSummary.cpp
         EditMesh.cpp
+        GeometryChanges.cpp
         HeaderNames.cpp
         HeaderSettings.cpp
         HeaderSymbols.cpp

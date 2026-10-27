@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/core/ui/Dialog.h"
+#include "app/scene/domain/GeometryChanges.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/tools/ui/EditFlow.h"
@@ -37,6 +38,7 @@ public:
 private:
     void requestPlan(bool isReviewed);
     void finishSave(const std::filesystem::path& root);
+    void drawGeometryChanges() const;
 
     const workspace::WorkspaceService& workspaceService;
     std::function<void(const std::filesystem::path&)> saved;
@@ -45,6 +47,7 @@ private:
     bool isSavingUnshown = false;
     std::optional<Scene> scene;
     std::optional<SceneModel> sceneModel;
+    GeometryChanges geometryChanges;
     tools::EditFlow editFlow;
 };
 

@@ -2,6 +2,7 @@ target_sources(toki PRIVATE
         ActorForm.cpp
         CollisionForm.cpp
         CollisionRows.cpp
+        ComponentForm.cpp
         ParamsForm.cpp
         HeaderForm.cpp
         LightSettingForm.cpp

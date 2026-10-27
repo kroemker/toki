@@ -13,6 +13,7 @@
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneMaterials.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/ui/ComponentForm.h"
 #include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
@@ -92,6 +93,15 @@ public:
     /// Draws the items of a material's context menu.
     void drawMaterialMenu(usize material);
 
+    /// Whether faces or vertices of the rooms' meshes are picked, which the
+    /// Properties panel shows in place of what the Scene panel selects.
+    [[nodiscard]] bool hasPicked() const {
+        return target == EditTarget::Mesh && sceneMesh && editMesh && !selection.isEmpty();
+    }
+
+    /// Draws the Properties panel's form of what is picked.
+    void drawProperties();
+
 private:
     /// The moves a transform of the selection to `points` makes, of the
     /// target and of what is linked with it.
@@ -143,6 +153,7 @@ private:
     std::vector<SceneMaterial> materials;
     /// What a material is renamed or duplicated as, while its menu is open.
     std::string materialName;
+    ComponentForm componentForm;
     std::optional<Collision> collision;
     std::optional<EditMesh> editMesh;
     /// `editMesh` as a transform being previewed moves it.
