@@ -152,10 +152,14 @@ void ComponentForm::drawFaces(const ComponentSummary& summary,
 }
 
 void ComponentForm::drawSource(const ComponentSummary& summary) {
-    if (!ImGui::CollapsingHeader("Source") || !core::beginProperties("##source")) {
+    const ImGuiTreeNodeFlags flags = summary.isShared ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+    if (!ImGui::CollapsingHeader("Source", flags) || !core::beginProperties("##source")) {
         return;
     }
-    core::drawPropertyLabel("Vertices In", "The Vtx arrays the picked vertices are loaded from.");
+    core::drawPropertyLabel("Vertices In", "The Vtx arrays the picked vertices are loaded from.",
+                            summary.isShared ? "Some are in the scene's own segment: an edit "
+                                               "of them changes every room that draws them."
+                                             : "");
     ImGui::TextWrapped("%s", joinNames(summary.vertexArrays).c_str());
     core::drawPropertyLabel("Drawn By", "The display lists whose triangles draw the picked faces.");
     ImGui::TextWrapped("%s", joinNames(summary.lists).c_str());

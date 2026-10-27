@@ -13,6 +13,7 @@ why it is shaped that way, and what was measured.
 | [scenes.md](scenes.md) | How a scene is read from its folder, its headers out of the memory image, and drawn the way `Play_Draw` draws it, and how a fast64 export reloads. |
 | [collision.md](collision.md) | How a scene's collision is read out of its bytes, drawn by the renderer over or in place of the rooms, picked, and named from Toki's own `collision.toml`. |
 | [scene-writing.md](scene-writing.md) | How a scene is saved: its C written again from the memory image in fast64's layout, typed writers over a generic one, and checked symbol by symbol before anything is written. |
+| [geometry.md](geometry.md) | How the rooms' meshes are read, picked and edited: vertices written back into their `Vtx`, faces changed by rebuilding only the runs that draw them, checked on the RSP, and materials listed across rooms. |
 | [objects.md](objects.md) | What an object holds, how its assets are catalogued by type, and how a skeleton is posed and drawn the way an actor draws it. |
 | [textures.md](textures.md) | Where a texture's format and palette come from, how it is decoded as the RDP reads it, and how the Textures panel shows it. |
 | [actor-rendering.md](actor-rendering.md) | Drawing placed actors as their objects, by reading the literal calls in their overlay's `Init` and `Draw`; what is built and what is planned. |

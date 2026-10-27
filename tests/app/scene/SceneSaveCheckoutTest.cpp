@@ -2,8 +2,11 @@
 #include "app/scene/domain/CollisionEdits.h"
 #include "app/scene/domain/HeaderSettings.h"
 #include "app/scene/domain/LightSettingEdits.h"
+#include "app/scene/domain/MeshDraft.h"
+#include "app/scene/domain/MeshRebuild.h"
 #include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
+#include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/scene/domain/SceneSave.h"
@@ -325,6 +328,68 @@ TEST_CASE("every vanilla scene with its collision edited reads back as edited",
     }
     WARN(saved << " scenes with their collision edited read back, " << failures.size()
                << " did not");
+    INFO(listed);
+    CHECK(saved > 0);
+    CHECK(failures.empty());
+}
+
+TEST_CASE("every vanilla scene with a face taken out of every room reads back as edited",
+          "[scene][save][mesh][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize saved = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        if (scene.layers.empty()) {
+            continue;
+        }
+        const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+        std::vector<toki::scene::RoomDraft> drafts;
+        for (const toki::scene::RoomMesh& room : mesh.rooms) {
+            if (!room.faces.empty()) {
+                drafts.push_back(toki::scene::makeRoomDraft(room));
+                drafts.back().faces.erase(drafts.back().faces.begin());
+            }
+        }
+        if (drafts.empty()) {
+            continue;
+        }
+        toki::scene::SceneModel model(scene);
+        const std::expected<toki::scene::MeshRebuild, base::Diagnostic> rebuild =
+            toki::scene::planMeshRebuild(scene, model, mesh, drafts);
+        if (!rebuild) {
+            failures.push_back(asset.name + ": " + rebuild.error().message);
+            continue;
+        }
+        if (const std::expected<void, base::Diagnostic> applied =
+                toki::scene::applyMeshRebuild(model, *rebuild);
+            !applied) {
+            failures.push_back(asset.name + ": " + applied.error().message);
+            continue;
+        }
+        const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+            workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                                   .directory = scene.directory,
+                                                   .files = scene.files,
+                                                   .model = std::move(model)});
+        if (plan) {
+            ++saved;
+        } else {
+            failures.push_back(asset.name + ": " + plan.error().substr(0, 600));
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + "\n\n";
+    }
+    WARN(saved << " scenes with every room rebuilt read back, " << failures.size() << " did not");
     INFO(listed);
     CHECK(saved > 0);
     CHECK(failures.empty());

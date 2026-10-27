@@ -33,6 +33,9 @@ struct ComponentSummary {
     std::optional<bool> isTranslucent;
     std::vector<std::string> vertexArrays;
     std::vector<std::string> lists;
+    /// Whether any of the vertices is in the scene's own segment, which every
+    /// room that draws it shares.
+    bool isShared = false;
 };
 
 /// Sums up `vertices` and `faces` of `mesh`, a room's vertices and faces by

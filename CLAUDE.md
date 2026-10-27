@@ -280,8 +280,18 @@ listed below is only what no change may break.
   - A save writes declarations from their bytes, never edits the C it read.
   - Nothing is written that does not read back as the same symbols, bytes and relocations.
   - An edit of one layer never shows in another: a list two headers share is copied first.
-    Collision is the exception ([collision.md](docs/collision.md#editing)).
+    Collision and room geometry are the exceptions ([collision.md](docs/collision.md#editing),
+    [geometry.md](docs/geometry.md#layers)).
   - Unsaved edits are never thrown away without asking.
+- **[Geometry](docs/geometry.md)** — how the rooms' meshes are read, picked and edited, and
+  the materials their faces are drawn under listed across rooms.
+  - A vertex edit writes only the `Vtx` bytes and what they make stale: lit normals,
+    cullable bounds, and linked collision.
+  - A topology edit rebuilds only the runs of vertex loads and triangles whose faces
+    changed; every other command, and every list it does not touch, is written as read.
+  - Every rebuild is run on the RSP and read back as the faces drafted before it is made.
+  - Room geometry is the second exception to layers: every layer that loads a room draws
+    one mesh, so an edit of it shows in all of them.
 - **[Objects](docs/objects.md)** â€” how an object folder becomes a catalog of assets, and how
   a skeleton is posed and drawn.
   - An object is a catalog, not a model. What is drawn is picked from it; nothing assumes

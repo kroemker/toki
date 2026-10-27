@@ -1,6 +1,7 @@
 #include "ComponentSummary.h"
 
 #include "app/scene/domain/RoomMesh.h"
+#include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneMaterials.h"
 
 #include <algorithm>
@@ -51,6 +52,7 @@ ComponentSummary summarizeComponents(const SceneMesh& mesh,
         for (const usize index : room->vertices[ref.index].entries) {
             const MeshEntry& entry = room->entries[index];
             arrays.insert(entry.key.symbol);
+            summary.isShared = summary.isShared || entry.image == SceneImage;
             agree(summary.alpha, isFirstAlpha, entry.vtx[AlphaOffset]);
             if (entry.isLit) {
                 summary.hasLit = true;
