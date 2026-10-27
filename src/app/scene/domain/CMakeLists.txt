@@ -18,6 +18,8 @@ target_sources(toki_core PRIVATE
         HeaderSymbols.cpp
         LightSettingEdits.cpp
         ListEditor.cpp
+        MaterialEdits.cpp
+        MaterialTracker.cpp
         MeshDraft.cpp
         MeshEdits.cpp
         MeshOperations.cpp
@@ -35,6 +37,7 @@ target_sources(toki_core PRIVATE
         SceneHeader.cpp
         SceneLayout.cpp
         SceneLoader.cpp
+        SceneMaterials.cpp
         SceneSourceScan.cpp
         PlacementEdits.cpp
         SceneModel.cpp

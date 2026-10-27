@@ -7,6 +7,7 @@
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
+#include "app/scene/domain/MaterialEdits.h"
 #include "app/scene/domain/MeshEdits.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
@@ -20,6 +21,7 @@
 
 #include <glm/ext/vector_float3.hpp>
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include <algorithm>
 #include <array>
@@ -72,6 +74,7 @@ void MeshEditor::reset() {
     shownScene = nullptr;
     readImages.clear();
     sceneMesh.reset();
+    materials.clear();
     collision.reset();
     editMesh.reset();
     shownMesh.reset();
@@ -114,6 +117,7 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
     madeMesh.reset();
     madeWrites.clear();
     keptMesh.reset();
+    materials = sceneMesh ? listSceneMaterials(scene, *sceneMesh) : std::vector<SceneMaterial>{};
     if (target == EditTarget::Collision) {
         editMesh = collision ? makeCollisionEdit(*collision) : EditMesh{};
     } else {
@@ -263,6 +267,116 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         [made = std::move(*planned)](SceneModel& model) { return applyMeshRebuild(model, made); });
 }
 
+void MeshEditor::pickMaterial(const usize material) {
+    if (target != EditTarget::Mesh || !sceneMesh || !editMesh) {
+        return;
+    }
+    std::vector<ComponentRef> faces;
+    for (const RoomMesh& room : sceneMesh->rooms) {
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            if (findFaceMaterial(materials, room.faces[face]) == material) {
+                faces.push_back({.piece = room.room, .index = face});
+            }
+        }
+    }
+    selection.selectFaces(faces, *editMesh);
+    isOfferStale = true;
+}
+
+void MeshEditor::assignPicked(const usize material) {
+    failure.clear();
+    if (!canOperate(MeshOperation::Flip) || material >= materials.size()) {
+        return;
+    }
+    const std::expected<std::vector<OperatedRoom>, base::Diagnostic> operated =
+        assignMaterial(*sceneMesh, makePicks(), materials[material]);
+    if (!operated) {
+        failure = operated.error().message;
+        core::logWarn("{}: {}", shownScene->name, failure);
+        return;
+    }
+    rebuild(*operated, std::nullopt);
+}
+
+void MeshEditor::drawAssignMenu() {
+    if (!ImGui::BeginMenu("Assign Material", canOperate(MeshOperation::Flip))) {
+        return;
+    }
+    std::set<usize> rooms;
+    for (const MeshPick& pick : makePicks()) {
+        if (!pick.faces.empty()) {
+            rooms.insert(pick.room);
+        }
+    }
+    for (usize material = 0; material < materials.size(); ++material) {
+        const bool isDrawn = std::ranges::all_of(rooms, [&](const usize room) {
+            const MaterialRoom* drawn = materials[material].findRoom(room);
+            return drawn != nullptr && drawn->sample.has_value();
+        });
+        ImGui::PushID(static_cast<int>(material));
+        if (ImGui::MenuItem(materials[material].name.c_str(), nullptr, false, isDrawn)) {
+            assignPicked(material);
+        }
+        if (!isDrawn) {
+            ImGui::SetItemTooltip("Not drawn in every room the picked faces are in. A material is "
+                                  "not copied between rooms yet.");
+        }
+        ImGui::PopID();
+    }
+    ImGui::EndMenu();
+}
+
+void MeshEditor::drawMaterialMenu(const usize material) {
+    if (material >= materials.size()) {
+        return;
+    }
+    const SceneMaterial& picked = materials[material];
+    if (ImGui::IsWindowAppearing()) {
+        materialName = picked.name;
+    }
+    if (ImGui::MenuItem("Select Its Faces", nullptr, false, target == EditTarget::Mesh)) {
+        pickMaterial(material);
+    }
+    if (ImGui::MenuItem("Assign to Selected Faces", nullptr, false,
+                        canOperate(MeshOperation::Flip))) {
+        assignPicked(material);
+    }
+    ImGui::Separator();
+    const auto drawNamed = [this, &picked](const char* label, const bool isRename) {
+        if (!ImGui::BeginMenu(label, picked.isListed())) {
+            if (!picked.isListed()) {
+                ImGui::SetItemTooltip("Only a material set by a list of its own, as fast64 "
+                                      "writes them, has a name to change or copy.");
+            }
+            return;
+        }
+        ImGui::SetNextItemWidth(ImGui::GetFontSize() * MenuWrapEms / 2.0F);
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+        }
+        if (ImGui::InputText("##name", &materialName, ImGuiInputTextFlags_EnterReturnsTrue)) {
+            const SceneMaterial copied = picked;
+            const std::string name = materialName;
+            applyEdit([copied, name, isRename](SceneModel& model) {
+                return isRename ? renameMaterial(model, copied, name)
+                                : duplicateMaterial(model, copied, name);
+            });
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SetItemTooltip("%s", isRename ? "The new name, written into the material's list "
+                                               "in every room. Enter renames it."
+                                             : "The copy's name. Enter copies the material's "
+                                               "list in every room, drawn by no face yet.");
+        ImGui::EndMenu();
+    };
+    drawNamed("Rename", true);
+    drawNamed("Duplicate", false);
+    ImGui::BeginDisabled();
+    ImGui::MenuItem("Edit Combiner");
+    ImGui::EndDisabled();
+    ImGui::SetItemTooltip("Materials are edited in a later version.");
+}
+
 void MeshEditor::applyHotkeys() {
     if (!viewportPanel.isHovered()) {
         return;
@@ -308,6 +422,8 @@ void MeshEditor::drawMenu() {
     drawItem("Subdivide", MeshOperation::Subdivide, std::nullopt,
              "Cut each edge of the picked faces in two, and the faces into four. Faces beside "
              "them are cut where they meet a cut edge, so no crack opens.");
+    drawAssignMenu();
+    ImGui::Separator();
     drawItem("Flip Faces", MeshOperation::Flip, std::nullopt,
              "Turn the picked faces around, so that they face and are culled the other way.");
     ImGui::Separator();

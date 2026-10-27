@@ -20,6 +20,7 @@ namespace toki::scene {
 
 struct Scene;
 struct SceneLayer;
+struct SceneMaterial;
 struct SceneView;
 
 /// One placement's row of the outliner, as it is handed to be drawn.
@@ -72,6 +73,11 @@ public:
         /// context menu.
         std::function<void(const SceneNode&)> drawNodeMenu;
         std::function<void(OutlinerGroup)> drawGroupMenu;
+        /// The materials the rooms are drawn with, once the mesh was read.
+        std::function<const std::vector<SceneMaterial>*()> findMaterials;
+        /// Selects a material's faces when its row is clicked.
+        std::function<void(usize material)> pickMaterial;
+        std::function<void(usize material)> drawMaterialMenu;
     };
 
     explicit SceneOutliner(Hooks hooks) : hooks(std::move(hooks)) {}
@@ -96,6 +102,7 @@ private:
     void drawCollision(const Scene& scene, SceneView& view);
     void drawSurfaceTypes(const Collision& collision, const SceneView& view);
     void drawWaterBoxes(const Scene& scene, SceneView& view);
+    void drawMaterials();
     /// The eye at the end of a group's row that shows or hides `what` in the
     /// viewport.
     void drawShownSwitch(bool& isShown, std::string_view what) const;

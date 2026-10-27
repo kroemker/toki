@@ -9,6 +9,7 @@
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
+#include "app/scene/domain/SceneMaterials.h"
 #include "app/scene/domain/SceneView.h"
 
 #include <imgui.h>
@@ -41,6 +42,7 @@ constexpr ImVec4 EntranceColor{1.0F, 0.549F, 0.420F, 1.0F};
 constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 1.0F};
 constexpr ImVec4 CollisionColor{0.878F, 0.627F, 0.251F, 1.0F};
 constexpr ImVec4 WaterColor{0.314F, 0.612F, 1.0F, 1.0F};
+constexpr ImVec4 MaterialColor{0.565F, 0.792F, 0.494F, 1.0F};
 
 [[nodiscard]] bool containsIgnoringCase(const std::string_view text, const std::string_view part) {
     const auto lower = [](const char c) {
@@ -148,6 +150,7 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawPaths(layer, view);
         drawCollision(scene, view);
         drawWaterBoxes(scene, view);
+        drawMaterials();
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
@@ -456,6 +459,65 @@ void SceneOutliner::drawCollision(const Scene& scene, SceneView& view) {
     drawInfo(std::format("{}", collision->vertices.size()));
     drawSurfaceTypes(*collision, view);
     drawCameras(scene, *collision);
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawMaterials() {
+    const std::vector<SceneMaterial>* materials =
+        hooks.findMaterials ? hooks.findMaterials() : nullptr;
+    if (!filter.empty()) {
+        return;
+    }
+    if (materials == nullptr) {
+        drawUnread(core::icons::Palette, "Materials",
+                   "The materials the rooms are drawn with are read once the viewport selects by "
+                   "faces, edges or vertices.");
+        return;
+    }
+    const bool isOpen = beginNode("##materials", GroupFlags);
+    ImGui::SetItemTooltip("What the rooms' faces are drawn under, one row for every room's copy "
+                          "of it. Click one to select its faces; right-click to assign, rename or "
+                          "duplicate it.");
+    drawLabel(core::icons::Palette, MaterialColor, "Materials");
+    drawInfo(std::format("{}", materials->size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize index = 0; index < materials->size(); ++index) {
+        const SceneMaterial& material = (*materials)[index];
+        ImGui::PushID(static_cast<int>(index));
+        beginNode("##material", LeafFlags);
+        if (ImGui::IsItemClicked() && hooks.pickMaterial) {
+            hooks.pickMaterial(index);
+        }
+        if (ImGui::BeginItemTooltip()) {
+            ImGui::TextUnformatted(material.name.c_str());
+            if (!material.texture.empty()) {
+                ImGui::TextColored(core::palette::TextMuted, "Texture %s",
+                                   material.texture.c_str());
+            }
+            ImGui::TextColored(core::palette::TextMuted, "%s, %s",
+                               material.isTranslucent ? "Translucent" : "Opaque",
+                               material.isLit ? "lit" : "vertex coloured");
+            for (const MaterialRoom& room : material.rooms) {
+                ImGui::TextColored(core::palette::TextMuted, "Room %zu: %zu faces%s%s", room.room,
+                                   room.faces, room.list.empty() ? "" : ", set by ",
+                                   room.list.c_str());
+            }
+            ImGui::EndTooltip();
+        }
+        if (hooks.drawMaterialMenu && ImGui::BeginPopupContextItem("##materialMenu")) {
+            hooks.drawMaterialMenu(index);
+            ImGui::EndPopup();
+        }
+        drawLabel(material.texture.empty() ? core::icons::Drop : core::icons::Checkerboard,
+                  MaterialColor, material.name, material.countFaces() == 0);
+        drawInfo(
+            material.rooms.size() == 1
+                ? std::format("{} faces", material.countFaces())
+                : std::format("{} faces, {} rooms", material.countFaces(), material.rooms.size()));
+        ImGui::PopID();
+    }
     ImGui::TreePop();
 }
 

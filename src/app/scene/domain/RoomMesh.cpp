@@ -1,6 +1,7 @@
 #include "RoomMesh.h"
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/MaterialTracker.h"
 #include "app/scene/domain/RuntimeSegments.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -165,11 +166,27 @@ public:
         }
     }
 
-    void readDraw(const viewport::OutputRange& range, const DrawPart& part) {
-        for (usize output = range.first; output < range.end; ++output) {
-            if (const auto* triangle =
-                    std::get_if<n64::Triangle>(&frame.rspResult.outputs[output])) {
-                readTriangle(*triangle, part);
+    /// Reads every triangle of the draws `parts` names, following the RDP
+    /// state through every output of the frame.
+    void readFrame(const std::vector<std::optional<DrawPart>>& parts) {
+        std::vector<std::optional<DrawPart>> partOfOutput(frame.rspResult.outputs.size());
+        for (usize draw = 0; draw < parts.size() && draw < frame.drawOutputs.size(); ++draw) {
+            if (!parts[draw] || !frame.drawOutputs[draw]) {
+                continue;
+            }
+            for (usize output = frame.drawOutputs[draw]->first;
+                 output < frame.drawOutputs[draw]->end && output < partOfOutput.size(); ++output) {
+                partOfOutput[output] = parts[draw];
+            }
+        }
+        MaterialTracker tracker(scene, frame);
+        for (usize output = 0; output < frame.rspResult.outputs.size(); ++output) {
+            const n64::RspOutput& made = frame.rspResult.outputs[output];
+            if (const auto* command = std::get_if<n64::RdpCommand>(&made)) {
+                tracker.read(*command);
+            } else if (const auto* triangle = std::get_if<n64::Triangle>(&made);
+                       triangle != nullptr && partOfOutput[output]) {
+                readTriangle(*triangle, *partOfOutput[output], tracker.makeMaterial(*triangle));
             }
         }
     }
@@ -183,9 +200,11 @@ public:
     }
 
 private:
-    void readTriangle(const n64::Triangle& triangle, const DrawPart& part) {
-        MeshFace face{
-            .part = part.part, .isTranslucent = part.isTranslucent, .isLit = triangle.lit};
+    void readTriangle(const n64::Triangle& triangle, const DrawPart& part, MeshMaterial material) {
+        MeshFace face{.part = part.part,
+                      .isTranslucent = part.isTranslucent,
+                      .isLit = triangle.lit,
+                      .material = std::move(material)};
         if (const MappedArray* list = findMappedArray(lists, triangle.address)) {
             face.draw = {.list = *list->name, .command = (triangle.address - list->start) / 8};
         }
@@ -362,11 +381,7 @@ SceneMesh readSceneMesh(const Scene& scene, const usize layer, const SceneMesh* 
     const MeshContent content = makeMeshContent(scene, shown);
     const viewport::Frame frame = viewport::runWorldFrame(content.content);
     FaceReader reader(scene, frame, shown.rooms.size());
-    for (usize draw = 0; draw < content.parts.size() && draw < frame.drawOutputs.size(); ++draw) {
-        if (content.parts[draw] && frame.drawOutputs[draw]) {
-            reader.readDraw(*frame.drawOutputs[draw], *content.parts[draw]);
-        }
-    }
+    reader.readFrame(content.parts);
     mesh.rooms = reader.takeRooms();
     for (RoomMesh& room : mesh.rooms) {
         groupVertices(room, kept != nullptr && kept->layer == layer ? findRoomMesh(*kept, room.room)

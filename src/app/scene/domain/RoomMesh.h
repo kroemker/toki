@@ -56,9 +56,21 @@ struct MeshDraw {
     friend auto operator<=>(const MeshDraw&, const MeshDraw&) = default;
 };
 
+/// What a face is drawn under: the RDP state it is drawn with, as one number
+/// that two faces drawn alike share in any room, the list that set it when
+/// that is one of its own (fast64's `mat_` lists), and the symbol of the
+/// texture its tile was loaded from, if it is textured.
+struct MeshMaterial {
+    u64 content = 0;
+    std::string list;
+    std::string texture;
+
+    friend bool operator==(const MeshMaterial&, const MeshMaterial&) = default;
+};
+
 /// A triangle the room draws: its vertices, the entry each corner was loaded
-/// from, the part of the room shape and the pass that drew it, and the
-/// command that drew it.
+/// from, the part of the room shape and the pass that drew it, the command
+/// that drew it, and what it was drawn under.
 struct MeshFace {
     std::array<usize, 3> vertices{};
     std::array<usize, 3> corners{};
@@ -67,6 +79,7 @@ struct MeshFace {
     /// Whether it was lit, so that its corners' colours hold normals.
     bool isLit = false;
     MeshDraw draw;
+    MeshMaterial material;
 };
 
 /// An edge of the mesh, its vertices in increasing order.

@@ -10,6 +10,7 @@
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
+#include "app/scene/domain/SceneMaterials.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -79,6 +80,17 @@ public:
     /// picked.
     void drawMenu();
 
+    /// The materials the rooms are drawn with, once the mesh was read.
+    [[nodiscard]] const std::vector<SceneMaterial>* findMaterials() const {
+        return sceneMesh ? &materials : nullptr;
+    }
+
+    /// Selects the faces drawn under the material numbered `material`.
+    void pickMaterial(usize material);
+
+    /// Draws the items of a material's context menu.
+    void drawMaterialMenu(usize material);
+
 private:
     /// The moves a transform of the selection to `points` makes, of the
     /// target and of what is linked with it.
@@ -106,6 +118,8 @@ private:
     [[nodiscard]] std::vector<MeshPick> makePicks() const;
     /// Picks what the last rebuild asked for, in the mesh read after it.
     void pickWanted();
+    void assignPicked(usize material);
+    void drawAssignMenu();
 
     viewport::ViewportPanel& viewportPanel;
     ApplyEdit applyEdit;
@@ -119,6 +133,9 @@ private:
     usize readLayer = 0;
     std::vector<bool> readHiddenRooms;
     std::optional<SceneMesh> sceneMesh;
+    std::vector<SceneMaterial> materials;
+    /// What a material is renamed or duplicated as, while its menu is open.
+    std::string materialName;
     std::optional<Collision> collision;
     std::optional<EditMesh> editMesh;
     /// `editMesh` as a transform being previewed moves it.

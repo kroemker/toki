@@ -153,6 +153,10 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
           .pickNodes = [this](const std::span<const SceneNode> nodes) { pickInTree(nodes); },
           .drawNodeMenu = [this](const SceneNode& node) { drawNodeMenu(node); },
           .drawGroupMenu = [this](const OutlinerGroup group) { drawGroupMenu(group); },
+          .findMaterials = [this] { return meshEditor.findMaterials(); },
+          .pickMaterial = [this](const usize material) { meshEditor.pickMaterial(material); },
+          .drawMaterialMenu =
+              [this](const usize material) { meshEditor.drawMaterialMenu(material); },
       }) {}
 
 void ScenePanel::setScene(Scene read) {
