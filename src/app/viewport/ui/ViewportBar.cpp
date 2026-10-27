@@ -354,6 +354,10 @@ std::optional<ViewportChoices> drawEditTargets(const ViewportChoices& choices) {
     return edit;
 }
 
+bool beginBarMenu(const std::string& label, const char* popup) {
+    return beginPopover(label, popup, false);
+}
+
 std::optional<ViewportView> applyViewportHotkeys(const ViewportView& view) {
     if (core::isActionPressed(core::Action::ToggleOverlays)) {
         ViewportView changed = view;

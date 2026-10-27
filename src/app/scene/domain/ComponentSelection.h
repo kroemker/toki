@@ -44,6 +44,21 @@ public:
     /// The vertices of what is selected: what a transform moves.
     [[nodiscard]] std::vector<ComponentRef> listVertices(const EditMesh& mesh) const;
 
+    /// The faces what is selected wholly holds: what an edit of faces
+    /// changes.
+    [[nodiscard]] std::vector<ComponentRef> listFaces(const EditMesh& mesh) const;
+
+    /// The faces that hold anything selected: what deleting it takes out.
+    [[nodiscard]] std::vector<ComponentRef> listTouchedFaces(const EditMesh& mesh) const;
+
+    /// Selects `faces` alone, as the mode selects them: themselves, their
+    /// vertices, or the edges those hold.
+    void selectFaces(std::span<const ComponentRef> faces, const EditMesh& mesh);
+
+    /// Selects `vertices` alone, as the mode selects them: themselves, the
+    /// edges they hold, or the faces they hold.
+    void selectVertices(std::span<const ComponentRef> vertices, const EditMesh& mesh);
+
     /// Forgets what `mesh` no longer holds.
     void keepWithin(const EditMesh& mesh);
 

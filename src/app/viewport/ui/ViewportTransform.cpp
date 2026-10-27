@@ -217,7 +217,11 @@ void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& v
                             ImGui::GetIO().MousePos.y - view.origin.y);
         lastMouse = modalStart;
     };
-    if (core::isActionPressed(core::Action::Grab)) {
+    if (requestedModal) {
+        const TransformKind kind = *requestedModal;
+        requestedModal.reset();
+        startModal(kind);
+    } else if (core::isActionPressed(core::Action::Grab)) {
         startModal(TransformKind::Move);
     } else if (core::isActionPressed(core::Action::Turn) && isTurnable(AxisConstraint{})) {
         startModal(TransformKind::Rotate);

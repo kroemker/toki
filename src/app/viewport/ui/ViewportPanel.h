@@ -229,6 +229,26 @@ public:
         viewportHandles.setHandles(std::move(handles), std::move(handler), std::move(preview));
     }
 
+    /// What the bar's edit menu, labelled `label`, and a right click on the
+    /// image hold while the viewport selects by faces, edges or vertices:
+    /// `drawMenu` draws its items. Nothing takes the menu away.
+    void setEditMenu(std::string label, std::function<void()> drawMenu) {
+        editMenuLabel = std::move(label);
+        editMenu = std::move(drawMenu);
+    }
+
+    /// Whether the cursor was over the viewport last frame with no transform
+    /// running, where its keys are heard.
+    [[nodiscard]] bool isHovered() const {
+        return isViewportHovered;
+    }
+
+    /// Begins moving what is offered to transform with the mouse, as G does,
+    /// once there is something to move.
+    void startGrab() {
+        viewportTransform.requestModal(TransformKind::Move);
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -299,6 +319,9 @@ private:
     /// picks nothing.
     bool isPressSwallowed = false;
     ViewportTools viewportTools;
+    std::string editMenuLabel;
+    std::function<void()> editMenu;
+    bool isViewportHovered = false;
     bool stale = true;
     bool isOverlayStale = false;
     bool reported = false;

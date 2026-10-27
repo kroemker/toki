@@ -99,6 +99,13 @@ public:
         return isModalRunning;
     }
 
+    /// Begins a transform of `kind` with the mouse the next time hotkeys are
+    /// applied while there is something to transform, as an edit that made
+    /// what is selected asks.
+    void requestModal(const TransformKind kind) {
+        requestedModal = kind;
+    }
+
     /// Whether the gizmo has the mouse, so the viewport's button gives way.
     [[nodiscard]] bool isGizmoActive(EditTool tool) const;
 
@@ -133,6 +140,7 @@ private:
     Snapping snapping;
     std::optional<TransformSession> session;
     bool isModalRunning = false;
+    std::optional<TransformKind> requestedModal;
     EditTool shownTool = EditTool::Select;
     /// The axes the bar held before G or R began a transform of their own,
     /// given back once it ends.

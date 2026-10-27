@@ -52,6 +52,12 @@ constexpr auto Actions = std::to_array<ActionInfo>({
      "Shift+Y"},
     {Action::ConstrainPlaneZ, "constrain_plane_z", "Hold to X and Y", ActionScope::Viewport,
      "Shift+Z"},
+    {Action::DeleteComponents, "delete_components", "Delete Faces", ActionScope::Viewport,
+     "Delete"},
+    {Action::MergeVertices, "merge_vertices", "Merge at Center", ActionScope::Viewport, "M"},
+    {Action::ExtrudeFaces, "extrude_faces", "Extrude Faces", ActionScope::Viewport, "Alt+E"},
+    {Action::InsetFaces, "inset_faces", "Inset Faces", ActionScope::Viewport, "I"},
+    {Action::AddMesh, "add_mesh", "Add Box or Plane", ActionScope::Viewport, "Shift+A"},
 });
 
 static_assert(Actions.size() == ActionCount, "every action needs its info");

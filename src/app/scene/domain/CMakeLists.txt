@@ -20,6 +20,7 @@ target_sources(toki_core PRIVATE
         ListEditor.cpp
         MeshDraft.cpp
         MeshEdits.cpp
+        MeshOperations.cpp
         MeshRebuild.cpp
         PathEdits.cpp
         PathUsers.cpp

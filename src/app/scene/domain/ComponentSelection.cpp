@@ -108,6 +108,70 @@ std::vector<ComponentRef> ComponentSelection::listVertices(const EditMesh& mesh)
     return {vertices.begin(), vertices.end()};
 }
 
+std::vector<ComponentRef> ComponentSelection::listFaces(const EditMesh& mesh) const {
+    if (mode == SelectionMode::Face) {
+        return {components.begin(), components.end()};
+    }
+    const std::set<ComponentRef> faces =
+        listHeldFaces(listSelectedVertices(components, mode, mesh), mesh);
+    return {faces.begin(), faces.end()};
+}
+
+std::vector<ComponentRef> ComponentSelection::listTouchedFaces(const EditMesh& mesh) const {
+    if (mode == SelectionMode::Face) {
+        return {components.begin(), components.end()};
+    }
+    std::vector<ComponentRef> faces;
+    for (usize piece = 0; piece < mesh.pieces.size(); ++piece) {
+        const EditPiece& shown = mesh.pieces[piece];
+        for (usize face = 0; face < shown.faces.size(); ++face) {
+            const std::array<usize, 3>& corners = shown.faces[face];
+            bool isTouched = false;
+            for (usize corner = 0; corner < 3 && !isTouched; ++corner) {
+                if (mode == SelectionMode::Vertex) {
+                    isTouched = components.contains({.piece = piece, .index = corners[corner]});
+                    continue;
+                }
+                const usize from = corners[corner];
+                const usize to = corners[(corner + 1) % 3];
+                const MeshEdge edge{.vertices = {std::min(from, to), std::max(from, to)}};
+                const auto found = std::ranges::lower_bound(shown.edges, edge);
+                isTouched = found != shown.edges.end() && *found == edge &&
+                            components.contains(
+                                {.piece = piece,
+                                 .index = static_cast<usize>(found - shown.edges.begin())});
+            }
+            if (isTouched) {
+                faces.push_back({.piece = piece, .index = face});
+            }
+        }
+    }
+    return faces;
+}
+
+void ComponentSelection::selectFaces(const std::span<const ComponentRef> faces,
+                                     const EditMesh& mesh) {
+    const std::set<ComponentRef> picked(faces.begin(), faces.end());
+    if (mode == SelectionMode::Face) {
+        components = picked;
+        return;
+    }
+    const std::set<ComponentRef> vertices = listSelectedVertices(picked, SelectionMode::Face, mesh);
+    components = mode == SelectionMode::Vertex ? vertices : listHeldEdges(vertices, mesh);
+}
+
+void ComponentSelection::selectVertices(const std::span<const ComponentRef> vertices,
+                                        const EditMesh& mesh) {
+    const std::set<ComponentRef> picked(vertices.begin(), vertices.end());
+    if (mode == SelectionMode::Vertex) {
+        components = picked;
+    } else if (mode == SelectionMode::Edge) {
+        components = listHeldEdges(picked, mesh);
+    } else {
+        components = listHeldFaces(picked, mesh);
+    }
+}
+
 void ComponentSelection::keepWithin(const EditMesh& mesh) {
     std::erase_if(components, [this, &mesh](const ComponentRef& component) {
         if (component.piece >= mesh.pieces.size()) {

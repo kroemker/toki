@@ -1,11 +1,15 @@
 #include "MeshEditor.h"
 
+#include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/Log.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MeshEdits.h"
+#include "app/scene/domain/MeshOperations.h"
+#include "app/scene/domain/MeshRebuild.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
@@ -21,7 +25,11 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <expected>
 #include <iterator>
+#include <map>
+#include <set>
+#include <string>
 #include <optional>
 #include <span>
 #include <utility>
@@ -39,6 +47,7 @@ constexpr f32 SelectedFaceAlpha = 0.3F;
 constexpr f32 EdgeWidth = 1.0F;
 constexpr f32 SelectedEdgeWidth = 2.0F;
 constexpr f32 VertexSize = 5.0F;
+constexpr f32 MenuWrapEms = 24.0F;
 
 [[nodiscard]] bool isPieceShown(const std::vector<bool>& hiddenRooms, const EditTarget target,
                                 const usize piece) {
@@ -68,6 +77,11 @@ void MeshEditor::reset() {
     shownMesh.reset();
     madeWrites.clear();
     madeMesh.reset();
+    keptMesh.reset();
+    wantedFaces.clear();
+    wantedVertices.clear();
+    isGrabWanted = false;
+    failure.clear();
     selection.clear();
 }
 
@@ -82,8 +96,12 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
         if (madeMesh && madeMesh->layer == view.layer && hasSymbolWrites(scene, madeWrites)) {
             sceneMesh = std::move(madeMesh);
         } else {
-            const SceneMesh* kept =
-                sceneMesh && sceneMesh->layer == view.layer ? &*sceneMesh : nullptr;
+            const SceneMesh* kept = nullptr;
+            if (keptMesh && keptMesh->layer == view.layer) {
+                kept = &*keptMesh;
+            } else if (sceneMesh && sceneMesh->layer == view.layer) {
+                kept = &*sceneMesh;
+            }
             SceneMesh read = readSceneMesh(scene, view.layer, kept);
             if (kept == nullptr) {
                 for (const base::Diagnostic& diagnostic : read.diagnostics) {
@@ -95,6 +113,7 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
     }
     madeMesh.reset();
     madeWrites.clear();
+    keptMesh.reset();
     if (target == EditTarget::Collision) {
         editMesh = collision ? makeCollisionEdit(*collision) : EditMesh{};
     } else {
@@ -104,6 +123,181 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
     }
     shownMesh = editMesh;
     selection.keepWithin(*editMesh);
+    pickWanted();
+}
+
+void MeshEditor::pickWanted() {
+    if (wantedFaces.empty() && wantedVertices.empty()) {
+        return;
+    }
+    if (target == EditTarget::Mesh && sceneMesh) {
+        const std::set<std::array<MeshEntryKey, 3>> faces(wantedFaces.begin(), wantedFaces.end());
+        const std::set<MeshEntryKey> vertices(wantedVertices.begin(), wantedVertices.end());
+        std::vector<ComponentRef> pickedFaces;
+        std::vector<ComponentRef> pickedVertices;
+        for (const RoomMesh& room : sceneMesh->rooms) {
+            for (usize face = 0; face < room.faces.size(); ++face) {
+                std::array<MeshEntryKey, 3> keys;
+                for (usize corner = 0; corner < 3; ++corner) {
+                    keys[corner] = room.entries[room.faces[face].corners[corner]].key;
+                }
+                if (faces.contains(keys)) {
+                    pickedFaces.push_back({.piece = room.room, .index = face});
+                }
+            }
+            for (usize vertex = 0; vertex < room.vertices.size(); ++vertex) {
+                if (std::ranges::any_of(room.vertices[vertex].entries, [&](const usize entry) {
+                        return vertices.contains(room.entries[entry].key);
+                    })) {
+                    pickedVertices.push_back({.piece = room.room, .index = vertex});
+                }
+            }
+        }
+        if (!pickedFaces.empty()) {
+            selection.selectFaces(pickedFaces, *editMesh);
+        } else {
+            selection.selectVertices(pickedVertices, *editMesh);
+        }
+        isOfferStale = true;
+    }
+    wantedFaces.clear();
+    wantedVertices.clear();
+    if (isGrabWanted && !selection.isEmpty()) {
+        viewportPanel.startGrab();
+    }
+    isGrabWanted = false;
+}
+
+std::vector<MeshPick> MeshEditor::makePicks() const {
+    std::map<usize, MeshPick> picks;
+    const auto add = [&picks](const std::vector<ComponentRef>& refs,
+                              std::vector<usize> MeshPick::* list) {
+        for (const ComponentRef& ref : refs) {
+            MeshPick& pick = picks[ref.piece];
+            pick.room = ref.piece;
+            (pick.*list).push_back(ref.index);
+        }
+    };
+    add(selection.listFaces(*editMesh), &MeshPick::faces);
+    add(selection.listTouchedFaces(*editMesh), &MeshPick::touchedFaces);
+    add(selection.listVertices(*editMesh), &MeshPick::vertices);
+    std::vector<MeshPick> listed;
+    for (auto& [room, pick] : picks) {
+        listed.push_back(std::move(pick));
+    }
+    return listed;
+}
+
+bool MeshEditor::canOperate(const MeshOperation operation) const {
+    if (target != EditTarget::Mesh || !sceneMesh || !editMesh || shownScene == nullptr ||
+        selection.isEmpty()) {
+        return false;
+    }
+    switch (operation) {
+    case MeshOperation::Delete:
+        return true;
+    case MeshOperation::Merge:
+        return selection.listVertices(*editMesh).size() >= 2;
+    case MeshOperation::Flip:
+    case MeshOperation::Split:
+        return !selection.listFaces(*editMesh).empty();
+    }
+    return false;
+}
+
+void MeshEditor::operate(const MeshOperation operation) {
+    if (canOperate(operation)) {
+        rebuild(operateMesh(*sceneMesh, operation, makePicks()), false);
+    }
+}
+
+void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated, const bool grabs) {
+    failure.clear();
+    if (operated.empty() || shownScene == nullptr || !sceneMesh) {
+        return;
+    }
+    std::vector<RoomDraft> drafts;
+    for (const OperatedRoom& room : operated) {
+        drafts.push_back(room.draft);
+    }
+    std::expected<MeshRebuild, base::Diagnostic> planned =
+        planMeshRebuild(*shownScene, SceneModel(*shownScene), *sceneMesh, drafts);
+    if (!planned) {
+        failure = planned.error().message;
+        core::logWarn("{}: {}", shownScene->name, failure);
+        return;
+    }
+    if (planned->isEmpty()) {
+        return;
+    }
+    wantedFaces.clear();
+    wantedVertices.clear();
+    for (usize draft = 0; draft < operated.size(); ++draft) {
+        for (const usize face : operated[draft].faces) {
+            wantedFaces.push_back(planned->faces[draft][face]);
+        }
+        for (const usize vertex : operated[draft].vertices) {
+            for (usize face = 0; face < drafts[draft].faces.size(); ++face) {
+                for (usize corner = 0; corner < 3; ++corner) {
+                    if (drafts[draft].faces[face].corners[corner].vertex == vertex) {
+                        wantedVertices.push_back(planned->faces[draft][face][corner]);
+                    }
+                }
+            }
+        }
+    }
+    keptMesh = planned->kept;
+    isGrabWanted = grabs;
+    applyEdit([made = std::move(*planned)](SceneModel& model) {
+        return applyMeshRebuild(model, made);
+    });
+}
+
+void MeshEditor::applyHotkeys() {
+    if (!viewportPanel.isHovered()) {
+        return;
+    }
+    if (core::isActionPressed(core::Action::DeleteComponents)) {
+        operate(MeshOperation::Delete);
+    } else if (core::isActionPressed(core::Action::MergeVertices)) {
+        operate(MeshOperation::Merge);
+    }
+}
+
+void MeshEditor::drawMenu() {
+    if (target != EditTarget::Mesh) {
+        ImGui::TextDisabled("Faces are edited on the mesh. The collision's are moved.");
+        return;
+    }
+    if (editMesh) {
+        ImGui::TextDisabled("Mesh · %zu faces", selection.listFaces(*editMesh).size());
+    }
+    if (!failure.empty()) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * MenuWrapEms);
+        ImGui::TextColored(core::palette::Danger, "%s", failure.c_str());
+        ImGui::PopTextWrapPos();
+    }
+    const auto drawItem = [this](const char* label, const MeshOperation operation,
+                                 const std::optional<core::Action> action, const char* tooltip) {
+        const std::string shortcut = action ? core::getShortcutLabel(*action) : std::string();
+        if (ImGui::MenuItem(label, shortcut.c_str(), false, canOperate(operation))) {
+            operate(operation);
+        }
+        ImGui::SetItemTooltip("%s", tooltip);
+    };
+    drawItem("Flip Faces", MeshOperation::Flip, std::nullopt,
+             "Turn the picked faces around, so that they face and are culled the other way.");
+    ImGui::Separator();
+    drawItem("Merge at Center", MeshOperation::Merge, core::Action::MergeVertices,
+             "Put the picked vertices together at their middle, as one vertex. Faces left with "
+             "two corners at it are taken out.");
+    drawItem("Split Faces", MeshOperation::Split, std::nullopt,
+             "Give the picked faces vertices of their own where they meet the rest, so that they "
+             "move and are lit apart from it.");
+    ImGui::Separator();
+    drawItem("Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents,
+             "Take out every face that holds anything picked. Lists that drew them are rebuilt "
+             "without them.");
 }
 
 void MeshEditor::offer(const Scene& scene, const SceneView& view,
@@ -132,6 +326,8 @@ void MeshEditor::offer(const Scene& scene, const SceneView& view,
                                [this](const viewport::ViewportPanel::ViewportPick& hit,
                                       const viewport::PickMode pickMode) { pick(hit, pickMode); });
     viewportPanel.setSelectedOwners({});
+    viewportPanel.setEditMenu("Mesh", [this] { drawMenu(); });
+    applyHotkeys();
     offerTransform();
     overlay.faces.insert(overlay.faces.end(), componentOverlay.faces.begin(),
                          componentOverlay.faces.end());

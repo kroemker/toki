@@ -68,6 +68,8 @@ constexpr f32 DegreesPerPoint = 0.4F;
 /// click to pick, and how near a point it must be.
 constexpr f32 ClickDistance = 4.0F;
 constexpr f32 BoxFillAlpha = 0.15F;
+constexpr const char* EditMenuPopup = "##editMenu";
+constexpr const char* EditContextPopup = "##editContext";
 constexpr f32 SelectionFill = 0.18F;
 constexpr f32 SelectionEdge = 0.85F;
 constexpr f32 SelectionEdgeWidth = 1.0F;
@@ -160,6 +162,14 @@ void ViewportPanel::drawBar() {
         }
         ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     }
+    if (viewportTools.mode != SelectionMode::Node && editMenu) {
+        const std::string label = std::format("{} {}", editMenuLabel, core::icons::CaretDown);
+        if (beginBarMenu(label, EditMenuPopup)) {
+            editMenu();
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    }
     drawPickModes(viewportTools, findPickMode());
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     if (viewportTransform.drawOptions(viewportTools.tool)) {
@@ -199,8 +209,9 @@ void ViewportPanel::draw() {
          ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
         isPressSwallowed = true;
     }
-    if (!isModal && !viewportTransform.isModal() &&
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+    isViewportHovered = !isModal && !viewportTransform.isModal() &&
+                        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    if (isViewportHovered) {
         if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
             setView(*changed);
         }
@@ -221,8 +232,19 @@ void ViewportPanel::draw() {
                                    ImGuiButtonFlags_MouseButtonRight |
                                    ImGuiButtonFlags_MouseButtonMiddle);
     }
+    const bool isImageHovered = ImGui::IsItemHovered();
     if (handleInput(size)) {
         stale = true;
+    }
+    if (isImageHovered && editMenu && viewportTools.mode != SelectionMode::Node && !isModal &&
+        ImGui::IsMouseReleased(ImGuiMouseButton_Right) &&
+        ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] <
+            ClickDistance * ClickDistance) {
+        ImGui::OpenPopup(EditContextPopup);
+    }
+    if (ImGui::BeginPopup(EditContextPopup)) {
+        editMenu();
+        ImGui::EndPopup();
     }
     if (ImGui::IsItemActive() && !isPressSwallowed &&
         ImGui::IsMouseDragging(ImGuiMouseButton_Left, ClickDistance)) {

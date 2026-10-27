@@ -89,6 +89,7 @@ public:
         viewportPanel.setPickables({}, nullptr);
         viewportPanel.setTransformTarget(std::nullopt, {});
         viewportPanel.setHandles({}, nullptr);
+        viewportPanel.setEditMenu({}, nullptr);
     }
 
     /// How the open scene is shown, to open it again the same way, or nothing

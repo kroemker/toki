@@ -5,6 +5,8 @@
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MeshEdits.h"
+#include "app/scene/domain/MeshOperations.h"
+#include "app/scene/domain/MeshRebuild.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
@@ -18,6 +20,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace toki::scene {
@@ -71,6 +74,10 @@ public:
     /// Forgets the scene, when another is shown.
     void reset();
 
+    /// Draws the items of the viewport's Mesh menu: what is done to what is
+    /// picked.
+    void drawMenu();
+
 private:
     /// The moves a transform of the selection to `points` makes, of the
     /// target and of what is linked with it.
@@ -88,6 +95,15 @@ private:
     void preview(const std::optional<viewport::TransformEdit>& edit);
     void makeOffer();
     void makeOverlay();
+    void applyHotkeys();
+    [[nodiscard]] bool canOperate(MeshOperation operation) const;
+    void operate(MeshOperation operation);
+    /// Writes what `operated` made of rooms, and picks what it says once
+    /// the scene is read again, then moves it with the mouse if `grabs`.
+    void rebuild(const std::vector<OperatedRoom>& operated, bool grabs);
+    [[nodiscard]] std::vector<MeshPick> makePicks() const;
+    /// Picks what the last rebuild asked for, in the mesh read after it.
+    void pickWanted();
 
     viewport::ViewportPanel& viewportPanel;
     ApplyEdit applyEdit;
@@ -111,6 +127,14 @@ private:
     /// the scene's images hold what it wrote.
     std::vector<SymbolWrite> madeWrites;
     std::optional<SceneMesh> madeMesh;
+    /// What the last rebuild grouped its entries into, to read them so.
+    std::optional<SceneMesh> keptMesh;
+    /// What to pick once the scene is read after the last rebuild: faces by
+    /// the entries their corners load from, and vertices by one entry each.
+    std::vector<std::array<MeshEntryKey, 3>> wantedFaces;
+    std::vector<MeshEntryKey> wantedVertices;
+    bool isGrabWanted = false;
+    std::string failure;
     ComponentSelection selection;
     viewport::ViewportPanel::Pickables pickables;
     /// What each of `pickables` stands for, in the same order.

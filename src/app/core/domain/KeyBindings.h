@@ -46,9 +46,14 @@ enum class Action : u8 {
     ConstrainPlaneX,
     ConstrainPlaneY,
     ConstrainPlaneZ,
+    DeleteComponents,
+    MergeVertices,
+    ExtrudeFaces,
+    InsetFaces,
+    AddMesh,
 };
 
-inline constexpr usize ActionCount = static_cast<usize>(Action::ConstrainPlaneZ) + 1;
+inline constexpr usize ActionCount = static_cast<usize>(Action::AddMesh) + 1;
 
 /// Where an action's key is heard: anywhere in the window, or only while the
 /// cursor is over the viewport.
