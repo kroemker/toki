@@ -27,6 +27,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -89,8 +90,8 @@ struct MeshContent {
     return mesh;
 }
 
-/// A `Vtx` array where the frame mapped it.
-struct VertexArray {
+/// A `Vtx` or `Gfx` array where the frame mapped it.
+struct MappedArray {
     u32 start = 0;
     u32 end = 0;
     usize image = 0;
@@ -99,20 +100,20 @@ struct VertexArray {
     const std::string* name = nullptr;
 };
 
-[[nodiscard]] std::vector<VertexArray> listVertexArrays(const Scene& scene,
-                                                        const viewport::Frame& frame) {
-    std::vector<VertexArray> arrays;
+[[nodiscard]] std::vector<MappedArray>
+listMappedArrays(const Scene& scene, const viewport::Frame& frame, const std::string_view type) {
+    std::vector<MappedArray> arrays;
     for (usize image = SceneImage; image < scene.images.size(); ++image) {
         if (image >= frame.mappedImages.size() || !frame.mappedImages[image]) {
             continue;
         }
         for (const auto& [name, symbol] : scene.images[image]->symbols) {
-            if (symbol.type != "Vtx") {
+            if (symbol.type != type) {
                 continue;
             }
             const u32 start = frame.mappedImages[image]->segments[symbol.segment] +
                               static_cast<u32>(symbol.offset);
-            arrays.push_back(VertexArray{.start = start,
+            arrays.push_back(MappedArray{.start = start,
                                          .end = start + static_cast<u32>(symbol.size),
                                          .image = image,
                                          .segment = symbol.segment,
@@ -120,17 +121,17 @@ struct VertexArray {
                                          .name = &name});
         }
     }
-    std::ranges::sort(arrays, {}, &VertexArray::start);
+    std::ranges::sort(arrays, {}, &MappedArray::start);
     return arrays;
 }
 
-[[nodiscard]] const VertexArray* findVertexArray(const std::vector<VertexArray>& arrays,
+[[nodiscard]] const MappedArray* findMappedArray(const std::vector<MappedArray>& arrays,
                                                  const u32 address) {
-    const auto after = std::ranges::upper_bound(arrays, address, {}, &VertexArray::start);
+    const auto after = std::ranges::upper_bound(arrays, address, {}, &MappedArray::start);
     if (after == arrays.begin()) {
         return nullptr;
     }
-    const VertexArray& array = *std::prev(after);
+    const MappedArray& array = *std::prev(after);
     return address < array.end ? &array : nullptr;
 }
 
@@ -156,7 +157,8 @@ struct VertexArray {
 class FaceReader {
 public:
     FaceReader(const Scene& scene, const viewport::Frame& frame, const usize roomCount)
-        : scene(scene), frame(frame), arrays(listVertexArrays(scene, frame)), rooms(roomCount),
+        : scene(scene), frame(frame), arrays(listMappedArrays(scene, frame, "Vtx")),
+          lists(listMappedArrays(scene, frame, "Gfx")), rooms(roomCount),
           entryIndices(roomCount), leftOut(roomCount, 0) {
         for (usize room = 0; room < roomCount; ++room) {
             rooms[room].room = room;
@@ -182,7 +184,11 @@ public:
 
 private:
     void readTriangle(const n64::Triangle& triangle, const DrawPart& part) {
-        MeshFace face{.part = part.part, .isTranslucent = part.isTranslucent};
+        MeshFace face{
+            .part = part.part, .isTranslucent = part.isTranslucent, .isLit = triangle.lit};
+        if (const MappedArray* list = findMappedArray(lists, triangle.address)) {
+            face.draw = {.list = *list->name, .command = (triangle.address - list->start) / 8};
+        }
         for (usize corner = 0; corner < 3; ++corner) {
             const std::optional<usize> entry = findEntry(part.room, triangle.sources[corner]);
             if (!entry) {
@@ -199,7 +205,7 @@ private:
 
     [[nodiscard]] std::optional<usize> findEntry(const usize room,
                                                  const n64::VertexSource& source) {
-        const VertexArray* array = findVertexArray(arrays, source.address);
+        const MappedArray* array = findMappedArray(arrays, source.address);
         if (array == nullptr || source.modelview >= frame.rspResult.modelviews.size()) {
             return std::nullopt;
         }
@@ -211,23 +217,26 @@ private:
         }
         const usize offset = array->offset + (key.index * VtxSize);
         const std::optional<std::span<const u8>> bytes = scene.images[array->image]->findBytes(
-            (u32{array->segment} << 24) | static_cast<u32>(offset), 6);
+            (u32{array->segment} << 24) | static_cast<u32>(offset), VtxSize);
         if (!bytes) {
             return std::nullopt;
         }
         std::vector<MeshEntry>& entries = rooms[room].entries;
-        entries.push_back(MeshEntry{
+        MeshEntry entry{
             .key = key,
             .image = array->image,
             .stored = {n64::readS16(*bytes, 0), n64::readS16(*bytes, 2), n64::readS16(*bytes, 4)},
-            .transform = makeTransform(frame.rspResult.modelviews[source.modelview])});
+            .transform = makeTransform(frame.rspResult.modelviews[source.modelview])};
+        std::ranges::copy(*bytes, entry.vtx.begin());
+        entries.push_back(entry);
         indices.emplace(std::move(key), entries.size() - 1);
         return entries.size() - 1;
     }
 
     const Scene& scene;
     const viewport::Frame& frame;
-    std::vector<VertexArray> arrays;
+    std::vector<MappedArray> arrays;
+    std::vector<MappedArray> lists;
     std::vector<RoomMesh> rooms;
     std::vector<std::map<MeshEntryKey, usize>> entryIndices;
     std::vector<usize> leftOut;

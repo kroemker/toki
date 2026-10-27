@@ -55,6 +55,7 @@ add_executable(toki_tests
         app/scene/RoomMeshTest.cpp
         app/scene/ComponentSelectionTest.cpp
         app/scene/MeshEditsTest.cpp
+        app/scene/MeshRebuildTest.cpp
         app/scene/MeshCheckoutTest.cpp
         app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp

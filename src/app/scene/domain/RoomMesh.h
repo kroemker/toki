@@ -31,6 +31,8 @@ struct MeshEntry {
     /// Index into `Scene::images`.
     usize image = 0;
     std::array<s16, 3> stored{};
+    /// The whole `Vtx`, as the image holds it.
+    std::array<u8, 16> vtx{};
     glm::mat4 transform{1.0F};
     /// Whether a lit triangle uses it, so that its colour holds a normal.
     bool isLit = false;
@@ -45,13 +47,26 @@ struct MeshVertex {
     std::vector<usize> entries;
 };
 
+/// The triangle command that drew a face: the `Gfx` array it is in, and its
+/// index there, counted in commands.
+struct MeshDraw {
+    std::string list;
+    usize command = 0;
+
+    friend auto operator<=>(const MeshDraw&, const MeshDraw&) = default;
+};
+
 /// A triangle the room draws: its vertices, the entry each corner was loaded
-/// from, and the part of the room shape and the pass that drew it.
+/// from, the part of the room shape and the pass that drew it, and the
+/// command that drew it.
 struct MeshFace {
     std::array<usize, 3> vertices{};
     std::array<usize, 3> corners{};
     usize part = 0;
     bool isTranslucent = false;
+    /// Whether it was lit, so that its corners' colours hold normals.
+    bool isLit = false;
+    MeshDraw draw;
 };
 
 /// An edge of the mesh, its vertices in increasing order.

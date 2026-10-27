@@ -18,7 +18,9 @@ target_sources(toki_core PRIVATE
         HeaderSymbols.cpp
         LightSettingEdits.cpp
         ListEditor.cpp
+        MeshDraft.cpp
         MeshEdits.cpp
+        MeshRebuild.cpp
         PathEdits.cpp
         PathUsers.cpp
         RoomMesh.cpp

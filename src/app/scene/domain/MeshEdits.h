@@ -5,11 +5,13 @@
 #include "base/Diagnostic.h"
 #include "z64/MemoryImage.h"
 
+#include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 
 #include <array>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -50,6 +52,17 @@ struct CollisionVertexMove {
 /// cullable room whose faces changed, around every vertex of the part.
 [[nodiscard]] std::vector<SymbolWrite> makeMeshMoveWrites(const Scene& scene, const SceneMesh& mesh,
                                                           std::span<const MeshVertexMove> moves);
+
+/// The bounding sphere around `points` that the shape of room `room` of the
+/// layer numbered `layer` keeps for its part `part`, when the room is
+/// cullable.
+[[nodiscard]] std::optional<SymbolWrite> makePartBoundsWrite(const Scene& scene, usize layer,
+                                                             usize room, usize part,
+                                                             std::span<const glm::vec3> points);
+
+/// The normal a lit `Vtx` loaded under `transform` holds for a vertex whose
+/// faces, summed, face `facing` in the world.
+[[nodiscard]] std::array<u8, 3> makeVtxNormal(const glm::mat4& transform, const glm::vec3& facing);
 
 /// What moving vertices of `collision`, the collision of `scene`'s images,
 /// writes: each vertex, the normal and distance of each polygon of a moved

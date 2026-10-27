@@ -1,4 +1,6 @@
+#include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshEdits.h"
+#include "app/scene/domain/MeshRebuild.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
@@ -12,6 +14,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+#include <array>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -109,6 +112,51 @@ TEST_CASE(
         listed += failure + "\n";
     }
     WARN(faces << " faces over " << vertices << " vertices read");
+    INFO(listed);
+    CHECK(failures.empty());
+}
+
+TEST_CASE("every vanilla room's first run rebuilds without its first face, and reads back so",
+          "[scene][mesh][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize rebuilt = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        if (scene.layers.empty()) {
+            continue;
+        }
+        const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+        const toki::scene::SceneModel model(scene);
+        for (const toki::scene::RoomMesh& room : mesh.rooms) {
+            if (room.faces.empty()) {
+                continue;
+            }
+            toki::scene::RoomDraft draft = toki::scene::makeRoomDraft(room);
+            draft.faces.erase(draft.faces.begin());
+            const std::array<toki::scene::RoomDraft, 1> drafts{std::move(draft)};
+            const std::expected<toki::scene::MeshRebuild, base::Diagnostic> rebuild =
+                toki::scene::planMeshRebuild(scene, model, mesh, drafts);
+            if (!rebuild) {
+                failures.push_back(
+                    std::format("{} room {}: {}", asset.name, room.room, rebuild.error().message));
+                continue;
+            }
+            ++rebuilt;
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + '\n';
+    }
+    WARN(rebuilt << " rooms rebuilt");
     INFO(listed);
     CHECK(failures.empty());
 }

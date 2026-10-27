@@ -191,21 +191,15 @@ public:
                 if (!entry.isLit) {
                     continue;
                 }
-                const glm::vec3 local =
-                    glm::normalize(glm::transpose(glm::mat3(entry.transform)) * sum);
-                std::vector<u8> bytes;
-                for (glm::length_t axis = 0; axis < 3; ++axis) {
-                    bytes.push_back(static_cast<u8>(static_cast<s8>(
-                        std::clamp(std::lround(local[axis] * VtxNormalOne), -128L, 127L))));
-                }
+                const std::array<u8, 3> normal = makeVtxNormal(entry.transform, sum);
                 writes.push_back({.symbol = entry.key.symbol,
                                   .offset = (entry.key.index * VtxSize) + VtxNormalOffset,
-                                  .bytes = std::move(bytes)});
+                                  .bytes = {normal.begin(), normal.end()}});
             }
         }
     }
 
-    void writeBounds(const std::string& entries) {
+    void writeBounds(const Scene& scene, const usize layer) {
         std::set<usize> parts;
         for (const usize face : changedFaces) {
             parts.insert(room.faces[face].part);
@@ -219,9 +213,10 @@ public:
                     }
                 }
             }
-            writes.push_back({.symbol = entries,
-                              .offset = part * CullableEntrySize,
-                              .bytes = makeSphereBytes(points)});
+            if (std::optional<SymbolWrite> bounds =
+                    makePartBoundsWrite(scene, layer, room.room, part, points)) {
+                writes.push_back(std::move(*bounds));
+            }
         }
     }
 
@@ -268,6 +263,31 @@ makeFacedPolygon(CollisionPolygon polygon, const std::vector<std::array<s16, 3>>
 
 } // namespace
 
+std::optional<SymbolWrite> makePartBoundsWrite(const Scene& scene, const usize layer,
+                                               const usize room, const usize part,
+                                               const std::span<const glm::vec3> points) {
+    if (points.empty()) {
+        return std::nullopt;
+    }
+    const std::optional<std::string> entries = findCullableEntries(scene, layer, room);
+    if (!entries) {
+        return std::nullopt;
+    }
+    return SymbolWrite{.symbol = *entries,
+                       .offset = part * CullableEntrySize,
+                       .bytes = makeSphereBytes({points.begin(), points.end()})};
+}
+
+std::array<u8, 3> makeVtxNormal(const glm::mat4& transform, const glm::vec3& facing) {
+    const glm::vec3 local = glm::normalize(glm::transpose(glm::mat3(transform)) * facing);
+    std::array<u8, 3> bytes{};
+    for (glm::length_t axis = 0; axis < 3; ++axis) {
+        bytes[static_cast<usize>(axis)] = static_cast<u8>(
+            static_cast<s8>(std::clamp(std::lround(local[axis] * VtxNormalOne), -128L, 127L)));
+    }
+    return bytes;
+}
+
 std::vector<SymbolWrite> makeMeshMoveWrites(const Scene& scene, const SceneMesh& mesh,
                                             const std::span<const MeshVertexMove> moves) {
     std::vector<SymbolWrite> writes;
@@ -285,10 +305,7 @@ std::vector<SymbolWrite> makeMeshMoveWrites(const Scene& scene, const SceneMesh&
         }
         writer.writePositions();
         writer.writeNormals();
-        if (const std::optional<std::string> entries =
-                findCullableEntries(scene, mesh.layer, room.room)) {
-            writer.writeBounds(*entries);
-        }
+        writer.writeBounds(scene, mesh.layer);
     }
     return writes;
 }
