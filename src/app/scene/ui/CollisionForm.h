@@ -72,7 +72,8 @@ private:
     [[nodiscard]] std::optional<s64> drawNamedField(std::string_view label, std::string_view help,
                                                     SurfaceSetting setting, s64 value, s64 maximum,
                                                     std::string_view warning = {});
-    void pickSurfaceType(const PolygonSelection& selection, u16 type, const SurfaceType& surface);
+    void pickSurfaceType(const Collision& collision, const PolygonSelection& selection,
+                         const SurfaceType& surface);
 
     Pick pick;
     const CollisionNames* collisionNames = nullptr;

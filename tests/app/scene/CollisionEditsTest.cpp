@@ -1,6 +1,7 @@
 #include "app/scene/domain/CollisionEdits.h"
 
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
@@ -201,4 +202,55 @@ TEST_CASE("a surface type's fields pack back into its words, keeping the bits no
     const toki::scene::SurfaceType made = toki::scene::makeSurfaceType(
         {.exitIndex = 3, .floorType = 5, .material = 2, .canHookshot = true});
     REQUIRE(made.data == std::array<u32, 2>{(3U << 8) | (5U << 13), 2U | (1U << 17)});
+}
+
+TEST_CASE("collision materials are surface types and flags, each surface type listed once at least",
+          "[scene][edit][collision]") {
+    toki::scene::SceneModel model(makeScene());
+    const std::array<usize, 1> second{1};
+    REQUIRE(toki::scene::setPolygonMaterial(model, 0, second, {.type = 0, .flags = 0b0101}));
+
+    const toki::scene::Collision collision = readLayerCollision(model, "scene");
+    const std::vector<toki::scene::SceneCollisionMaterial> materials =
+        toki::scene::listCollisionMaterials(collision);
+
+    REQUIRE(materials.size() == 4);
+    CHECK(materials[0].material == toki::scene::CollisionMaterial{.type = 0, .flags = 0});
+    CHECK(materials[0].polygons == std::vector<usize>{0});
+    CHECK(materials[1].material == toki::scene::CollisionMaterial{.type = 0, .flags = 0b0101});
+    CHECK(materials[1].polygons == std::vector<usize>{1});
+    CHECK(materials[2].material.type == 1);
+    CHECK(materials[3].material.type == 2);
+    CHECK(materials[3].polygons.empty());
+    CHECK(toki::scene::hasPolygonFlag(collision.polygons[1],
+                                      toki::scene::PolygonFlag::IgnoreCamera));
+    CHECK(toki::scene::hasPolygonFlag(collision.polygons[1],
+                                      toki::scene::PolygonFlag::IgnoreProjectiles));
+    CHECK(toki::scene::makeCollisionMaterialName(nullptr, collision, materials[1].material) ==
+          "0 · Ignored by Camera · Ignored by Projectiles");
+}
+
+TEST_CASE("a collision material's settings change its polygons and no other material's",
+          "[scene][edit][collision]") {
+    toki::scene::SceneModel model(makeScene());
+    const std::array<usize, 1> second{1};
+    REQUIRE(toki::scene::setPolygonMaterial(model, 0, second, {.type = 0, .flags = 0b0001}));
+    const toki::scene::SurfaceType changed{.data = {0xAB, 0xCD}};
+
+    const auto moved = toki::scene::setMaterialSurface(
+        model, 0, readLayerCollision(model, "scene"), {.type = 0, .flags = 0b0001}, changed);
+
+    REQUIRE(moved == toki::scene::CollisionMaterial{.type = 3, .flags = 0b0001});
+    toki::scene::Collision collision = readLayerCollision(model, "scene");
+    CHECK(collision.surfaceTypes[0].data[1] == 1);
+    CHECK(collision.surfaceTypes[3] == changed);
+    CHECK(collision.polygons[0].type == 0);
+    CHECK(collision.polygons[1].type == 3);
+
+    const auto inPlace = toki::scene::setMaterialSurface(model, 0, collision,
+                                                         {.type = 0, .flags = 0}, changed);
+    REQUIRE(inPlace == toki::scene::CollisionMaterial{.type = 0, .flags = 0});
+    collision = readLayerCollision(model, "scene");
+    CHECK(collision.surfaceTypes.size() == 4);
+    CHECK(collision.surfaceTypes[0] == changed);
 }

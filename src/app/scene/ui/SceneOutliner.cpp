@@ -5,6 +5,7 @@
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionDrawing.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
@@ -525,43 +526,45 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
     if (revealingSurface) {
         ImGui::SetNextItemOpen(true);
     }
+    const std::vector<SceneCollisionMaterial> materials = listCollisionMaterials(collision);
     const bool isOpen = beginNode("##surfaces", GroupFlags);
-    ImGui::SetItemTooltip("The settings polygons share. Click one to select its polygons. "
-                          "Right-click to add one or remove those no polygon has.");
+    ImGui::SetItemTooltip("What the polygons are made of: a surface type, the settings polygons "
+                          "share, and what passes through them. Click one to select its "
+                          "polygons. Right-click to add a surface type or remove those no "
+                          "polygon has.");
     drawGroupMenu(OutlinerGroup::SurfaceTypes);
-    drawLabel(core::icons::Stack, CollisionColor, "Surface Types");
-    drawInfo(std::format("{}", collision.surfaceTypes.size()));
+    drawLabel(core::icons::Stack, CollisionColor, "Collision Materials");
+    drawInfo(std::format("{}", materials.size()));
     if (!isOpen) {
         return;
     }
-    const std::vector<usize> counts = countSurfacePolygons(collision);
-    for (usize i = 0; i < collision.surfaceTypes.size(); ++i) {
+    for (usize i = 0; i < materials.size(); ++i) {
+        const SceneCollisionMaterial& material = materials[i];
+        const usize type = material.material.type;
         ImGui::PushID(static_cast<int>(i));
-        const bool isSelected = view.tintedSurfaceType == i;
+        const bool isSelected = view.tintedSurfaceType == type;
         beginNode("##surface", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
         if (isSelected && revealingSurface) {
             ImGui::SetScrollHereY();
         }
         if (ImGui::IsItemClicked() && hooks.pickNodes) {
             std::vector<SceneNode> polygons;
-            for (usize polygon = 0; polygon < collision.polygons.size(); ++polygon) {
-                if (collision.polygons[polygon].type == i) {
-                    polygons.emplace_back(
-                        CollisionPolygonRef{.layer = view.layer, .polygon = polygon});
-                }
+            for (const usize polygon : material.polygons) {
+                polygons.emplace_back(CollisionPolygonRef{.layer = view.layer, .polygon = polygon});
             }
             hooks.pickNodes(polygons);
         }
-        if (collisionNames != nullptr) {
+        if (collisionNames != nullptr && type < collision.surfaceTypes.size()) {
             ImGui::SetItemTooltip(
                 "%s",
-                makeSurfaceSummary(*collisionNames, readSurfaceFields(collision.surfaceTypes[i]))
+                makeSurfaceSummary(*collisionNames, readSurfaceFields(collision.surfaceTypes[type]))
                     .c_str());
         }
-        drawSwatch(findSurfaceTypeColor(i));
+        drawSwatch(findSurfaceTypeColor(type));
         ImGui::SameLine();
-        ImGui::TextUnformatted(makeSurfaceTypeLabel(collisionNames, collision, i).c_str());
-        drawInfo(std::format("{} polys", counts[i]));
+        ImGui::TextUnformatted(
+            makeCollisionMaterialName(collisionNames, collision, material.material).c_str());
+        drawInfo(std::format("{} polys", material.polygons.size()));
         ImGui::PopID();
     }
     ImGui::TreePop();

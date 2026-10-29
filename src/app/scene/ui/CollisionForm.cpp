@@ -5,6 +5,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <expected>
 #include <format>
 #include <string>
 #include <string_view>
@@ -186,7 +188,9 @@ void CollisionForm::drawSurfaceChoice(const Collision& collision, const PolygonS
         "Surface Type",
         std::format("Which of the collision's surface types the polygon has, which every polygon "
                     "selected is given when another is picked. {} polygons have this one, tinted "
-                    "in the viewport, and an edit of its settings changes each of them.",
+                    "in the viewport. An edit of its settings changes every polygon of the same "
+                    "collision material, this surface type with the same flags, and no other: "
+                    "one shared with other flags is copied first.",
                     sharing));
     const float buttonWidth = ImGui::CalcTextSize("New").x + ImGui::GetStyle().FramePadding.x * 4;
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - buttonWidth);
@@ -250,11 +254,20 @@ std::optional<s64> CollisionForm::drawNamedField(const std::string_view label,
     return collisionRows.drawNamedChoice(std::format("##{}", label), values, value);
 }
 
-void CollisionForm::pickSurfaceType(const PolygonSelection& selection, const u16 type,
+void CollisionForm::pickSurfaceType(const Collision& collision, const PolygonSelection& selection,
                                     const SurfaceType& surface) {
-    pick([gameLayer = selection.gameLayer, type,
-          surface](SceneModel& model) { return setSurfaceType(model, gameLayer, type, surface); },
-         std::nullopt);
+    pick(
+        [gameLayer = selection.gameLayer, collision,
+         material = getPolygonMaterial(collision.polygons[selection.polygons.back()]),
+         surface](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+            const std::expected<CollisionMaterial, base::Diagnostic> set =
+                setMaterialSurface(model, gameLayer, collision, material, surface);
+            if (!set) {
+                return std::unexpected(set.error());
+            }
+            return {};
+        },
+        std::nullopt);
 }
 
 void CollisionForm::drawSurfaceRows(const Scene& scene, const SceneLayer& layer,
@@ -267,7 +280,7 @@ void CollisionForm::drawSurfaceRows(const Scene& scene, const SceneLayer& layer,
     changed = drawSurfaceNamedRows(changed, ignored);
     changed = drawSurfaceOtherRows(changed, ignored);
     if (changed != fields) {
-        pickSurfaceType(selection, type, makeSurfaceType(changed, surface));
+        pickSurfaceType(collision, selection, makeSurfaceType(changed, surface));
     }
 }
 
