@@ -3,6 +3,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/HeaderNames.h"
+#include "app/scene/domain/MaterialBindingsFile.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSave.h"
 #include "base/Diagnostic.h"
@@ -204,6 +205,10 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
             std::format("the scene's room list has {} rooms, but its folder holds {}",
                         scene.layers.front().header.roomCount, files.rooms.size())));
     }
+    ReadBindings bindings =
+        readMaterialBindings(makeSceneFilePath(reader.getWorkspace().getRoot(), scene.name));
+    scene.materialBindings = std::move(bindings.bindings);
+    std::ranges::move(bindings.diagnostics, std::back_inserter(scene.diagnostics));
     scene.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
     return scene;

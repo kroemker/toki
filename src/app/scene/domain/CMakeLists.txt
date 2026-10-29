@@ -22,6 +22,8 @@ target_sources(toki_core PRIVATE
         HeaderSymbols.cpp
         LightSettingEdits.cpp
         ListEditor.cpp
+        MaterialBindings.cpp
+        MaterialBindingsFile.cpp
         MaterialEdits.cpp
         MaterialTracker.cpp
         MeshDraft.cpp

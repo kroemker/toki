@@ -106,6 +106,7 @@ void MeshEditor::reset() {
 }
 
 void MeshEditor::read(const Scene& scene, const SceneView& view) {
+    const bool isFirstRead = !sceneMesh;
     readImages = scene.images;
     readLayer = view.layer;
     const bool hasLayer = view.layer < scene.layers.size();
@@ -141,6 +142,24 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
         sceneMesh = makeSolidMesh(std::move(*sceneMesh), *surface, *collision);
     }
     materials = listSceneMaterials(scene, *sceneMesh);
+    resolvedBindings.assign(materials.size(), std::nullopt);
+    if (collision) {
+        resolvedBindings =
+            resolveMaterialBindings(scene.materialBindings, *collision, *sceneMesh, materials);
+    }
+    for (usize material = 0; isFirstRead && material < resolvedBindings.size(); ++material) {
+        if (const std::optional<ResolvedBinding>& resolved = resolvedBindings[material]) {
+            if (!resolved->collision) {
+                core::logWarn("{}: material {} is bound to collision that is not there: {}. Bind "
+                              "it again or unbind it in its menu.",
+                              scene.name, materials[material].name, resolved->collision.error());
+            } else if (resolved->unbound > 0) {
+                core::logWarn("{}: {} faces of material {} are not made of the collision it is "
+                              "bound to. Re-apply or unbind the binding in its menu.",
+                              scene.name, resolved->unbound, materials[material].name);
+            }
+        }
+    }
     if (target == EditTarget::Mesh) {
         editMesh = makeMeshEdit(*sceneMesh, roomCount);
     } else if (collision) {
@@ -305,9 +324,16 @@ void MeshEditor::operate(const MeshOperation operation) {
 }
 
 void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
-                         const std::optional<viewport::TransformKind> then) {
+                         const std::optional<viewport::TransformKind> then,
+                         std::optional<MaterialBindings> bindings) {
     failure.clear();
-    if (operated.empty() || shownScene == nullptr || !sceneMesh) {
+    if (shownScene == nullptr || !sceneMesh) {
+        return;
+    }
+    if (operated.empty()) {
+        if (bindings) {
+            applySurface(std::nullopt, std::nullopt, std::move(bindings));
+        }
         return;
     }
     std::vector<RoomDraft> drafts;
@@ -343,6 +369,9 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         }
     }
     if (!planned && !drafted) {
+        if (bindings) {
+            applySurface(std::nullopt, std::nullopt, std::move(bindings));
+        }
         return;
     }
     wantedFaces.clear();
@@ -382,12 +411,16 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         keptMesh = planned->kept;
     }
     wantedTransform = then;
-    applySurface(std::move(planned), std::move(drafted));
+    applySurface(std::move(planned), std::move(drafted), std::move(bindings));
 }
 
-void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made) {
-    applyEdit([rebuild = std::move(rebuild), made = std::move(made),
+void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made,
+                              std::optional<MaterialBindings> bindings) {
+    applyEdit([rebuild = std::move(rebuild), made = std::move(made), bindings = std::move(bindings),
                layer = readGameLayer](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+        if (bindings) {
+            model.setMaterialBindings(*bindings);
+        }
         if (rebuild) {
             if (std::expected<void, base::Diagnostic> applied = applyMeshRebuild(model, *rebuild);
                 !applied) {
@@ -422,14 +455,96 @@ void MeshEditor::assignPicked(const usize material) {
     if (!canOperate(MeshOperation::Flip) || material >= materials.size()) {
         return;
     }
-    const std::expected<std::vector<OperatedRoom>, base::Diagnostic> operated =
+    std::expected<std::vector<OperatedRoom>, base::Diagnostic> operated =
         assignMaterial(*sceneMesh, makePicks(), materials[material]);
     if (!operated) {
         failure = operated.error().message;
         core::logWarn("{}: {}", shownScene->name, failure);
         return;
     }
+    if (material < resolvedBindings.size() && resolvedBindings[material] &&
+        resolvedBindings[material]->collision) {
+        for (OperatedRoom& room : *operated) {
+            for (const usize face : room.faces) {
+                room.draft.faces[face].collision = *resolvedBindings[material]->collision;
+            }
+        }
+    }
     rebuild(*operated, std::nullopt);
+}
+
+void MeshEditor::bindMaterial(const usize material, const std::optional<MaterialBinding> binding) {
+    if (shownScene == nullptr || !sceneMesh || material >= materials.size()) {
+        return;
+    }
+    MaterialBindings bindings = shownScene->materialBindings;
+    const std::string key = makeMaterialKey(materials[material]);
+    std::vector<OperatedRoom> operated;
+    if (binding) {
+        bindings.materials.insert_or_assign(key, *binding);
+        if (collision) {
+            if (const auto bound = findBoundCollision(*collision, *binding)) {
+                operated = bindFaces(*sceneMesh, materials, material, *bound);
+            }
+        }
+    } else {
+        bindings.materials.erase(key);
+    }
+    rebuild(operated, std::nullopt, std::move(bindings));
+}
+
+void MeshEditor::drawBindingMenu(const usize material) {
+    if (!ImGui::BeginMenu("Collision", collision.has_value())) {
+        ImGui::SetItemTooltip("%s", collision ? "What the faces drawn under the material are made "
+                                                "of. Bound, their collision follows the material, "
+                                                "and is set here alone."
+                                              : "The layer has no collision.");
+        return;
+    }
+    const std::optional<ResolvedBinding>& resolved = resolvedBindings[material];
+    if (resolved) {
+        if (!resolved->collision) {
+            ImGui::TextDisabled("Bound to collision not there: %s",
+                                resolved->collision.error().c_str());
+        } else if (resolved->unbound > 0) {
+            ImGui::TextDisabled("%zu faces are not as it is bound", resolved->unbound);
+            if (ImGui::MenuItem("Re-apply Binding")) {
+                bindMaterial(material, resolved->binding);
+            }
+        }
+        if (ImGui::MenuItem("Unbind")) {
+            bindMaterial(material, std::nullopt);
+        }
+        ImGui::SetItemTooltip("Leaves the faces as they are, each set on its own from now on.");
+        ImGui::Separator();
+    } else {
+        ImGui::MenuItem("Unbound", nullptr, true, false);
+    }
+    const bool isMixed = isCollisionMixed(*sceneMesh, materials, material);
+    const auto offer = [&](const std::string& label, const std::optional<CollisionMaterial>& made) {
+        const MaterialBinding binding = makeMaterialBinding(*collision, made);
+        const bool isBound = resolved && resolved->binding == binding;
+        const usize changed = countUnbound(*sceneMesh, materials, material, made);
+        if (isMixed && changed > 0 && !isBound) {
+            if (ImGui::BeginMenu(label.c_str())) {
+                if (ImGui::MenuItem(
+                        std::format("Bind: {} Faces Change Their Collision", changed).c_str())) {
+                    bindMaterial(material, binding);
+                }
+                ImGui::EndMenu();
+            }
+        } else if (ImGui::MenuItem(label.c_str(), nullptr, isBound)) {
+            bindMaterial(material, binding);
+        }
+    };
+    offer("Not Solid", std::nullopt);
+    for (const SceneCollisionMaterial& listed : listCollisionMaterials(*collision)) {
+        ImGui::PushID(static_cast<int>((listed.material.type * 16U) + listed.material.flags));
+        offer(makeCollisionMaterialName(collisionNames, *collision, listed.material),
+              listed.material);
+        ImGui::PopID();
+    }
+    ImGui::EndMenu();
 }
 
 void MeshEditor::drawAssignMenu() {
@@ -579,6 +694,11 @@ SurfaceRows MeshEditor::makeSurfaceRows(const std::vector<SceneCollisionMaterial
             continue;
         }
         ++rows.drawn;
+        const std::optional<usize> material = findFaceMaterial(materials, room->faces[face.index]);
+        if (material && *material < resolvedBindings.size() && resolvedBindings[*material] &&
+            resolvedBindings[*material]->collision) {
+            ++rows.bound;
+        }
         if (const std::optional<CollisionMaterial>& made = room->faces[face.index].collision) {
             ++rows.solid;
             used.insert(*made);
@@ -610,7 +730,8 @@ SurfaceRows MeshEditor::makeSurfaceRows(const std::vector<SceneCollisionMaterial
 
 void MeshEditor::editSurface(const ComponentEdit& edit,
                              const std::vector<SceneCollisionMaterial>& listed) {
-    if ((!edit.isDrawn && !edit.isSolid && !edit.collisionMaterial) || !collision || !surface) {
+    if ((!edit.isDrawn && !edit.isSolid && !edit.collisionMaterial) || !collision || !surface ||
+        (!edit.isDrawn && makeSurfaceRows(listed).bound > 0)) {
         return;
     }
     failure.clear();
@@ -669,6 +790,7 @@ void MeshEditor::drawMaterialMenu(const usize material) {
                         canOperate(MeshOperation::Flip))) {
         assignPicked(material);
     }
+    drawBindingMenu(material);
     ImGui::Separator();
     const auto drawNamed = [this, &picked](const char* label, const bool isRename) {
         if (!ImGui::BeginMenu(label, picked.isListed())) {

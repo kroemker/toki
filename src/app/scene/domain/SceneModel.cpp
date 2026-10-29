@@ -12,7 +12,7 @@
 
 namespace toki::scene {
 
-SceneModel::SceneModel(const Scene& scene) {
+SceneModel::SceneModel(const Scene& scene) : materialBindings(scene.materialBindings) {
     if (!scene.images.empty()) {
         gameCode = scene.images.front();
     }

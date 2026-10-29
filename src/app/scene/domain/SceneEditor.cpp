@@ -123,6 +123,7 @@ namespace {
 
 void showModel(Scene& scene, const SceneModel& model) {
     scene.images = model.layOut();
+    scene.materialBindings = model.getMaterialBindings();
     scene.diagnostics.clear();
     readSceneLayers(scene);
 }

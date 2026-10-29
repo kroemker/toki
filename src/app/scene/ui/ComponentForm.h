@@ -34,6 +34,9 @@ struct SurfaceRows {
     usize drawn = 0;
     usize solid = 0;
     usize solidOnly = 0;
+    /// How many of the drawn ones are drawn under a material bound to their
+    /// collision, which is then not set here.
+    usize bound = 0;
     /// What every solid one is made of, an index into `names`, where they
     /// agree.
     std::optional<usize> material;

@@ -80,6 +80,16 @@ void ComponentForm::drawSurface(const SurfaceRows& surface, ComponentEdit& edit)
         edit.isDrawn = false;
     }
     ImGui::EndDisabled();
+    if (surface.bound > 0) {
+        core::drawPropertyLabel(
+            "Collision",
+            "The picked faces are drawn under a material bound to a collision material, so "
+            "their collision follows the material. Unbind it in its menu under Materials to set "
+            "the faces' collision here.");
+        drawMuted("Driven by the Material");
+        core::endProperties();
+        return;
+    }
     const usize solid = surface.solid + surface.solidOnly;
     core::drawPropertyLabel("Solid",
                             "Whether the picked faces have a polygon of the collision, so that "

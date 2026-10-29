@@ -13,7 +13,9 @@
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/SceneMaterials.h"
+#include "app/scene/domain/SurfaceOperations.h"
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
@@ -130,7 +132,8 @@ private:
     /// that holds only the solid faces as its face of the room.
     [[nodiscard]] std::vector<ComponentRef> findMeshFaces(std::span<const ComponentRef> faces) const;
     /// Makes `collision` the collision, with `rebuild`, as one step.
-    void applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made);
+    void applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made,
+                      std::optional<MaterialBindings> bindings = std::nullopt);
     /// The Surface rows of the Properties panel for what is picked.
     [[nodiscard]] SurfaceRows makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const;
     /// Makes what is picked drawn, solid or of a collision material as `edit`
@@ -147,7 +150,12 @@ private:
     /// Writes what `operated` made of rooms, and picks what it says once
     /// the scene is read again, then begins a transform of it of `then`.
     void rebuild(const std::vector<OperatedRoom>& operated,
-                 std::optional<viewport::TransformKind> then);
+                 std::optional<viewport::TransformKind> then,
+                 std::optional<MaterialBindings> bindings = std::nullopt);
+    /// Binds the material numbered `material` to `binding`, or unbinds it,
+    /// and makes its faces what the binding says.
+    void bindMaterial(usize material, std::optional<MaterialBinding> binding);
+    void drawBindingMenu(usize material);
     [[nodiscard]] std::vector<MeshPick> makePicks() const;
     /// Picks what the last rebuild asked for, in the mesh read after it.
     void pickWanted();
@@ -175,6 +183,8 @@ private:
     std::vector<bool> readHiddenRooms;
     std::optional<SceneMesh> sceneMesh;
     std::vector<SceneMaterial> materials;
+    /// The binding of each of `materials`, where it has one.
+    std::vector<std::optional<ResolvedBinding>> resolvedBindings;
     /// What a material is renamed or duplicated as, while its menu is open.
     std::string materialName;
     ComponentForm componentForm;

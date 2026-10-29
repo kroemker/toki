@@ -2,6 +2,8 @@
 
 #include "app/scene/domain/ActorEntryWriter.h"
 #include "app/scene/domain/CollisionWriters.h"
+#include "app/scene/domain/MaterialBindings.h"
+#include "app/scene/domain/MaterialBindingsFile.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneCommandWriter.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -105,6 +107,7 @@ private:
     [[nodiscard]] std::expected<void, std::string> check(const WrittenScene& written);
     [[nodiscard]] std::expected<void, std::string> planSpec(const WrittenScene& written,
                                                             hackeroot::EditPlan& plan) const;
+    [[nodiscard]] std::expected<void, std::string> planBindings(hackeroot::EditPlan& plan) const;
 
     [[nodiscard]] std::filesystem::path getReadFolder() const {
         return input.directory.lexically_relative(root);
@@ -353,6 +356,27 @@ std::expected<void, std::string> SceneSaver::planSpec(const WrittenScene& writte
     return {};
 }
 
+std::expected<void, std::string> SceneSaver::planBindings(hackeroot::EditPlan& plan) const {
+    const MaterialBindings& bindings = input.model.getMaterialBindings();
+    const std::filesystem::path path = makeSceneFilePath(root, input.name).lexically_relative(root);
+    std::expected<std::string, std::string> before = hackeroot::readCheckoutText(root / path);
+    if (!before && bindings.materials.empty()) {
+        return {};
+    }
+    std::string after = formatMaterialBindings(bindings);
+    if (parseMaterialBindings(after, path).bindings != bindings) {
+        return std::unexpected(std::format(
+            "The scene was not saved: its material bindings do not read back from {} as they "
+            "are.",
+            path.generic_string()));
+    }
+    plan.files.push_back(
+        hackeroot::FileEdit{.file = path,
+                            .before = before ? std::optional(std::move(*before)) : std::nullopt,
+                            .after = std::move(after)});
+    return {};
+}
+
 void SceneSaver::planCopies(hackeroot::EditPlan& plan) const {
     std::set<std::filesystem::path> copied;
     for (const std::vector<z64::SymbolData>& symbols : input.model.getImages()) {
@@ -438,6 +462,9 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
             plan.files.push_back(
                 hackeroot::FileEdit{.file = source.file, .before = source.text, .isRemoved = true});
         }
+    }
+    if (std::expected<void, std::string> bindings = planBindings(plan); !bindings) {
+        return std::unexpected(bindings.error());
     }
     if (std::expected<void, std::string> spec = planSpec(written, plan); !spec) {
         return std::unexpected(spec.error());

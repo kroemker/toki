@@ -4,6 +4,8 @@
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionEdits.h"
 #include "app/scene/domain/CollisionNames.h"
+#include "app/scene/domain/MaterialBindings.h"
+#include "app/scene/domain/SceneModel.h"
 #include "base/Diagnostic.h"
 
 #include <algorithm>
@@ -128,12 +130,20 @@ setMaterialSurface(SceneModel& model, const usize layer, const Collision& collis
             isShared = true;
         }
     }
+    const auto rebind = [&model, &collision, &material, &surface](const std::optional<u8> flags) {
+        if (material.type < collision.surfaceTypes.size()) {
+            model.setMaterialBindings(makeReboundSurface(model.getMaterialBindings(),
+                                                         collision.surfaceTypes[material.type],
+                                                         surface, flags));
+        }
+    };
     if (!isShared || own.empty()) {
         if (std::expected<void, base::Diagnostic> set =
                 setSurfaceType(model, layer, material.type, surface);
             !set) {
             return std::unexpected(set.error());
         }
+        rebind(std::nullopt);
         return material;
     }
     const std::expected<usize, base::Diagnostic> added = addSurfaceType(model, layer, surface);
@@ -146,6 +156,7 @@ setMaterialSurface(SceneModel& model, const usize layer, const Collision& collis
         !set) {
         return std::unexpected(set.error());
     }
+    rebind(material.flags);
     return moved;
 }
 

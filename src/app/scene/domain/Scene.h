@@ -3,6 +3,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/HeaderNames.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
@@ -52,6 +53,9 @@ struct Scene {
     SceneActors actors;
     /// What the checkout names the values of the headers' settings.
     HeaderNames headerNames;
+    /// What the scene's render materials make their faces, from
+    /// `.toki/scenes/<scene>.toml`.
+    MaterialBindings materialBindings;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
     std::chrono::milliseconds elapsed{};

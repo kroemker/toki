@@ -3,13 +3,16 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionMaterials.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/RoomMesh.h"
+#include "app/scene/domain/SceneMaterials.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
 
 #include <algorithm>
+#include <expected>
 #include <map>
 #include <optional>
 #include <span>
@@ -140,6 +143,82 @@ std::vector<OperatedRoom> undrawFaces(const SceneMesh& mesh, const std::span<con
     }
     if (!kept.faces.empty()) {
         operated.push_back(std::move(kept));
+    }
+    return operated;
+}
+
+std::vector<std::optional<ResolvedBinding>>
+resolveMaterialBindings(const MaterialBindings& bindings, const Collision& collision,
+                        const SceneMesh& mesh, const std::vector<SceneMaterial>& materials) {
+    std::vector<std::optional<ResolvedBinding>> resolved(materials.size());
+    for (usize material = 0; material < materials.size(); ++material) {
+        const std::optional<MaterialBinding> binding =
+            findMaterialBinding(bindings, materials[material]);
+        if (!binding) {
+            continue;
+        }
+        ResolvedBinding made{.binding = *binding,
+                             .collision = findBoundCollision(collision, *binding)};
+        if (made.collision) {
+            made.unbound = countUnbound(mesh, materials, material, *made.collision);
+        }
+        resolved[material] = std::move(made);
+    }
+    return resolved;
+}
+
+bool isCollisionMixed(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
+                      const usize material) {
+    std::optional<std::optional<CollisionMaterial>> first;
+    for (const RoomMesh& room : mesh.rooms) {
+        for (const MeshFace& face : room.faces) {
+            if (findFaceMaterial(materials, face) != material) {
+                continue;
+            }
+            if (!first) {
+                first = face.collision;
+            } else if (*first != face.collision) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+usize countUnbound(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
+                   const usize material, const std::optional<CollisionMaterial>& bound) {
+    usize count = 0;
+    for (const RoomMesh& room : mesh.rooms) {
+        for (const MeshFace& face : room.faces) {
+            if (face.collision != bound && findFaceMaterial(materials, face) == material) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
+std::vector<OperatedRoom> bindFaces(const SceneMesh& mesh,
+                                    const std::vector<SceneMaterial>& materials,
+                                    const usize material,
+                                    const std::optional<CollisionMaterial>& bound) {
+    std::vector<OperatedRoom> operated;
+    for (const RoomMesh& room : mesh.rooms) {
+        std::vector<usize> faces;
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            if (room.faces[face].collision != bound &&
+                findFaceMaterial(materials, room.faces[face]) == material) {
+                faces.push_back(face);
+            }
+        }
+        if (faces.empty()) {
+            continue;
+        }
+        OperatedRoom made{.draft = makeRoomDraft(room)};
+        for (const usize face : faces) {
+            made.draft.faces[face].collision = bound;
+        }
+        operated.push_back(std::move(made));
     }
     return operated;
 }

@@ -2,12 +2,16 @@
 
 #include "app/scene/Types.h"
 #include "app/scene/domain/CollisionMaterials.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/RoomMesh.h"
+#include "app/scene/domain/SceneMaterials.h"
 
+#include <expected>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace toki::scene {
@@ -43,5 +47,37 @@ makeFacesSolid(const SceneMesh& mesh, const Collision& collision, std::span<cons
 [[nodiscard]] std::vector<OperatedRoom> undrawFaces(const SceneMesh& mesh,
                                                     std::span<const MeshPick> picks,
                                                     RoomDraft solidOnly);
+
+/// A render material's binding as it stands against a layer's collision and
+/// mesh: the collision material it makes faces of, or why it makes them of
+/// none the collision has, and how many of its faces are not made of it.
+struct ResolvedBinding {
+    MaterialBinding binding;
+    std::expected<std::optional<CollisionMaterial>, std::string> collision;
+    usize unbound = 0;
+};
+
+/// The binding of each of `materials`, where it has one.
+[[nodiscard]] std::vector<std::optional<ResolvedBinding>>
+resolveMaterialBindings(const MaterialBindings& bindings, const Collision& collision,
+                        const SceneMesh& mesh, const std::vector<SceneMaterial>& materials);
+
+/// Whether the faces drawn under `materials[material]` are made of more than
+/// one collision material, or some are solid and some not.
+[[nodiscard]] bool isCollisionMixed(const SceneMesh& mesh,
+                                    const std::vector<SceneMaterial>& materials, usize material);
+
+/// How many faces drawn under `materials[material]` are not made of `bound`,
+/// or are solid when it is nothing.
+[[nodiscard]] usize countUnbound(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
+                                 usize material, const std::optional<CollisionMaterial>& bound);
+
+/// The rooms of `mesh` that draw a face under `materials[material]` that is
+/// not made of `bound`, with every such face made of it, or not solid when
+/// it is nothing.
+[[nodiscard]] std::vector<OperatedRoom> bindFaces(const SceneMesh& mesh,
+                                                  const std::vector<SceneMaterial>& materials,
+                                                  usize material,
+                                                  const std::optional<CollisionMaterial>& bound);
 
 } // namespace toki::scene
