@@ -240,11 +240,6 @@ void ScenePanel::offerChoices() {
     choices.editTargets.emplace_back("Mesh");
     if (findLayerCollision(*scene, sceneView.layer) != nullptr) {
         choices.editTargets.emplace_back("Collision");
-        choices.isLinked = meshEditor.isLinked();
-        choices.linkTooltip =
-            "Link collision with the mesh, so that the positions of matching mesh and collision "
-            "vertices stay synced: moving a vertex of either moves every vertex of the other "
-            "that stands where it stood.";
     } else {
         meshEditor.setTarget(EditTarget::Mesh);
     }
@@ -265,7 +260,6 @@ void ScenePanel::offerChoices() {
             sceneView.showsCollision = editTarget == EditTarget::Collision;
         }
         meshEditor.setTarget(editTarget);
-        meshEditor.setLinked(chosen.isLinked.value_or(meshEditor.isLinked()));
         showScene();
     });
 }

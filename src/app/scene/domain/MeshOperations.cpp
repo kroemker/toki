@@ -303,6 +303,60 @@ std::vector<usize> subdivideFaces(RoomDraft& draft, const std::span<const usize>
     });
 }
 
+std::optional<OperatedRoom> operateDraft(RoomDraft draft, const MeshOperation operation,
+                                         const MeshPick& pick) {
+    OperatedRoom made{.draft = std::move(draft)};
+    switch (operation) {
+    case MeshOperation::Delete:
+        if (pick.touchedFaces.empty()) {
+            return std::nullopt;
+        }
+        deleteFaces(made.draft, pick.touchedFaces);
+        break;
+    case MeshOperation::Flip:
+        if (pick.faces.empty()) {
+            return std::nullopt;
+        }
+        flipFaces(made.draft, pick.faces);
+        made.faces = pick.faces;
+        break;
+    case MeshOperation::Merge:
+        if (pick.vertices.size() < 2) {
+            return std::nullopt;
+        }
+        if (const std::optional<usize> merged = mergeVertices(made.draft, pick.vertices)) {
+            made.vertices.push_back(*merged);
+        }
+        break;
+    case MeshOperation::Split:
+        if (pick.faces.empty()) {
+            return std::nullopt;
+        }
+        splitFaces(made.draft, pick.faces);
+        made.faces = pick.faces;
+        break;
+    case MeshOperation::Extrude:
+        if (pick.faces.empty()) {
+            return std::nullopt;
+        }
+        made.faces = extrudeFaces(made.draft, pick.faces);
+        break;
+    case MeshOperation::Inset:
+        if (pick.faces.empty()) {
+            return std::nullopt;
+        }
+        made.faces = insetFaces(made.draft, pick.faces);
+        break;
+    case MeshOperation::Subdivide:
+        if (pick.faces.empty()) {
+            return std::nullopt;
+        }
+        made.faces = subdivideFaces(made.draft, pick.faces);
+        break;
+    }
+    return made;
+}
+
 std::vector<OperatedRoom> operateMesh(const SceneMesh& mesh, const MeshOperation operation,
                                       const std::span<const MeshPick> picks) {
     std::vector<OperatedRoom> operated;
@@ -311,56 +365,9 @@ std::vector<OperatedRoom> operateMesh(const SceneMesh& mesh, const MeshOperation
         if (room == nullptr) {
             continue;
         }
-        OperatedRoom made{.draft = makeRoomDraft(*room)};
-        switch (operation) {
-        case MeshOperation::Delete:
-            if (pick.touchedFaces.empty()) {
-                continue;
-            }
-            deleteFaces(made.draft, pick.touchedFaces);
-            break;
-        case MeshOperation::Flip:
-            if (pick.faces.empty()) {
-                continue;
-            }
-            flipFaces(made.draft, pick.faces);
-            made.faces = pick.faces;
-            break;
-        case MeshOperation::Merge:
-            if (pick.vertices.size() < 2) {
-                continue;
-            }
-            if (const std::optional<usize> merged = mergeVertices(made.draft, pick.vertices)) {
-                made.vertices.push_back(*merged);
-            }
-            break;
-        case MeshOperation::Split:
-            if (pick.faces.empty()) {
-                continue;
-            }
-            splitFaces(made.draft, pick.faces);
-            made.faces = pick.faces;
-            break;
-        case MeshOperation::Extrude:
-            if (pick.faces.empty()) {
-                continue;
-            }
-            made.faces = extrudeFaces(made.draft, pick.faces);
-            break;
-        case MeshOperation::Inset:
-            if (pick.faces.empty()) {
-                continue;
-            }
-            made.faces = insetFaces(made.draft, pick.faces);
-            break;
-        case MeshOperation::Subdivide:
-            if (pick.faces.empty()) {
-                continue;
-            }
-            made.faces = subdivideFaces(made.draft, pick.faces);
-            break;
+        if (std::optional<OperatedRoom> made = operateDraft(makeRoomDraft(*room), operation, pick)) {
+            operated.push_back(std::move(*made));
         }
-        operated.push_back(std::move(made));
     }
     return operated;
 }

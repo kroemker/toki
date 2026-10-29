@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/RoomMesh.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
@@ -35,6 +36,8 @@ struct DraftFace {
     bool isLit = false;
     bool isTranslucent = false;
     usize part = 0;
+    /// What its polygon is made of, when it is solid.
+    std::optional<CollisionMaterial> collision;
     /// The face of the room's mesh it was made from, if any. A face is
     /// changed when it has none, or when its corners differ from that one's.
     std::optional<usize> original;

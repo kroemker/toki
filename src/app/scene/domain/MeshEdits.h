@@ -19,7 +19,6 @@
 namespace toki::scene {
 
 class SceneModel;
-struct Collision;
 struct Scene;
 
 /// Bytes an edit writes over a symbol's own, at `offset` into it. Nothing an
@@ -63,30 +62,6 @@ struct CollisionVertexMove {
 /// The normal a lit `Vtx` loaded under `transform` holds for a vertex whose
 /// faces, summed, face `facing` in the world.
 [[nodiscard]] std::array<u8, 3> makeVtxNormal(const glm::mat4& transform, const glm::vec3& facing);
-
-/// What moving vertices of `collision`, the collision of `scene`'s images,
-/// writes: each vertex, the normal and distance of each polygon of a moved
-/// vertex, and the bounds of the collision header around every vertex.
-[[nodiscard]] std::vector<SymbolWrite>
-makeCollisionMoveWrites(const Scene& scene, const Collision& collision,
-                        std::span<const CollisionVertexMove> moves);
-
-/// The collision vertices that stand where a mesh vertex of `moves` stood in
-/// `mesh`, moved with it: what a collision linked with the mesh follows.
-[[nodiscard]] std::vector<CollisionVertexMove>
-findLinkedCollisionMoves(const Collision& collision, const SceneMesh& mesh,
-                         std::span<const MeshVertexMove> moves);
-
-/// The mesh vertices that stand where a collision vertex of `moves` stood,
-/// moved with it: what a mesh linked with the collision follows.
-[[nodiscard]] std::vector<MeshVertexMove>
-findLinkedMeshMoves(const Collision& collision, const SceneMesh& mesh,
-                    std::span<const CollisionVertexMove> moves);
-
-/// `collision` with `moves` made, the normals and distances of polygons of
-/// moved vertices made again, and its bounds around every vertex.
-[[nodiscard]] Collision makeMovedCollision(const Collision& collision,
-                                           std::span<const CollisionVertexMove> moves);
 
 /// Writes `writes` into the symbols of `model`.
 [[nodiscard]] std::expected<void, base::Diagnostic>

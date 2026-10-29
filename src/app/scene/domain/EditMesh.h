@@ -13,6 +13,7 @@
 namespace toki::scene {
 
 struct Collision;
+struct SceneSurface;
 
 /// What faces, edges and vertices are picked of: the rooms' meshes, or the
 /// layer's collision.
@@ -27,6 +28,9 @@ struct EditPiece {
     std::vector<glm::vec3> vertices;
     std::vector<std::array<usize, 3>> faces;
     std::vector<MeshEdge> edges;
+    /// For each face, the face of the room's mesh or the polygon it is, where
+    /// the piece holds only some of them; empty when it holds all.
+    std::vector<usize> faceSources;
 };
 
 /// What is edited by faces, edges and vertices, a piece per room of a mesh
@@ -50,6 +54,19 @@ struct ComponentRef {
 /// `collision` as one piece. A polygon naming a vertex the collision does
 /// not hold is left out.
 [[nodiscard]] EditMesh makeCollisionEdit(const Collision& collision);
+
+/// The solid faces of the rooms of `mesh` as pieces, piece `i` room `i`, for
+/// `roomCount` rooms, each with every vertex of its room; and after them,
+/// piece `roomCount`, the polygons of `collision` no face has, with every
+/// vertex of the collision.
+[[nodiscard]] EditMesh makeSurfaceEdit(const SceneMesh& mesh, usize roomCount,
+                                       const SceneSurface& surface, const Collision& collision);
+
+/// Which vertices of `piece` a face has.
+[[nodiscard]] std::vector<bool> findUsedVertices(const EditPiece& piece);
+
+/// The face of the room's mesh, or the polygon, face `face` of `piece` is.
+[[nodiscard]] usize findFaceSource(const EditPiece& piece, usize face);
 
 /// The face nearest `origin` along `direction` that a ray from there meets,
 /// either side, of the pieces `isShown` holds true, if the ray meets one.

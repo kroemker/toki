@@ -12,6 +12,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneMaterials.h"
+#include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/scene/ui/ComponentForm.h"
 #include "app/viewport/domain/TransformSession.h"
@@ -26,6 +27,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace toki::scene {
@@ -59,16 +61,6 @@ public:
     /// picked of the other let go.
     void setTarget(EditTarget next);
 
-    /// Whether the collision's vertices follow the mesh's where they stand
-    /// at one place, and the mesh's the collision's.
-    [[nodiscard]] bool isLinked() const {
-        return isCollisionLinked;
-    }
-
-    void setLinked(const bool isOn) {
-        isCollisionLinked = isOn;
-    }
-
     /// Offers the viewport what it picks in the mode it selects by, and what
     /// is picked to transform, and adds to `overlay` the edges, vertices and
     /// selection drawn over it. Called every frame while the viewport selects
@@ -97,7 +89,7 @@ public:
     /// Whether faces or vertices of the rooms' meshes are picked, which the
     /// Properties panel shows in place of what the Scene panel selects.
     [[nodiscard]] bool hasPicked() const {
-        return target == EditTarget::Mesh && sceneMesh && editMesh && !selection.isEmpty();
+        return sceneMesh && editMesh && !selection.isEmpty();
     }
 
     /// Draws the Properties panel's form of what is picked.
@@ -105,7 +97,7 @@ public:
 
 private:
     /// The moves a transform of the selection to `points` makes, of the
-    /// target and of what is linked with it.
+    /// vertices picked and of those welded to them.
     struct Moves {
         std::vector<MeshVertexMove> mesh;
         std::vector<CollisionVertexMove> collision;
@@ -116,6 +108,17 @@ private:
     void offerTransform();
     [[nodiscard]] Moves makeMoves(std::span<const glm::vec3> points) const;
     [[nodiscard]] std::vector<SymbolWrite> makeWrites(const Moves& moves) const;
+    /// The collision `moves` leave, if they change it.
+    [[nodiscard]] std::optional<Collision> makeMovedSurface(const Moves& moves) const;
+    /// The picks of rooms' meshes `picks` holds, and that of the polygons no
+    /// face has.
+    [[nodiscard]] std::pair<std::vector<MeshPick>, std::optional<MeshPick>>
+    splitPicks(std::vector<MeshPick> picks) const;
+    /// What is picked as the rooms' meshes number it: each face of a piece
+    /// that holds only the solid faces as its face of the room.
+    [[nodiscard]] std::vector<ComponentRef> findMeshFaces(std::span<const ComponentRef> faces) const;
+    /// Makes `collision` the collision, with `rebuild`, as one step.
+    void applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made);
     void commit(std::span<const glm::vec3> points);
     void preview(const std::optional<viewport::TransformEdit>& edit);
     void makeOffer();
@@ -144,12 +147,14 @@ private:
     ApplyEdit applyEdit;
     ShowPreview showPreview;
     EditTarget target = EditTarget::Mesh;
-    bool isCollisionLinked = true;
     /// The scene offered last, whose edits the viewport's handlers make.
     const Scene* shownScene = nullptr;
     /// The images what is edited was read from, to tell when to read it again.
     std::vector<std::shared_ptr<const z64::MemoryImage>> readImages;
     usize readLayer = 0;
+    /// The game's scene layer of `readLayer`, which collision edits name.
+    usize readGameLayer = 0;
+    usize roomCount = 0;
     std::vector<bool> readHiddenRooms;
     std::optional<SceneMesh> sceneMesh;
     std::vector<SceneMaterial> materials;
@@ -157,6 +162,7 @@ private:
     std::string materialName;
     ComponentForm componentForm;
     std::optional<Collision> collision;
+    std::optional<SceneSurface> surface;
     std::optional<EditMesh> editMesh;
     /// `editMesh` as a transform being previewed moves it.
     std::optional<EditMesh> shownMesh;
@@ -172,6 +178,8 @@ private:
     /// the entries their corners load from, and vertices by one entry each.
     std::vector<std::array<MeshEntryKey, 3>> wantedFaces;
     std::vector<MeshEntryKey> wantedVertices;
+    /// Polygons no face has to pick, by where their corners stand.
+    std::vector<std::array<std::array<s16, 3>, 3>> wantedPolygons;
     std::optional<viewport::TransformKind> wantedTransform;
     std::string failure;
     ComponentSelection selection;

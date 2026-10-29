@@ -20,15 +20,14 @@ struct ComponentEdit {
     std::optional<std::array<u8, 3>> color;
     std::optional<u8> alpha;
     std::optional<usize> material;
-    std::optional<bool> isLinked;
 };
 
 /// The Properties panel's form of the picked faces and vertices of the rooms'
-/// meshes: their vertices, their faces and the collision below them.
+/// meshes: their vertices and their faces.
 class ComponentForm {
 public:
     [[nodiscard]] ComponentEdit draw(const ComponentSummary& summary,
-                                     const std::vector<SceneMaterial>& materials, bool isLinked);
+                                     const std::vector<SceneMaterial>& materials);
 
 private:
     void drawVertices(const ComponentSummary& summary, ComponentEdit& edit);

@@ -1,7 +1,5 @@
 #include "MeshEdits.h"
 
-#include "app/scene/domain/Collision.h"
-#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -41,14 +39,8 @@ constexpr usize VtxNormalOffset = 12;
 constexpr usize CullableEntrySize = 0x10;
 constexpr u8 RoomShapeCode = 0x0A;
 constexpr usize RoomShapeEntriesOffset = 4;
-constexpr usize CollisionVerticesOffset = 0x10;
-constexpr usize CollisionPolygonsOffset = 0x18;
-constexpr usize CollisionVertexSize = 6;
-constexpr usize PolygonSize = 0x10;
-constexpr usize PolygonNormalOffset = 8;
 constexpr f32 NormalOne = 32767.0F;
 constexpr f32 VtxNormalOne = 127.0F;
-constexpr f32 SamePlace = 0.5F;
 constexpr f32 Flat = 1.0e-6F;
 
 [[nodiscard]] s16 roundToS16(const f32 value) {
@@ -229,15 +221,6 @@ private:
     std::vector<usize> changedFaces;
 };
 
-[[nodiscard]] bool isAtSamePlace(const glm::vec3& first, const glm::vec3& second) {
-    return std::abs(first.x - second.x) <= SamePlace && std::abs(first.y - second.y) <= SamePlace &&
-           std::abs(first.z - second.z) <= SamePlace;
-}
-
-[[nodiscard]] glm::vec3 makePoint(const std::array<s16, 3>& position) {
-    return {position[0], position[1], position[2]};
-}
-
 } // namespace
 
 std::optional<SymbolWrite> makePartBoundsWrite(const Scene& scene, const usize layer,
@@ -285,134 +268,6 @@ std::vector<SymbolWrite> makeMeshMoveWrites(const Scene& scene, const SceneMesh&
         writer.writeBounds(scene, mesh.layer);
     }
     return writes;
-}
-
-Collision makeMovedCollision(const Collision& collision,
-                             const std::span<const CollisionVertexMove> moves) {
-    Collision moved = collision;
-    std::set<usize> movedVertices;
-    for (const CollisionVertexMove& move : moves) {
-        if (move.vertex < moved.vertices.size()) {
-            moved.vertices[move.vertex] = move.position;
-            movedVertices.insert(move.vertex);
-        }
-    }
-    for (CollisionPolygon& polygon : moved.polygons) {
-        const bool isTouched =
-            std::ranges::any_of(std::array<usize, 3>{0, 1, 2}, [&](const usize corner) {
-                return movedVertices.contains(getVertexIndex(polygon, corner));
-            });
-        if (!isTouched) {
-            continue;
-        }
-        if (const std::optional<CollisionPolygon> faced =
-                makeFacedPolygon(polygon, moved.vertices)) {
-            polygon = *faced;
-        }
-    }
-    return makeBoundedCollision(std::move(moved));
-}
-
-std::vector<SymbolWrite> makeCollisionMoveWrites(const Scene& scene, const Collision& collision,
-                                                 const std::span<const CollisionVertexMove> moves) {
-    std::vector<SymbolWrite> writes;
-    if (moves.empty() || scene.images.size() <= SceneImage) {
-        return writes;
-    }
-    const z64::MemoryImage& image = *scene.images[SceneImage];
-    const std::optional<std::string> header = findNameAt(image, collision.address);
-    const std::optional<std::span<const u8>> headerBytes =
-        image.findBytes(collision.address, CollisionPolygonsOffset + 4);
-    if (!header || !headerBytes) {
-        return writes;
-    }
-    const std::optional<std::string> vertices =
-        findNameAt(image, n64::readU32(*headerBytes, CollisionVerticesOffset));
-    const std::optional<std::string> polygons =
-        findNameAt(image, n64::readU32(*headerBytes, CollisionPolygonsOffset));
-    if (!vertices || !polygons) {
-        return writes;
-    }
-    const Collision moved = makeMovedCollision(collision, moves);
-    for (const CollisionVertexMove& move : moves) {
-        std::vector<u8> bytes;
-        for (const s16 axis : moved.vertices[move.vertex]) {
-            addHalf(bytes, axis);
-        }
-        writes.push_back({.symbol = *vertices,
-                          .offset = move.vertex * CollisionVertexSize,
-                          .bytes = std::move(bytes)});
-    }
-    for (usize i = 0; i < moved.polygons.size(); ++i) {
-        const CollisionPolygon& polygon = moved.polygons[i];
-        if (polygon == collision.polygons[i]) {
-            continue;
-        }
-        std::vector<u8> bytes;
-        for (const s16 axis : polygon.normal) {
-            addHalf(bytes, axis);
-        }
-        addHalf(bytes, polygon.distance);
-        writes.push_back({.symbol = *polygons,
-                          .offset = (i * PolygonSize) + PolygonNormalOffset,
-                          .bytes = std::move(bytes)});
-    }
-    std::vector<u8> bounds;
-    for (const s16 axis : moved.minBounds) {
-        addHalf(bounds, axis);
-    }
-    for (const s16 axis : moved.maxBounds) {
-        addHalf(bounds, axis);
-    }
-    writes.push_back({.symbol = *header, .offset = 0, .bytes = std::move(bounds)});
-    return writes;
-}
-
-std::vector<CollisionVertexMove>
-findLinkedCollisionMoves(const Collision& collision, const SceneMesh& mesh,
-                         const std::span<const MeshVertexMove> moves) {
-    std::map<usize, CollisionVertexMove> linked;
-    for (const MeshVertexMove& move : moves) {
-        const RoomMesh* room = findRoomMesh(mesh, move.room);
-        if (room == nullptr || move.vertex >= room->vertices.size()) {
-            continue;
-        }
-        const glm::vec3& before = room->vertices[move.vertex].position;
-        for (usize vertex = 0; vertex < collision.vertices.size(); ++vertex) {
-            if (isAtSamePlace(makePoint(collision.vertices[vertex]), before)) {
-                linked[vertex] = {.vertex = vertex,
-                                  .position = {roundToS16(move.position.x),
-                                               roundToS16(move.position.y),
-                                               roundToS16(move.position.z)}};
-            }
-        }
-    }
-    std::vector<CollisionVertexMove> found;
-    for (const auto& [vertex, move] : linked) {
-        found.push_back(move);
-    }
-    return found;
-}
-
-std::vector<MeshVertexMove> findLinkedMeshMoves(const Collision& collision, const SceneMesh& mesh,
-                                                const std::span<const CollisionVertexMove> moves) {
-    std::vector<MeshVertexMove> found;
-    for (const CollisionVertexMove& move : moves) {
-        if (move.vertex >= collision.vertices.size()) {
-            continue;
-        }
-        const glm::vec3 before = makePoint(collision.vertices[move.vertex]);
-        for (const RoomMesh& room : mesh.rooms) {
-            for (usize vertex = 0; vertex < room.vertices.size(); ++vertex) {
-                if (isAtSamePlace(room.vertices[vertex].position, before)) {
-                    found.push_back({.room = room.room,
-                                     .vertex = vertex,
-                                     .position = makePoint(move.position)});
-                }
-            }
-        }
-    }
-    return found;
 }
 
 std::expected<void, base::Diagnostic> applySymbolWrites(SceneModel& model,

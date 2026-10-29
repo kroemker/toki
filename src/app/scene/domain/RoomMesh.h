@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "base/Diagnostic.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
@@ -80,6 +81,8 @@ struct MeshFace {
     bool isLit = false;
     MeshDraw draw;
     MeshMaterial material;
+    /// What its polygon is made of, when it is solid (`makeSolidMesh`).
+    std::optional<CollisionMaterial> collision;
 };
 
 /// An edge of the mesh, its vertices in increasing order.

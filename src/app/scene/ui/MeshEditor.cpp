@@ -6,6 +6,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionEdits.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/EditMesh.h"
@@ -16,7 +17,9 @@
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
+#include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/domain/SurfaceEdits.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "base/Diagnostic.h"
@@ -70,10 +73,6 @@ constexpr f32 MenuWrapEms = 24.0F;
     }
 }
 
-[[nodiscard]] s16 roundToS16(const f32 value) {
-    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
-}
-
 } // namespace
 
 void MeshEditor::setTarget(const EditTarget next) {
@@ -90,6 +89,7 @@ void MeshEditor::reset() {
     sceneMesh.reset();
     materials.clear();
     collision.reset();
+    surface.reset();
     editMesh.reset();
     shownMesh.reset();
     madeWrites.clear();
@@ -97,6 +97,7 @@ void MeshEditor::reset() {
     keptMesh.reset();
     wantedFaces.clear();
     wantedVertices.clear();
+    wantedPolygons.clear();
     wantedTransform.reset();
     failure.clear();
     selection.clear();
@@ -105,39 +106,45 @@ void MeshEditor::reset() {
 void MeshEditor::read(const Scene& scene, const SceneView& view) {
     readImages = scene.images;
     readLayer = view.layer;
+    const bool hasLayer = view.layer < scene.layers.size();
+    readGameLayer = hasLayer ? scene.layers[view.layer].index : 0;
+    roomCount = hasLayer ? scene.layers[view.layer].rooms.size() : 0;
     readHiddenRooms = view.hiddenRooms;
     isOfferStale = true;
     const Collision* found = findLayerCollision(scene, view.layer);
     collision = found != nullptr ? std::optional<Collision>(*found) : std::nullopt;
-    if (target == EditTarget::Mesh || (isCollisionLinked && collision)) {
-        if (madeMesh && madeMesh->layer == view.layer && hasSymbolWrites(scene, madeWrites)) {
-            sceneMesh = std::move(madeMesh);
-        } else {
-            const SceneMesh* kept = nullptr;
-            if (keptMesh && keptMesh->layer == view.layer) {
-                kept = &*keptMesh;
-            } else if (sceneMesh && sceneMesh->layer == view.layer) {
-                kept = &*sceneMesh;
-            }
-            SceneMesh read = readSceneMesh(scene, view.layer, kept);
-            if (kept == nullptr) {
-                for (const base::Diagnostic& diagnostic : read.diagnostics) {
-                    core::logWarn("{}: {}", scene.name, diagnostic.message);
-                }
-            }
-            sceneMesh = std::move(read);
+    if (madeMesh && madeMesh->layer == view.layer && hasSymbolWrites(scene, madeWrites)) {
+        sceneMesh = std::move(madeMesh);
+    } else {
+        const SceneMesh* kept = nullptr;
+        if (keptMesh && keptMesh->layer == view.layer) {
+            kept = &*keptMesh;
+        } else if (sceneMesh && sceneMesh->layer == view.layer) {
+            kept = &*sceneMesh;
         }
+        SceneMesh read = readSceneMesh(scene, view.layer, kept);
+        if (kept == nullptr) {
+            for (const base::Diagnostic& diagnostic : read.diagnostics) {
+                core::logWarn("{}: {}", scene.name, diagnostic.message);
+            }
+        }
+        sceneMesh = std::move(read);
     }
     madeMesh.reset();
     madeWrites.clear();
     keptMesh.reset();
-    materials = sceneMesh ? listSceneMaterials(scene, *sceneMesh) : std::vector<SceneMaterial>{};
-    if (target == EditTarget::Collision) {
-        editMesh = collision ? makeCollisionEdit(*collision) : EditMesh{};
-    } else {
-        const usize roomCount =
-            view.layer < scene.layers.size() ? scene.layers[view.layer].rooms.size() : 0;
+    surface.reset();
+    if (collision) {
+        surface = pairSurface(*sceneMesh, *collision);
+        sceneMesh = makeSolidMesh(std::move(*sceneMesh), *surface, *collision);
+    }
+    materials = listSceneMaterials(scene, *sceneMesh);
+    if (target == EditTarget::Mesh) {
         editMesh = makeMeshEdit(*sceneMesh, roomCount);
+    } else if (collision) {
+        editMesh = makeSurfaceEdit(*sceneMesh, roomCount, *surface, *collision);
+    } else {
+        editMesh = EditMesh{.target = EditTarget::Collision};
     }
     shownMesh = editMesh;
     selection.keepWithin(*editMesh);
@@ -145,19 +152,24 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
 }
 
 void MeshEditor::pickWanted() {
-    if (wantedFaces.empty() && wantedVertices.empty()) {
+    if (wantedFaces.empty() && wantedVertices.empty() && wantedPolygons.empty()) {
         return;
     }
-    if (target == EditTarget::Mesh && sceneMesh) {
+    if (sceneMesh && editMesh) {
         const std::set<std::array<MeshEntryKey, 3>> faces(wantedFaces.begin(), wantedFaces.end());
         const std::set<MeshEntryKey> vertices(wantedVertices.begin(), wantedVertices.end());
         std::vector<ComponentRef> pickedFaces;
         std::vector<ComponentRef> pickedVertices;
         for (const RoomMesh& room : sceneMesh->rooms) {
-            for (usize face = 0; face < room.faces.size(); ++face) {
+            if (room.room >= editMesh->pieces.size()) {
+                continue;
+            }
+            const EditPiece& piece = editMesh->pieces[room.room];
+            for (usize face = 0; face < piece.faces.size(); ++face) {
+                const MeshFace& source = room.faces[findFaceSource(piece, face)];
                 std::array<MeshEntryKey, 3> keys;
                 for (usize corner = 0; corner < 3; ++corner) {
-                    keys[corner] = room.entries[room.faces[face].corners[corner]].key;
+                    keys[corner] = room.entries[source.corners[corner]].key;
                 }
                 if (faces.contains(keys)) {
                     pickedFaces.push_back({.piece = room.room, .index = face});
@@ -171,6 +183,24 @@ void MeshEditor::pickWanted() {
                 }
             }
         }
+        if (target == EditTarget::Collision && roomCount < editMesh->pieces.size()) {
+            std::set<std::array<std::array<s16, 3>, 3>> polygons;
+            for (std::array<std::array<s16, 3>, 3> corners : wantedPolygons) {
+                std::ranges::sort(corners);
+                polygons.insert(corners);
+            }
+            const EditPiece& piece = editMesh->pieces[roomCount];
+            for (usize face = 0; face < piece.faces.size(); ++face) {
+                std::array<std::array<s16, 3>, 3> corners{};
+                for (usize corner = 0; corner < 3; ++corner) {
+                    corners[corner] = roundToCollision(piece.vertices[piece.faces[face][corner]]);
+                }
+                std::ranges::sort(corners);
+                if (polygons.contains(corners)) {
+                    pickedFaces.push_back({.piece = roomCount, .index = face});
+                }
+            }
+        }
         if (!pickedFaces.empty()) {
             selection.selectFaces(pickedFaces, *editMesh);
         } else {
@@ -180,6 +210,7 @@ void MeshEditor::pickWanted() {
     }
     wantedFaces.clear();
     wantedVertices.clear();
+    wantedPolygons.clear();
     if (wantedTransform && !selection.isEmpty()) {
         viewportPanel.startTransform(*wantedTransform);
     }
@@ -188,17 +219,18 @@ void MeshEditor::pickWanted() {
 
 std::vector<MeshPick> MeshEditor::makePicks() const {
     std::map<usize, MeshPick> picks;
-    const auto add = [&picks](const std::vector<ComponentRef>& refs,
-                              std::vector<usize> MeshPick::*list) {
+    const auto add = [this, &picks](const std::vector<ComponentRef>& refs,
+                                    std::vector<usize> MeshPick::*list, const bool isFace) {
         for (const ComponentRef& ref : refs) {
             MeshPick& pick = picks[ref.piece];
             pick.room = ref.piece;
-            (pick.*list).push_back(ref.index);
+            (pick.*list).push_back(isFace ? findFaceSource(editMesh->pieces[ref.piece], ref.index)
+                                          : ref.index);
         }
     };
-    add(selection.listFaces(*editMesh), &MeshPick::faces);
-    add(selection.listTouchedFaces(*editMesh), &MeshPick::touchedFaces);
-    add(selection.listVertices(*editMesh), &MeshPick::vertices);
+    add(selection.listFaces(*editMesh), &MeshPick::faces, true);
+    add(selection.listTouchedFaces(*editMesh), &MeshPick::touchedFaces, true);
+    add(selection.listVertices(*editMesh), &MeshPick::vertices, false);
     std::vector<MeshPick> listed;
     for (auto& [room, pick] : picks) {
         listed.push_back(std::move(pick));
@@ -206,9 +238,32 @@ std::vector<MeshPick> MeshEditor::makePicks() const {
     return listed;
 }
 
+std::pair<std::vector<MeshPick>, std::optional<MeshPick>>
+MeshEditor::splitPicks(std::vector<MeshPick> picks) const {
+    std::optional<MeshPick> solidOnly;
+    std::erase_if(picks, [this, &solidOnly](MeshPick& pick) {
+        if (pick.room < roomCount) {
+            return false;
+        }
+        solidOnly = std::move(pick);
+        return true;
+    });
+    return {std::move(picks), std::move(solidOnly)};
+}
+
+std::vector<ComponentRef> MeshEditor::findMeshFaces(const std::span<const ComponentRef> faces) const {
+    std::vector<ComponentRef> found;
+    for (const ComponentRef& face : faces) {
+        if (face.piece < roomCount && face.piece < editMesh->pieces.size()) {
+            found.push_back({.piece = face.piece,
+                             .index = findFaceSource(editMesh->pieces[face.piece], face.index)});
+        }
+    }
+    return found;
+}
+
 bool MeshEditor::canOperate(const MeshOperation operation) const {
-    if (target != EditTarget::Mesh || !sceneMesh || !editMesh || shownScene == nullptr ||
-        selection.isEmpty()) {
+    if (!sceneMesh || !editMesh || shownScene == nullptr || selection.isEmpty()) {
         return false;
     }
     switch (operation) {
@@ -236,7 +291,15 @@ void MeshEditor::operate(const MeshOperation operation) {
     } else if (operation == MeshOperation::Inset) {
         then = viewport::TransformKind::Scale;
     }
-    rebuild(operateMesh(*sceneMesh, operation, makePicks()), then);
+    auto [meshPicks, solidOnlyPick] = splitPicks(makePicks());
+    std::vector<OperatedRoom> operated = operateMesh(*sceneMesh, operation, meshPicks);
+    if (solidOnlyPick && collision && surface) {
+        if (std::optional<OperatedRoom> made = operateDraft(
+                makeSolidOnlyDraft(*collision, *surface, roomCount), operation, *solidOnlyPick)) {
+            operated.push_back(std::move(*made));
+        }
+    }
+    rebuild(operated, then);
 }
 
 void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
@@ -246,26 +309,64 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         return;
     }
     std::vector<RoomDraft> drafts;
+    std::vector<std::optional<usize>> draftOf;
+    const RoomDraft* solidOnly = nullptr;
     for (const OperatedRoom& room : operated) {
-        drafts.push_back(room.draft);
+        if (room.draft.room >= roomCount) {
+            solidOnly = &room.draft;
+            draftOf.emplace_back();
+        } else {
+            draftOf.emplace_back(drafts.size());
+            drafts.push_back(room.draft);
+        }
     }
-    std::expected<MeshRebuild, base::Diagnostic> planned =
-        planMeshRebuild(*shownScene, SceneModel(*shownScene), *sceneMesh, drafts);
-    if (!planned) {
-        failure = planned.error().message;
-        core::logWarn("{}: {}", shownScene->name, failure);
-        return;
+    std::optional<MeshRebuild> planned;
+    if (!drafts.empty()) {
+        std::expected<MeshRebuild, base::Diagnostic> made =
+            planMeshRebuild(*shownScene, SceneModel(*shownScene), *sceneMesh, drafts);
+        if (!made) {
+            failure = made.error().message;
+            core::logWarn("{}: {}", shownScene->name, failure);
+            return;
+        }
+        if (!made->isEmpty()) {
+            planned = std::move(*made);
+        }
     }
-    if (planned->isEmpty()) {
+    std::optional<Collision> drafted;
+    if (collision && surface) {
+        Collision made = makeDraftedCollision(*collision, *surface, drafts, solidOnly);
+        if (made.vertices != collision->vertices || made.polygons != collision->polygons) {
+            drafted = std::move(made);
+        }
+    }
+    if (!planned && !drafted) {
         return;
     }
     wantedFaces.clear();
     wantedVertices.clear();
-    for (usize draft = 0; draft < operated.size(); ++draft) {
-        for (const usize face : operated[draft].faces) {
+    wantedPolygons.clear();
+    for (usize index = 0; index < operated.size(); ++index) {
+        const OperatedRoom& room = operated[index];
+        if (!draftOf[index]) {
+            for (const usize face : room.faces) {
+                std::array<std::array<s16, 3>, 3> corners{};
+                for (usize corner = 0; corner < 3; ++corner) {
+                    corners[corner] = roundToCollision(
+                        findCornerPosition(room.draft, room.draft.faces[face], corner));
+                }
+                wantedPolygons.push_back(corners);
+            }
+            continue;
+        }
+        if (!planned) {
+            continue;
+        }
+        const usize draft = *draftOf[index];
+        for (const usize face : room.faces) {
             wantedFaces.push_back(planned->faces[draft][face]);
         }
-        for (const usize vertex : operated[draft].vertices) {
+        for (const usize vertex : room.vertices) {
             for (usize face = 0; face < drafts[draft].faces.size(); ++face) {
                 for (usize corner = 0; corner < 3; ++corner) {
                     if (drafts[draft].faces[face].corners[corner].vertex == vertex) {
@@ -275,10 +376,27 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
             }
         }
     }
-    keptMesh = planned->kept;
+    if (planned) {
+        keptMesh = planned->kept;
+    }
     wantedTransform = then;
-    applyEdit(
-        [made = std::move(*planned)](SceneModel& model) { return applyMeshRebuild(model, made); });
+    applySurface(std::move(planned), std::move(drafted));
+}
+
+void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made) {
+    applyEdit([rebuild = std::move(rebuild), made = std::move(made),
+               layer = readGameLayer](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+        if (rebuild) {
+            if (std::expected<void, base::Diagnostic> applied = applyMeshRebuild(model, *rebuild);
+                !applied) {
+                return applied;
+            }
+        }
+        if (made) {
+            return setCollisionGeometry(model, layer, *made);
+        }
+        return {};
+    });
 }
 
 void MeshEditor::pickMaterial(const usize material) {
@@ -345,7 +463,7 @@ const RoomMesh* MeshEditor::findShapeRoom() const {
         return nullptr;
     }
     if (editMesh) {
-        const std::vector<ComponentRef> faces = selection.listFaces(*editMesh);
+        const std::vector<ComponentRef> faces = findMeshFaces(selection.listFaces(*editMesh));
         if (!faces.empty()) {
             return findRoomMesh(*sceneMesh, faces.front().piece);
         }
@@ -361,12 +479,12 @@ const RoomMesh* MeshEditor::findShapeRoom() const {
 void MeshEditor::addShape(const MeshShape shape) {
     failure.clear();
     const RoomMesh* room = findShapeRoom();
-    if (target != EditTarget::Mesh || room == nullptr || !editMesh) {
+    if (room == nullptr || !editMesh) {
         return;
     }
     OperatedRoom made{.draft = makeRoomDraft(*room)};
     usize like = 0;
-    for (const ComponentRef& face : selection.listFaces(*editMesh)) {
+    for (const ComponentRef& face : findMeshFaces(selection.listFaces(*editMesh))) {
         if (face.piece == room->room) {
             like = face.index;
             break;
@@ -414,12 +532,12 @@ void MeshEditor::drawProperties() {
         return;
     }
     const std::vector<ComponentRef> vertices = selection.listVertices(*editMesh);
-    const ComponentSummary summary =
-        summarizeComponents(*sceneMesh, materials, vertices, selection.listFaces(*editMesh));
-    const ComponentEdit edit = componentForm.draw(summary, materials, isCollisionLinked);
-    if (edit.isLinked) {
-        isCollisionLinked = *edit.isLinked;
-    }
+    std::vector<ComponentRef> meshVertices = vertices;
+    std::erase_if(meshVertices,
+                  [this](const ComponentRef& vertex) { return vertex.piece >= roomCount; });
+    const ComponentSummary summary = summarizeComponents(
+        *sceneMesh, materials, meshVertices, findMeshFaces(selection.listFaces(*editMesh)));
+    const ComponentEdit edit = componentForm.draw(summary, materials);
     if (edit.material) {
         assignPicked(*edit.material);
     }
@@ -434,7 +552,7 @@ void MeshEditor::drawProperties() {
     }
     if (edit.color || edit.alpha) {
         std::vector<SymbolWrite> writes =
-            makeColorWrites(*sceneMesh, vertices, edit.color, edit.alpha);
+            makeColorWrites(*sceneMesh, meshVertices, edit.color, edit.alpha);
         if (!writes.empty()) {
             applyEdit([writes = std::move(writes)](SceneModel& model) {
                 return applySymbolWrites(model, writes);
@@ -495,9 +613,6 @@ void MeshEditor::drawMaterialMenu(const usize material) {
 }
 
 std::vector<viewport::StripAction> MeshEditor::makeStripActions(const SelectionMode mode) {
-    if (target != EditTarget::Mesh) {
-        return {};
-    }
     std::vector<viewport::StripAction> actions;
     const auto add = [this, &actions](const char* icon, const char* name,
                                       const MeshOperation operation,
@@ -550,18 +665,15 @@ void MeshEditor::applyHotkeys() {
         operate(MeshOperation::Extrude);
     } else if (core::isActionPressed(core::Action::InsetFaces)) {
         operate(MeshOperation::Inset);
-    } else if (core::isActionPressed(core::Action::AddMesh) && target == EditTarget::Mesh) {
+    } else if (core::isActionPressed(core::Action::AddMesh)) {
         viewportPanel.openEditMenu();
     }
 }
 
 void MeshEditor::drawMenu() {
-    if (target != EditTarget::Mesh) {
-        ImGui::TextDisabled("Faces are edited on the mesh. The collision's are moved.");
-        return;
-    }
     if (editMesh) {
-        ImGui::TextDisabled("Mesh · %zu faces", selection.listFaces(*editMesh).size());
+        ImGui::TextDisabled("%s · %zu faces", target == EditTarget::Mesh ? "Mesh" : "Collision",
+                            selection.listFaces(*editMesh).size());
     }
     if (!failure.empty()) {
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * MenuWrapEms);
@@ -620,9 +732,7 @@ void MeshEditor::drawMenu() {
 void MeshEditor::offer(const Scene& scene, const SceneView& view,
                        viewport::ViewportOverlay& overlay) {
     shownScene = &scene;
-    const bool needsMesh = target == EditTarget::Mesh || isCollisionLinked;
-    if (readImages != scene.images || readLayer != view.layer || !editMesh ||
-        (needsMesh && collision && !sceneMesh)) {
+    if (readImages != scene.images || readLayer != view.layer || !editMesh || !sceneMesh) {
         read(scene, view);
     }
     if (readHiddenRooms != view.hiddenRooms) {
@@ -679,46 +789,51 @@ MeshEditor::Moves MeshEditor::makeMoves(const std::span<const glm::vec3> points)
     Moves moves;
     for (usize i = 0; i < transformed.size() && i < points.size(); ++i) {
         const ComponentRef& vertex = transformed[i];
-        if (target == EditTarget::Mesh) {
+        if (vertex.piece < roomCount) {
             moves.mesh.push_back(
                 {.room = vertex.piece, .vertex = vertex.index, .position = points[i]});
         } else {
             moves.collision.push_back(
-                {.vertex = vertex.index,
-                 .position = {roundToS16(points[i].x), roundToS16(points[i].y),
-                              roundToS16(points[i].z)}});
+                {.vertex = vertex.index, .position = roundToCollision(points[i])});
         }
     }
-    if (!isCollisionLinked || !collision || !sceneMesh) {
+    if (!surface) {
         return moves;
     }
-    if (target == EditTarget::Mesh) {
-        moves.collision = findLinkedCollisionMoves(*collision, *sceneMesh, moves.mesh);
-    } else {
-        moves.mesh = findLinkedMeshMoves(*collision, *sceneMesh, moves.collision);
+    for (const MeshVertexMove& welded : findWeldedMeshMoves(*surface, moves.collision)) {
+        if (std::ranges::none_of(moves.mesh, [&welded](const MeshVertexMove& move) {
+                return move.room == welded.room && move.vertex == welded.vertex;
+            })) {
+            moves.mesh.push_back(welded);
+        }
     }
     return moves;
 }
 
 std::vector<SymbolWrite> MeshEditor::makeWrites(const Moves& moves) const {
-    std::vector<SymbolWrite> writes;
-    if (shownScene == nullptr) {
-        return writes;
+    if (shownScene == nullptr || !sceneMesh || moves.mesh.empty()) {
+        return {};
     }
-    if (sceneMesh && !moves.mesh.empty()) {
-        writes = makeMeshMoveWrites(*shownScene, *sceneMesh, moves.mesh);
+    return makeMeshMoveWrites(*shownScene, *sceneMesh, moves.mesh);
+}
+
+std::optional<Collision> MeshEditor::makeMovedSurface(const Moves& moves) const {
+    if (!collision || !surface || !sceneMesh || (moves.mesh.empty() && moves.collision.empty())) {
+        return std::nullopt;
     }
-    if (collision && !moves.collision.empty()) {
-        std::ranges::move(makeCollisionMoveWrites(*shownScene, *collision, moves.collision),
-                          std::back_inserter(writes));
+    Collision moved =
+        makeWeldedCollision(*collision, *surface, *sceneMesh, moves.mesh, moves.collision);
+    if (moved.vertices == collision->vertices && moved.polygons == collision->polygons) {
+        return std::nullopt;
     }
-    return writes;
+    return moved;
 }
 
 void MeshEditor::commit(const std::span<const glm::vec3> points) {
     const Moves moves = makeMoves(points);
     std::vector<SymbolWrite> writes = makeWrites(moves);
-    if (writes.empty()) {
+    std::optional<Collision> moved = makeMovedSurface(moves);
+    if (writes.empty() && !moved) {
         return;
     }
     madeWrites = writes;
@@ -726,8 +841,16 @@ void MeshEditor::commit(const std::span<const glm::vec3> points) {
     if (sceneMesh) {
         madeMesh = makeMovedMesh(*sceneMesh, moves.mesh);
     }
-    applyEdit([writes = std::move(writes)](SceneModel& model) {
-        return applySymbolWrites(model, writes);
+    applyEdit([writes = std::move(writes), moved = std::move(moved),
+               layer = readGameLayer](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+        if (std::expected<void, base::Diagnostic> applied = applySymbolWrites(model, writes);
+            !applied) {
+            return applied;
+        }
+        if (moved) {
+            return setCollisionGeometry(model, layer, *moved);
+        }
+        return {};
     });
 }
 
@@ -742,11 +865,7 @@ void MeshEditor::preview(const std::optional<viewport::TransformEdit>& edit) {
         shownMesh->pieces[transformed[i].piece].vertices[transformed[i].index] = edit->points[i];
     }
     const Moves moves = makeMoves(edit->points);
-    Preview shown{.writes = makeWrites(moves)};
-    if (collision) {
-        shown.collision = makeMovedCollision(*collision, moves.collision);
-    }
-    showPreview(shown);
+    showPreview(Preview{.writes = makeWrites(moves), .collision = makeMovedSurface(moves)});
 }
 
 void MeshEditor::pick(const viewport::ViewportPanel::ViewportPick& hit,
@@ -787,7 +906,11 @@ void MeshEditor::makeOffer() {
         }
         const EditPiece& shown = editMesh->pieces[piece];
         if (mode == SelectionMode::Vertex) {
+            const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
+                if (target == EditTarget::Collision && !isUsed[vertex]) {
+                    continue;
+                }
                 pickables.points.push_back(shown.vertices[vertex]);
                 pickedPoints.push_back({.piece = piece, .index = vertex});
             }
@@ -849,7 +972,11 @@ void MeshEditor::makeOverlay() {
             }
         }
         if (mode == SelectionMode::Vertex) {
+            const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
+                if (target == EditTarget::Collision && !isUsed[vertex]) {
+                    continue;
+                }
                 const bool isSelected = selection.contains({.piece = piece, .index = vertex});
                 componentOverlay.points.push_back(
                     {.position = shown.vertices[vertex],

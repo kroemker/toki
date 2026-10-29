@@ -59,6 +59,10 @@ std::vector<usize> insetFaces(RoomDraft& draft, std::span<const usize> faces);
 /// crack opens. Returns the faces the picked ones were cut into.
 std::vector<usize> subdivideFaces(RoomDraft& draft, std::span<const usize> faces);
 
+/// Does `operation` to what `pick` names of `draft`, if it changes it.
+[[nodiscard]] std::optional<OperatedRoom> operateDraft(RoomDraft draft, MeshOperation operation,
+                                                       const MeshPick& pick);
+
 /// Does `operation` to what `picks` names of `mesh`'s rooms, a draft for
 /// each room it changes.
 [[nodiscard]] std::vector<OperatedRoom> operateMesh(const SceneMesh& mesh, MeshOperation operation,

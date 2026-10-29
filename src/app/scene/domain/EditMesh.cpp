@@ -2,6 +2,7 @@
 
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/RoomMesh.h"
+#include "app/scene/domain/SceneSurface.h"
 
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
@@ -48,6 +49,20 @@ constexpr f32 ParallelLimit = 1.0e-7F;
         return std::nullopt;
     }
     return distance;
+}
+
+[[nodiscard]] std::vector<MeshEdge> makeEdges(const std::vector<std::array<usize, 3>>& faces) {
+    std::set<MeshEdge> edges;
+    for (const std::array<usize, 3>& face : faces) {
+        for (usize corner = 0; corner < 3; ++corner) {
+            const usize from = face[corner];
+            const usize to = face[(corner + 1) % 3];
+            if (from != to) {
+                edges.insert(MeshEdge{.vertices = {std::min(from, to), std::max(from, to)}});
+            }
+        }
+    }
+    return {edges.begin(), edges.end()};
 }
 
 } // namespace
@@ -97,6 +112,56 @@ EditMesh makeCollisionEdit(const Collision& collision) {
     }
     piece.edges.assign(edges.begin(), edges.end());
     return EditMesh{.target = EditTarget::Collision, .pieces = {std::move(piece)}};
+}
+
+EditMesh makeSurfaceEdit(const SceneMesh& mesh, const usize roomCount, const SceneSurface& surface,
+                         const Collision& collision) {
+    EditMesh edit = makeMeshEdit(mesh, roomCount);
+    edit.target = EditTarget::Collision;
+    for (usize room = 0; room < edit.pieces.size(); ++room) {
+        EditPiece& piece = edit.pieces[room];
+        std::vector<std::array<usize, 3>> solid;
+        for (usize face = 0; face < piece.faces.size(); ++face) {
+            if (findFacePolygon(surface, {.room = room, .face = face})) {
+                solid.push_back(piece.faces[face]);
+                piece.faceSources.push_back(face);
+            }
+        }
+        piece.faces = std::move(solid);
+        piece.edges = makeEdges(piece.faces);
+    }
+    Collision solidOnly = collision;
+    solidOnly.polygons.clear();
+    std::vector<usize> sources;
+    for (const usize polygon : listSolidOnlyPolygons(surface)) {
+        const CollisionPolygon& read = collision.polygons[polygon];
+        if (std::ranges::all_of(std::array<usize, 3>{0, 1, 2}, [&](const usize corner) {
+                return getVertexIndex(read, corner) < collision.vertices.size();
+            })) {
+            solidOnly.polygons.push_back(read);
+            sources.push_back(polygon);
+        }
+    }
+    EditPiece piece = std::move(makeCollisionEdit(solidOnly).pieces.front());
+    piece.faceSources = std::move(sources);
+    edit.pieces.push_back(std::move(piece));
+    return edit;
+}
+
+std::vector<bool> findUsedVertices(const EditPiece& piece) {
+    std::vector<bool> isUsed(piece.vertices.size(), false);
+    for (const std::array<usize, 3>& face : piece.faces) {
+        for (const usize vertex : face) {
+            if (vertex < isUsed.size()) {
+                isUsed[vertex] = true;
+            }
+        }
+    }
+    return isUsed;
+}
+
+usize findFaceSource(const EditPiece& piece, const usize face) {
+    return face < piece.faceSources.size() ? piece.faceSources[face] : face;
 }
 
 std::optional<ComponentRef> findHitFace(const EditMesh& mesh, const glm::vec3& origin,

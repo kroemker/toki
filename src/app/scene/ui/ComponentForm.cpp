@@ -33,8 +33,7 @@ void drawMuted(const std::string& text) {
 } // namespace
 
 ComponentEdit ComponentForm::draw(const ComponentSummary& summary,
-                                  const std::vector<SceneMaterial>& materials,
-                                  const bool isLinked) {
+                                  const std::vector<SceneMaterial>& materials) {
     ComponentEdit edit;
     drawMuted(std::format("{} vertices, {} faces picked", summary.vertices, summary.faces));
     if (summary.vertices > 0) {
@@ -42,17 +41,6 @@ ComponentEdit ComponentForm::draw(const ComponentSummary& summary,
     }
     if (summary.faces > 0) {
         drawFaces(summary, materials, edit);
-    }
-    if (ImGui::CollapsingHeader("Collision Below", ImGuiTreeNodeFlags_DefaultOpen) &&
-        core::beginProperties("##collisionBelow")) {
-        core::drawPropertyLabel("Follows Mesh",
-                                "Whether collision vertices where the picked vertices stand move "
-                                "with them. The viewport bar's link toggle sets the same.");
-        bool isOn = isLinked;
-        if (ImGui::Checkbox("##follows", &isOn)) {
-            edit.isLinked = isOn;
-        }
-        core::endProperties();
     }
     return edit;
 }

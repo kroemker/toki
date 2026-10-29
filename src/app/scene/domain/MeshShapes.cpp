@@ -138,6 +138,7 @@ moveFacesToRoom(const SceneMesh& mesh, const std::span<const MeshPick> picks, co
             const DraftFace& moved = from.draft.faces[face];
             DraftFace made = like != into.draft.faces.end() ? *like : moved;
             made.draw = *drawn->sample;
+            made.collision = moved.collision;
             made.original.reset();
             for (usize corner = 0; corner < 3; ++corner) {
                 const usize vertex = moved.corners[corner].vertex;

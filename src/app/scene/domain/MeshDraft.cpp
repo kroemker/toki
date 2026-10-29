@@ -65,6 +65,7 @@ RoomDraft makeRoomDraft(const RoomMesh& mesh) {
                           .isLit = face.isLit,
                           .isTranslucent = face.isTranslucent,
                           .part = face.part,
+                          .collision = face.collision,
                           .original = index};
         for (usize corner = 0; corner < 3; ++corner) {
             drafted.corners[corner] = DraftCorner{.vertex = face.vertices[corner],

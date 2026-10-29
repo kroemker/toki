@@ -342,15 +342,6 @@ std::optional<ViewportChoices> drawEditTargets(const ViewportChoices& choices) {
         }
         ImGui::PopID();
     }
-    if (choices.isLinked) {
-        ImGui::SameLine();
-        const std::string label = std::format(
-            "{}###link", *choices.isLinked ? core::icons::Link : core::icons::LinkBreak);
-        if (drawToggleButton(label, *choices.isLinked, choices.linkTooltip.c_str())) {
-            edit = edit.value_or(choices);
-            edit->isLinked = !*choices.isLinked;
-        }
-    }
     return edit;
 }
 
