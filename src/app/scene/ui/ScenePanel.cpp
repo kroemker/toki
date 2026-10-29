@@ -260,7 +260,11 @@ void ScenePanel::offerChoices() {
         if (chosen.collisionColoring < CollisionColoringCount) {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }
-        meshEditor.setTarget(static_cast<EditTarget>(chosen.editTarget));
+        const auto editTarget = static_cast<EditTarget>(chosen.editTarget);
+        if (editTarget != meshEditor.getTarget()) {
+            sceneView.showsCollision = editTarget == EditTarget::Collision;
+        }
+        meshEditor.setTarget(editTarget);
         meshEditor.setLinked(chosen.isLinked.value_or(meshEditor.isLinked()));
         showScene();
     });

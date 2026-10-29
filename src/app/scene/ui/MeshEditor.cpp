@@ -3,6 +3,7 @@
 #include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/Log.h"
 #include "app/core/ui/Hotkeys.h"
+#include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/ComponentSelection.h"
@@ -35,6 +36,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -55,6 +57,17 @@ constexpr f32 MenuWrapEms = 24.0F;
 [[nodiscard]] bool isPieceShown(const std::vector<bool>& hiddenRooms, const EditTarget target,
                                 const usize piece) {
     return target == EditTarget::Collision || piece >= hiddenRooms.size() || !hiddenRooms[piece];
+}
+
+[[nodiscard]] const char* findMissingPick(const MeshOperation operation) {
+    switch (operation) {
+    case MeshOperation::Merge:
+        return "Pick two vertices or more.";
+    case MeshOperation::Delete:
+        return "Pick something to take out.";
+    default:
+        return "Pick a face.";
+    }
 }
 
 [[nodiscard]] s16 roundToS16(const f32 value) {
@@ -481,6 +494,50 @@ void MeshEditor::drawMaterialMenu(const usize material) {
     ImGui::SetItemTooltip("Materials are edited in a later version.");
 }
 
+std::vector<viewport::StripAction> MeshEditor::makeStripActions(const SelectionMode mode) {
+    if (target != EditTarget::Mesh) {
+        return {};
+    }
+    std::vector<viewport::StripAction> actions;
+    const auto add = [this, &actions](const char* icon, const char* name,
+                                      const MeshOperation operation,
+                                      const std::optional<core::Action> action) {
+        actions.push_back(viewport::StripAction{
+            .icon = icon,
+            .name = name,
+            .action = action,
+            .whyNot =
+                canOperate(operation) ? std::string() : std::string(findMissingPick(operation)),
+            .run = [this, operation] { operate(operation); }});
+    };
+    if (mode == SelectionMode::Face) {
+        add(core::icons::ArrowFatLineUp, "Extrude Faces", MeshOperation::Extrude,
+            core::Action::ExtrudeFaces);
+        add(core::icons::FrameCorners, "Inset Faces", MeshOperation::Inset,
+            core::Action::InsetFaces);
+        add(core::icons::GridFour, "Subdivide", MeshOperation::Subdivide, std::nullopt);
+        add(core::icons::Swap, "Flip Faces", MeshOperation::Flip, std::nullopt);
+        add(core::icons::ArrowsSplit, "Split Faces", MeshOperation::Split, std::nullopt);
+    } else {
+        add(core::icons::ArrowsMerge, "Merge at Center", MeshOperation::Merge,
+            core::Action::MergeVertices);
+    }
+    add(core::icons::Trash, "Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents);
+    const bool canAdd = findShapeRoom() != nullptr;
+    for (const auto& [icon, name, shape] :
+         {std::tuple{core::icons::Cube, "Add Box", MeshShape::Box},
+          std::tuple{core::icons::Square, "Add Plane", MeshShape::Plane}}) {
+        actions.push_back(viewport::StripAction{
+            .icon = icon,
+            .name = name,
+            .action = core::Action::AddMesh,
+            .whyNot =
+                canAdd ? std::string() : std::string("No shown room has a face to draw it as."),
+            .run = [this, shape] { addShape(shape); }});
+    }
+    return actions;
+}
+
 void MeshEditor::applyHotkeys() {
     if (!viewportPanel.isHovered()) {
         return;
@@ -587,6 +644,7 @@ void MeshEditor::offer(const Scene& scene, const SceneView& view,
                                       const viewport::PickMode pickMode) { pick(hit, pickMode); });
     viewportPanel.setSelectedOwners({});
     viewportPanel.setEditMenu("Mesh", [this] { drawMenu(); });
+    viewportPanel.setStripActions(makeStripActions(mode));
     applyHotkeys();
     offerTransform();
     overlay.faces.insert(overlay.faces.end(), componentOverlay.faces.begin(),

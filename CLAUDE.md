@@ -283,7 +283,7 @@ listed below is only what no change may break.
     Collision and room geometry are the exceptions ([collision.md](docs/collision.md#editing),
     [geometry.md](docs/geometry.md#layers)).
   - Unsaved edits are never thrown away without asking.
-- **[Geometry](docs/geometry.md)** — how the rooms' meshes are read, picked and edited, and
+- **[Geometry](docs/geometry.md)** â€” how the rooms' meshes are read, picked and edited, and
   the materials their faces are drawn under listed across rooms.
   - A vertex edit writes only the `Vtx` bytes and what they make stale: lit normals,
     cullable bounds, and linked collision.

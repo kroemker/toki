@@ -9,6 +9,7 @@
 
 #include <array>
 #include <format>
+#include <span>
 #include <string>
 
 namespace toki::viewport {
@@ -143,7 +144,24 @@ std::optional<PickMode> findHeldPickMode() {
     return std::nullopt;
 }
 
-void drawToolStrip(ViewportTools& tools, const ImVec2 position) {
+void drawStripAction(const StripAction& action, const ImVec2 size) {
+    ImGui::BeginDisabled(!action.whyNot.empty());
+    const bool isClicked = ImGui::Button(action.icon, size);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
+        const std::string named =
+            action.action ? core::makeShortcutText(action.name, *action.action) : action.name;
+        const std::string tooltip =
+            action.whyNot.empty() ? named : std::format("{}. {}", named, action.whyNot);
+        ImGui::SetTooltip("%s", tooltip.c_str());
+    }
+    if (isClicked && action.whyNot.empty() && action.run) {
+        action.run();
+    }
+}
+
+void drawToolStrip(ViewportTools& tools, const ImVec2 position,
+                   const std::span<const StripAction> actions) {
     ImGui::SetCursorScreenPos(position);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(StripPadding, StripPadding));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(StripPadding, StripPadding));
@@ -162,6 +180,14 @@ void drawToolStrip(ViewportTools& tools, const ImVec2 position) {
                 tools.tool = tool;
             }
             ImGui::PopID();
+        }
+        if (tools.mode != SelectionMode::Node && !actions.empty()) {
+            ImGui::Separator();
+            for (usize i = 0; i < actions.size(); ++i) {
+                ImGui::PushID(static_cast<int>(ToolButtons.size() + i));
+                drawStripAction(actions[i], ImVec2(side, side));
+                ImGui::PopID();
+            }
         }
     }
     ImGui::EndChild();

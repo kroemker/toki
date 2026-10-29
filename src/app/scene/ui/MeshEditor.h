@@ -17,6 +17,7 @@
 #include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
+#include "app/viewport/ui/ToolStrip.h"
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/viewport/ui/ViewportTransform.h"
 
@@ -120,6 +121,7 @@ private:
     void makeOffer();
     void makeOverlay();
     void applyHotkeys();
+    [[nodiscard]] std::vector<viewport::StripAction> makeStripActions(viewport::SelectionMode mode);
     [[nodiscard]] bool canOperate(MeshOperation operation) const;
     void operate(MeshOperation operation);
     /// Writes what `operated` made of rooms, and picks what it says once

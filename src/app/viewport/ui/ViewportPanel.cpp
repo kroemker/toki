@@ -323,7 +323,9 @@ void ViewportPanel::draw() {
         drawList->AddRect(*boxStart, mouse, ImGui::GetColorU32(core::palette::Accent));
     }
     drawList->PopClipRect();
-    drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin));
+    drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin),
+                  stripActions);
+    stripActions.clear();
     ImVec2 notePosition{ImGui::GetItemRectMax().x + ToolStripMargin, origin.y + 6.0F};
     if (readingName) {
         const std::string note = std::format("Reading {}…", *readingName);

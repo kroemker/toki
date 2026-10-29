@@ -24,8 +24,7 @@ struct ComponentEdit {
 };
 
 /// The Properties panel's form of the picked faces and vertices of the rooms'
-/// meshes: their vertices, their faces, the collision below them and where
-/// their bytes are.
+/// meshes: their vertices, their faces and the collision below them.
 class ComponentForm {
 public:
     [[nodiscard]] ComponentEdit draw(const ComponentSummary& summary,
@@ -35,7 +34,6 @@ private:
     void drawVertices(const ComponentSummary& summary, ComponentEdit& edit);
     static void drawFaces(const ComponentSummary& summary,
                           const std::vector<SceneMaterial>& materials, ComponentEdit& edit);
-    static void drawSource(const ComponentSummary& summary);
 
     /// What the inputs hold while one is held, so that a drag is one edit.
     glm::vec3 middle{0.0F};

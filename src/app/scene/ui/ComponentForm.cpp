@@ -26,14 +26,6 @@ void drawMuted(const std::string& text) {
     ImGui::TextColored(core::palette::TextMuted, "%s", text.c_str());
 }
 
-[[nodiscard]] std::string joinNames(const std::vector<std::string>& names) {
-    std::string joined;
-    for (const std::string& name : names) {
-        joined += joined.empty() ? name : ", " + name;
-    }
-    return joined.empty() ? std::string("None") : joined;
-}
-
 [[nodiscard]] u8 makeByte(const f32 value) {
     return static_cast<u8>(std::lround(std::clamp(value, 0.0F, 1.0F) * ColorScale));
 }
@@ -62,7 +54,6 @@ ComponentEdit ComponentForm::draw(const ComponentSummary& summary,
         }
         core::endProperties();
     }
-    drawSource(summary);
     return edit;
 }
 
@@ -71,8 +62,13 @@ void ComponentForm::drawVertices(const ComponentSummary& summary, ComponentEdit&
         !core::beginProperties("##vertices")) {
         return;
     }
-    core::drawPropertyLabel("Position", "The middle of the picked vertices, in the world. "
-                                        "Changing it moves them all by as much.");
+    core::drawPropertyLabel("Position",
+                            "The middle of the picked vertices, in the world. Changing it moves "
+                            "them all by as much.",
+                            summary.isShared ? "Some of them are in the scene's own segment: "
+                                               "moving them moves them in every room that "
+                                               "draws them."
+                                             : "");
     if (!isMiddleHeld) {
         middle = summary.middle;
     }
@@ -148,27 +144,6 @@ void ComponentForm::drawFaces(const ComponentSummary& summary,
     drawMuted(!summary.isTranslucent   ? "(Mixed)"
               : *summary.isTranslucent ? "Translucent"
                                        : "Opaque");
-    core::endProperties();
-}
-
-void ComponentForm::drawSource(const ComponentSummary& summary) {
-    const ImGuiTreeNodeFlags flags = summary.isShared ? ImGuiTreeNodeFlags_DefaultOpen : 0;
-    if (!ImGui::CollapsingHeader("Source", flags) || !core::beginProperties("##source")) {
-        return;
-    }
-    core::drawPropertyLabel("Vertices In", "The Vtx arrays the picked vertices are loaded from.",
-                            summary.isShared ? "Some are in the scene's own segment: an edit "
-                                               "of them changes every room that draws them."
-                                             : "");
-    ImGui::TextWrapped("%s", joinNames(summary.vertexArrays).c_str());
-    core::drawPropertyLabel("Drawn By", "The display lists whose triangles draw the picked faces.");
-    ImGui::TextWrapped("%s", joinNames(summary.lists).c_str());
-    core::drawPropertyLabel("Rewritten On Save",
-                            "What a save writes again of them: a moved vertex only its Vtx, a "
-                            "face added, taken out or moved the run of the list that draws it.");
-    ImGui::TextWrapped("%s", summary.lists.empty() ? joinNames(summary.vertexArrays).c_str()
-                                                   : "Their Vtx, and the runs a topology edit "
-                                                     "rebuilds");
     core::endProperties();
 }
 

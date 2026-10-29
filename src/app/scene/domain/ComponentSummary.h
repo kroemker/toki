@@ -9,7 +9,6 @@
 #include <array>
 #include <optional>
 #include <span>
-#include <string>
 #include <vector>
 
 namespace toki::scene {
@@ -31,8 +30,6 @@ struct ComponentSummary {
     bool hasUnlit = false;
     std::optional<usize> material;
     std::optional<bool> isTranslucent;
-    std::vector<std::string> vertexArrays;
-    std::vector<std::string> lists;
     /// Whether any of the vertices is in the scene's own segment, which every
     /// room that draws it shares.
     bool isShared = false;

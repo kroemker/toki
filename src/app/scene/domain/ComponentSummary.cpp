@@ -9,7 +9,6 @@
 #include <optional>
 #include <set>
 #include <span>
-#include <string>
 #include <vector>
 
 namespace toki::scene {
@@ -39,8 +38,6 @@ ComponentSummary summarizeComponents(const SceneMesh& mesh,
                                      const std::span<const ComponentRef> vertices,
                                      const std::span<const ComponentRef> faces) {
     ComponentSummary summary{.vertices = vertices.size(), .faces = faces.size()};
-    std::set<std::string> arrays;
-    std::set<std::string> lists;
     bool isFirstColor = true;
     bool isFirstAlpha = true;
     for (const ComponentRef& ref : vertices) {
@@ -51,7 +48,6 @@ ComponentSummary summarizeComponents(const SceneMesh& mesh,
         summary.middle += room->vertices[ref.index].position;
         for (const usize index : room->vertices[ref.index].entries) {
             const MeshEntry& entry = room->entries[index];
-            arrays.insert(entry.key.symbol);
             summary.isShared = summary.isShared || entry.image == SceneImage;
             agree(summary.alpha, isFirstAlpha, entry.vtx[AlphaOffset]);
             if (entry.isLit) {
@@ -75,9 +71,6 @@ ComponentSummary summarizeComponents(const SceneMesh& mesh,
             continue;
         }
         const MeshFace& face = room->faces[ref.index];
-        if (!face.draw.list.empty()) {
-            lists.insert(face.draw.list);
-        }
         const std::optional<usize> material = findFaceMaterial(materials, face);
         if (isFirstMaterial) {
             summary.material = material;
@@ -87,8 +80,6 @@ ComponentSummary summarizeComponents(const SceneMesh& mesh,
         }
         agree(summary.isTranslucent, isFirstPass, face.isTranslucent);
     }
-    summary.vertexArrays.assign(arrays.begin(), arrays.end());
-    summary.lists.assign(lists.begin(), lists.end());
     return summary;
 }
 

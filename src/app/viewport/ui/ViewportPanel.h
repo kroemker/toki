@@ -12,6 +12,7 @@
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ToolStrip.h"
 #include "app/viewport/ui/ViewportHandles.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
 #include "app/viewport/ui/ViewportTransform.h"
@@ -243,6 +244,13 @@ public:
         return isViewportHovered;
     }
 
+    /// Adds `actions` below the tools for the next frame drawn, while the
+    /// viewport selects by faces, edges or vertices. Offered every frame;
+    /// what is not offered again is taken away once drawn.
+    void setStripActions(std::vector<StripAction> actions) {
+        stripActions = std::move(actions);
+    }
+
     /// Opens the edit menu at the cursor, as a right click on the image does.
     void openEditMenu() {
         isEditMenuWanted = true;
@@ -327,6 +335,7 @@ private:
     std::string editMenuLabel;
     std::function<void()> editMenu;
     bool isEditMenuWanted = false;
+    std::vector<StripAction> stripActions;
     bool isViewportHovered = false;
     bool stale = true;
     bool isOverlayStale = false;

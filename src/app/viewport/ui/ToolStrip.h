@@ -1,10 +1,14 @@
 #pragma once
 
+#include "app/core/domain/KeyBindings.h"
 #include "app/viewport/domain/ViewportTools.h"
 
 #include <imgui.h>
 
+#include <functional>
 #include <optional>
+#include <span>
+#include <string>
 
 namespace toki::viewport {
 
@@ -14,9 +18,21 @@ namespace toki::viewport {
 /// picked.
 bool drawSelectionModes(ViewportTools& tools, bool canEdit);
 
+/// A button the content's owner adds below the tools while the viewport
+/// selects by faces, edges or vertices: what is done to what is picked.
+struct StripAction {
+    const char* icon = "";
+    std::string name;
+    std::optional<core::Action> action;
+    /// Why it cannot be done now; empty when it can.
+    std::string whyNot;
+    std::function<void()> run;
+};
+
 /// Draws the tools as a vertical group of icon buttons floating over the
-/// image at `position`, those not built yet disabled.
-void drawToolStrip(ViewportTools& tools, ImVec2 position);
+/// image at `position`, those not built yet disabled, and `actions` below
+/// them.
+void drawToolStrip(ViewportTools& tools, ImVec2 position, std::span<const StripAction> actions);
 
 /// Draws how a pick changes the selection as a group of icon buttons in the
 /// viewport's bar, `shown` lit: the one a held key picks, or the one clicked.
