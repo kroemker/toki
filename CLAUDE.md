@@ -286,7 +286,10 @@ listed below is only what no change may break.
 - **[Geometry](docs/geometry.md)** — how the rooms' meshes are read, picked and edited, and
   the materials their faces are drawn under listed across rooms.
   - A vertex edit writes only the `Vtx` bytes and what they make stale: lit normals,
-    cullable bounds, and linked collision.
+    cullable bounds, and the collision welded to them.
+  - Collision is a property of a face: a polygon is paired with the face at its corners, and
+    every tool carries it. A material bound to a collision material drives its faces'
+    collision; bindings live in `.toki/scenes/<scene>.toml`, never in the game's code.
   - A topology edit rebuilds only the runs of vertex loads and triangles whose faces
     changed; every other command, and every list it does not touch, is written as read.
   - Every rebuild is run on the RSP and read back as the faces drafted before it is made.

@@ -111,10 +111,14 @@ setting, camera and flag (`WaterBoxForm`). Each of these is edited in place; see
 ## The Scene panel
 
 The layer's tree has a Collision group (`SceneOutliner`): its vertex count and bounds, its
-surface types, each by its index and a summary of what it sets (`makeSurfaceTypeLabel`),
-beside a square of the colour Surface Type colours its polygons, with how many polygons
-have it, a click selecting all of them, and the surface type of the
-polygon selected highlighted and scrolled to; and its cameras by setting. Waterboxes are a
+collision materials, and its cameras by setting. A **collision material** is a surface type
+and the flags of what passes through a polygon (`CollisionMaterial`), which is what fast64
+sets on a material and what a face of the mesh is made of
+([geometry.md](geometry.md#one-surface)). Each is named by both (`makeCollisionMaterialName`:
+a summary of what its surface type sets, then "· Ignored by Camera" and the like), beside a
+square of the colour Surface Type colours its polygons, with how many polygons it has, a
+click selecting all of them, and that of the polygon selected highlighted and scrolled to.
+A surface type no polygon has is listed alone. Waterboxes are a
 group of their own beside it, a click selecting one.
 
 ## Editing
@@ -130,9 +134,13 @@ Each edit is one undo step.
   selected. New gives them a copy of the one they have, so its settings can change without
   changing any other polygon.
 - **A surface type's settings** are written field by field into its two words at the masks
-  the game reads them with (`makeSurfaceType`); bits no field covers are kept. It changes
-  every polygon of that type, which the form says. The Surface Types group's menu adds one
-  and removes those no polygon has, renumbering the polygons after them; the last is kept.
+  the game reads them with (`makeSurfaceType`); bits no field covers are kept. An edit
+  changes the polygons of the collision material edited alone: a surface type it shares
+  with polygons of other flags is copied for it first (`setMaterialSurface`), and material
+  bindings to it follow. The Collision Materials group's menu adds a surface type and
+  removes those no polygon has, renumbering the polygons after them; the last is kept.
+- **Where polygons stand** is edited through the mesh they lie on, or as faces of their own
+  where none does ([geometry.md](geometry.md#one-surface)).
 - **A camera's setting** changes every surface type and waterbox naming that camera.
 - **A setting with no effect** is shown with a warning sign at the right of its row, its
   tooltip saying why in the form "Ignored. Requires an exit." (`listIgnoredSettings`,

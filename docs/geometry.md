@@ -31,8 +31,51 @@ modelview (`makeMeshMoveWrites`). Nothing else is written but what the move make
 - a lit vertex's normal, made again from the faces around it;
 - each cullable part's bounding sphere (`RoomShapeCullableEntry`), so a part moved out of
   its old sphere is not culled;
-- with the link toggle on, the collision vertices that stood where the mesh vertices stood,
-  and the polygons they make faced and bounded again ([collision.md](collision.md)).
+- the collision vertices welded to the moved vertices (below), and the polygons they make
+  faced and bounded again ([collision.md](collision.md)).
+
+## One surface
+
+The mesh and the collision are edited as one surface, because a new map's collision is
+mostly its mesh, and an edit made twice is an edit forgotten once. Vanilla scenes bear it
+out: about three in four of their polygons stand exactly on a face.
+
+- **Pairing.** `pairSurface` pairs each polygon with the face at its three corners, the
+  corners rounded to whole units as collision stores them, one face to a polygon, the first
+  unpaired face winning. A paired face is **solid**, and its collision material
+  (`MeshFace::collision`) is that of its polygon: a surface type and the flags of what passes
+  through it ([collision.md](collision.md#the-scene-panel)). A polygon no face has is
+  **solid only**, as an invisible wall is.
+- **Welds.** A collision vertex standing where mesh vertices stand is welded to them, and
+  follows them when they move; when only some of the faces around it move, the polygons of
+  the others keep it and those that moved are given a vertex of their own
+  (`makeWeldedCollision`). A collision vertex moved moves the mesh vertices welded to it
+  (`findWeldedMeshMoves`). Welds are always on.
+- **Tools.** Every operation carries a face's collision material through what it makes of
+  it: a face grown from a solid one is solid, a face taken out takes its polygon with it.
+  After each rebuild the collision is made again from the drafts (`makeDraftedCollision`):
+  polygons standing where they were read are kept as read, every other one is faced at its
+  corners, vertices no polygon has are dropped, and the lists are written whole with their
+  counts and bounds (`setCollisionGeometry`).
+- **Targets.** In the Mesh target every face is picked; in the Collision target the solid
+  faces are, as the same faces, with the solid-only polygons as faces of their own, edited
+  with the same tools.
+- **Properties.** The picked faces show whether they are **Drawn** and **Solid**, and their
+  **Collision Material**. A face made solid is made of what its material's solid faces are
+  made of, else what most polygons are (`findDefaultCollision`). A solid face no longer
+  drawn keeps its polygon as solid only; a face neither drawn nor solid is gone. Their
+  polygons are edited below as polygons are.
+- **Bindings.** A render material can be bound to a collision material, or to not being
+  solid, in its menu under Materials. Its faces are made so at once, as are faces it is
+  assigned to later, and their collision is then not set in Properties: it is driven by the
+  material. Binding a material whose faces differ in their collision asks first, naming how
+  many change. A binding names its surface type by its two words, not its index, so it
+  means the same in every collision of the scene, and it follows a surface type whose
+  settings are edited. Bindings are saved with the scene in `.toki/scenes/<scene>.toml`,
+  keyed by the material's name where every room sets it by a list of its own, else by its
+  RDP state. They change how Toki edits, never what the game reads: each read checks them,
+  and faces not as their material is bound are a warning, the material's menu offering to
+  re-apply or unbind the binding.
 
 ## Rebuilding lists
 
@@ -97,7 +140,8 @@ which is a later plan.
 
 Room geometry is the exception to the rule that an edit of one layer never shows in
 another: every layer that loads a room draws the same mesh, so an edit of the mesh changes
-it for all of them, as an edit of collision does ([collision.md](collision.md#editing)).
+it for all of them, as an edit of collision does ([collision.md](collision.md#editing)). A
+layer pairs its mesh with the collision it reads, its own copy where it has one.
 Geometry in the scene's own segment shared by several rooms is edited in place for all of
 them; the Properties panel warns of it where the picked vertices are.
 
