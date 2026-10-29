@@ -4,6 +4,7 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/SceneMaterials.h"
+#include "app/scene/ui/CollisionRows.h"
 
 #include <imgui.h>
 
@@ -33,16 +34,83 @@ void drawMuted(const std::string& text) {
 } // namespace
 
 ComponentEdit ComponentForm::draw(const ComponentSummary& summary,
-                                  const std::vector<SceneMaterial>& materials) {
+                                  const std::vector<SceneMaterial>& materials,
+                                  const std::optional<SurfaceRows>& surface) {
     ComponentEdit edit;
-    drawMuted(std::format("{} vertices, {} faces picked", summary.vertices, summary.faces));
+    const usize solidOnly = surface ? surface->solidOnly : 0;
+    drawMuted(solidOnly > 0 ? std::format("{} vertices, {} faces and {} polygons no room draws "
+                                          "picked",
+                                          summary.vertices, summary.faces, solidOnly)
+                            : std::format("{} vertices, {} faces picked", summary.vertices,
+                                          summary.faces));
     if (summary.vertices > 0) {
         drawVertices(summary, edit);
     }
     if (summary.faces > 0) {
         drawFaces(summary, materials, edit);
     }
+    if (surface && surface->drawn + surface->solidOnly > 0) {
+        drawSurface(*surface, edit);
+    }
     return edit;
+}
+
+void ComponentForm::drawSurface(const SurfaceRows& surface, ComponentEdit& edit) {
+    if (!ImGui::CollapsingHeader("Surface", ImGuiTreeNodeFlags_DefaultOpen) ||
+        !core::beginProperties("##surface")) {
+        return;
+    }
+    const usize total = surface.drawn + surface.solidOnly;
+    const bool canUndraw =
+        surface.solidOnly == 0 && surface.drawn > 0 && surface.solid == surface.drawn;
+    core::drawPropertyLabel(
+        "Drawn",
+        "Whether a room draws the picked faces. A solid face no room draws is collision alone, "
+        "as an invisible wall is: turning it off takes the faces out of their rooms' lists and "
+        "keeps their polygons.",
+        canUndraw || surface.drawn == 0 ? ""
+                                        : "Only solid faces can stop being drawn; the others "
+                                          "would be gone. A face no room draws is not drawn "
+                                          "again from here.");
+    ImGui::BeginDisabled(!canUndraw);
+    if (const std::optional<bool> toggled =
+            CollisionRows::drawToggle("##drawn", surface.solidOnly == 0,
+                                      surface.drawn > 0 && surface.solidOnly > 0);
+        toggled && !*toggled) {
+        edit.isDrawn = false;
+    }
+    ImGui::EndDisabled();
+    const usize solid = surface.solid + surface.solidOnly;
+    core::drawPropertyLabel("Solid",
+                            "Whether the picked faces have a polygon of the collision, so that "
+                            "Link stands on them and walks into them. A face made solid is made "
+                            "of what its material's other faces are made of.");
+    if (const std::optional<bool> toggled =
+            CollisionRows::drawToggle("##solid", solid == total, solid > 0 && solid < total)) {
+        edit.isSolid = *toggled;
+    }
+    core::drawPropertyLabel("Collision Material",
+                            "What the polygons of the picked faces are made of: a surface type "
+                            "and what passes through them. Picking one makes every picked face "
+                            "solid with it.");
+    std::string shown = "None";
+    if (surface.material && *surface.material < surface.names.size()) {
+        shown = surface.names[*surface.material];
+    } else if (solid > 0) {
+        shown = "(Mixed)";
+    }
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##collisionMaterial", shown.c_str(), ImGuiComboFlags_HeightLarge)) {
+        for (usize material = 0; material < surface.names.size(); ++material) {
+            ImGui::PushID(static_cast<int>(material));
+            if (ImGui::Selectable(surface.names[material].c_str(), surface.material == material)) {
+                edit.collisionMaterial = material;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    core::endProperties();
 }
 
 void ComponentForm::drawVertices(const ComponentSummary& summary, ComponentEdit& edit) {

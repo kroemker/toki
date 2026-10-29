@@ -2,6 +2,8 @@
 
 #include "app/scene/Types.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionMaterials.h"
+#include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MeshEdits.h"
@@ -12,6 +14,7 @@
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneMaterials.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/scene/ui/ComponentForm.h"
@@ -95,6 +98,15 @@ public:
     /// Draws the Properties panel's form of what is picked.
     void drawProperties();
 
+    /// The polygons of what is picked: of the solid faces, and those no face
+    /// has, for the Properties panel's form of polygons.
+    [[nodiscard]] std::vector<CollisionPolygonRef> listPickedPolygons() const;
+
+    /// Names collision materials as `names` does.
+    void setCollisionNames(const CollisionNames* names) {
+        collisionNames = names;
+    }
+
 private:
     /// The moves a transform of the selection to `points` makes, of the
     /// vertices picked and of those welded to them.
@@ -119,6 +131,11 @@ private:
     [[nodiscard]] std::vector<ComponentRef> findMeshFaces(std::span<const ComponentRef> faces) const;
     /// Makes `collision` the collision, with `rebuild`, as one step.
     void applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made);
+    /// The Surface rows of the Properties panel for what is picked.
+    [[nodiscard]] SurfaceRows makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const;
+    /// Makes what is picked drawn, solid or of a collision material as `edit`
+    /// says, `listed` the materials it names by index.
+    void editSurface(const ComponentEdit& edit, const std::vector<SceneCollisionMaterial>& listed);
     void commit(std::span<const glm::vec3> points);
     void preview(const std::optional<viewport::TransformEdit>& edit);
     void makeOffer();
@@ -161,6 +178,7 @@ private:
     /// What a material is renamed or duplicated as, while its menu is open.
     std::string materialName;
     ComponentForm componentForm;
+    const CollisionNames* collisionNames = nullptr;
     std::optional<Collision> collision;
     std::optional<SceneSurface> surface;
     std::optional<EditMesh> editMesh;

@@ -46,6 +46,7 @@ target_sources(toki_core PRIVATE
         SceneSourceScan.cpp
         SceneSurface.cpp
         SurfaceEdits.cpp
+        SurfaceOperations.cpp
         PlacementEdits.cpp
         SceneModel.cpp
         PlacementTransform.cpp

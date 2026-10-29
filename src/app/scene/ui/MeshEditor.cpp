@@ -6,6 +6,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionEdits.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/ComponentSummary.h"
@@ -20,6 +21,7 @@
 #include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
 #include "app/scene/domain/SurfaceEdits.h"
+#include "app/scene/domain/SurfaceOperations.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "base/Diagnostic.h"
@@ -537,7 +539,14 @@ void MeshEditor::drawProperties() {
                   [this](const ComponentRef& vertex) { return vertex.piece >= roomCount; });
     const ComponentSummary summary = summarizeComponents(
         *sceneMesh, materials, meshVertices, findMeshFaces(selection.listFaces(*editMesh)));
-    const ComponentEdit edit = componentForm.draw(summary, materials);
+    std::vector<SceneCollisionMaterial> listed;
+    std::optional<SurfaceRows> surfaceRows;
+    if (collision && surface) {
+        listed = listCollisionMaterials(*collision);
+        surfaceRows = makeSurfaceRows(listed);
+    }
+    const ComponentEdit edit = componentForm.draw(summary, materials, surfaceRows);
+    editSurface(edit, listed);
     if (edit.material) {
         assignPicked(*edit.material);
     }
@@ -559,6 +568,90 @@ void MeshEditor::drawProperties() {
             });
         }
     }
+}
+
+SurfaceRows MeshEditor::makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const {
+    SurfaceRows rows;
+    std::set<CollisionMaterial> used;
+    for (const ComponentRef& face : findMeshFaces(selection.listFaces(*editMesh))) {
+        const RoomMesh* room = findRoomMesh(*sceneMesh, face.piece);
+        if (room == nullptr || face.index >= room->faces.size()) {
+            continue;
+        }
+        ++rows.drawn;
+        if (const std::optional<CollisionMaterial>& made = room->faces[face.index].collision) {
+            ++rows.solid;
+            used.insert(*made);
+        }
+    }
+    for (const ComponentRef& face : selection.listFaces(*editMesh)) {
+        if (face.piece < roomCount) {
+            continue;
+        }
+        const usize polygon = findFaceSource(editMesh->pieces[face.piece], face.index);
+        if (polygon < collision->polygons.size()) {
+            ++rows.solidOnly;
+            used.insert(getPolygonMaterial(collision->polygons[polygon]));
+        }
+    }
+    for (const SceneCollisionMaterial& material : listed) {
+        rows.names.push_back(
+            makeCollisionMaterialName(collisionNames, *collision, material.material));
+    }
+    if (used.size() == 1) {
+        const auto found =
+            std::ranges::find(listed, *used.begin(), &SceneCollisionMaterial::material);
+        if (found != listed.end()) {
+            rows.material = static_cast<usize>(found - listed.begin());
+        }
+    }
+    return rows;
+}
+
+void MeshEditor::editSurface(const ComponentEdit& edit,
+                             const std::vector<SceneCollisionMaterial>& listed) {
+    if ((!edit.isDrawn && !edit.isSolid && !edit.collisionMaterial) || !collision || !surface) {
+        return;
+    }
+    failure.clear();
+    auto [meshPicks, solidOnlyPick] = splitPicks(makePicks());
+    RoomDraft solidOnly = makeSolidOnlyDraft(*collision, *surface, roomCount);
+    std::optional<CollisionMaterial> material;
+    std::vector<OperatedRoom> operated;
+    if (edit.isDrawn) {
+        operated = undrawFaces(*sceneMesh, meshPicks, std::move(solidOnly));
+    } else if (edit.isSolid && *edit.isSolid) {
+        operated = makeFacesSolid(*sceneMesh, *collision, meshPicks);
+    } else {
+        if (edit.collisionMaterial && *edit.collisionMaterial < listed.size()) {
+            material = listed[*edit.collisionMaterial].material;
+        } else if (!edit.isSolid) {
+            return;
+        }
+        operated = setFacesCollision(*sceneMesh, meshPicks, material);
+        if (solidOnlyPick) {
+            operated.push_back(
+                setSolidOnlyCollision(std::move(solidOnly), solidOnlyPick->faces, material));
+        }
+    }
+    rebuild(operated, std::nullopt);
+}
+
+std::vector<CollisionPolygonRef> MeshEditor::listPickedPolygons() const {
+    std::vector<CollisionPolygonRef> polygons;
+    if (!editMesh || !surface || !collision) {
+        return polygons;
+    }
+    for (const ComponentRef& face : selection.listFaces(*editMesh)) {
+        const usize source = findFaceSource(editMesh->pieces[face.piece], face.index);
+        const std::optional<usize> polygon =
+            face.piece < roomCount ? findFacePolygon(*surface, {.room = face.piece, .face = source})
+                                   : std::optional<usize>(source);
+        if (polygon && *polygon < collision->polygons.size()) {
+            polygons.push_back({.layer = readLayer, .polygon = *polygon});
+        }
+    }
+    return polygons;
 }
 
 void MeshEditor::drawMaterialMenu(const usize material) {

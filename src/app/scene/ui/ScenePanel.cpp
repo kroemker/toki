@@ -474,6 +474,10 @@ void ScenePanel::drawProperties() {
     if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node &&
         meshEditor.hasPicked()) {
         meshEditor.drawProperties();
+        const std::vector<CollisionPolygonRef> polygons = meshEditor.listPickedPolygons();
+        if (!polygons.empty()) {
+            placementEditor.getCollisionForm().drawPolygons(*scene, polygons, polygons.size());
+        }
         return;
     }
     placementEditor.drawInspector(*scene);
@@ -739,6 +743,7 @@ void ScenePanel::setCollisionNames(CollisionNames names) {
     collisionNames = std::move(names);
     sceneOutliner.setCollisionNames(&collisionNames);
     placementEditor.setCollisionNames(&collisionNames);
+    meshEditor.setCollisionNames(&collisionNames);
 }
 
 void ScenePanel::drawActor(const PlacementRow& row) {
