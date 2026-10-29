@@ -53,6 +53,19 @@ setPolygonSurfaceType(SceneModel& model, usize layer, std::span<const usize> pol
 /// Whether `polygon` holds `flag`.
 [[nodiscard]] bool hasPolygonFlag(const CollisionPolygon& polygon, PolygonFlag flag);
 
+/// `polygon` with `flag` set or cleared.
+[[nodiscard]] CollisionPolygon makeFlaggedPolygon(CollisionPolygon polygon, PolygonFlag flag,
+                                                  bool isSet);
+
+/// The most vertices a polygon's vertex words can name.
+inline constexpr usize MaximumCollisionVertices = 0x2000;
+
+/// Writes the vertices and polygons of `collision` over the lists the
+/// collision header of `layer` points at, with their counts and the header's
+/// bounds.
+[[nodiscard]] std::expected<void, base::Diagnostic>
+setCollisionGeometry(SceneModel& model, usize layer, const Collision& collision);
+
 /// Sets the waterbox at `index`.
 [[nodiscard]] std::expected<void, base::Diagnostic> setWaterBox(SceneModel& model, usize layer,
                                                                 usize index, const WaterBox& box);

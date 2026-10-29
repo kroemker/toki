@@ -1,6 +1,7 @@
 #include "app/scene/domain/CollisionEdits.h"
 
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -253,4 +254,51 @@ TEST_CASE("a collision material's settings change its polygons and no other mate
     collision = readLayerCollision(model, "scene");
     CHECK(collision.surfaceTypes.size() == 4);
     CHECK(collision.surfaceTypes[0] == changed);
+}
+
+TEST_CASE("a collision made again from its own polygons is the collision read",
+          "[scene][edit][collision][surface]") {
+    const toki::scene::SceneModel model(makeScene());
+    const toki::scene::Collision read = readLayerCollision(model, "scene");
+
+    const toki::scene::Collision made =
+        toki::scene::makeSurfaceCollision(read, toki::scene::listSurfacePolygons(read));
+
+    CHECK(made.vertices == read.vertices);
+    CHECK(made.polygons == read.polygons);
+    CHECK(made.minBounds == read.minBounds);
+    CHECK(made.maxBounds == read.maxBounds);
+}
+
+TEST_CASE("polygons of an edited surface are faced at vertices old or new, and written whole",
+          "[scene][edit][collision][surface]") {
+    toki::scene::SceneModel model(makeScene());
+    const toki::scene::Collision read = readLayerCollision(model, "scene");
+    std::vector<toki::scene::SurfacePolygon> polygons = toki::scene::listSurfacePolygons(read);
+    polygons.pop_back();
+    polygons.push_back({.corners = {{{0, 0, 0}, {100, 0, 0}, {0, 50, 0}}},
+                        .material = {.type = 2, .flags = 0b0001}});
+    polygons.push_back({.corners = {{{0, 0, 0}, {10, 0, 0}, {20, 0, 0}}}});
+
+    const toki::scene::Collision made = toki::scene::makeSurfaceCollision(read, polygons);
+
+    REQUIRE(made.polygons.size() == 2);
+    REQUIRE(made.vertices.size() == 4);
+    CHECK(made.vertices[3] == std::array<base::s16, 3>{0, 50, 0});
+    const toki::scene::CollisionPolygon& added = made.polygons[1];
+    CHECK(added.type == 2);
+    CHECK(toki::scene::hasPolygonFlag(added, toki::scene::PolygonFlag::IgnoreCamera));
+    CHECK(toki::scene::getVertexIndex(added, 0) == 0);
+    CHECK(toki::scene::getVertexIndex(added, 1) == 2);
+    CHECK(toki::scene::getVertexIndex(added, 2) == 3);
+    CHECK(added.normal == std::array<base::s16, 3>{0, 0, 32767});
+    CHECK(made.maxBounds == std::array<base::s16, 3>{100, 50, 100});
+
+    REQUIRE(toki::scene::setCollisionGeometry(model, 0, made));
+    const toki::scene::Collision written = readLayerCollision(model, "scene");
+    CHECK(written.diagnostics.empty());
+    CHECK(written.vertices == made.vertices);
+    CHECK(written.polygons == made.polygons);
+    CHECK(written.maxBounds == made.maxBounds);
+    CHECK(readLayerCollision(model, "sceneAlt").polygons == made.polygons);
 }

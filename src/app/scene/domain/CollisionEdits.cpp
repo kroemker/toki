@@ -25,13 +25,16 @@ namespace toki::scene {
 
 namespace {
 
+constexpr usize VertexCountOffset = 0x0C;
 constexpr usize VerticesOffset = 0x10;
+constexpr usize PolygonCountOffset = 0x14;
 constexpr usize PolygonsOffset = 0x18;
 constexpr usize SurfaceTypesOffset = 0x1C;
 constexpr usize CamerasOffset = 0x20;
 constexpr usize WaterBoxCountOffset = 0x24;
 constexpr usize WaterBoxesOffset = 0x28;
 constexpr usize PolygonSize = 0x10;
+constexpr usize VertexSize = 6;
 constexpr usize SurfaceTypeSize = 8;
 constexpr usize CameraSize = 8;
 constexpr usize WaterBoxSize = 0x10;
@@ -346,6 +349,67 @@ std::expected<void, base::Diagnostic> setPolygonFlag(SceneModel& model, const us
 bool hasPolygonFlag(const CollisionPolygon& polygon, const PolygonFlag flag) {
     const FlagPlace place = findFlagPlace(flag);
     return (polygon.vertexData[place.corner] & (place.bit << VertexFlagsShift)) != 0;
+}
+
+CollisionPolygon makeFlaggedPolygon(CollisionPolygon polygon, const PolygonFlag flag,
+                                    const bool isSet) {
+    const FlagPlace place = findFlagPlace(flag);
+    const auto mask = static_cast<u16>(place.bit << VertexFlagsShift);
+    u16& data = polygon.vertexData[place.corner];
+    data = static_cast<u16>(isSet ? data | mask : data & ~mask);
+    return polygon;
+}
+
+std::expected<void, base::Diagnostic> setCollisionGeometry(SceneModel& model, const usize layer,
+                                                           const Collision& collision) {
+    if (collision.vertices.size() > MaximumCollisionVertices) {
+        return std::unexpected(makeEditError(
+            std::format("the collision would have {} vertices, and a polygon can name {} at most",
+                        collision.vertices.size(), MaximumCollisionVertices)));
+    }
+    const std::expected<CollisionSite, base::Diagnostic> site = findCollisionSite(model, layer);
+    if (!site) {
+        return std::unexpected(site.error());
+    }
+    std::expected<z64::SymbolData, base::Diagnostic> vertices =
+        findList(model, layer, VerticesOffset, "vertex");
+    std::expected<z64::SymbolData, base::Diagnostic> polygons =
+        findList(model, layer, PolygonsOffset, "polygon");
+    if (!vertices || !polygons) {
+        return std::unexpected(!vertices ? vertices.error() : polygons.error());
+    }
+    vertices->bytes.assign(collision.vertices.size() * VertexSize, 0);
+    for (usize i = 0; i < collision.vertices.size(); ++i) {
+        for (usize axis = 0; axis < 3; ++axis) {
+            writeHalf(vertices->bytes, (i * VertexSize) + (axis * 2),
+                      static_cast<u16>(collision.vertices[i][axis]));
+        }
+    }
+    polygons->bytes.assign(collision.polygons.size() * PolygonSize, 0);
+    for (usize i = 0; i < collision.polygons.size(); ++i) {
+        const CollisionPolygon& polygon = collision.polygons[i];
+        const usize at = i * PolygonSize;
+        writeHalf(polygons->bytes, at, polygon.type);
+        for (usize corner = 0; corner < 3; ++corner) {
+            writeHalf(polygons->bytes, at + 2 + (corner * 2), polygon.vertexData[corner]);
+            writeHalf(polygons->bytes, at + 8 + (corner * 2),
+                      static_cast<u16>(polygon.normal[corner]));
+        }
+        writeHalf(polygons->bytes, at + 14, static_cast<u16>(polygon.distance));
+    }
+    z64::SymbolData header = *model.findSymbol(site->header);
+    for (usize axis = 0; axis < 3; ++axis) {
+        writeHalf(header.bytes, axis * 2, static_cast<u16>(collision.minBounds[axis]));
+        writeHalf(header.bytes, 6 + (axis * 2), static_cast<u16>(collision.maxBounds[axis]));
+    }
+    writeHalf(header.bytes, VertexCountOffset, static_cast<u16>(collision.vertices.size()));
+    writeHalf(header.bytes, PolygonCountOffset, static_cast<u16>(collision.polygons.size()));
+    for (z64::SymbolData* list : {&*vertices, &*polygons, &header}) {
+        if (std::expected<void, base::Diagnostic> set = model.setSymbol(std::move(*list)); !set) {
+            return set;
+        }
+    }
+    return {};
 }
 
 std::expected<void, base::Diagnostic> setWaterBox(SceneModel& model, const usize layer,

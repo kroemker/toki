@@ -1,6 +1,7 @@
 #include "MeshEdits.h"
 
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -237,30 +238,6 @@ private:
     return {position[0], position[1], position[2]};
 }
 
-/// The normal and distance of `polygon` as its corners in `vertices` make
-/// them, or nothing when they are in one line.
-[[nodiscard]] std::optional<CollisionPolygon>
-makeFacedPolygon(CollisionPolygon polygon, const std::vector<std::array<s16, 3>>& vertices) {
-    std::array<glm::vec3, 3> corners{};
-    for (usize corner = 0; corner < 3; ++corner) {
-        const u16 index = getVertexIndex(polygon, corner);
-        if (index >= vertices.size()) {
-            return std::nullopt;
-        }
-        corners[corner] = makePoint(vertices[index]);
-    }
-    const glm::vec3 facing = glm::cross(corners[1] - corners[0], corners[2] - corners[0]);
-    if (glm::length(facing) < Flat) {
-        return std::nullopt;
-    }
-    const glm::vec3 unit = glm::normalize(facing);
-    for (glm::length_t axis = 0; axis < 3; ++axis) {
-        polygon.normal[static_cast<usize>(axis)] = roundToS16(unit[axis] * NormalOne);
-    }
-    polygon.distance = roundToS16(-glm::dot(unit, corners[0]));
-    return polygon;
-}
-
 } // namespace
 
 std::optional<SymbolWrite> makePartBoundsWrite(const Scene& scene, const usize layer,
@@ -333,17 +310,7 @@ Collision makeMovedCollision(const Collision& collision,
             polygon = *faced;
         }
     }
-    if (!moved.vertices.empty()) {
-        moved.minBounds = moved.vertices.front();
-        moved.maxBounds = moved.vertices.front();
-        for (const std::array<s16, 3>& vertex : moved.vertices) {
-            for (usize axis = 0; axis < 3; ++axis) {
-                moved.minBounds[axis] = std::min(moved.minBounds[axis], vertex[axis]);
-                moved.maxBounds[axis] = std::max(moved.maxBounds[axis], vertex[axis]);
-            }
-        }
-    }
-    return moved;
+    return makeBoundedCollision(std::move(moved));
 }
 
 std::vector<SymbolWrite> makeCollisionMoveWrites(const Scene& scene, const Collision& collision,

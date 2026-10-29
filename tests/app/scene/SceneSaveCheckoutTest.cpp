@@ -1,5 +1,6 @@
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/HeaderSettings.h"
 #include "app/scene/domain/LightSettingEdits.h"
 #include "app/scene/domain/MeshDraft.h"
@@ -390,6 +391,77 @@ TEST_CASE("every vanilla scene with a face taken out of every room reads back as
         listed += failure + "\n\n";
     }
     WARN(saved << " scenes with every room rebuilt read back, " << failures.size() << " did not");
+    INFO(listed);
+    CHECK(saved > 0);
+    CHECK(failures.empty());
+}
+
+TEST_CASE("every vanilla scene with its collision made again without a polygon reads back so",
+          "[scene][save][collision][surface][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize saved = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        const toki::scene::Collision* collision = toki::scene::findLayerCollision(scene, 0);
+        if (collision == nullptr || collision->polygons.empty()) {
+            continue;
+        }
+        const toki::scene::Collision same =
+            toki::scene::makeSurfaceCollision(*collision, toki::scene::listSurfacePolygons(*collision));
+        if (same.vertices != collision->vertices || same.polygons != collision->polygons) {
+            failures.push_back(asset.name + ": made again from itself, the collision differs");
+            continue;
+        }
+        std::vector<toki::scene::SurfacePolygon> polygons =
+            toki::scene::listSurfacePolygons(*collision);
+        const std::array<std::array<base::s16, 3>, 3> corners = polygons.front().corners;
+        polygons.erase(polygons.begin());
+        polygons.push_back(
+            {.corners = {corners[0], corners[1],
+                         {corners[2][0], static_cast<base::s16>(corners[2][1] + 40), corners[2][2]}},
+             .material = polygons.front().material});
+        const toki::scene::Collision made = toki::scene::makeSurfaceCollision(*collision, polygons);
+        toki::scene::SceneModel model(scene);
+        if (const std::expected<void, base::Diagnostic> set =
+                toki::scene::setCollisionGeometry(model, scene.layers[0].index, made);
+            !set) {
+            failures.push_back(asset.name + ": " + set.error().message);
+            continue;
+        }
+        toki::scene::Scene written = scene;
+        written.images = model.layOut();
+        toki::scene::readSceneLayers(written);
+        const toki::scene::Collision* read = toki::scene::findLayerCollision(written, 0);
+        if (read == nullptr || read->polygons != made.polygons ||
+            read->vertices != made.vertices) {
+            failures.push_back(asset.name + ": the written collision reads back otherwise");
+            continue;
+        }
+        const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+            workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                                   .directory = scene.directory,
+                                                   .files = scene.files,
+                                                   .model = std::move(model)});
+        if (plan) {
+            ++saved;
+        } else {
+            failures.push_back(asset.name + ": " + plan.error().substr(0, 600));
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + "\n\n";
+    }
+    WARN(saved << " scenes with their collision made again read back, " << failures.size()
+               << " did not");
     INFO(listed);
     CHECK(saved > 0);
     CHECK(failures.empty());
