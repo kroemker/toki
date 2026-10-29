@@ -42,6 +42,7 @@ target_sources(toki_core PRIVATE
         SceneLoader.cpp
         SceneMaterials.cpp
         SceneSourceScan.cpp
+        SceneSurface.cpp
         PlacementEdits.cpp
         SceneModel.cpp
         PlacementTransform.cpp
