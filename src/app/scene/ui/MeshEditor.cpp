@@ -774,6 +774,23 @@ SurfaceRows MeshEditor::makeSurfaceRows(const std::vector<SceneCollisionMaterial
     return rows;
 }
 
+bool MeshEditor::hasPickedBound() const {
+    if (!sceneMesh || !editMesh) {
+        return false;
+    }
+    return std::ranges::any_of(
+        findMeshFaces(selection.listFaces(*editMesh)), [this](const ComponentRef& face) {
+            const RoomMesh* room = findRoomMesh(*sceneMesh, face.piece);
+            if (room == nullptr || face.index >= room->faces.size()) {
+                return false;
+            }
+            const std::optional<usize> material =
+                findFaceMaterial(materials, room->faces[face.index]);
+            return material && *material < resolvedBindings.size() && resolvedBindings[*material] &&
+                   resolvedBindings[*material]->collision;
+        });
+}
+
 void MeshEditor::editSurface(const ComponentEdit& edit,
                              const std::vector<SceneCollisionMaterial>& listed) {
     if ((!edit.isDrawn && !edit.isSolid && !edit.collisionMaterial) || !collision || !surface ||

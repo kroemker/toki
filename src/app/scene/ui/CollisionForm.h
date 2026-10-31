@@ -20,11 +20,10 @@ namespace toki::scene {
 struct Scene;
 struct SceneLayer;
 
-/// The Properties panel for collision polygons selected: what the game reads
-/// of the one picked last, and its surface type, each setting edited in place.
-/// What passes through a polygon and which surface type it has are set for
-/// every polygon selected; a surface type's settings change every polygon
-/// that has it.
+/// The Properties panel's rows for the polygons of the faces picked: what
+/// passes through them, set for every one, the settings of the collision
+/// material they share, which change every polygon made of it, and what the
+/// game reads of the one picked last.
 class CollisionForm {
 public:
     /// Makes `edit` as one step once the panels are drawn, and selects
@@ -38,10 +37,11 @@ public:
         collisionNames = names;
     }
 
-    /// `polygons` are those selected of one layer's collision, the one shown
-    /// last. `selected` is how many nodes are selected in all.
+    /// `polygons` are those picked of one layer's collision, the one shown
+    /// last. `isBound` says some are of faces whose material is bound, whose
+    /// collision is then set by the binding alone.
     void drawPolygons(const Scene& scene, std::span<const CollisionPolygonRef> polygons,
-                      usize selected);
+                      bool isBound);
 
     /// The items of the surface types' group menu, for `layer`, an index into
     /// `Scene::layers`.
@@ -54,10 +54,13 @@ private:
         std::vector<usize> polygons;
     };
 
+    void drawFlagSection(const Collision& collision, const PolygonSelection& selection,
+                         bool isBound);
     void drawPolygonSection(const Collision& collision, const PolygonSelection& selection);
     void drawSurfaceSection(const Scene& scene, const SceneLayer& layer, const Collision& collision,
-                            const PolygonSelection& selection, u16 type);
-    void drawSurfaceChoice(const Collision& collision, const PolygonSelection& selection, u16 type);
+                            const PolygonSelection& selection, bool isBound);
+    void drawOwnCopy(const Collision& collision, const PolygonSelection& selection, u16 type,
+                     bool isBound);
     void drawSurfaceRows(const Scene& scene, const SceneLayer& layer, const Collision& collision,
                          const PolygonSelection& selection, u16 type);
     [[nodiscard]] SurfaceFields drawSurfaceLinks(const Scene& scene, const SceneLayer& layer,

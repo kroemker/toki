@@ -113,6 +113,9 @@ public:
     /// has, for the Properties panel's form of polygons.
     [[nodiscard]] std::vector<CollisionPolygonRef> listPickedPolygons() const;
 
+    /// Whether a face picked is drawn under a material bound to collision.
+    [[nodiscard]] bool hasPickedBound() const;
+
     /// Names collision materials as `names` does.
     void setCollisionNames(const CollisionNames* names) {
         collisionNames = names;

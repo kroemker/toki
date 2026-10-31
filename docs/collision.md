@@ -104,10 +104,12 @@ nearer of the two. A waterbox selected has no selection box around it
 (`ViewportDraw::isBoxed`): its highlight already shows all of it.
 
 The polygons of the faces picked show in the Properties panel below the faces
-(`CollisionForm`): their kind, their vertices, what they let through, their normal and
-distance, and their surface type: each setting decoded and named, the camera with its
-setting, and the exit with the entrance it leads to. Every polygon of the surface type the
-picked faces share is tinted. A waterbox selected shows its bounds, surface, room, light
+(`CollisionForm`): what passes through them; the settings of the collision material they
+share, each decoded and named, the camera with its setting, and the exit with the entrance
+it leads to; and, folded away, the kind, vertices, normal and distance of the one picked
+last. Faces of several collision materials show none's settings. Every polygon of the
+surface type the picked faces share is tinted. Faces whose material is bound show what
+passes through them, and cannot set it: the binding does. A waterbox selected shows its bounds, surface, room, light
 setting, camera and flag (`WaterBoxForm`). Each of these is edited in place; see below.
 
 ## The Scene panel
@@ -134,9 +136,9 @@ Each edit is one undo step.
 
 - **What passes through a polygon** and whether it is a conveyor are its vertex words' flags,
   set for every polygon selected at once. A flag some of them have and some not shows mixed.
-- **Which surface type a polygon has** is picked from the collision's list, for every polygon
-  selected. New gives them a copy of the one they have, so its settings can change without
-  changing any other polygon.
+- **Which collision material a polygon is made of** is set as a face's is, in the Surface
+  rows ([geometry.md](geometry.md#one-surface)). Own Copy gives the picked faces a copy of
+  their surface type, so its settings can change without changing any other polygon.
 - **A surface type's settings** are written field by field into its two words at the masks
   the game reads them with (`makeSurfaceType`); bits no field covers are kept. An edit
   changes the polygons of the collision material edited alone: a surface type it shares

@@ -482,7 +482,8 @@ void ScenePanel::drawProperties() {
         meshEditor.drawProperties();
         const std::vector<CollisionPolygonRef> polygons = meshEditor.listPickedPolygons();
         if (!polygons.empty()) {
-            placementEditor.getCollisionForm().drawPolygons(*scene, polygons, polygons.size());
+            placementEditor.getCollisionForm().drawPolygons(*scene, polygons,
+                                                            meshEditor.hasPickedBound());
         }
         return;
     }
