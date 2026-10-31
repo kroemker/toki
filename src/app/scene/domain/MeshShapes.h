@@ -29,7 +29,7 @@ inline constexpr f32 ShapeSize = 100.0F;
 /// its colour. Texture coordinates are laid on each face's plane, a texel to
 /// a unit, from the shape's corner. Returns the faces added.
 std::vector<usize> addMeshShape(RoomDraft& draft, MeshShape shape, const glm::vec3& center,
-                                f32 size, const DraftFace& like);
+                                f32 size, DraftFace like);
 
 /// The rooms `picks` names with their picked faces taken out, and the room
 /// numbered `room` with them added, each drawn by the run that draws its

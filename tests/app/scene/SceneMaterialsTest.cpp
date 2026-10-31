@@ -239,6 +239,22 @@ TEST_CASE("a material renamed renames its list and what points at it, and one du
     REQUIRE(std::ranges::find(after, "grass", &SceneMaterial::name) == after.end());
 }
 
+TEST_CASE("a box drawn like a face of the draft it is added to is drawn as that face was",
+          "[scene][mesh]") {
+    const toki::scene::Scene scene = makeScene();
+    const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+    toki::scene::RoomDraft draft = toki::scene::makeRoomDraft(mesh.rooms[0]);
+    draft.faces.shrink_to_fit();
+    const toki::scene::DraftFace like = draft.faces[2];
+    const std::vector<usize> added = toki::scene::addMeshShape(
+        draft, toki::scene::MeshShape::Box, {50.0F, 0.0F, 50.0F}, 100.0F, draft.faces[2]);
+    REQUIRE(added.size() == 12);
+    for (const usize face : added) {
+        REQUIRE(draft.faces[face].draw == like.draw);
+        REQUIRE(draft.faces[face].material == like.material);
+    }
+}
+
 TEST_CASE("a box added to a room is drawn in the run of the face it is drawn like, closed and "
           "faced outward",
           "[scene][mesh]") {

@@ -166,8 +166,9 @@ private:
     [[nodiscard]] std::vector<SymbolWrite> makeWrites(const Moves& moves) const;
     /// The collision `moves` leave, if they change it.
     [[nodiscard]] std::optional<Collision> makeMovedSurface(const Moves& moves) const;
-    /// The picks of rooms' meshes `picks` holds, and that of the polygons no
-    /// face has.
+    /// The picks of rooms' meshes `picks` holds, and that of the solid faces
+    /// no room renders, its faces numbered as `makeSolidOnlyDraft` numbers
+    /// them.
     [[nodiscard]] std::pair<std::vector<MeshPick>, std::optional<MeshPick>>
     splitPicks(std::vector<MeshPick> picks) const;
     /// What is picked as the rooms' meshes number it: each face of a piece

@@ -82,6 +82,8 @@ SDL_GPUGraphicsPipeline* PipelineCache::findPipeline(const PipelineKey& key) {
     }};
     const SDL_GPUBlendFactor source = findBlendFactor(key.blend.source);
     const SDL_GPUBlendFactor destination = findBlendFactor(key.blend.destination);
+    const bool isOver =
+        key.blend.path == BlendPath::OverMemory || key.blend.path == BlendPath::MemoryUnder;
     const SDL_GPUColorTargetDescription colorTarget{
         .format = RenderTarget::ColorFormat,
         .blend_state =
@@ -89,8 +91,10 @@ SDL_GPUGraphicsPipeline* PipelineCache::findPipeline(const PipelineKey& key) {
                 .src_color_blendfactor = source,
                 .dst_color_blendfactor = destination,
                 .color_blend_op = SDL_GPU_BLENDOP_ADD,
-                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
-                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .src_alpha_blendfactor =
+                    isOver ? SDL_GPU_BLENDFACTOR_ONE : SDL_GPU_BLENDFACTOR_ZERO,
+                .dst_alpha_blendfactor =
+                    isOver ? SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA : SDL_GPU_BLENDFACTOR_ONE,
                 .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
                 .color_write_mask = 0,
                 .enable_blend = key.blend.enabled,

@@ -277,6 +277,24 @@ MeshEditor::splitPicks(std::vector<MeshPick> picks) const {
         solidOnly = std::move(pick);
         return true;
     });
+    if (solidOnly && collision && surface) {
+        const RoomDraft draft = makeSolidOnlyDraft(*collision, *surface, roomCount);
+        std::map<usize, usize> faceOfPolygon;
+        for (usize face = 0; face < draft.faces.size(); ++face) {
+            if (draft.faces[face].original) {
+                faceOfPolygon.emplace(*draft.faces[face].original, face);
+            }
+        }
+        for (std::vector<usize>* faces : {&solidOnly->faces, &solidOnly->touchedFaces}) {
+            std::vector<usize> drafted;
+            for (const usize polygon : *faces) {
+                if (const auto found = faceOfPolygon.find(polygon); found != faceOfPolygon.end()) {
+                    drafted.push_back(found->second);
+                }
+            }
+            *faces = std::move(drafted);
+        }
+    }
     return {std::move(picks), std::move(solidOnly)};
 }
 

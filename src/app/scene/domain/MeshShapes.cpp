@@ -78,7 +78,7 @@ using Quad = std::array<glm::vec3, 4>;
 } // namespace
 
 std::vector<usize> addMeshShape(RoomDraft& draft, const MeshShape shape, const glm::vec3& center,
-                                const f32 size, const DraftFace& like) {
+                                const f32 size, const DraftFace like) {
     const f32 half = size / 2.0F;
     const glm::vec3 low = center - glm::vec3(half, 0.0F, half);
     const glm::vec3 high = center + glm::vec3(half, shape == MeshShape::Box ? size : 0.0F, half);
