@@ -40,6 +40,11 @@ namespace toki::scene {
                                          std::span<const RoomDraft> drafts,
                                          const RoomDraft* solidOnly);
 
+/// The new solid faces of `draft` whose corners in whole units are in a line,
+/// which `makeDraftedCollision` leaves without a polygon: those an extrusion
+/// grows before they are moved apart.
+[[nodiscard]] std::vector<usize> listFlatSolidFaces(const RoomDraft& draft);
+
 /// The mesh vertices welded to the collision vertices `moves` moves, moved
 /// with them.
 [[nodiscard]] std::vector<MeshVertexMove>

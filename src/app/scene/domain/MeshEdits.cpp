@@ -355,8 +355,29 @@ bool hasSymbolWrites(const Scene& scene, const std::span<const SymbolWrite> writ
     return true;
 }
 
-SceneMesh makeMovedMesh(const SceneMesh& mesh, const std::span<const MeshVertexMove> moves) {
+SceneMesh makeMovedMesh(const SceneMesh& mesh, const std::span<const MeshVertexMove> moves,
+                        const std::span<const SymbolWrite> writes) {
     SceneMesh moved = mesh;
+    std::map<std::string, std::vector<const SymbolWrite*>, std::less<>> written;
+    for (const SymbolWrite& write : writes) {
+        written[write.symbol].push_back(&write);
+    }
+    for (RoomMesh& room : moved.rooms) {
+        for (MeshEntry& entry : room.entries) {
+            const auto found = written.find(entry.key.symbol);
+            if (found == written.end()) {
+                continue;
+            }
+            const usize start = entry.key.index * VtxSize;
+            for (const SymbolWrite* write : found->second) {
+                const usize from = std::max(start, write->offset);
+                const usize to = std::min(start + VtxSize, write->offset + write->bytes.size());
+                for (usize at = from; at < to; ++at) {
+                    entry.vtx[at - start] = write->bytes[at - write->offset];
+                }
+            }
+        }
+    }
     for (const MeshVertexMove& move : moves) {
         const auto room = std::ranges::find(moved.rooms, move.room, &RoomMesh::room);
         if (room == moved.rooms.end() || move.vertex >= room->vertices.size()) {

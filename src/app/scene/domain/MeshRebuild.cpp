@@ -846,13 +846,13 @@ private:
 
 /// Makes `rebuild` in a copy of `model` and reads the drafts' rooms again
 /// out of what it lays out.
-[[nodiscard]] std::expected<void, base::Diagnostic>
+[[nodiscard]] std::expected<SceneMesh, base::Diagnostic>
 checkRebuild(const Scene& scene, const SceneModel& model, const SceneMesh& mesh,
              const std::span<const RoomDraft> drafts, const MeshRebuild& rebuild) {
     SceneModel checked = model;
     if (std::expected<void, base::Diagnostic> applied = applyMeshRebuild(checked, rebuild);
         !applied) {
-        return applied;
+        return std::unexpected(applied.error());
     }
     Scene written;
     written.images = checked.layOut();
@@ -877,7 +877,26 @@ checkRebuild(const Scene& scene, const SceneModel& model, const SceneMesh& mesh,
                                 listed, draft.room, wanted.size(), drawn.size())));
         }
     }
-    return {};
+    return read;
+}
+
+/// Gives each entry of `kept` the `Vtx` that `read` loads it from.
+void setKeptVtx(SceneMesh& kept, const SceneMesh& read) {
+    for (RoomMesh& room : kept.rooms) {
+        const RoomMesh* readRoom = findRoomMesh(read, room.room);
+        if (readRoom == nullptr) {
+            continue;
+        }
+        std::map<MeshEntryKey, const MeshEntry*> readEntries;
+        for (const MeshEntry& entry : readRoom->entries) {
+            readEntries.emplace(entry.key, &entry);
+        }
+        for (MeshEntry& entry : room.entries) {
+            if (const auto found = readEntries.find(entry.key); found != readEntries.end()) {
+                entry.vtx = found->second->vtx;
+            }
+        }
+    }
 }
 
 /// The symbol of `image` that holds `address`, and how far into it that is.
@@ -935,11 +954,12 @@ planMeshRebuild(const Scene& scene, const SceneModel& model, const SceneMesh& me
     if (!rebuild || rebuild->isEmpty()) {
         return rebuild;
     }
-    if (std::expected<void, base::Diagnostic> checked =
-            checkRebuild(scene, model, mesh, drafts, *rebuild);
-        !checked) {
-        return std::unexpected(checked.error());
+    const std::expected<SceneMesh, base::Diagnostic> read =
+        checkRebuild(scene, model, mesh, drafts, *rebuild);
+    if (!read) {
+        return std::unexpected(read.error());
     }
+    setKeptVtx(rebuild->kept, *read);
     return rebuild;
 }
 

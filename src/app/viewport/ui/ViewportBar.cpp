@@ -34,6 +34,22 @@ constexpr std::array<const char*, ShadingCount> ShadingIcons{
 static_assert(TextureFilterLabels.size() == TextureFilterCount,
               "a texture filter was added to the enum without a label");
 
+/// An overlay the bar switches by an icon, as its row in Overlays does.
+enum class OverlaySwitch : u8 {
+    Collision,
+    Actors,
+    FlagLinks,
+    Grid,
+    Xray,
+};
+
+struct SwitchButton {
+    OverlaySwitch overlay = OverlaySwitch::Grid;
+    std::string label;
+    bool isOn = false;
+    std::string tooltip;
+};
+
 [[nodiscard]] float findButtonWidth(const std::string& label) {
     return ImGui::CalcTextSize(label.c_str(), nullptr, true).x +
            (ImGui::GetStyle().FramePadding.x * 2.0F);
@@ -190,8 +206,8 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
         ViewportChoices changed = edit.choices.value_or(*choices);
         if (drawSwitchRow("Collision",
                           "The layer's collision, drawn see-through over the rooms shown, or "
-                          "opaque with every room hidden. While it is shown, its polygons no "
-                          "face has and the solid faces of hidden rooms can be picked.",
+                          "opaque with every room hidden. While it is shown, solid faces no room "
+                          "renders and the solid faces of hidden rooms can be picked.",
                           changed.showsCollision)) {
             edit.choices = changed;
         }
@@ -250,6 +266,62 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
     return count;
 }
 
+[[nodiscard]] std::vector<SwitchButton>
+listSwitchButtons(const ViewportView& view, const std::optional<ViewportChoices>& choices) {
+    std::vector<SwitchButton> buttons;
+    const auto add = [&buttons](const OverlaySwitch overlay, const char* icon, const bool isOn,
+                                std::string tooltip) {
+        buttons.push_back({.overlay = overlay,
+                           .label = std::format("{}###switch{}", icon, buttons.size()),
+                           .isOn = isOn,
+                           .tooltip = std::move(tooltip)});
+    };
+    if (choices && choices->hasCollision) {
+        add(OverlaySwitch::Collision, core::icons::Stack, choices->showsCollision,
+            choices->showsCollision ? "Hide the collision" : "Show the collision");
+    }
+    if (choices && choices->actors) {
+        const bool isShown = *choices->actors != ActorDisplay::Hidden;
+        add(OverlaySwitch::Actors, core::icons::PersonSimple, isShown,
+            isShown ? "Hide the actors"
+                    : "Show the actors as their models; Overlays shows them as markers instead");
+    }
+    add(OverlaySwitch::FlagLinks, core::icons::Lightning, view.overlays.flagLinks,
+        view.overlays.flagLinks ? "Hide the flag links" : "Show the flag links");
+    add(OverlaySwitch::Grid, core::icons::GridFour, view.overlays.grid,
+        view.overlays.grid ? "Hide the grid" : "Show the grid");
+    add(OverlaySwitch::Xray, core::icons::Intersect, view.overlays.xray,
+        core::makeShortcutText(view.overlays.xray ? "Hide what walls hide"
+                                                  : "Show overlays through walls",
+                               core::Action::ToggleXray));
+    return buttons;
+}
+
+/// `edit` with `overlay` switched, `view` and `choices` what it changes.
+void flipSwitch(const OverlaySwitch overlay, const ViewportView& view,
+                const std::optional<ViewportChoices>& choices, ViewportBarEdit& edit) {
+    if (overlay == OverlaySwitch::Collision || overlay == OverlaySwitch::Actors) {
+        ViewportChoices changed = edit.choices.value_or(*choices);
+        if (overlay == OverlaySwitch::Collision) {
+            changed.showsCollision = !changed.showsCollision;
+        } else {
+            changed.actors = changed.actors == ActorDisplay::Hidden ? ActorDisplay::Models
+                                                                    : ActorDisplay::Hidden;
+        }
+        edit.choices = std::move(changed);
+        return;
+    }
+    ViewportView changed = edit.view.value_or(view);
+    if (overlay == OverlaySwitch::FlagLinks) {
+        changed.overlays.flagLinks = !changed.overlays.flagLinks;
+    } else if (overlay == OverlaySwitch::Grid) {
+        changed.overlays.grid = !changed.overlays.grid;
+    } else {
+        changed.overlays.xray = !changed.overlays.xray;
+    }
+    edit.view = changed;
+}
+
 [[nodiscard]] std::optional<ViewportView> drawShadingButtons(const ViewportView& view) {
     std::optional<ViewportView> edit;
     for (usize i = 0; i < ShadingCount; ++i) {
@@ -282,6 +354,7 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
     edit.view = drawShadingButtons(view);
     ImGui::SameLine();
     const std::string shading = std::format("{} Shading", core::icons::SlidersHorizontal);
+    const float shadingEnd = ImGui::GetCursorScreenPos().x + findButtonWidth(shading);
     if (beginPopover(shading, ShadingPopup, false)) {
         const ViewportBarEdit form = drawShadingForm(edit.view.value_or(view), choices);
         if (form.view) {
@@ -291,26 +364,32 @@ ViewportBarEdit drawViewportBar(const ViewportView& view,
         ImGui::EndPopup();
     }
 
-    const ViewportView& current = edit.view ? *edit.view : view;
-    const std::string xray = std::format("{}###xray", core::icons::Intersect);
+    const ViewportView current = edit.view ? *edit.view : view;
+    const std::vector<SwitchButton> switches = listSwitchButtons(current, choices);
     const std::string toggle = current.overlays.isShown ? core::icons::Eye : core::icons::EyeSlash;
     const std::string overlays =
         std::format("Overlays {}###overlaysButton", countShownOverlays(current, choices));
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float width = findButtonWidth(xray) + spacing + findButtonWidth(toggle) + spacing +
-                        findButtonWidth(overlays);
-    ImGui::SetCursorScreenPos(ImVec2(start.x + available - width, start.y));
-    if (drawToggleButton(xray, current.overlays.xray,
-                         core::makeShortcutText(current.overlays.xray
-                                                    ? "Hide what walls hide"
-                                                    : "Show overlays through walls",
-                                                core::Action::ToggleXray)
-                             .c_str())) {
-        ViewportView changed = current;
-        changed.overlays.xray = !changed.overlays.xray;
-        edit.view = changed;
+    float switchesWidth = 0.0F;
+    for (const SwitchButton& button : switches) {
+        switchesWidth += findButtonWidth(button.label) + 1.0F;
     }
-    ImGui::SameLine();
+    const float width =
+        switchesWidth + spacing + findButtonWidth(toggle) + spacing + findButtonWidth(overlays);
+    const bool hasSwitches = start.x + available - width > shadingEnd + spacing;
+    ImGui::SetCursorScreenPos(ImVec2(
+        start.x + available - (hasSwitches ? width : width - switchesWidth - spacing), start.y));
+    for (usize i = 0; hasSwitches && i < switches.size(); ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0F, 1.0F);
+        }
+        if (drawToggleButton(switches[i].label, switches[i].isOn, switches[i].tooltip.c_str())) {
+            flipSwitch(switches[i].overlay, current, choices, edit);
+        }
+    }
+    if (hasSwitches) {
+        ImGui::SameLine();
+    }
     if (drawToggleButton(toggle, !current.overlays.isShown,
                          core::makeShortcutText(current.overlays.isShown ? "Hide all overlays"
                                                                          : "Show all overlays",

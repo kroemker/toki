@@ -48,6 +48,15 @@ makeFacesSolid(const SceneMesh& mesh, const Collision& collision, std::span<cons
 [[nodiscard]] std::vector<OperatedRoom>
 undrawFaces(const SceneMesh& mesh, std::span<const MeshPick> picks, RoomDraft solidOnly);
 
+/// `solidOnly`, the draft of the polygons no face has, without the faces
+/// `faces` names, and room `room` of `mesh` drawing each of them, made of what
+/// it was: drawn as the room's face nearest it is, at the room's vertices
+/// where they stand at its corners. Empty when the room draws no face.
+[[nodiscard]] std::vector<OperatedRoom> drawSolidOnlyFaces(const SceneMesh& mesh,
+                                                           RoomDraft solidOnly,
+                                                           std::span<const usize> faces,
+                                                           usize room);
+
 /// A render material's binding as it stands against a layer's collision and
 /// mesh: the collision material it makes faces of, or why it makes them of
 /// none the collision has, and how many of its faces are not made of it.

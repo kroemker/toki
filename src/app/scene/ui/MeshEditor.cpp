@@ -7,12 +7,14 @@
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MaterialEdits.h"
 #include "app/scene/domain/MeshEdits.h"
+#include "app/scene/domain/MeshFill.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
 #include "app/scene/domain/RoomMesh.h"
@@ -27,6 +29,7 @@
 #include "base/Diagnostic.h"
 
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -35,7 +38,9 @@
 #include <cmath>
 #include <cstdint>
 #include <expected>
+#include <format>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -43,6 +48,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -54,10 +60,12 @@ using viewport::SelectionMode;
 constexpr ImVec4 EdgeColor{0.08F, 0.08F, 0.10F, 0.85F};
 constexpr ImVec4 VertexColor{0.05F, 0.05F, 0.06F, 1.0F};
 constexpr f32 SelectedFaceAlpha = 0.3F;
+constexpr f32 MaterialFaceAlpha = 0.18F;
 constexpr f32 EdgeWidth = 1.0F;
 constexpr f32 SelectedEdgeWidth = 2.0F;
 constexpr f32 VertexSize = 5.0F;
 constexpr f32 MenuWrapEms = 24.0F;
+constexpr usize PastMeshCount = 32;
 
 [[nodiscard]] bool isRoomShown(const std::vector<bool>& hiddenRooms, const usize room) {
     return room >= hiddenRooms.size() || !hiddenRooms[room];
@@ -70,7 +78,7 @@ constexpr f32 MenuWrapEms = 24.0F;
     case MeshOperation::Delete:
         return "Pick something to take out.";
     default:
-        return "Pick a face.";
+        return "Pick a face, or the vertices or edges around one.";
     }
 }
 
@@ -88,12 +96,16 @@ void MeshEditor::reset() {
     madeWrites.clear();
     madeMesh.reset();
     keptMesh.reset();
+    pastMeshes.clear();
     wantedFaces.clear();
     wantedVertices.clear();
     wantedPolygons.clear();
     wantedTransform.reset();
+    flatSolidFaces.clear();
     failure.clear();
     selection.clear();
+    selectedMaterial.reset();
+    isMaterialOverlayStale = true;
 }
 
 void MeshEditor::read(const Scene& scene, const SceneView& view) {
@@ -108,17 +120,25 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
     isOfferStale = true;
     const Collision* found = findLayerCollision(scene, view.layer);
     collision = found != nullptr ? std::optional<Collision>(*found) : std::nullopt;
+    if (sceneMesh) {
+        pastMeshes.push_front(std::move(*sceneMesh));
+        sceneMesh.reset();
+        if (pastMeshes.size() > PastMeshCount) {
+            pastMeshes.pop_back();
+        }
+    }
     if (madeMesh && madeMesh->layer == view.layer && hasSymbolWrites(scene, madeWrites)) {
         sceneMesh = std::move(madeMesh);
     } else {
-        const SceneMesh* kept = nullptr;
-        if (keptMesh && keptMesh->layer == view.layer) {
-            kept = &*keptMesh;
-        } else if (sceneMesh && sceneMesh->layer == view.layer) {
-            kept = &*sceneMesh;
+        std::vector<const SceneMesh*> kept;
+        if (keptMesh) {
+            kept.push_back(&*keptMesh);
+        }
+        for (const SceneMesh& past : pastMeshes) {
+            kept.push_back(&past);
         }
         SceneMesh read = readSceneMesh(scene, view.layer, kept);
-        if (kept == nullptr) {
+        if (isFirstRead) {
             for (const base::Diagnostic& diagnostic : read.diagnostics) {
                 core::logWarn("{}: {}", scene.name, diagnostic.message);
             }
@@ -314,10 +334,13 @@ void MeshEditor::operate(const MeshOperation operation) {
 
 void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
                          const std::optional<viewport::TransformKind> then,
-                         std::optional<MaterialBindings> bindings) {
+                         std::optional<MaterialBindings> bindings, const Collision* base) {
     failure.clear();
     if (shownScene == nullptr || !sceneMesh) {
         return;
+    }
+    if (base == nullptr && collision) {
+        base = &*collision;
     }
     if (operated.empty()) {
         if (bindings) {
@@ -351,14 +374,14 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         }
     }
     std::optional<Collision> drafted;
-    if (collision && surface) {
-        if (const usize flat = countLeftOutPolygons(*collision, *surface, drafts, solidOnly);
-            flat > 0) {
+    if (base != nullptr && surface) {
+        const usize flat = countLeftOutPolygons(*base, *surface, drafts, solidOnly);
+        if (flat > 0 && !then) {
             core::logWarn("{}: {} solid faces have their corners in a line at whole units, and "
                           "are left without collision",
                           shownScene->name, flat);
         }
-        Collision made = makeDraftedCollision(*collision, *surface, drafts, solidOnly);
+        Collision made = makeDraftedCollision(*base, *surface, drafts, solidOnly);
         if (made.vertices != collision->vertices || made.polygons != collision->polygons) {
             drafted = std::move(made);
         }
@@ -372,6 +395,7 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
     wantedFaces.clear();
     wantedVertices.clear();
     wantedPolygons.clear();
+    flatSolidFaces.clear();
     for (usize index = 0; index < operated.size(); ++index) {
         const OperatedRoom& room = operated[index];
         if (!draftOf[index]) {
@@ -391,6 +415,10 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
         const usize draft = *draftOf[index];
         for (const usize face : room.faces) {
             wantedFaces.push_back(planned->faces[draft][face]);
+        }
+        for (const usize face : listFlatSolidFaces(drafts[draft])) {
+            flatSolidFaces.push_back({.corners = planned->faces[draft][face],
+                                      .material = *drafts[draft].faces[face].collision});
         }
         for (const usize vertex : room.vertices) {
             for (usize face = 0; face < drafts[draft].faces.size(); ++face) {
@@ -429,11 +457,11 @@ void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<
     });
 }
 
-void MeshEditor::pickMaterial(const usize material) {
-    if (!sceneMesh || !editMesh || material >= materials.size()) {
-        return;
-    }
+std::vector<ComponentRef> MeshEditor::listMaterialFaces(const usize material) const {
     std::vector<ComponentRef> faces;
+    if (!sceneMesh || material >= materials.size()) {
+        return faces;
+    }
     for (const RoomMesh& room : sceneMesh->rooms) {
         for (usize face = 0; face < room.faces.size(); ++face) {
             if (isDrawnUnder(materials[material], room.faces[face])) {
@@ -441,14 +469,29 @@ void MeshEditor::pickMaterial(const usize material) {
             }
         }
     }
-    selectFaces(faces);
+    return faces;
+}
+
+void MeshEditor::pickMaterial(const usize material) {
+    if (!sceneMesh || !editMesh || material >= materials.size()) {
+        return;
+    }
+    selectFaces(listMaterialFaces(material));
 }
 
 void MeshEditor::pickCollisionMaterial(const CollisionMaterial& material) {
     if (!sceneMesh || !editMesh || !collision) {
         return;
     }
+    selectFaces(listCollisionMaterialFaces(material));
+}
+
+std::vector<ComponentRef>
+MeshEditor::listCollisionMaterialFaces(const CollisionMaterial& material) const {
     std::vector<ComponentRef> faces;
+    if (!sceneMesh || !editMesh || !collision) {
+        return faces;
+    }
     for (const RoomMesh& room : sceneMesh->rooms) {
         for (usize face = 0; face < room.faces.size(); ++face) {
             if (room.faces[face].collision == material) {
@@ -466,10 +509,117 @@ void MeshEditor::pickCollisionMaterial(const CollisionMaterial& material) {
             }
         }
     }
-    selectFaces(faces);
+    return faces;
+}
+
+void MeshEditor::selectMaterial(const MaterialRef& material) {
+    selectedMaterial = material;
+    isMaterialOverlayStale = true;
+}
+
+void MeshEditor::clearSelectedMaterial() {
+    if (selectedMaterial) {
+        selectedMaterial.reset();
+        isMaterialOverlayStale = true;
+    }
+}
+
+void MeshEditor::addMaterialOverlay(viewport::ViewportOverlay& overlay) {
+    if (isMaterialOverlayStale) {
+        makeMaterialOverlay();
+        isMaterialOverlayStale = false;
+    }
+    overlay.faces.insert(overlay.faces.end(), materialOverlay.faces.begin(),
+                         materialOverlay.faces.end());
+}
+
+void MeshEditor::makeMaterialOverlay() {
+    materialOverlay = {};
+    if (!selectedMaterial || !editMesh) {
+        return;
+    }
+    const auto* render = std::get_if<RenderMaterialRef>(&*selectedMaterial);
+    const std::vector<ComponentRef> faces =
+        render != nullptr
+            ? listMaterialFaces(render->material)
+            : listCollisionMaterialFaces(std::get<CollisionMaterial>(*selectedMaterial));
+    ImVec4 fill = core::palette::Accent;
+    fill.w = MaterialFaceAlpha;
+    const u32 color = ImGui::GetColorU32(fill);
+    for (const ComponentRef& face : faces) {
+        const bool isShown = face.piece < roomCount ? isRoomShown(readHiddenRooms, face.piece) ||
+                                                          (render == nullptr && readShowsCollision)
+                                                    : readShowsCollision;
+        if (!isShown || face.piece >= editMesh->pieces.size()) {
+            continue;
+        }
+        const EditPiece& piece = editMesh->pieces[face.piece];
+        const std::array<usize, 3>& corners = piece.faces[face.index];
+        materialOverlay.faces.push_back(
+            {.corners = {piece.vertices[corners[0]], piece.vertices[corners[1]],
+                         piece.vertices[corners[2]]},
+             .color = color});
+    }
+}
+
+void MeshEditor::drawMaterialSettings(const usize material) {
+    if (!sceneMesh || material >= materials.size()) {
+        return;
+    }
+    std::optional<BindingRows> rows;
+    if (collision) {
+        rows = makeBindingRows(material);
+    }
+    if (const std::optional<std::optional<MaterialBinding>> picked =
+            MaterialForm::draw(materials[material], rows)) {
+        bindMaterial(material, *picked);
+    }
+}
+
+BindingRows MeshEditor::makeBindingRows(const usize material) const {
+    BindingRows rows;
+    const std::optional<ResolvedBinding> resolved =
+        material < resolvedBindings.size() ? resolvedBindings[material] : std::nullopt;
+    const bool isMixed = isCollisionMixed(*sceneMesh, materials, material);
+    rows.choices.push_back({.label = "Unbound"});
+    const auto offer = [&](std::string label, const std::optional<CollisionMaterial>& made) {
+        const MaterialBinding binding = makeMaterialBinding(*collision, made);
+        if (resolved && resolved->binding == binding) {
+            rows.current = rows.choices.size();
+        }
+        rows.choices.push_back(
+            {.label = std::move(label),
+             .binding = binding,
+             .changed = isMixed ? countUnbound(*sceneMesh, materials, material, made) : 0});
+    };
+    offer("Not Solid", std::nullopt);
+    for (const SceneCollisionMaterial& listed : listCollisionMaterials(*collision)) {
+        offer(makeCollisionMaterialName(collisionNames, *collision, listed.material),
+              listed.material);
+    }
+    if (!resolved) {
+        return rows;
+    }
+    if (!resolved->collision) {
+        rows.problem = std::format("Bound to collision not there: {}. Bind it again or unbind it.",
+                                   resolved->collision.error());
+    } else {
+        rows.unbound = resolved->unbound;
+    }
+    if (rows.current == 0) {
+        rows.current = rows.choices.size();
+        rows.choices.push_back({.label = !resolved->collision ? std::string("Missing Collision")
+                                         : *resolved->collision
+                                             ? makeCollisionMaterialName(collisionNames, *collision,
+                                                                         **resolved->collision)
+                                             : std::string("Not Solid"),
+                                .binding = resolved->binding});
+    }
+    return rows;
 }
 
 void MeshEditor::selectFaces(const std::vector<ComponentRef>& faces) {
+    clearSelectedMaterial();
     viewportPanel.setSelectionMode(SelectionMode::Face);
     selection.setMode(SelectionMode::Face, *editMesh);
     selection.selectFaces(faces, *editMesh);
@@ -659,6 +809,73 @@ void MeshEditor::addShape(const MeshShape shape) {
     rebuild({made}, std::nullopt);
 }
 
+void MeshEditor::fill() {
+    failure.clear();
+    if (!sceneMesh || !editMesh) {
+        return;
+    }
+    auto [meshPicks, solidOnlyPick] = splitPicks(makePicks());
+    std::erase_if(meshPicks, [](const MeshPick& pick) { return pick.vertices.empty(); });
+    if (solidOnlyPick && solidOnlyPick->vertices.empty()) {
+        solidOnlyPick.reset();
+    }
+    const usize picked = meshPicks.size() + (solidOnlyPick ? 1 : 0);
+    if (picked != 1) {
+        failure = picked == 0 ? "Pick three vertices or more."
+                              : "Pick vertices of one room: a face is drawn by one room alone.";
+        return;
+    }
+    const MeshPick& pick = solidOnlyPick ? *solidOnlyPick : meshPicks.front();
+    OperatedRoom made;
+    if (solidOnlyPick) {
+        if (!collision || !surface) {
+            return;
+        }
+        made.draft = makeSolidOnlyDraft(*collision, *surface, roomCount);
+    } else if (const RoomMesh* room = findRoomMesh(*sceneMesh, pick.room)) {
+        made.draft = makeRoomDraft(*room);
+    } else {
+        return;
+    }
+    std::expected<std::vector<usize>, std::string> faces =
+        fillVertices(made.draft, pick.vertices, viewportPanel.getCameraEye());
+    if (!faces) {
+        failure = faces.error();
+        return;
+    }
+    made.faces = std::move(*faces);
+    rebuild({made}, std::nullopt);
+}
+
+const std::vector<ComponentRef>& MeshEditor::listOffered() const {
+    switch (selection.getMode()) {
+    case SelectionMode::Vertex:
+        return pickedPoints;
+    case SelectionMode::Edge:
+        return pickedSegments;
+    default:
+        return pickedBoxes;
+    }
+}
+
+void MeshEditor::selectAll() {
+    selection.pick(listOffered(), viewport::PickMode::Replace);
+    clearSelectedMaterial();
+    isOfferStale = true;
+}
+
+void MeshEditor::invertSelection() {
+    std::vector<ComponentRef> inverted;
+    for (const ComponentRef& component : listOffered()) {
+        if (!selection.contains(component)) {
+            inverted.push_back(component);
+        }
+    }
+    selection.pick(inverted, viewport::PickMode::Replace);
+    clearSelectedMaterial();
+    isOfferStale = true;
+}
+
 void MeshEditor::moveToRoom(const usize room) {
     failure.clear();
     if (!canOperate(MeshOperation::Flip)) {
@@ -706,7 +923,15 @@ void MeshEditor::drawProperties() {
         listed = listCollisionMaterials(*collision);
         surfaceRows = makeSurfaceRows(listed);
     }
-    const ComponentEdit edit = componentForm.draw(summary, materials, surfaceRows);
+    const SelectionMode mode = selection.getMode();
+    const ComponentEdit edit = componentForm.draw(mode, summary, materials, surfaceRows);
+    if (mode == SelectionMode::Face && summary.faces > 0) {
+        if (summary.material) {
+            drawMaterialSettings(*summary.material);
+        } else {
+            MaterialForm::drawMixed();
+        }
+    }
     editSurface(edit, listed);
     if (edit.material) {
         assignPicked(*edit.material);
@@ -791,6 +1016,32 @@ bool MeshEditor::hasPickedBound() const {
         });
 }
 
+std::optional<usize> MeshEditor::findNearestRoom(const RoomDraft& solidOnly,
+                                                 const std::span<const usize> faces) const {
+    if (faces.empty() || faces.front() >= solidOnly.faces.size()) {
+        return std::nullopt;
+    }
+    glm::vec3 center(0.0F);
+    for (usize corner = 0; corner < 3; ++corner) {
+        center += findCornerPosition(solidOnly, solidOnly.faces[faces.front()], corner) / 3.0F;
+    }
+    std::optional<usize> nearest;
+    f32 distance = std::numeric_limits<f32>::max();
+    for (const RoomMesh& room : sceneMesh->rooms) {
+        if (!isRoomShown(readHiddenRooms, room.room)) {
+            continue;
+        }
+        for (const MeshFace& face : room.faces) {
+            const glm::vec3 offset = findFaceCenter(room, face) - center;
+            if (const f32 squared = glm::dot(offset, offset); squared < distance) {
+                distance = squared;
+                nearest = room.room;
+            }
+        }
+    }
+    return nearest;
+}
+
 void MeshEditor::editSurface(const ComponentEdit& edit,
                              const std::vector<SceneCollisionMaterial>& listed) {
     if ((!edit.isDrawn && !edit.isSolid && !edit.collisionMaterial) || !collision || !surface ||
@@ -802,7 +1053,18 @@ void MeshEditor::editSurface(const ComponentEdit& edit,
     RoomDraft solidOnly = makeSolidOnlyDraft(*collision, *surface, roomCount);
     std::optional<CollisionMaterial> material;
     std::vector<OperatedRoom> operated;
-    if (edit.isDrawn) {
+    if (edit.isDrawn && *edit.isDrawn) {
+        if (!solidOnlyPick) {
+            return;
+        }
+        const std::optional<usize> room = findNearestRoom(solidOnly, solidOnlyPick->faces);
+        if (!room) {
+            failure = "No shown room renders a face to render these as.";
+            return;
+        }
+        operated =
+            drawSolidOnlyFaces(*sceneMesh, std::move(solidOnly), solidOnlyPick->faces, *room);
+    } else if (edit.isDrawn) {
         operated = undrawFaces(*sceneMesh, meshPicks, std::move(solidOnly));
     } else if (edit.isSolid && *edit.isSolid) {
         operated = makeFacesSolid(*sceneMesh, *collision, meshPicks);
@@ -849,6 +1111,7 @@ void MeshEditor::drawMaterialMenu(const usize material) {
     if (ImGui::MenuItem("Select Its Faces")) {
         pickMaterial(material);
     }
+    ImGui::SetItemTooltip("Picks every face drawn under it, as double-clicking it does.");
     if (ImGui::MenuItem("Assign to Selected Faces", nullptr, false,
                         canOperate(MeshOperation::Flip))) {
         assignPicked(material);
@@ -903,27 +1166,33 @@ std::vector<viewport::StripAction> MeshEditor::makeStripActions(const SelectionM
                 canOperate(operation) ? std::string() : std::string(findMissingPick(operation)),
             .run = [this, operation] { operate(operation); }});
     };
-    if (mode == SelectionMode::Face) {
-        add(core::icons::ArrowFatLineUp, "Extrude Faces", MeshOperation::Extrude,
-            core::Action::ExtrudeFaces);
-        add(core::icons::FrameCorners, "Inset Faces", MeshOperation::Inset,
-            core::Action::InsetFaces);
-        add(core::icons::GridFour, "Subdivide", MeshOperation::Subdivide, std::nullopt);
-        add(core::icons::Swap, "Flip Faces", MeshOperation::Flip, std::nullopt);
-        add(core::icons::ArrowsSplit, "Split Faces", MeshOperation::Split, std::nullopt);
-    } else {
+    add(core::icons::ArrowFatLineUp, "Extrude Faces", MeshOperation::Extrude,
+        core::Action::ExtrudeFaces);
+    add(core::icons::FrameCorners, "Inset Faces", MeshOperation::Inset, core::Action::InsetFaces);
+    add(core::icons::GridFour, "Subdivide", MeshOperation::Subdivide, core::Action::SubdivideFaces);
+    add(core::icons::Swap, "Flip Faces", MeshOperation::Flip, core::Action::FlipFaces);
+    add(core::icons::ArrowsSplit, "Split Faces", MeshOperation::Split, core::Action::SplitFaces);
+    if (mode != SelectionMode::Face) {
         add(core::icons::ArrowsMerge, "Merge at Center", MeshOperation::Merge,
             core::Action::MergeVertices);
+        actions.push_back(
+            viewport::StripAction{.icon = core::icons::Triangle,
+                                  .name = "Make Face",
+                                  .action = core::Action::FillVertices,
+                                  .whyNot = selection.listVertices(*editMesh).size() >= 3
+                                                ? std::string()
+                                                : std::string("Pick three vertices or more."),
+                                  .run = [this] { fill(); }});
     }
     add(core::icons::Trash, "Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents);
     const bool canAdd = findShapeRoom() != nullptr;
-    for (const auto& [icon, name, shape] :
-         {std::tuple{core::icons::Cube, "Add Box", MeshShape::Box},
-          std::tuple{core::icons::Square, "Add Plane", MeshShape::Plane}}) {
+    for (const auto& [icon, name, shape, action] :
+         {std::tuple{core::icons::Cube, "Add Box", MeshShape::Box, core::Action::AddBox},
+          std::tuple{core::icons::Square, "Add Plane", MeshShape::Plane, core::Action::AddPlane}}) {
         actions.push_back(viewport::StripAction{
             .icon = icon,
             .name = name,
-            .action = core::Action::AddMesh,
+            .action = action,
             .whyNot =
                 canAdd ? std::string() : std::string("No shown room has a face to draw it as."),
             .run = [this, shape] { addShape(shape); }});
@@ -935,7 +1204,8 @@ void MeshEditor::applyHotkeys() {
     if (!viewportPanel.isHovered()) {
         return;
     }
-    if (core::isActionPressed(core::Action::DeleteComponents)) {
+    if (core::isActionPressed(core::Action::DeleteComponents) ||
+        core::isActionPressed(core::Action::DeleteComponentsAgain)) {
         operate(MeshOperation::Delete);
     } else if (core::isActionPressed(core::Action::MergeVertices)) {
         operate(MeshOperation::Merge);
@@ -943,8 +1213,25 @@ void MeshEditor::applyHotkeys() {
         operate(MeshOperation::Extrude);
     } else if (core::isActionPressed(core::Action::InsetFaces)) {
         operate(MeshOperation::Inset);
-    } else if (core::isActionPressed(core::Action::AddMesh)) {
-        viewportPanel.openEditMenu();
+    } else if (core::isActionPressed(core::Action::SubdivideFaces)) {
+        operate(MeshOperation::Subdivide);
+    } else if (core::isActionPressed(core::Action::FlipFaces)) {
+        operate(MeshOperation::Flip);
+    } else if (core::isActionPressed(core::Action::SplitFaces)) {
+        operate(MeshOperation::Split);
+    } else if (core::isActionPressed(core::Action::FillVertices)) {
+        fill();
+    } else if (core::isActionPressed(core::Action::SelectAll)) {
+        selectAll();
+    } else if (core::isActionPressed(core::Action::SelectNone)) {
+        selection.clear();
+        isOfferStale = true;
+    } else if (core::isActionPressed(core::Action::InvertSelection)) {
+        invertSelection();
+    } else if (core::isActionPressed(core::Action::AddBox)) {
+        addShape(MeshShape::Box);
+    } else if (core::isActionPressed(core::Action::AddPlane)) {
+        addShape(MeshShape::Plane);
     }
 }
 
@@ -971,31 +1258,41 @@ void MeshEditor::drawMenu() {
     drawItem("Inset Faces", MeshOperation::Inset, core::Action::InsetFaces,
              "Shrink each picked face toward its middle, joined to where it was by a ring of new "
              "faces textured as it is, and scale it with the mouse.");
-    drawItem("Subdivide", MeshOperation::Subdivide, std::nullopt,
+    drawItem("Subdivide", MeshOperation::Subdivide, core::Action::SubdivideFaces,
              "Cut each edge of the picked faces in two, and the faces into four. Faces beside "
              "them are cut where they meet a cut edge, so no crack opens.");
     drawAssignMenu();
     drawRoomMenu();
     ImGui::Separator();
-    drawItem("Flip Faces", MeshOperation::Flip, std::nullopt,
+    drawItem("Flip Faces", MeshOperation::Flip, core::Action::FlipFaces,
              "Turn the picked faces around, so that they face and are culled the other way.");
     ImGui::Separator();
     drawItem("Merge at Center", MeshOperation::Merge, core::Action::MergeVertices,
              "Put the picked vertices together at their middle, as one vertex. Faces left with "
              "two corners at it are taken out.");
-    drawItem("Split Faces", MeshOperation::Split, std::nullopt,
+    const std::string fillShortcut = core::getShortcutLabel(core::Action::FillVertices);
+    if (ImGui::MenuItem("Make Face", fillShortcut.c_str(), false,
+                        editMesh && selection.listVertices(*editMesh).size() >= 3)) {
+        fill();
+    }
+    ImGui::SetItemTooltip("Make faces between the picked vertices of one room: taken around their "
+                          "middle and cut into triangles, each at its own corners, facing the way "
+                          "a face beside them does, else the camera, and drawn as a face at one "
+                          "of them is.");
+    drawItem("Split Faces", MeshOperation::Split, core::Action::SplitFaces,
              "Give the picked faces vertices of their own where they meet the rest, so that they "
              "move and are lit apart from it.");
     ImGui::Separator();
     drawItem("Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents,
-             "Take out every face that holds anything picked, and the polygons of those that are "
-             "solid. Lists that drew them are rebuilt without them. To keep a face as collision "
-             "alone, turn Drawn off in Properties instead.");
+             "Take out every face that holds anything picked, rendered or solid or both. Lists "
+             "that drew them are rebuilt without them. To keep a solid face without rendering "
+             "it, turn Render off in Properties instead.");
     ImGui::Separator();
     const RoomMesh* shapeRoom = findShapeRoom();
-    const std::string shortcut = core::getShortcutLabel(core::Action::AddMesh);
-    for (const auto& [label, shape] :
-         {std::pair{"Add Box", MeshShape::Box}, std::pair{"Add Plane", MeshShape::Plane}}) {
+    for (const auto& [label, shape, action] :
+         {std::tuple{"Add Box", MeshShape::Box, core::Action::AddBox},
+          std::tuple{"Add Plane", MeshShape::Plane, core::Action::AddPlane}}) {
+        const std::string shortcut = core::getShortcutLabel(action);
         if (ImGui::MenuItem(label, shortcut.c_str(), false, shapeRoom != nullptr)) {
             addShape(shape);
         }
@@ -1009,13 +1306,23 @@ void MeshEditor::drawMenu() {
 
 void MeshEditor::refresh(const Scene& scene, const SceneView& view) {
     shownScene = &scene;
+    if (readLayer != view.layer) {
+        clearSelectedMaterial();
+    }
     if (readImages != scene.images || readLayer != view.layer || !editMesh || !sceneMesh) {
         read(scene, view);
+        isMaterialOverlayStale = true;
+        if (const auto* render =
+                selectedMaterial ? std::get_if<RenderMaterialRef>(&*selectedMaterial) : nullptr;
+            render != nullptr && render->material >= materials.size()) {
+            clearSelectedMaterial();
+        }
     }
     if (readHiddenRooms != view.hiddenRooms || readShowsCollision != view.showsCollision) {
         readHiddenRooms = view.hiddenRooms;
         readShowsCollision = view.showsCollision;
         isOfferStale = true;
+        isMaterialOverlayStale = true;
     }
 }
 
@@ -1065,6 +1372,18 @@ void MeshEditor::offerTransform() {
         sum += position;
     }
     transformTarget.pivot = sum / static_cast<f32>(transformed.size());
+    if (selection.getMode() == SelectionMode::Face) {
+        glm::vec3 normals(0.0F);
+        for (const ComponentRef& face : selection.listFaces(*editMesh)) {
+            const EditPiece& piece = editMesh->pieces[face.piece];
+            const std::array<usize, 3>& corners = piece.faces[face.index];
+            normals += glm::cross(piece.vertices[corners[1]] - piece.vertices[corners[0]],
+                                  piece.vertices[corners[2]] - piece.vertices[corners[0]]);
+        }
+        if (glm::length(normals) > 0.0F) {
+            transformTarget.normal = glm::normalize(normals);
+        }
+    }
     viewportPanel.setTransformTarget(
         std::move(transformTarget),
         [this](const viewport::TransformEdit& edit) { commit(edit.points); },
@@ -1115,8 +1434,73 @@ std::optional<Collision> MeshEditor::makeMovedSurface(const Moves& moves) const 
     return moved;
 }
 
+bool MeshEditor::commitFlatSolidFaces(const Moves& moves) {
+    if (flatSolidFaces.empty() || !sceneMesh || !collision || !surface || moves.mesh.empty() ||
+        !moves.collision.empty()) {
+        return false;
+    }
+    std::map<std::array<MeshEntryKey, 3>, CollisionMaterial> flat;
+    for (const FlatSolidFace& face : flatSolidFaces) {
+        flat.emplace(face.corners, face.material);
+    }
+    std::map<usize, OperatedRoom> rooms;
+    for (const MeshVertexMove& move : moves.mesh) {
+        const RoomMesh* room = findRoomMesh(*sceneMesh, move.room);
+        if (room == nullptr || move.vertex >= room->vertices.size()) {
+            continue;
+        }
+        auto [found, isNew] = rooms.try_emplace(move.room);
+        if (isNew) {
+            found->second.draft = makeRoomDraft(*room);
+        }
+        found->second.draft.vertices[move.vertex] = {.position = move.position, .isMoved = true};
+        found->second.vertices.push_back(move.vertex);
+    }
+    bool isStoodApart = false;
+    for (auto& [index, operated] : rooms) {
+        const RoomMesh& room = *findRoomMesh(*sceneMesh, index);
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            std::array<MeshEntryKey, 3> keys;
+            for (usize corner = 0; corner < 3; ++corner) {
+                keys[corner] = room.entries[room.faces[face].corners[corner]].key;
+            }
+            const auto found = flat.find(keys);
+            if (found == flat.end()) {
+                continue;
+            }
+            DraftFace& drafted = operated.draft.faces[face];
+            drafted.collision = found->second;
+            drafted.original.reset();
+            std::array<std::array<s16, 3>, 3> corners{};
+            for (usize corner = 0; corner < 3; ++corner) {
+                corners[corner] =
+                    roundToCollision(findCornerPosition(operated.draft, drafted, corner));
+            }
+            isStoodApart = isStoodApart || !isInLine(corners);
+        }
+    }
+    if (!isStoodApart) {
+        return false;
+    }
+    for (const ComponentRef& face : findMeshFaces(selection.listFaces(*editMesh))) {
+        if (const auto found = rooms.find(face.piece); found != rooms.end()) {
+            found->second.faces.push_back(face.index);
+        }
+    }
+    std::vector<OperatedRoom> operated;
+    for (auto& [index, room] : rooms) {
+        operated.push_back(std::move(room));
+    }
+    const std::optional<Collision> welded = makeMovedSurface(moves);
+    rebuild(operated, std::nullopt, std::nullopt, welded ? &*welded : nullptr);
+    return true;
+}
+
 void MeshEditor::commit(const std::span<const glm::vec3> points) {
     const Moves moves = makeMoves(points);
+    if (commitFlatSolidFaces(moves)) {
+        return;
+    }
     std::vector<SymbolWrite> writes = makeWrites(moves);
     std::optional<Collision> moved = makeMovedSurface(moves);
     if (writes.empty() && !moved) {
@@ -1125,7 +1509,7 @@ void MeshEditor::commit(const std::span<const glm::vec3> points) {
     madeWrites = writes;
     madeMesh.reset();
     if (sceneMesh) {
-        madeMesh = makeMovedMesh(*sceneMesh, moves.mesh);
+        madeMesh = makeMovedMesh(*sceneMesh, moves.mesh, writes);
     }
     applyEdit([writes = std::move(writes), moved = std::move(moved),
                layer = readGameLayer](SceneModel& model) -> std::expected<void, base::Diagnostic> {
@@ -1173,6 +1557,7 @@ void MeshEditor::pick(const viewport::ViewportPanel::ViewportPick& hit,
         }
     }
     selection.pick(picked, pickMode);
+    clearSelectedMaterial();
     isOfferStale = true;
 }
 
@@ -1241,6 +1626,8 @@ void MeshEditor::makeOverlay() {
     faceFill.w = SelectedFaceAlpha;
     const u32 faceColor = ImGui::GetColorU32(faceFill);
     const u32 vertexColor = ImGui::GetColorU32(VertexColor);
+    const std::vector<ComponentRef> heldFaces = selection.listFaces(*editMesh);
+    const std::set<ComponentRef> held(heldFaces.begin(), heldFaces.end());
     for (usize piece = 0; piece < shownMesh->pieces.size(); ++piece) {
         const EditPiece& shown = shownMesh->pieces[piece];
         for (usize edge = 0; edge < shown.edges.size(); ++edge) {
@@ -1249,23 +1636,26 @@ void MeshEditor::makeOverlay() {
             }
             const std::array<usize, 2>& ends = shown.edges[edge].vertices;
             const bool isSelected =
-                mode == SelectionMode::Edge && selection.contains({.piece = piece, .index = edge});
+                mode == SelectionMode::Edge
+                    ? selection.contains({.piece = piece, .index = edge})
+                    : mode == SelectionMode::Vertex &&
+                          selection.contains({.piece = piece, .index = ends[0]}) &&
+                          selection.contains({.piece = piece, .index = ends[1]});
             componentOverlay.edges.push_back({.from = shown.vertices[ends[0]],
                                               .to = shown.vertices[ends[1]],
                                               .color = isSelected ? selectedColor : edgeColor,
                                               .width = isSelected ? SelectedEdgeWidth : EdgeWidth});
         }
-        if (mode == SelectionMode::Face) {
-            for (usize face = 0; face < shown.faces.size(); ++face) {
-                if (!editShown.faces[piece][face] ||
-                    !selection.contains({.piece = piece, .index = face})) {
-                    continue;
-                }
-                const std::array<usize, 3>& corners = shown.faces[face];
-                componentOverlay.faces.push_back(
-                    {.corners = {shown.vertices[corners[0]], shown.vertices[corners[1]],
-                                 shown.vertices[corners[2]]},
-                     .color = faceColor});
+        for (usize face = 0; face < shown.faces.size(); ++face) {
+            if (!editShown.faces[piece][face] || !held.contains({.piece = piece, .index = face})) {
+                continue;
+            }
+            const std::array<usize, 3>& corners = shown.faces[face];
+            componentOverlay.faces.push_back(
+                {.corners = {shown.vertices[corners[0]], shown.vertices[corners[1]],
+                             shown.vertices[corners[2]]},
+                 .color = faceColor});
+            if (mode == SelectionMode::Face) {
                 for (usize corner = 0; corner < 3; ++corner) {
                     componentOverlay.edges.push_back(
                         {.from = shown.vertices[corners[corner]],

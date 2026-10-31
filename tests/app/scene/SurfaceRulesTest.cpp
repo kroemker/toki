@@ -51,9 +51,9 @@ TEST_CASE("the floor types that take an exit need one", "[scene][collision]") {
 TEST_CASE("what only a floor reads needs a floor polygon", "[scene][collision]") {
     const std::map<SurfaceField, std::string> ignored =
         listIgnored({.exitIndex = 1, .floorProperty = 5, .conveyorSpeed = 1}, Wall);
-    REQUIRE(ignored.at(SurfaceField::Exit) == "Ignored. Requires a floor polygon.");
-    REQUIRE(ignored.at(SurfaceField::FloorProperty) == "Ignored. Requires a floor polygon.");
-    REQUIRE(ignored.at(SurfaceField::ConveyorSpeed) == "Ignored. Requires a floor polygon.");
+    REQUIRE(ignored.at(SurfaceField::Exit) == "Ignored. Requires a solid floor face.");
+    REQUIRE(ignored.at(SurfaceField::FloorProperty) == "Ignored. Requires a solid floor face.");
+    REQUIRE(ignored.at(SurfaceField::ConveyorSpeed) == "Ignored. Requires a solid floor face.");
     REQUIRE_FALSE(listIgnored({.exitIndex = 1}, Floor).contains(SurfaceField::Exit));
 }
 
@@ -66,7 +66,7 @@ TEST_CASE("a conveyor's direction needs a speed", "[scene][collision]") {
 
 TEST_CASE("contact damage needs a wall or a burning floor", "[scene][collision]") {
     REQUIRE(listIgnored({.unk27 = true}, Floor).at(SurfaceField::ContactDamage) ==
-            "Ignored. Requires a wall polygon, or floor type 2 or 3.");
+            "Ignored. Requires a solid wall face, or floor type 2 or 3.");
     REQUIRE_FALSE(listIgnored({.unk27 = true}, Wall).contains(SurfaceField::ContactDamage));
     REQUIRE_FALSE(
         listIgnored({.floorType = 3, .unk27 = true}, Floor).contains(SurfaceField::ContactDamage));

@@ -13,9 +13,10 @@ struct ViewportBarEdit {
     std::optional<ViewportChoices> choices;
 };
 
-/// Draws the bar above the viewport's image: the Shading popover, and the
-/// Overlays popover with its switch for all of them. A row the content does
-/// not offer a choice for is left out.
+/// Draws the bar above the viewport's image: the Shading popover, a switch for
+/// each common overlay where the bar is wide enough, and the Overlays popover
+/// with its switch for all of them. A row the content does not offer a choice
+/// for is left out.
 [[nodiscard]] ViewportBarEdit drawViewportBar(const ViewportView& view,
                                               const std::optional<ViewportChoices>& choices);
 

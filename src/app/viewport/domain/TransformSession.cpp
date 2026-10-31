@@ -74,19 +74,41 @@ struct Ray {
     return std::atan2(pivot.y - point.y, point.x - pivot.x);
 }
 
-} // namespace
-
-void AxisConstraint::constrainTo(const usize axis) {
-    const bool isAlone = axes[axis] && std::ranges::count(axes, true) == 1;
-    axes = {};
-    axes[axis] = !isAlone;
+/// Axes with `normal` in column `axis` and two square to it after it, turning
+/// as the world's do.
+[[nodiscard]] glm::mat3 makeNormalBasis(const usize axis, const glm::vec3& normal) {
+    const glm::vec3 across =
+        std::abs(normal.y) < 0.9F ? glm::vec3(0.0F, 1.0F, 0.0F) : glm::vec3(1.0F, 0.0F, 0.0F);
+    const glm::vec3 first = glm::normalize(glm::cross(across, normal));
+    glm::mat3 basis(1.0F);
+    basis[static_cast<glm::length_t>(axis)] = normal;
+    basis[static_cast<glm::length_t>((axis + 1) % 3)] = first;
+    basis[static_cast<glm::length_t>((axis + 2) % 3)] = glm::cross(normal, first);
+    return basis;
 }
 
-void AxisConstraint::constrainToPlane(const usize axis) {
+} // namespace
+
+void AxisConstraint::constrainTo(const usize axis, const std::optional<glm::vec3>& normal) {
+    const bool isAlone = axes[axis] && std::ranges::count(axes, true) == 1;
+    const bool wasWorld = !basis;
+    basis.reset();
+    axes = {};
+    if (isAlone && wasWorld && normal) {
+        basis = makeNormalBasis(axis, *normal);
+    }
+    axes[axis] = !isAlone || basis.has_value();
+}
+
+void AxisConstraint::constrainToPlane(const usize axis, const std::optional<glm::vec3>& normal) {
     const bool isPlane = !axes[axis] && std::ranges::count(axes, true) == 2;
+    const bool wasWorld = !basis;
+    basis.reset();
     axes = {true, true, true};
     axes[axis] = false;
-    if (isPlane) {
+    if (isPlane && wasWorld && normal) {
+        basis = makeNormalBasis(axis, *normal);
+    } else if (isPlane) {
         axes = {};
     }
 }
@@ -96,6 +118,24 @@ usize AxisConstraint::findRotationAxis() const {
         return static_cast<usize>(std::ranges::find(axes, true) - axes.begin());
     }
     return 1;
+}
+
+glm::vec3 AxisConstraint::findDirection(const usize axis) const {
+    return basis ? (*basis)[static_cast<glm::length_t>(axis)] : makeAxis(axis);
+}
+
+const char* AxisConstraint::findName(const usize axis) const {
+    if (!basis) {
+        return AxisNames[axis];
+    }
+    const auto held = static_cast<usize>(std::ranges::count(axes, true));
+    const usize normal = held == 1
+                             ? findRotationAxis()
+                             : static_cast<usize>(std::ranges::find(axes, false) - axes.begin());
+    if (axis == normal) {
+        return "N";
+    }
+    return axis == (normal + 1) % 3 ? "U" : "V";
 }
 
 bool TransformSession::type(const char character) {
@@ -156,7 +196,8 @@ f32 TransformSession::findTyped(const usize index) const {
 
 TransformResult TransformSession::makeResult(const AxisConstraint& constraint,
                                              const Snapping& snapping) const {
-    TransformResult result{.kind = kind, .axis = constraint.findRotationAxis()};
+    TransformResult result{
+        .kind = kind, .axis = constraint.findRotationAxis(), .basis = constraint.basis};
     const bool isSnapped = snapping.isGridOn && !isTyped;
     if (kind == TransformKind::Rotate) {
         const f32 degrees = isTyped ? findTyped(0) : draggedDegrees;
@@ -177,9 +218,9 @@ TransformResult TransformSession::makeResult(const AxisConstraint& constraint,
     }
     const std::vector<usize> axes = listFieldAxes(constraint);
     for (usize i = 0; i < axes.size(); ++i) {
-        const auto axis = static_cast<glm::length_t>(axes[i]);
-        const f32 offset = isTyped ? findTyped(i) : draggedOffset[axis];
-        result.offset[axis] = isSnapped ? roundToStep(offset, snapping.gridStep) : offset;
+        const glm::vec3 direction = constraint.findDirection(axes[i]);
+        const f32 offset = isTyped ? findTyped(i) : glm::dot(draggedOffset, direction);
+        result.offset += direction * (isSnapped ? roundToStep(offset, snapping.gridStep) : offset);
     }
     return result;
 }
@@ -192,17 +233,16 @@ std::string TransformSession::describe(const AxisConstraint& constraint,
                        : kind == TransformKind::Rotate ? "Rotate"
                                                        : "Scale";
     for (usize i = 0; i < axes.size(); ++i) {
-        const auto axis = static_cast<glm::length_t>(axes[i]);
         f32 value = result.degrees;
         f32 precision = 10.0F;
-        std::string name = AxisNames[axes[i]];
+        std::string name = constraint.findName(axes[i]);
         if (kind == TransformKind::Move) {
-            value = result.offset[axis];
+            value = glm::dot(result.offset, constraint.findDirection(axes[i]));
         } else if (kind == TransformKind::Scale) {
             name.clear();
             for (usize held = 0; held < 3; ++held) {
                 if (constraint.isFree() || constraint.axes[held]) {
-                    name += AxisNames[held];
+                    name += constraint.findName(held);
                     value = result.factor[static_cast<glm::length_t>(held)];
                 }
             }
@@ -231,15 +271,15 @@ glm::vec3 findDragOffset(const glm::mat4& viewProjection, const glm::vec2 size,
     const Ray to = makeRay(inverse, size, mouse);
     const auto held = static_cast<usize>(std::ranges::count(constraint.axes, true));
     if (held == 1) {
-        const glm::vec3 axis = makeAxis(constraint.findRotationAxis());
+        const glm::vec3 axis = constraint.findDirection(constraint.findRotationAxis());
         const std::optional<f32> first = findAxisDistance(from, pivot, axis);
         const std::optional<f32> second = findAxisDistance(to, pivot, axis);
         return first && second ? axis * (*second - *first) : glm::vec3(0.0F);
     }
     glm::vec3 normal = glm::normalize(eye - pivot);
     if (held == 2) {
-        normal = makeAxis(static_cast<usize>(std::ranges::find(constraint.axes, false) -
-                                             constraint.axes.begin()));
+        normal = constraint.findDirection(static_cast<usize>(
+            std::ranges::find(constraint.axes, false) - constraint.axes.begin()));
     }
     const std::optional<glm::vec3> first = findPlaneHit(from, pivot, normal);
     const std::optional<glm::vec3> second = findPlaneHit(to, pivot, normal);
@@ -301,9 +341,9 @@ std::vector<glm::vec3> makeTransformedPoints(const std::span<const glm::vec3> po
                                              const glm::vec3& pivot, const TransformResult& result,
                                              const std::span<const glm::vec3> ground) {
     std::vector<glm::vec3> transformed;
+    const glm::mat3 basis = result.basis.value_or(glm::mat3(1.0F));
     if (result.kind == TransformKind::Rotate) {
-        glm::vec3 axis(0.0F);
-        axis[static_cast<glm::length_t>(result.axis)] = 1.0F;
+        const glm::vec3 axis = basis[static_cast<glm::length_t>(result.axis)];
         const glm::mat4 turn = glm::rotate(glm::mat4(1.0F), glm::radians(result.degrees), axis);
         for (const glm::vec3& point : points) {
             transformed.push_back(pivot + glm::vec3(turn * glm::vec4(point - pivot, 0.0F)));
@@ -312,7 +352,8 @@ std::vector<glm::vec3> makeTransformedPoints(const std::span<const glm::vec3> po
     }
     if (result.kind == TransformKind::Scale) {
         for (const glm::vec3& point : points) {
-            transformed.push_back(pivot + ((point - pivot) * result.factor));
+            transformed.push_back(
+                pivot + (basis * (result.factor * (glm::transpose(basis) * (point - pivot)))));
         }
         return transformed;
     }

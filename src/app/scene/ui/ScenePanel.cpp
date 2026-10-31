@@ -4,7 +4,9 @@
 #include "app/actor/domain/DatabaseEdits.h"
 #include "app/actor/domain/EntryNames.h"
 #include "app/actor/domain/ParamReading.h"
+#include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/Settings.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/PropertyTable.h"
@@ -48,6 +50,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -167,6 +170,20 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
               },
           .findBindingName =
               [this](const usize material) { return meshEditor.findBindingName(material); },
+          .selectMaterial =
+              [this](const MaterialRef& material) {
+                  placementEditor.clearSelection();
+                  if (std::holds_alternative<CollisionMaterial>(material) &&
+                      !sceneView.showsCollision) {
+                      sceneView.showsCollision = true;
+                      showScene();
+                  }
+                  meshEditor.selectMaterial(material);
+              },
+          .isMaterialSelected =
+              [this](const MaterialRef& material) {
+                  return meshEditor.findSelectedMaterial() == material;
+              },
       }) {}
 
 void ScenePanel::setScene(Scene read) {
@@ -449,11 +466,24 @@ void ScenePanel::update() {
         return;
     }
     placementEditor.applyPicked(*scene);
-    if (const std::optional<u16> tinted =
-            viewportPanel.getSelectionMode() != viewport::SelectionMode::Node
-                ? meshEditor.findPickedSurfaceType()
-                : std::nullopt;
-        tinted != sceneView.tintedSurfaceType) {
+    const std::optional<MaterialRef>& selectedMaterial = meshEditor.findSelectedMaterial();
+    if (selectedMaterial && !placementEditor.getSelection().isEmpty()) {
+        meshEditor.clearSelectedMaterial();
+    }
+    if (const std::optional<CollisionMaterial> moved =
+            placementEditor.getCollisionForm().takeMovedMaterial();
+        moved && selectedMaterial && std::holds_alternative<CollisionMaterial>(*selectedMaterial)) {
+        meshEditor.selectMaterial(*moved);
+    }
+    std::optional<u16> tinted;
+    if (const auto* material =
+            selectedMaterial ? std::get_if<CollisionMaterial>(&*selectedMaterial) : nullptr) {
+        tinted = material->type;
+    } else if (!selectedMaterial &&
+               viewportPanel.getSelectionMode() != viewport::SelectionMode::Node) {
+        tinted = meshEditor.findPickedSurfaceType();
+    }
+    if (tinted != sceneView.tintedSurfaceType) {
         sceneView.tintedSurfaceType = tinted;
         showScene();
     }
@@ -477,11 +507,20 @@ void ScenePanel::drawProperties() {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
     }
-    if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node &&
-        meshEditor.hasPicked()) {
+    if (const std::optional<MaterialRef>& material = meshEditor.findSelectedMaterial()) {
+        if (const auto* render = std::get_if<RenderMaterialRef>(&*material)) {
+            meshEditor.drawMaterialSettings(render->material);
+        } else {
+            placementEditor.getCollisionForm().drawMaterial(*scene, sceneView.layer,
+                                                            std::get<CollisionMaterial>(*material));
+        }
+        return;
+    }
+    const viewport::SelectionMode mode = viewportPanel.getSelectionMode();
+    if (mode != viewport::SelectionMode::Node && meshEditor.hasPicked()) {
         meshEditor.drawProperties();
         const std::vector<CollisionPolygonRef> polygons = meshEditor.listPickedPolygons();
-        if (!polygons.empty()) {
+        if (mode == viewport::SelectionMode::Face && !polygons.empty()) {
             placementEditor.getCollisionForm().drawPolygons(*scene, polygons,
                                                             meshEditor.hasPickedBound());
         }
@@ -533,6 +572,7 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
             }
         }
     }
+    applyNodeHotkeys(placements);
     viewportPanel.setPickables(
         {.points = std::move(points)},
         [this, placements = std::move(placements)](const viewport::ViewportPanel::ViewportPick& hit,
@@ -567,6 +607,37 @@ void ScenePanel::offerPlacements(const SceneLayer& layer) {
         [this, moved = transform->nodes](const std::optional<viewport::TransformEdit>& edit) {
             showPreview(moved, edit);
         });
+    if (placementEditor.takeMoveWanted()) {
+        viewportPanel.startTransform(viewport::TransformKind::Move);
+    }
+}
+
+void ScenePanel::applyNodeHotkeys(const std::vector<SceneNode>& offered) {
+    if (!viewportPanel.isHovered()) {
+        return;
+    }
+    if (core::isActionPressed(core::Action::Duplicate)) {
+        placementEditor.pickDuplicateSelected();
+    } else if (core::isActionPressed(core::Action::Copy)) {
+        placementEditor.copySelected(*scene);
+    } else if (core::isActionPressed(core::Action::Paste)) {
+        placementEditor.pickPaste(sceneView.layer);
+    } else if (core::isActionPressed(core::Action::DeleteComponents) ||
+               core::isActionPressed(core::Action::DeleteComponentsAgain)) {
+        placementEditor.pickDeleteSelected();
+    } else if (core::isActionPressed(core::Action::SelectAll)) {
+        placementEditor.pick(offered, viewport::PickMode::Replace);
+    } else if (core::isActionPressed(core::Action::SelectNone)) {
+        placementEditor.clearSelection();
+    } else if (core::isActionPressed(core::Action::InvertSelection)) {
+        std::vector<SceneNode> inverted;
+        for (const SceneNode& node : offered) {
+            if (!placementEditor.isSelected(node)) {
+                inverted.push_back(node);
+            }
+        }
+        placementEditor.pick(inverted, viewport::PickMode::Replace);
+    }
 }
 
 void ScenePanel::drawHeldScene() {
@@ -951,6 +1022,7 @@ void ScenePanel::drawOverlay(const std::vector<SceneFlagUse>& flags, const Scene
             addFollowerLines(overlay, paths);
         }
     }
+    meshEditor.addMaterialOverlay(overlay);
     if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node) {
         meshEditor.offer(overlay);
     }

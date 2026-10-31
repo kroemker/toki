@@ -363,9 +363,9 @@ CollisionPolygon makeFlaggedPolygon(CollisionPolygon polygon, const PolygonFlag 
 std::expected<void, base::Diagnostic> setCollisionGeometry(SceneModel& model, const usize layer,
                                                            const Collision& collision) {
     if (collision.vertices.size() > MaximumCollisionVertices) {
-        return std::unexpected(makeEditError(
-            std::format("the collision would have {} vertices, and a polygon can name {} at most",
-                        collision.vertices.size(), MaximumCollisionVertices)));
+        return std::unexpected(makeEditError(std::format(
+            "the collision would have {} vertices, and a solid face can name {} at most",
+            collision.vertices.size(), MaximumCollisionVertices)));
     }
     const std::expected<CollisionSite, base::Diagnostic> site = findCollisionSite(model, layer);
     if (!site) {

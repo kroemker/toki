@@ -39,6 +39,7 @@ namespace {
 
 constexpr u32 VtxSize = 16;
 constexpr f32 PlaceSteps = 8.0F;
+constexpr std::ptrdiff_t PositionBytes = 6;
 
 struct DrawPart {
     usize room = 0;
@@ -290,17 +291,67 @@ using PlaceKey = std::array<s64, 3>;
             std::llround(position.z * PlaceSteps)};
 }
 
-/// Joins the entries `kept` grouped into one vertex, then, among entries it
-/// does not have, those at one place on faces that share an edge there.
-void joinEntries(const RoomMesh& mesh, const RoomMesh* kept, UnionFind& groups) {
-    std::vector<bool> isKept(mesh.entries.size(), false);
-    if (kept != nullptr) {
-        std::map<MeshEntryKey, usize> keptVertices;
-        for (usize vertex = 0; vertex < kept->vertices.size(); ++vertex) {
-            for (const usize entry : kept->vertices[vertex].entries) {
-                keptVertices.emplace(kept->entries[entry].key, vertex);
+/// Whether two entries store one position, which is what groups them.
+[[nodiscard]] bool isSamePlace(const MeshEntry& first, const MeshEntry& second) {
+    return std::equal(first.vtx.begin(), first.vtx.begin() + PositionBytes, second.vtx.begin());
+}
+
+using KeptVertices = std::map<MeshEntryKey, std::pair<usize, const MeshEntry*>>;
+
+[[nodiscard]] KeptVertices mapKeptVertices(const RoomMesh& kept) {
+    KeptVertices keptVertices;
+    for (usize vertex = 0; vertex < kept.vertices.size(); ++vertex) {
+        for (const usize entry : kept.vertices[vertex].entries) {
+            keptVertices.emplace(kept.entries[entry].key, std::pair{vertex, &kept.entries[entry]});
+        }
+    }
+    return keptVertices;
+}
+
+/// The vertices of the first of `kept` that has every entry of `mesh` where
+/// `mesh` stores it, or else of the first that stores none of them elsewhere.
+[[nodiscard]] KeptVertices findKeptVertices(const RoomMesh& mesh,
+                                            const std::span<const SceneMesh* const> kept,
+                                            const usize layer) {
+    std::optional<KeptVertices> partial;
+    for (const SceneMesh* candidate : kept) {
+        const RoomMesh* room =
+            candidate->layer == layer ? findRoomMesh(*candidate, mesh.room) : nullptr;
+        if (room == nullptr) {
+            continue;
+        }
+        KeptVertices keptVertices = mapKeptVertices(*room);
+        bool isWhole = true;
+        bool isStale = false;
+        for (const MeshEntry& entry : mesh.entries) {
+            const auto found = keptVertices.find(entry.key);
+            if (found == keptVertices.end()) {
+                isWhole = false;
+            } else if (!isSamePlace(*found->second.second, entry)) {
+                isStale = true;
+                break;
             }
         }
+        if (isStale) {
+            continue;
+        }
+        if (isWhole) {
+            return keptVertices;
+        }
+        if (!partial) {
+            partial = std::move(keptVertices);
+        }
+    }
+    return partial ? std::move(*partial) : KeptVertices{};
+}
+
+/// Joins the entries `kept` grouped into one vertex, then, among entries it
+/// does not have, those at one place on faces that share an edge there.
+void joinEntries(const RoomMesh& mesh, const std::span<const SceneMesh* const> kept,
+                 const usize layer, UnionFind& groups) {
+    std::vector<bool> isKept(mesh.entries.size(), false);
+    {
+        const KeptVertices keptVertices = findKeptVertices(mesh, kept, layer);
         std::map<usize, usize> firstOfVertex;
         for (usize entry = 0; entry < mesh.entries.size(); ++entry) {
             const auto found = keptVertices.find(mesh.entries[entry].key);
@@ -308,7 +359,7 @@ void joinEntries(const RoomMesh& mesh, const RoomMesh* kept, UnionFind& groups) 
                 continue;
             }
             isKept[entry] = true;
-            const auto [first, isNew] = firstOfVertex.emplace(found->second, entry);
+            const auto [first, isNew] = firstOfVertex.emplace(found->second.first, entry);
             if (!isNew) {
                 groups.join(entry, first->second);
             }
@@ -340,9 +391,10 @@ void joinEntries(const RoomMesh& mesh, const RoomMesh* kept, UnionFind& groups) 
     }
 }
 
-void groupVertices(RoomMesh& mesh, const RoomMesh* kept) {
+void groupVertices(RoomMesh& mesh, const std::span<const SceneMesh* const> kept,
+                   const usize layer) {
     UnionFind groups(mesh.entries.size());
-    joinEntries(mesh, kept, groups);
+    joinEntries(mesh, kept, layer, groups);
     std::map<usize, usize> vertexOfRoot;
     std::vector<usize> vertexOfEntry(mesh.entries.size());
     for (usize entry = 0; entry < mesh.entries.size(); ++entry) {
@@ -373,6 +425,15 @@ void groupVertices(RoomMesh& mesh, const RoomMesh* kept) {
 } // namespace
 
 SceneMesh readSceneMesh(const Scene& scene, const usize layer, const SceneMesh* kept) {
+    if (kept == nullptr) {
+        return readSceneMesh(scene, layer, std::span<const SceneMesh* const>{});
+    }
+    const std::array<const SceneMesh*, 1> candidates{kept};
+    return readSceneMesh(scene, layer, candidates);
+}
+
+SceneMesh readSceneMesh(const Scene& scene, const usize layer,
+                        const std::span<const SceneMesh* const> kept) {
     SceneMesh mesh{.layer = layer};
     if (layer >= scene.layers.size() || scene.images.size() < FirstRoomImage) {
         return mesh;
@@ -384,8 +445,7 @@ SceneMesh readSceneMesh(const Scene& scene, const usize layer, const SceneMesh* 
     reader.readFrame(content.parts);
     mesh.rooms = reader.takeRooms();
     for (RoomMesh& room : mesh.rooms) {
-        groupVertices(room, kept != nullptr && kept->layer == layer ? findRoomMesh(*kept, room.room)
-                                                                    : nullptr);
+        groupVertices(room, kept, layer);
     }
     for (usize room = 0; room < reader.getLeftOut().size(); ++room) {
         if (const usize count = reader.getLeftOut()[room]; count > 0) {

@@ -16,7 +16,7 @@ constexpr u8 ExitStandingFloor = 10;
 constexpr u8 HoleExitFloor = 11;
 constexpr u8 ExitVoidOutEffect = 2;
 constexpr const char* RequiresExit = "Ignored. Requires an exit.";
-constexpr const char* RequiresFloor = "Ignored. Requires a floor polygon.";
+constexpr const char* RequiresFloor = "Ignored. Requires a solid floor face.";
 constexpr const char* RequiresConveyorSpeed = "Ignored. Requires a conveyor speed.";
 
 [[nodiscard]] bool hasPolygonOfKind(const Collision& collision, const usize type,
@@ -77,7 +77,7 @@ IgnoredSettings listIgnoredSettings(const Collision& collision, const usize type
         fields.floorType == BurningFloor || fields.floorType == BurningFasterFloor;
     if (fields.unk27 && !isBurning && !hasPolygonOfKind(collision, type, PolygonKind::Wall)) {
         ignored.emplace(SurfaceField::ContactDamage,
-                        std::format("Ignored. Requires a wall polygon, or floor type {} or {}.",
+                        std::format("Ignored. Requires a solid wall face, or floor type {} or {}.",
                                     makeFloorTypeName(names, BurningFloor),
                                     makeFloorTypeName(names, BurningFasterFloor)));
     }

@@ -210,7 +210,7 @@ void ViewportPanel::draw() {
             setView(*changed);
         }
         applyToolHotkeys(viewportTools, canEdit());
-        viewportTransform.applyHotkeys(viewportTools.tool, transformView);
+        viewportTransform.applyHotkeys(transformView);
     }
     const bool isHandleHeld = viewportTools.mode == SelectionMode::Node && !isModal &&
                               !viewportTransform.isModal() && !isTransforming() &&

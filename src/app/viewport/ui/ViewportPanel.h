@@ -87,6 +87,11 @@ public:
 
     [[nodiscard]] core::CameraPose getCameraPose() const;
 
+    /// Where the camera looks from, in the world.
+    [[nodiscard]] glm::vec3 getCameraEye() const {
+        return orbitCamera.getEye();
+    }
+
     void setCameraPose(const core::CameraPose& pose);
 
     /// Turns the camera to look at `point`, coming close enough to make out

@@ -77,8 +77,14 @@ is told so, and the scene is shown as it is again, edited if it was confirmed. T
 re-runs the frame, which costs what orbiting the camera costs.
 
 The options of the Move and Rotate tools are in the bar, as buttons: the axes held, X, Y and
-Z, and snapping. X holds to X alone or frees it again, Shift+X holds to the other two, and
-the buttons light as the keys press them; the gizmo shows only the axes held, and each axis
+Z, and snapping. While G, R or S runs, X holds to X alone or frees it again, Shift+X holds to
+the other two, and the buttons light as the keys press them; otherwise those keys are the
+viewport's own, X deleting, as in Blender. Where what is transformed has a normal, the picked
+faces' while selecting by faces (`TransformTarget::normal`), a key pressed twice holds to the
+normal in place of its axis, or Shift with it to the plane square to it, and a third time
+frees it, as Blender's local axes do: the axes held are then N for the normal and U and V
+square to it (`AxisConstraint::basis`), the gizmo turns to them, and the bar's buttons are
+named so; the gizmo shows only the axes held, and each axis
 held is drawn as an endless line through the middle of what is selected, red, green and
 blue, as in Blender, cut where it passes the camera (`findScreenLine`). The grid
 snaps a drag, not what is typed, to 10 units or 15°. A click on a button switches it; while
@@ -94,15 +100,24 @@ angle exactly, since the game applies Y first; a turn about X or Z is applied to
 whole Y·X·Z rotation and read back into three angles (`rotateBinaryAngles`), which changes
 every angle, so it is offered only when no selected actor reads params from its rotation,
 and never for a transition actor, which has Y alone. A blocked axis says why on its button.
-Scale is not built, and says that actors set their own scale.
+Placements are not scaled: actors set their own scale.
 
 What a click selects and what dragging does are the viewport's own (`ViewportTools`). The
-selection mode is a group of icon buttons at the start of the bar: Node, Face, Edge and
-Vertex, keys 1 to 4. Node mode selects what the scene's tree holds, rooms and placements,
-and is not called Object, because an object is what the decomp loads data from. The tool is
-a vertical group floating over the image's top left: Select, Move, Rotate and Scale, keys Q,
-W and E, Scale unbound. Only Node, Select, Move and Rotate are built; the rest are shown
-disabled, saying so. Select is the tool the viewport starts with and draws no gizmo.
+selection mode is a group of icon buttons at the start of the bar: Vertex, Edge, Face and
+Node, keys 1 to 4, the first three as in Blender, and Tab between Node and the last of the
+others. Node mode selects what the scene's tree holds, rooms and placements, and is not called
+Object, because an object is what the decomp loads data from. The tool is a vertical group
+floating over the image's top left: Select (W), Move, Rotate and Scale. The last three are
+bound to no key, since G, R and S do what they do with the mouse alone, and their tooltips
+name those keys while they have none of their own. Scale is not offered in Node mode: actors
+set their own scale. Select is the tool the viewport starts with and draws no gizmo.
+
+In Node mode Shift+D duplicates the selected placements and moves the copies with the mouse
+at once, as G does; cancelling the move leaves the copies where the originals stand, as in
+Blender. Ctrl+C keeps the selected placements, and Ctrl+V adds them to the shown layer, of
+this scene or another, where they stood, an actor in its room or the first one where the
+layer has no such room. Delete and X delete them, and A, Alt+A and Ctrl+I select every
+placement shown, none, or the rest.
 
 What is selected may also offer handles (`setHandles`, `ViewportHandles`): points that drag
 along one direction alone, such as a waterbox's sides, drawn in Node mode with any tool. A
@@ -112,17 +127,20 @@ units; it is shown through its preview handler while held and handed to its owne
 go, one edit however far it went, and Escape or a right click cancels it.
 
 Every key is bound through `core::KeyBindings`: each action has a name, a scope (the whole
-window, or the viewport while the cursor is over it) and a default chord, and `config.toml`
+window, the viewport while the cursor is over it, or a transform with the mouse while it
+runs, when no other key of the viewport is heard) and a default chord, and `config.toml`
 binds another under `[keys]`, `move_tool = "G"`, writing only those changed from their
 default. Menus and tooltips name the key from the same bindings (`makeShortcutText`), so
-what they say is what is bound, and nothing is reached only by a key.
+what they say is what is bound, and nothing is reached only by a key. A tooltip is the
+name and its key alone, also on a button that is disabled.
 
 ## The bar
 
 Above the image, from the left: a button for each shading (Alt+1 to Alt+6), the Shading
-popover, and at the right the X-ray switch (Alt+Z), a switch
-that hides every overlay at once (Shift+Alt+Z), and the Overlays popover, whose button
-counts the overlays that are on. The content's choices are rows of the Overlays popover:
+popover, and at the right a switch for each common overlay, as wide as the bar allows:
+the content's collision and actors (switched on as models), flag links, the grid and X-ray
+(Alt+Z); then a switch that hides every overlay at once (Shift+Alt+Z), and the Overlays
+popover, whose button counts the overlays that are on. The content's choices are rows of the Overlays popover:
 the scene's Actors, and, while its collision is shown, Collision Color. Every popover is a
 form of two-column rows. Hotkeys act
 only while the cursor is over the viewport.

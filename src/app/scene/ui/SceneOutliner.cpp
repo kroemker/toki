@@ -442,8 +442,8 @@ void SceneOutliner::drawMaterials(const Scene& scene, const SceneView& view) {
         ImGui::SetNextItemOpen(true);
     }
     const bool isOpen = beginNode("##materials", GroupFlags);
-    ImGui::SetItemTooltip("What the rooms' faces are drawn under, and what they and the polygons "
-                          "no face has are made of.");
+    ImGui::SetItemTooltip("What the rooms' faces are rendered under, and what the solid faces are "
+                          "made of.");
     drawLabel(core::icons::Palette, MaterialColor, "Materials");
     drawInfo("");
     if (!isOpen) {
@@ -466,9 +466,9 @@ void SceneOutliner::drawRenderMaterials() {
     }
     const bool isOpen = beginNode("##render", GroupFlags);
     ImGui::SetItemTooltip("What the rooms' faces are drawn under, one row for every room's copy "
-                          "of it, with the collision material it is bound to. Click one to "
-                          "select its faces; right-click to bind, assign, rename or duplicate "
-                          "it.");
+                          "of it, with the collision material it is bound to. Click one to see "
+                          "its settings, double-click it to select its faces; right-click to "
+                          "bind, assign, rename or duplicate it.");
     drawLabel(core::icons::Palette, MaterialColor, "Render");
     drawInfo(std::format("{}", materials->size()));
     if (!isOpen) {
@@ -477,10 +477,14 @@ void SceneOutliner::drawRenderMaterials() {
     for (usize index = 0; index < materials->size(); ++index) {
         const SceneMaterial& material = (*materials)[index];
         ImGui::PushID(static_cast<int>(index));
-        beginNode("##material", LeafFlags);
-        if (ImGui::IsItemClicked() && hooks.pickMaterial) {
-            hooks.pickMaterial(index);
-        }
+        const MaterialRef selected = RenderMaterialRef{.material = index};
+        beginNode("##material",
+                  LeafFlags | (isMaterialSelected(selected) ? ImGuiTreeNodeFlags_Selected : 0));
+        pickMaterialRow(selected, [this, index] {
+            if (hooks.pickMaterial) {
+                hooks.pickMaterial(index);
+            }
+        });
         if (ImGui::BeginItemTooltip()) {
             ImGui::TextUnformatted(material.name.c_str());
             if (!material.texture.empty()) {
@@ -524,10 +528,11 @@ void SceneOutliner::drawCollisionMaterials(const Collision& collision, const Sce
     }
     const std::vector<SceneCollisionMaterial> materials = listCollisionMaterials(collision);
     const bool isOpen = beginNode("##surfaces", GroupFlags);
-    ImGui::SetItemTooltip("What the solid faces and the polygons no face has are made of: a "
-                          "surface type, the settings polygons share, and what passes through "
-                          "them; %zu polygons in all. Click one to select its faces. Right-click "
-                          "to add a surface type or remove those no polygon has.",
+    ImGui::SetItemTooltip("What the solid faces are made of, rendered or not: a surface type, the "
+                          "settings faces share, and what passes through them; %zu solid faces "
+                          "in all. Click one to see its settings, double-click it to select its "
+                          "faces. Right-click to add a surface type or remove those no solid "
+                          "face has.",
                           collision.polygons.size());
     drawGroupMenu(OutlinerGroup::SurfaceTypes);
     drawLabel(core::icons::Stack, CollisionColor, "Collision");
@@ -539,14 +544,17 @@ void SceneOutliner::drawCollisionMaterials(const Collision& collision, const Sce
         const SceneCollisionMaterial& material = materials[i];
         const usize type = material.material.type;
         ImGui::PushID(static_cast<int>(i));
-        const bool isSelected = view.tintedSurfaceType == type;
+        const bool isSelected =
+            isMaterialSelected(material.material) || view.tintedSurfaceType == type;
         beginNode("##surface", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
         if (isSelected && revealingSurface) {
             ImGui::SetScrollHereY();
         }
-        if (ImGui::IsItemClicked() && hooks.pickCollisionMaterial) {
-            hooks.pickCollisionMaterial(material.material);
-        }
+        pickMaterialRow(material.material, [this, picked = material.material] {
+            if (hooks.pickCollisionMaterial) {
+                hooks.pickCollisionMaterial(picked);
+            }
+        });
         if (collisionNames != nullptr && type < collision.surfaceTypes.size()) {
             ImGui::SetItemTooltip(
                 "%s",
@@ -557,10 +565,24 @@ void SceneOutliner::drawCollisionMaterials(const Collision& collision, const Sce
         ImGui::SameLine();
         ImGui::TextUnformatted(
             makeCollisionMaterialName(collisionNames, collision, material.material).c_str());
-        drawInfo(std::format("{} polys", material.polygons.size()));
+        drawInfo(std::format("{} faces", material.polygons.size()));
         ImGui::PopID();
     }
     ImGui::TreePop();
+}
+
+void SceneOutliner::pickMaterialRow(const MaterialRef& material,
+                                    const std::function<void()>& pick) const {
+    if (ImGui::IsItemClicked() && hooks.selectMaterial) {
+        hooks.selectMaterial(material);
+    }
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        pick();
+    }
+}
+
+bool SceneOutliner::isMaterialSelected(const MaterialRef& material) const {
+    return hooks.isMaterialSelected && hooks.isMaterialSelected(material);
 }
 
 void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {

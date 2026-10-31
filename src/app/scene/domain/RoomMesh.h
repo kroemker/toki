@@ -10,6 +10,7 @@
 #include <array>
 #include <compare>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -117,9 +118,18 @@ struct SceneMesh {
 ///
 /// With `kept`, entries it has are grouped into vertices as it grouped them,
 /// so a vertex moved onto another stays its own until merged; only entries it
-/// does not have are grouped by where they are.
+/// does not have are grouped by where they are. A `kept` that stores one of
+/// a room's entries elsewhere than the images do grouped other bytes, and is
+/// not followed for that room.
 [[nodiscard]] SceneMesh readSceneMesh(const Scene& scene, usize layer,
                                       const SceneMesh* kept = nullptr);
+
+/// As above, each room grouped as the first of `kept` that has all its
+/// entries where the images store them, or else the first that stores none
+/// of them elsewhere. Given the meshes read before, newest first, an undo
+/// reads a room as it was grouped before.
+[[nodiscard]] SceneMesh readSceneMesh(const Scene& scene, usize layer,
+                                      std::span<const SceneMesh* const> kept);
 
 /// The mesh of room `room` in `mesh`, if it has one.
 [[nodiscard]] const RoomMesh* findRoomMesh(const SceneMesh& mesh, usize room);

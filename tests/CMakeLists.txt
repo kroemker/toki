@@ -60,6 +60,7 @@ add_executable(toki_tests
         app/scene/SurfaceOperationsTest.cpp
         app/scene/ComponentSelectionTest.cpp
         app/scene/MeshEditsTest.cpp
+        app/scene/MeshFillTest.cpp
         app/scene/MeshOperationsTest.cpp
         app/scene/SceneMaterialsTest.cpp
         app/scene/MeshRebuildTest.cpp

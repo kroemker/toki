@@ -29,8 +29,6 @@ namespace toki::scene {
 namespace {
 
 constexpr float LabelWidth = 8.0F;
-constexpr std::array<const char*, 3> KindNames{"Floor", "Wall", "Ceiling"};
-constexpr f32 NormalOne = 32767.0F;
 constexpr f32 DegreesPerConveyorStep = 360.0F / 64.0F;
 
 /// A polygon flag as its row shows it.
@@ -56,24 +54,6 @@ constexpr std::array<FlagRow, 4> FlagRows{{
      .help = "COLPOLY_IS_FLOOR_CONVEYOR, in the second vertex word: whether a conveyor surface "
              "type moves what stands on it."},
 }};
-
-void drawRow(const std::string_view label, const std::string_view help, const std::string& value) {
-    core::drawPropertyLabel(label, help);
-    ImGui::TextUnformatted(value.c_str());
-}
-
-void drawVertices(const Collision& collision, const CollisionPolygon& polygon) {
-    for (usize corner = 0; corner < 3; ++corner) {
-        const u16 index = getVertexIndex(polygon, corner);
-        std::string value = std::format("#{}", index);
-        if (index < collision.vertices.size()) {
-            const std::array<s16, 3>& vertex = collision.vertices[index];
-            value += std::format("  ({}, {}, {})", vertex[0], vertex[1], vertex[2]);
-        }
-        drawRow(std::format("Vertex {}", corner + 1),
-                "Its index in the vertex list, and where it is.", value);
-    }
-}
 
 [[nodiscard]] std::vector<NamedValue> makeExitValues(const SceneLayer& layer) {
     std::vector<NamedValue> values{{.value = 0, .label = "None"}};
@@ -104,146 +84,136 @@ void CollisionForm::drawPolygons(const Scene& scene,
     if (collision == nullptr || active.polygon >= collision->polygons.size()) {
         return;
     }
-    const SceneLayer& layer = scene.layers[active.layer];
-    PolygonSelection selection{.layer = active.layer, .gameLayer = layer.index};
+    MaterialSelection selection{.layer = active.layer,
+                                .gameLayer = scene.layers[active.layer].index,
+                                .material = getPolygonMaterial(collision->polygons[active.polygon]),
+                                .isBound = isBound};
     for (const CollisionPolygonRef& polygon : polygons) {
-        if (polygon.polygon < collision->polygons.size()) {
-            selection.polygons.push_back(polygon.polygon);
+        if (polygon.polygon >= collision->polygons.size()) {
+            continue;
         }
+        if (getPolygonMaterial(collision->polygons[polygon.polygon]) != selection.material) {
+            if (ImGui::CollapsingHeader("Collision Material Settings",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::PushTextWrapPos(0.0F);
+                ImGui::TextColored(core::palette::TextMuted, "%s",
+                                   "The picked faces are of several collision materials. Select "
+                                   "one under Materials in the Scene panel to edit its settings.");
+                ImGui::PopTextWrapPos();
+            }
+            return;
+        }
+        selection.picked.push_back(polygon.polygon);
     }
-    if (CollisionRows::drawSharing(scene, active.layer)) {
-        pick([gameLayer =
-                  layer.index](SceneModel& model) { return makeOwnCollision(model, gameLayer); },
-             std::nullopt);
-    }
-    drawFlagSection(*collision, selection, isBound);
-    drawSurfaceSection(scene, layer, *collision, selection, isBound);
-    drawPolygonSection(*collision, selection);
+    drawSection(scene, *collision, selection);
 }
 
-void CollisionForm::drawFlagSection(const Collision& collision, const PolygonSelection& selection,
-                                    const bool isBound) {
-    if (!ImGui::CollapsingHeader("Passes Through", ImGuiTreeNodeFlags_DefaultOpen) ||
-        !core::beginProperties("##flags", LabelWidth)) {
+void CollisionForm::drawMaterial(const Scene& scene, const usize layer,
+                                 const CollisionMaterial& material) {
+    const Collision* collision = findLayerCollision(scene, layer);
+    if (collision == nullptr) {
         return;
     }
-    ImGui::BeginDisabled(isBound);
-    for (const FlagRow& row : FlagRows) {
-        const auto isSet = [&](const usize index) {
-            return hasPolygonFlag(collision.polygons[index], row.flag);
-        };
-        const bool isMixed = std::ranges::any_of(selection.polygons, isSet) &&
-                             !std::ranges::all_of(selection.polygons, isSet);
-        const std::optional<std::string> ignored =
-            findIgnoredFlag(collision, collision.polygons[selection.polygons.back()], row.flag);
-        core::drawPropertyLabel(row.label,
-                                isBound ? std::format("{}\n\nThe faces' material is bound, so "
-                                                      "this is set by its binding.",
-                                                      row.help)
-                                        : std::string(row.help),
-                                ignored.value_or(std::string()));
-        if (const std::optional<bool> toggled = CollisionRows::drawToggle(
-                std::format("##{}", row.label), isSet(selection.polygons.back()), isMixed)) {
-            pick(
-                [gameLayer = selection.gameLayer, polygons = selection.polygons, flag = row.flag,
-                 isOn = *toggled](SceneModel& model) {
-                    return setPolygonFlag(model, gameLayer, polygons, flag, isOn);
-                },
-                std::nullopt);
-        }
-    }
-    ImGui::EndDisabled();
-    core::endProperties();
+    drawSection(scene, *collision,
+                MaterialSelection{
+                    .layer = layer, .gameLayer = scene.layers[layer].index, .material = material});
 }
 
-void CollisionForm::drawPolygonSection(const Collision& collision,
-                                       const PolygonSelection& selection) {
-    const std::string header =
-        selection.polygons.size() > 1
-            ? std::format("Polygon {} of {} Picked###polygon", selection.polygons.back(),
-                          selection.polygons.size())
-            : std::format("Polygon {}###polygon", selection.polygons.back());
-    if (!ImGui::CollapsingHeader(header.c_str()) ||
-        !core::beginProperties("##polygon", LabelWidth)) {
-        return;
-    }
-    const CollisionPolygon& polygon = collision.polygons[selection.polygons.back()];
-    drawRow("Kind",
-            "Which of the game's lists it is sorted into by its normal: a floor's is within "
-            "60° of straight up, a ceiling's within about 37° of straight down, and a wall is "
-            "the rest.",
-            KindNames[static_cast<usize>(findPolygonKind(polygon))]);
-    drawVertices(collision, polygon);
-    drawRow("Normal", "The unit normal the polygon stores.",
-            std::format("({:.3f}, {:.3f}, {:.3f})", polygon.normal[0] / NormalOne,
-                        polygon.normal[1] / NormalOne, polygon.normal[2] / NormalOne));
-    drawRow("Distance", "The plane's distance from the origin along the normal.",
-            std::format("{}", polygon.distance));
-    core::endProperties();
-}
-
-void CollisionForm::drawSurfaceSection(const Scene& scene, const SceneLayer& layer,
-                                       const Collision& collision,
-                                       const PolygonSelection& selection, const bool isBound) {
+void CollisionForm::drawSection(const Scene& scene, const Collision& collision,
+                                const MaterialSelection& selection) {
     if (!ImGui::CollapsingHeader("Collision Material Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
-    const CollisionMaterial material =
-        getPolygonMaterial(collision.polygons[selection.polygons.back()]);
-    if (!std::ranges::all_of(selection.polygons, [&](const usize polygon) {
-            return getPolygonMaterial(collision.polygons[polygon]) == material;
-        })) {
-        ImGui::PushTextWrapPos(0.0F);
-        ImGui::TextColored(core::palette::TextMuted, "%s",
-                           "The picked faces are of several collision materials. Pick the faces "
-                           "of one, under Materials in the Scene panel, to edit its settings.");
-        ImGui::PopTextWrapPos();
+    if (CollisionRows::drawSharing(scene, selection.layer)) {
+        pick([gameLayer = selection.gameLayer](
+                 SceneModel& model) { return makeOwnCollision(model, gameLayer); },
+             std::nullopt);
+    }
+    if (!core::beginProperties("##collisionMaterial", LabelWidth)) {
         return;
     }
-    if (!core::beginProperties("##surface", LabelWidth)) {
-        return;
-    }
-    drawOwnCopy(collision, selection, material.type, isBound);
-    if (material.type < collision.surfaceTypes.size()) {
-        drawSurfaceRows(scene, layer, collision, selection, material.type);
+    drawSurfaceTypeRow(collision, selection);
+    drawFlagRows(collision, selection);
+    if (selection.material.type < collision.surfaceTypes.size()) {
+        drawSurfaceRows(scene, scene.layers[selection.layer], collision, selection);
     }
     core::endProperties();
 }
 
-void CollisionForm::drawOwnCopy(const Collision& collision, const PolygonSelection& selection,
-                                const u16 type, const bool isBound) {
+void CollisionForm::drawSurfaceTypeRow(const Collision& collision,
+                                       const MaterialSelection& selection) {
+    const u16 type = selection.material.type;
     const std::vector<usize> counts = countSurfacePolygons(collision);
     const usize sharing = type < counts.size() ? counts[type] : 0;
     core::drawPropertyLabel(
         "Surface Type",
-        std::format("The surface type the picked faces are made of, which {} polygons have, "
-                    "tinted in the viewport. An edit of its settings below changes every polygon "
-                    "of the same collision material, this surface type with the same flags, and "
-                    "no other: one shared with other flags is copied first.",
+        std::format("The surface type the material is of, which {} solid faces have, tinted in "
+                    "the viewport. An edit of the settings below changes every solid face of "
+                    "the material, and no other: a surface type shared with other flags is "
+                    "copied first.",
                     sharing));
     ImGui::TextUnformatted(makeSurfaceTypeLabel(collisionNames, collision, type).c_str());
+    if (selection.picked.empty()) {
+        return;
+    }
     ImGui::SameLine();
-    ImGui::BeginDisabled(isBound || type >= collision.surfaceTypes.size());
+    ImGui::BeginDisabled(selection.isBound || type >= collision.surfaceTypes.size());
     if (ImGui::SmallButton("Own Copy")) {
         pick(
-            [gameLayer = selection.gameLayer, polygons = selection.polygons,
-             surface = collision.surfaceTypes[type]](
+            [this, gameLayer = selection.gameLayer, polygons = selection.picked,
+             flags = selection.material.flags, surface = collision.surfaceTypes[type]](
                 SceneModel& model) -> std::expected<void, base::Diagnostic> {
                 const std::expected<usize, base::Diagnostic> added =
                     addSurfaceType(model, gameLayer, surface);
                 if (!added) {
                     return std::unexpected(added.error());
                 }
-                return setPolygonSurfaceType(model, gameLayer, polygons, static_cast<u16>(*added));
+                const CollisionMaterial made{.type = static_cast<u16>(*added), .flags = flags};
+                movedMaterial = made;
+                return setPolygonSurfaceType(model, gameLayer, polygons, made.type);
             },
             std::nullopt);
     }
     ImGui::EndDisabled();
-    ImGui::SetItemTooltip("%s", isBound ? "The faces' material is bound, so their collision is "
-                                          "set by its binding."
-                                        : "Gives the picked faces a surface type of their own, "
-                                          "copied from this one, so that editing it changes no "
-                                          "other polygon.");
+    ImGui::SetItemTooltip("%s", selection.isBound
+                                    ? "The faces' render material is bound, so their collision "
+                                      "is set by its binding."
+                                    : "Gives the picked faces a collision material of their own, "
+                                      "copied from this one, so that editing it changes no other "
+                                      "solid face.");
+}
+
+void CollisionForm::drawFlagRows(const Collision& collision, const MaterialSelection& selection) {
+    const auto first =
+        std::ranges::find_if(collision.polygons, [&](const CollisionPolygon& polygon) {
+            return getPolygonMaterial(polygon) == selection.material;
+        });
+    for (const FlagRow& row : FlagRows) {
+        const std::optional<std::string> ignored =
+            first != collision.polygons.end() ? findIgnoredFlag(collision, *first, row.flag)
+                                              : std::nullopt;
+        core::drawPropertyLabel(row.label,
+                                std::format("{}\n\nWhat passes through is part of the material: "
+                                            "a change sets it on every solid face made of it.",
+                                            row.help),
+                                ignored.value_or(std::string()));
+        if (const std::optional<bool> toggled = CollisionRows::drawToggle(
+                std::format("##{}", row.label), hasMaterialFlag(selection.material, row.flag))) {
+            pick(
+                [this, gameLayer = selection.gameLayer, collision, material = selection.material,
+                 flags = setMaterialFlag(selection.material, row.flag, *toggled).flags](
+                    SceneModel& model) -> std::expected<void, base::Diagnostic> {
+                    const std::expected<CollisionMaterial, base::Diagnostic> set =
+                        setMaterialFlags(model, gameLayer, collision, material, flags);
+                    if (!set) {
+                        return std::unexpected(set.error());
+                    }
+                    movedMaterial = *set;
+                    return {};
+                },
+                std::nullopt);
+        }
+    }
 }
 
 std::optional<s64> CollisionForm::drawNamedField(const std::string_view label,
@@ -269,25 +239,26 @@ std::optional<s64> CollisionForm::drawNamedField(const std::string_view label,
     return collisionRows.drawNamedChoice(std::format("##{}", label), values, value);
 }
 
-void CollisionForm::pickSurfaceType(const Collision& collision, const PolygonSelection& selection,
+void CollisionForm::pickSurfaceType(const Collision& collision, const MaterialSelection& selection,
                                     const SurfaceType& surface) {
     pick(
-        [gameLayer = selection.gameLayer, collision,
-         material = getPolygonMaterial(collision.polygons[selection.polygons.back()]),
+        [this, gameLayer = selection.gameLayer, collision, material = selection.material,
          surface](SceneModel& model) -> std::expected<void, base::Diagnostic> {
             const std::expected<CollisionMaterial, base::Diagnostic> set =
                 setMaterialSurface(model, gameLayer, collision, material, surface);
             if (!set) {
                 return std::unexpected(set.error());
             }
+            movedMaterial = *set;
             return {};
         },
         std::nullopt);
 }
 
 void CollisionForm::drawSurfaceRows(const Scene& scene, const SceneLayer& layer,
-                                    const Collision& collision, const PolygonSelection& selection,
-                                    const u16 type) {
+                                    const Collision& collision,
+                                    const MaterialSelection& selection) {
+    const u16 type = selection.material.type;
     const SurfaceType& surface = collision.surfaceTypes[type];
     const SurfaceFields fields = readSurfaceFields(surface);
     const IgnoredSettings ignored = listIgnoredSettings(collision, type, collisionNames);
@@ -301,7 +272,7 @@ void CollisionForm::drawSurfaceRows(const Scene& scene, const SceneLayer& layer,
 
 SurfaceFields CollisionForm::drawSurfaceLinks(const Scene& scene, const SceneLayer& layer,
                                               const Collision& collision,
-                                              const PolygonSelection& selection,
+                                              const MaterialSelection& selection,
                                               const SurfaceFields& fields,
                                               const IgnoredSettings& ignored) {
     SurfaceFields changed = fields;
@@ -469,8 +440,8 @@ void CollisionForm::drawSurfaceTypesMenu(const Scene& scene, const usize layer) 
             },
             std::nullopt);
     }
-    ImGui::SetItemTooltip("Removes every surface type no polygon has, renumbering the polygons' "
-                          "surface types after them.");
+    ImGui::SetItemTooltip("Removes every surface type no solid face has, renumbering the solid "
+                          "faces' surface types after them.");
 }
 
 } // namespace toki::scene

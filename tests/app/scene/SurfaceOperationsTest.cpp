@@ -14,6 +14,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <vector>
@@ -127,6 +128,36 @@ TEST_CASE("a solid face drawn no more is a polygon no face has, made of what it 
     CHECK(made.polygons.back().type == 2);
     const toki::scene::SceneSurface paired = toki::scene::pairSurface(SceneMesh{}, made);
     CHECK(toki::scene::listSolidOnlyPolygons(paired).size() == 3);
+}
+
+TEST_CASE("a polygon no face has is rendered by a room at its vertices, made of what it was",
+          "[scene][surface]") {
+    const Floor floor = makeFloor();
+    const toki::scene::RoomDraft solidOnly =
+        toki::scene::makeSolidOnlyDraft(floor.collision, floor.surface, 1);
+    REQUIRE(solidOnly.faces.size() == 1);
+    const std::array<usize, 1> faces{0};
+
+    const std::vector<toki::scene::OperatedRoom> operated =
+        toki::scene::drawSolidOnlyFaces(floor.mesh, solidOnly, faces, 0);
+
+    REQUIRE(operated.size() == 2);
+    const toki::scene::RoomDraft& room = operated[0].draft;
+    REQUIRE(room.faces.size() == 4);
+    CHECK(operated[0].faces == std::vector<usize>{3});
+    const toki::scene::DraftFace& drawn = room.faces[3];
+    CHECK(drawn.collision == CollisionMaterial{.type = 1});
+    CHECK(drawn.material == room.faces[2].material);
+    CHECK(drawn.corners[0].vertex == 1);
+    CHECK(drawn.corners[1].vertex == 3);
+    CHECK(room.vertices.size() == 6);
+    CHECK(operated[1].draft.faces.empty());
+
+    const std::array<toki::scene::RoomDraft, 1> drafts{room};
+    const Collision made = toki::scene::makeDraftedCollision(floor.collision, floor.surface, drafts,
+                                                             &operated[1].draft);
+    CHECK(made.polygons.size() == 3);
+    CHECK(std::ranges::count(made.polygons, u16{1}, &toki::scene::CollisionPolygon::type) == 2);
 }
 
 TEST_CASE("polygons no face has are given a material, or taken out without one",

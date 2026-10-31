@@ -96,7 +96,7 @@ TEST_CASE(
             continue;
         }
         const toki::scene::SceneMesh read = toki::scene::readSceneMesh(written, 0, &mesh);
-        const toki::scene::SceneMesh expected = toki::scene::makeMovedMesh(mesh, moves);
+        const toki::scene::SceneMesh expected = toki::scene::makeMovedMesh(mesh, moves, writes);
         for (const toki::scene::MeshVertexMove& move : moves) {
             const toki::scene::RoomMesh* room = toki::scene::findRoomMesh(read, move.room);
             const toki::scene::RoomMesh* wanted = toki::scene::findRoomMesh(expected, move.room);

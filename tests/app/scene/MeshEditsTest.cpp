@@ -141,8 +141,13 @@ TEST_CASE("a vertex moved writes every Vtx it stands for, and the normals of its
     REQUIRE(before == std::array<s8, 3>{0, -127, 0});
     REQUIRE(after != before);
     REQUIRE(after[1] > 0);
-    REQUIRE(toki::scene::makeMovedMesh(mesh, moves).rooms[0].vertices[corner].position ==
-            glm::vec3(100.0F, 50.0F, 100.0F));
+    const toki::scene::SceneMesh made = toki::scene::makeMovedMesh(mesh, moves, writes);
+    REQUIRE(made.rooms[0].vertices[corner].position == glm::vec3(100.0F, 50.0F, 100.0F));
+    for (const toki::scene::MeshEntry& entry : made.rooms[0].entries) {
+        const auto same = std::ranges::find(moved.entries, entry.key, &toki::scene::MeshEntry::key);
+        REQUIRE(same != moved.entries.end());
+        CHECK(entry.vtx == same->vtx);
+    }
 }
 
 TEST_CASE("symbol writes change a scene model's symbols, and not past their end", "[scene][mesh]") {

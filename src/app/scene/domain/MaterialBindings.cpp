@@ -70,4 +70,14 @@ MaterialBindings makeReboundSurface(MaterialBindings bindings, const SurfaceType
     return bindings;
 }
 
+MaterialBindings makeReboundFlags(MaterialBindings bindings, const SurfaceType& surface,
+                                  const u8 from, const u8 to) {
+    for (auto& [key, binding] : bindings.materials) {
+        if (binding.isSolid && binding.surface == surface && binding.flags == from) {
+            binding.flags = to;
+        }
+    }
+    return bindings;
+}
+
 } // namespace toki::scene

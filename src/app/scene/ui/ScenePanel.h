@@ -169,6 +169,9 @@ private:
     /// Offers the viewport the placements it shows to pick, and the selected
     /// one to move.
     void offerPlacements(const SceneLayer& layer);
+    /// Duplicates, copies, pastes, deletes and selects nodes as the keys
+    /// pressed over the viewport say, `offered` what it shows to pick.
+    void applyNodeHotkeys(const std::vector<SceneNode>& offered);
     void drawFlags(const std::vector<SceneFlagUse>& flags);
     /// Hands the viewport its overlay: the links between actors sharing a
     /// flag, and the layer's paths.

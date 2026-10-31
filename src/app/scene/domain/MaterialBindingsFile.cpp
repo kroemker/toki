@@ -93,8 +93,8 @@ private:
         for (usize word = 0; word < binding.surface.data.size(); ++word) {
             const std::optional<s64> value = (*surface)[word].value<s64>();
             if (!value || *value < 0 || *value > s64{0xFFFFFFFF}) {
-                report(table, std::format("material '{}' has a surface type word that is not one",
-                                          key));
+                report(table,
+                       std::format("material '{}' has a surface type word that is not one", key));
                 return std::nullopt;
             }
             binding.surface.data[word] = static_cast<u32>(*value);
@@ -105,7 +105,7 @@ private:
                 const std::optional<std::string_view> name = flag.value<std::string_view>();
                 const std::optional<PolygonFlag> found = name ? findFlag(*name) : std::nullopt;
                 if (!found) {
-                    report(flag, std::format("material '{}' has a flag no polygon has", key));
+                    report(flag, std::format("material '{}' has a flag no solid face has", key));
                     continue;
                 }
                 flagged = setMaterialFlag(flagged, *found, true);
@@ -116,8 +116,9 @@ private:
     }
 
     void report(const toml::node& node, std::string message) {
-        made.diagnostics.push_back(base::makeWarning(
-            {.file = file, .line = static_cast<u32>(node.source().begin.line)}, std::move(message)));
+        made.diagnostics.push_back(
+            base::makeWarning({.file = file, .line = static_cast<u32>(node.source().begin.line)},
+                              std::move(message)));
     }
 
     std::filesystem::path file;

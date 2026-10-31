@@ -41,7 +41,8 @@ struct SceneCollisionMaterial {
 
 /// The materials of `collision`'s polygons, by surface type and then flags,
 /// and a material without flags for each surface type no polygon has.
-[[nodiscard]] std::vector<SceneCollisionMaterial> listCollisionMaterials(const Collision& collision);
+[[nodiscard]] std::vector<SceneCollisionMaterial>
+listCollisionMaterials(const Collision& collision);
 
 /// A collision material as a list shows it: its surface type's label, then
 /// each of its flags.
@@ -62,5 +63,12 @@ setPolygonMaterial(SceneModel& model, usize layer, std::span<const usize> polygo
 [[nodiscard]] std::expected<CollisionMaterial, base::Diagnostic>
 setMaterialSurface(SceneModel& model, usize layer, const Collision& collision,
                    const CollisionMaterial& material, const SurfaceType& surface);
+
+/// Gives every polygon of `material` of `collision` the flags `flags`, and
+/// the bindings to it follow. Returns the material as it is afterwards, which
+/// is one with any polygons that already had them.
+[[nodiscard]] std::expected<CollisionMaterial, base::Diagnostic>
+setMaterialFlags(SceneModel& model, usize layer, const Collision& collision,
+                 const CollisionMaterial& material, u8 flags);
 
 } // namespace toki::scene

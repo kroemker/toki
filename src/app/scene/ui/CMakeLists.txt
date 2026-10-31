@@ -6,6 +6,7 @@ target_sources(toki PRIVATE
         ParamsForm.cpp
         HeaderForm.cpp
         LightSettingForm.cpp
+        MaterialForm.cpp
         MeshEditor.cpp
         PathForm.cpp
         PlacementEditor.cpp

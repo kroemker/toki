@@ -28,6 +28,7 @@ target_sources(toki_core PRIVATE
         MaterialTracker.cpp
         MeshDraft.cpp
         MeshEdits.cpp
+        MeshFill.cpp
         MeshOperations.cpp
         MeshRebuild.cpp
         MeshShapes.cpp

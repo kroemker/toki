@@ -14,6 +14,7 @@
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <vector>
@@ -217,6 +218,31 @@ TEST_CASE("mesh vertices welded to a collision vertex moved follow it", "[scene]
         toki::scene::makeWeldedCollision(floor.collision, floor.surface, floor.mesh, welded, moves);
     CHECK(moved.vertices[3] == Point{120, 0, 100});
     CHECK(moved.vertices.size() == floor.collision.vertices.size());
+}
+
+TEST_CASE("the sides an extrusion grows are flat until moved, and solid once moved apart",
+          "[scene][surface]") {
+    const Floor floor = makeFloor();
+    toki::scene::RoomDraft draft = toki::scene::makeRoomDraft(floor.mesh.rooms[0]);
+    const std::array<usize, 1> second{1};
+    const std::vector<usize> capped = toki::scene::extrudeFaces(draft, second);
+    REQUIRE(capped.size() == 1);
+
+    const std::vector<usize> flat = toki::scene::listFlatSolidFaces(draft);
+    REQUIRE(flat.size() == 6);
+    CHECK(std::ranges::find(flat, capped[0]) == flat.end());
+
+    for (toki::scene::DraftFace& face : draft.faces) {
+        face.original.reset();
+    }
+    for (const toki::scene::DraftCorner& corner : draft.faces[capped[0]].corners) {
+        draft.vertices[corner.vertex].position.y += 40.0F;
+        draft.vertices[corner.vertex].isMoved = true;
+    }
+    CHECK(toki::scene::listFlatSolidFaces(draft).empty());
+    const std::array<toki::scene::RoomDraft, 1> drafts{draft};
+    CHECK(toki::scene::makeDraftedCollision(floor.collision, floor.surface, drafts, nullptr)
+              .polygons.size() == draft.faces.size() + 1);
 }
 
 TEST_CASE("a solid face with its corners in a line is counted as left without a polygon",

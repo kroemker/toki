@@ -9,6 +9,7 @@
 
 #include <array>
 #include <format>
+#include <optional>
 #include <span>
 #include <string>
 
@@ -21,21 +22,28 @@ struct ToolButton {
     const char* name;
     core::Action action;
     bool isBuilt;
+    /// What the tooltip names the key of while `action` has none: the key
+    /// that does with the mouse what the tool does with its gizmo.
+    std::optional<core::Action> keyed = std::nullopt;
 };
 
-constexpr std::array<ToolButton, 4> ModeButtons{{
-    {core::icons::Cube, "Node", core::Action::NodeMode, true},
-    {core::icons::Polygon, "Face", core::Action::FaceMode, true},
-    {core::icons::LineSegment, "Edge", core::Action::EdgeMode, true},
-    {core::icons::DotOutline, "Vertex", core::Action::VertexMode, true},
+struct ModeButton {
+    ToolButton button;
+    SelectionMode mode;
+};
+
+constexpr std::array<ModeButton, 4> ModeButtons{{
+    {{core::icons::DotOutline, "Vertex", core::Action::VertexMode, true}, SelectionMode::Vertex},
+    {{core::icons::LineSegment, "Edge", core::Action::EdgeMode, true}, SelectionMode::Edge},
+    {{core::icons::Polygon, "Face", core::Action::FaceMode, true}, SelectionMode::Face},
+    {{core::icons::Cube, "Node", core::Action::NodeMode, true}, SelectionMode::Node},
 }};
 
 constexpr std::array<ToolButton, 4> ToolButtons{{
-    {core::icons::Cursor, "Select: click, or drag a box", core::Action::SelectTool, true},
-    {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true},
-    {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, true},
-    {core::icons::Resize, "Scale, for geometry; actors set their own scale",
-     core::Action::ScaleTool, true},
+    {core::icons::Cursor, "Select", core::Action::SelectTool, true},
+    {core::icons::ArrowsOutCardinal, "Move", core::Action::MoveTool, true, core::Action::Grab},
+    {core::icons::ArrowClockwise, "Rotate", core::Action::RotateTool, true, core::Action::Turn},
+    {core::icons::Resize, "Scale", core::Action::ScaleTool, true, core::Action::Stretch},
 }};
 
 struct PickModeButton {
@@ -55,11 +63,11 @@ constexpr float StripPadding = 3.0F;
 constexpr float StripAlpha = 0.92F;
 constexpr float StripButtonSize = 1.2F;
 
-/// An icon button drawn as pressed while `isActive`, disabled and saying why
-/// when `whyNot` says it cannot be used. True when it was clicked.
+/// An icon button drawn as pressed while `isActive`, and disabled unless
+/// `canUse`. True when it was clicked.
 bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 size,
-                    const char* whyNot = nullptr) {
-    const bool isUsable = button.isBuilt && whyNot == nullptr;
+                    const bool canUse = true) {
+    const bool isUsable = button.isBuilt && canUse;
     ImGui::BeginDisabled(!isUsable);
     if (isActive) {
         ImGui::PushStyleColor(ImGuiCol_Button, core::palette::AccentMuted);
@@ -70,19 +78,20 @@ bool drawIconButton(const ToolButton& button, const bool isActive, const ImVec2 
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
-        const std::string named = core::makeShortcutText(button.name, button.action);
-        std::string tooltip = named;
-        if (!button.isBuilt) {
-            tooltip = std::format("{}, not built yet", named);
-        } else if (whyNot != nullptr) {
-            tooltip = std::format("{}. {}", named, whyNot);
-        }
-        ImGui::SetTooltip("%s", tooltip.c_str());
+        const core::Action keyed = button.keyed && core::getShortcutLabel(button.action).empty()
+                                       ? *button.keyed
+                                       : button.action;
+        const std::string named = core::makeShortcutText(button.name, keyed);
+        ImGui::SetTooltip("%s", button.isBuilt ? named.c_str()
+                                               : std::format("{}, not built yet", named).c_str());
     }
     return isClicked && isUsable;
 }
 
-constexpr const char* NothingToEdit = "What is shown has no faces, edges or vertices to edit.";
+/// Nodes are never scaled: an actor sets its own scale.
+[[nodiscard]] bool isToolOffered(const ViewportTools& tools, const EditTool tool) {
+    return tool != EditTool::Scale || tools.mode != SelectionMode::Node;
+}
 
 } // namespace
 
@@ -100,9 +109,9 @@ bool drawSelectionModes(ViewportTools& tools, const bool canEdit) {
             ImGui::SameLine(0.0F, 1.0F);
         }
         ImGui::PushID(static_cast<int>(i));
-        const auto mode = static_cast<SelectionMode>(i);
-        const char* whyNot = mode != SelectionMode::Node && !canEdit ? NothingToEdit : nullptr;
-        if (drawIconButton(ModeButtons[i], tools.mode == mode, ImVec2(0.0F, 0.0F), whyNot)) {
+        const SelectionMode mode = ModeButtons[i].mode;
+        if (drawIconButton(ModeButtons[i].button, tools.mode == mode, ImVec2(0.0F, 0.0F),
+                           mode == SelectionMode::Node || canEdit)) {
             setSelectionMode(tools, mode);
             isPicked = true;
         }
@@ -151,9 +160,7 @@ void drawStripAction(const StripAction& action, const ImVec2 size) {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_ForTooltip)) {
         const std::string named =
             action.action ? core::makeShortcutText(action.name, *action.action) : action.name;
-        const std::string tooltip =
-            action.whyNot.empty() ? named : std::format("{}. {}", named, action.whyNot);
-        ImGui::SetTooltip("%s", tooltip.c_str());
+        ImGui::SetTooltip("%s", named.c_str());
     }
     if (isClicked && action.whyNot.empty() && action.run) {
         action.run();
@@ -174,8 +181,11 @@ void drawToolStrip(ViewportTools& tools, const ImVec2 position,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove)) {
         const float side = ImGui::GetFrameHeight() * StripButtonSize;
         for (usize i = 0; i < ToolButtons.size(); ++i) {
-            ImGui::PushID(static_cast<int>(i));
             const auto tool = static_cast<EditTool>(i);
+            if (!isToolOffered(tools, tool)) {
+                continue;
+            }
+            ImGui::PushID(static_cast<int>(i));
             if (drawIconButton(ToolButtons[i], tools.tool == tool, ImVec2(side, side))) {
                 tools.tool = tool;
             }
@@ -196,18 +206,24 @@ void drawToolStrip(ViewportTools& tools, const ImVec2 position,
 }
 
 void applyToolHotkeys(ViewportTools& tools, const bool canEdit) {
-    for (usize i = 0; i < ModeButtons.size(); ++i) {
-        const auto mode = static_cast<SelectionMode>(i);
-        if (ModeButtons[i].isBuilt && (canEdit || mode == SelectionMode::Node) &&
-            core::isActionPressed(ModeButtons[i].action)) {
-            setSelectionMode(tools, mode);
+    for (const ModeButton& button : ModeButtons) {
+        if (button.button.isBuilt && (canEdit || button.mode == SelectionMode::Node) &&
+            core::isActionPressed(button.button.action)) {
+            setSelectionMode(tools, button.mode);
         }
-        if (ToolButtons[i].isBuilt && core::isActionPressed(ToolButtons[i].action)) {
-            tools.tool = static_cast<EditTool>(i);
+    }
+    for (usize i = 0; i < ToolButtons.size(); ++i) {
+        const auto tool = static_cast<EditTool>(i);
+        if (ToolButtons[i].isBuilt && isToolOffered(tools, tool) &&
+            core::isActionPressed(ToolButtons[i].action)) {
+            tools.tool = tool;
         }
     }
     if (canEdit && core::isActionPressed(core::Action::ToggleEditMode)) {
         tools.mode = tools.mode == SelectionMode::Node ? tools.lastEditMode : SelectionMode::Node;
+    }
+    if (!isToolOffered(tools, tools.tool)) {
+        tools.tool = EditTool::Select;
     }
 }
 

@@ -65,4 +65,10 @@ findBoundCollision(const Collision& collision, const MaterialBinding& binding);
                                                   const SurfaceType& from, const SurfaceType& to,
                                                   std::optional<u8> flags);
 
+/// `bindings` with every binding to `surface` with flags `from` bound to it
+/// with flags `to` instead: what a collision material's flags being changed
+/// makes of them.
+[[nodiscard]] MaterialBindings makeReboundFlags(MaterialBindings bindings,
+                                                const SurfaceType& surface, u8 from, u8 to);
+
 } // namespace toki::scene

@@ -171,10 +171,11 @@ void HeaderForm::drawScene(Scene& scene, const SceneRef& where, const usize sele
     if (const Collision* collision = findLayerCollision(scene, where.layer);
         collision != nullptr && ImGui::CollapsingHeader("Collision") &&
         core::beginProperties("##collision", LabelWidth)) {
-        core::drawPropertyLabel("Polygons", "The polygons of the layer's collision, of its solid "
-                                            "faces and of none.");
+        core::drawPropertyLabel("Solid Faces", "How many faces of the layer are solid, rendered "
+                                               "or not.");
         ImGui::Text("%zu", collision->polygons.size());
-        core::drawPropertyLabel("Vertices", "The vertices its polygons have.");
+        core::drawPropertyLabel("Vertices", "The vertices of the layer's collision, where its "
+                                            "solid faces have their corners.");
         ImGui::Text("%zu", collision->vertices.size());
         core::drawPropertyLabel("Bounds", "The box the game culls the collision by, as it "
                                           "stores it.");

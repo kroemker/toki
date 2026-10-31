@@ -129,6 +129,20 @@ TEST_CASE("bindings follow a surface type whose settings change", "[scene][surfa
               .surface == to);
 }
 
+TEST_CASE("bindings follow a collision material whose flags change", "[scene][surface]") {
+    MaterialBindings bindings;
+    const SurfaceType surface{.data = {1, 2}};
+    bindings.materials["a"] = {.isSolid = true, .surface = surface};
+    bindings.materials["b"] = {.isSolid = true, .surface = surface, .flags = 1};
+    bindings.materials["c"] = {.surface = surface};
+
+    const MaterialBindings rebound = toki::scene::makeReboundFlags(bindings, surface, 0, 4);
+
+    CHECK(rebound.materials.at("a").flags == 4);
+    CHECK(rebound.materials.at("b").flags == 1);
+    CHECK(rebound.materials.at("c").flags == 0);
+}
+
 TEST_CASE("binding a material makes every face drawn under it what the binding says",
           "[scene][surface]") {
     const toki::scene::SceneMesh mesh = makeMesh();

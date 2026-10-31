@@ -160,4 +160,26 @@ setMaterialSurface(SceneModel& model, const usize layer, const Collision& collis
     return moved;
 }
 
+std::expected<CollisionMaterial, base::Diagnostic>
+setMaterialFlags(SceneModel& model, const usize layer, const Collision& collision,
+                 const CollisionMaterial& material, const u8 flags) {
+    std::vector<usize> own;
+    for (usize polygon = 0; polygon < collision.polygons.size(); ++polygon) {
+        if (getPolygonMaterial(collision.polygons[polygon]) == material) {
+            own.push_back(polygon);
+        }
+    }
+    const CollisionMaterial made{.type = material.type, .flags = flags};
+    if (std::expected<void, base::Diagnostic> set = setPolygonMaterial(model, layer, own, made);
+        !set) {
+        return std::unexpected(set.error());
+    }
+    if (material.type < collision.surfaceTypes.size()) {
+        model.setMaterialBindings(makeReboundFlags(model.getMaterialBindings(),
+                                                   collision.surfaceTypes[material.type],
+                                                   material.flags, flags));
+    }
+    return made;
+}
+
 } // namespace toki::scene

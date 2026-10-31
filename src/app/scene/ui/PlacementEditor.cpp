@@ -473,8 +473,8 @@ std::vector<PlacementRef> PlacementEditor::listActedOn(const PlacementRef& where
     return placements;
 }
 
-void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements) {
-    picked = [this, placements = std::move(placements)](Scene& edited) {
+void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements, const bool movesCopies) {
+    picked = [this, placements = std::move(placements), movesCopies](Scene& edited) {
         std::vector<SceneNode> added;
         for (const PlacementRef& where : placements) {
             if (const std::optional<Placement> placement = findPlacement(edited, where)) {
@@ -482,6 +482,70 @@ void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements) {
                         add(edited, where, *placement, !added.empty())) {
                     added.emplace_back(*copy);
                 }
+            }
+        }
+        selection.pick(added, PickMode::Replace);
+        isMoveWanted = movesCopies && !added.empty();
+    };
+}
+
+void PlacementEditor::pickDuplicateSelected() {
+    std::vector<PlacementRef> placements = selection.listPlacements();
+    std::erase_if(placements, [](const PlacementRef& placement) {
+        return placement.kind == PlacementKind::PlayerEntry;
+    });
+    if (!placements.empty()) {
+        pickDuplicate(std::move(placements), true);
+    }
+}
+
+void PlacementEditor::pickDeleteSelected() {
+    std::vector<PlacementRef> placements = selection.listPlacements();
+    std::erase_if(placements, [](const PlacementRef& placement) {
+        return placement.kind == PlacementKind::PlayerEntry;
+    });
+    if (!placements.empty()) {
+        pickDelete(std::move(placements));
+    }
+}
+
+void PlacementEditor::copySelected(const Scene& scene) {
+    std::vector<Copied> made;
+    for (const PlacementRef& where : selection.listPlacements()) {
+        if (where.kind == PlacementKind::PlayerEntry) {
+            continue;
+        }
+        if (const std::optional<Placement> placement = findPlacement(scene, where)) {
+            made.push_back({.where = where, .placement = *placement});
+        }
+    }
+    if (!made.empty()) {
+        copied = std::move(made);
+    }
+}
+
+void PlacementEditor::pickPaste(const usize layer) {
+    if (copied.empty()) {
+        return;
+    }
+    picked = [this, layer, pasted = copied](Scene& edited) {
+        if (layer >= edited.layers.size()) {
+            return;
+        }
+        const usize rooms = edited.layers[layer].rooms.size();
+        std::vector<SceneNode> added;
+        for (const Copied& copy : pasted) {
+            PlacementRef where = copy.where;
+            where.layer = layer;
+            if (where.kind == PlacementKind::Actor && where.room >= rooms) {
+                if (rooms == 0) {
+                    continue;
+                }
+                where.room = 0;
+            }
+            if (const std::optional<PlacementRef> made =
+                    add(edited, where, copy.placement, !added.empty())) {
+                added.emplace_back(*made);
             }
         }
         selection.pick(added, PickMode::Replace);

@@ -76,8 +76,11 @@ makeWrittenImages(const Scene& scene, std::span<const SymbolWrite> writes);
 /// wrote them was made.
 [[nodiscard]] bool hasSymbolWrites(const Scene& scene, std::span<const SymbolWrite> writes);
 
-/// `mesh` with `moves` made, as reading the images the moves were written
-/// to would read it again: each `Vtx` stored rounded to whole units.
-[[nodiscard]] SceneMesh makeMovedMesh(const SceneMesh& mesh, std::span<const MeshVertexMove> moves);
+/// `mesh` with `moves` made, as reading the images `writes`, the moves'
+/// writes, were written to would read it again: each `Vtx` stored rounded to
+/// whole units, and every byte written, normals turned with it, in the `Vtx`
+/// its entries hold, which a later rebuild writes again.
+[[nodiscard]] SceneMesh makeMovedMesh(const SceneMesh& mesh, std::span<const MeshVertexMove> moves,
+                                      std::span<const SymbolWrite> writes);
 
 } // namespace toki::scene

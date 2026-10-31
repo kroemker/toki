@@ -25,6 +25,9 @@ struct TransformTarget {
     std::vector<glm::vec3> points;
     std::optional<usize> activePoint;
     glm::vec3 pivot{0.0F};
+    /// The normal an axis key pressed twice holds the transform to, where it
+    /// has one.
+    std::optional<glm::vec3> normal;
     std::array<bool, 3> isTurnable{true, true, true};
     std::string turnNote;
     /// Why what is selected cannot be scaled; empty when it can.
@@ -82,9 +85,8 @@ public:
     /// the tool has none.
     bool drawOptions(EditTool tool);
 
-    /// Begins a transform with the mouse, or holds one to an axis, as the
-    /// keys pressed this frame say.
-    void applyHotkeys(EditTool tool, const TransformView& view);
+    /// Begins a transform with the mouse as the keys pressed this frame say.
+    void applyHotkeys(const TransformView& view);
 
     /// Runs the transform the mouse makes, once a key began it: follows the
     /// mouse, takes typed numbers, and is confirmed or cancelled. True while

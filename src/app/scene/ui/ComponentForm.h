@@ -2,6 +2,7 @@
 
 #include "app/scene/Types.h"
 #include "app/scene/domain/ComponentSummary.h"
+#include "app/viewport/domain/ViewportTools.h"
 
 #include <glm/ext/vector_float3.hpp>
 
@@ -43,21 +44,24 @@ struct SurfaceRows {
     std::vector<std::string> names;
 };
 
-/// The Properties panel's form of the picked faces and vertices of the rooms'
-/// meshes and of the polygons no face has: their vertices, their faces, and
-/// whether they are drawn and solid.
+/// The Properties panel's form of what is picked of the rooms' meshes and the
+/// polygons no face has: the vertices picked while selecting by vertices, and
+/// while selecting by faces, what the faces are drawn under and made of.
+/// Edges have none.
 class ComponentForm {
 public:
     /// `surface` is nothing when the layer has no collision.
-    [[nodiscard]] ComponentEdit draw(const ComponentSummary& summary,
+    [[nodiscard]] ComponentEdit draw(viewport::SelectionMode mode, const ComponentSummary& summary,
                                      const std::vector<SceneMaterial>& materials,
                                      const std::optional<SurfaceRows>& surface);
 
 private:
-    static void drawSurface(const SurfaceRows& surface, ComponentEdit& edit);
+    static void drawSurface(const ComponentSummary& summary,
+                            const std::vector<SceneMaterial>& materials,
+                            const std::optional<SurfaceRows>& surface, ComponentEdit& edit);
+    static void drawRender(const SurfaceRows& surface, ComponentEdit& edit);
+    static void drawCollision(const SurfaceRows& surface, ComponentEdit& edit);
     void drawVertices(const ComponentSummary& summary, ComponentEdit& edit);
-    static void drawFaces(const ComponentSummary& summary,
-                          const std::vector<SceneMaterial>& materials, ComponentEdit& edit);
 
     /// What the inputs hold while one is held, so that a drag is one edit.
     glm::vec3 middle{0.0F};

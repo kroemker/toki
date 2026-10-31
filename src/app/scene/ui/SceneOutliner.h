@@ -4,6 +4,7 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionNames.h"
+#include "app/scene/domain/MaterialRef.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSelection.h"
@@ -75,14 +76,18 @@ public:
         std::function<void(OutlinerGroup)> drawGroupMenu;
         /// The materials the rooms are drawn with, once the mesh was read.
         std::function<const std::vector<SceneMaterial>*()> findMaterials;
-        /// Selects a material's faces when its row is clicked.
+        /// Selects a material's faces when its row is double-clicked.
         std::function<void(usize material)> pickMaterial;
         std::function<void(usize material)> drawMaterialMenu;
         /// Selects the faces and polygons made of a collision material when its
-        /// row is clicked.
+        /// row is double-clicked.
         std::function<void(const CollisionMaterial&)> pickCollisionMaterial;
         /// What a material is bound to, named, if it is.
         std::function<std::optional<std::string>(usize material)> findBindingName;
+        /// Selects a render or collision material when its row is clicked, to
+        /// show its settings.
+        std::function<void(const MaterialRef&)> selectMaterial;
+        std::function<bool(const MaterialRef&)> isMaterialSelected;
     };
 
     explicit SceneOutliner(Hooks hooks) : hooks(std::move(hooks)) {}
@@ -108,6 +113,10 @@ private:
     void drawMaterials(const Scene& scene, const SceneView& view);
     void drawRenderMaterials();
     void drawCollisionMaterials(const Collision& collision, const SceneView& view);
+    /// Selects `material` when the row drawn last is clicked, and calls
+    /// `pick` when it is double-clicked.
+    void pickMaterialRow(const MaterialRef& material, const std::function<void()>& pick) const;
+    [[nodiscard]] bool isMaterialSelected(const MaterialRef& material) const;
     /// The eye at the end of a group's row that shows or hides `what` in the
     /// viewport.
     void drawShownSwitch(bool& isShown, std::string_view what) const;

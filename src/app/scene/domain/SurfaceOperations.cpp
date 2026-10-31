@@ -11,9 +11,13 @@
 #include "app/scene/domain/SceneSurface.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 
 #include <algorithm>
+#include <array>
 #include <expected>
+#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -37,6 +41,20 @@ findMostCommon(const std::map<CollisionMaterial, usize>& counts) {
         counts, {},
         [](const std::pair<const CollisionMaterial, usize>& count) { return count.second; });
     return found != counts.end() ? std::optional(found->first) : std::nullopt;
+}
+
+[[nodiscard]] glm::vec3 findDraftCenter(const RoomDraft& draft, const DraftFace& face) {
+    glm::vec3 sum(0.0F);
+    for (usize corner = 0; corner < 3; ++corner) {
+        sum += findCornerPosition(draft, face, corner);
+    }
+    return sum / 3.0F;
+}
+
+[[nodiscard]] usize findOrAddVertex(RoomDraft& draft, const glm::vec3& position) {
+    const auto found = std::ranges::find(draft.vertices, position, &DraftVertex::position);
+    return found != draft.vertices.end() ? static_cast<usize>(found - draft.vertices.begin())
+                                         : addDraftVertex(draft, position);
 }
 
 } // namespace
@@ -152,6 +170,55 @@ std::vector<OperatedRoom> undrawFaces(const SceneMesh& mesh, const std::span<con
     if (!kept.faces.empty()) {
         operated.push_back(std::move(kept));
     }
+    return operated;
+}
+
+std::vector<OperatedRoom> drawSolidOnlyFaces(const SceneMesh& mesh, RoomDraft solidOnly,
+                                             const std::span<const usize> faces, const usize room) {
+    const RoomMesh* drawing = findRoomMesh(mesh, room);
+    if (drawing == nullptr || drawing->faces.empty()) {
+        return {};
+    }
+    OperatedRoom made{.draft = makeRoomDraft(*drawing)};
+    const usize drawnCount = made.draft.faces.size();
+    std::vector<usize> taken;
+    for (const usize face : faces) {
+        if (face >= solidOnly.faces.size()) {
+            continue;
+        }
+        const DraftFace& solid = solidOnly.faces[face];
+        const glm::vec3 center = findDraftCenter(solidOnly, solid);
+        usize like = 0;
+        f32 nearest = std::numeric_limits<f32>::max();
+        for (usize drawn = 0; drawn < drawnCount; ++drawn) {
+            const glm::vec3 offset = findDraftCenter(made.draft, made.draft.faces[drawn]) - center;
+            if (const f32 distance = glm::dot(offset, offset); distance < nearest) {
+                nearest = distance;
+                like = drawn;
+            }
+        }
+        const DraftFace source = made.draft.faces[like];
+        DraftFace drawnFace = source;
+        drawnFace.original.reset();
+        drawnFace.collision = solid.collision;
+        for (usize corner = 0; corner < 3; ++corner) {
+            const glm::vec3 position = findCornerPosition(solidOnly, solid, corner);
+            std::array<u8, 16> vtx = makeProjectedVtx(made.draft, source, position);
+            setVtxPosition(vtx, source.transform, position);
+            drawnFace.corners[corner] =
+                DraftCorner{.vertex = findOrAddVertex(made.draft, position), .vtx = vtx};
+        }
+        made.faces.push_back(made.draft.faces.size());
+        made.draft.faces.push_back(drawnFace);
+        taken.push_back(face);
+    }
+    if (taken.empty()) {
+        return {};
+    }
+    deleteFaces(solidOnly, taken);
+    std::vector<OperatedRoom> operated;
+    operated.push_back(std::move(made));
+    operated.push_back(OperatedRoom{.draft = std::move(solidOnly)});
     return operated;
 }
 

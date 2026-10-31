@@ -214,6 +214,18 @@ usize countLeftOutPolygons(const Collision& collision, const SceneSurface& surfa
                               }));
 }
 
+std::vector<usize> listFlatSolidFaces(const RoomDraft& draft) {
+    std::vector<usize> flat;
+    for (usize face = 0; face < draft.faces.size(); ++face) {
+        const DraftFace& drafted = draft.faces[face];
+        if (drafted.collision && !drafted.original &&
+            isInLine(makeDraftPolygon(draft, drafted, std::nullopt).corners)) {
+            flat.push_back(face);
+        }
+    }
+    return flat;
+}
+
 std::vector<MeshVertexMove> findWeldedMeshMoves(const SceneSurface& surface,
                                                 const std::span<const CollisionVertexMove> moves) {
     std::vector<MeshVertexMove> welded;

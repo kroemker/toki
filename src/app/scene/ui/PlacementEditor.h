@@ -25,6 +25,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -75,6 +76,11 @@ public:
 
     void select(const PlacementRef& where) {
         selection.select(where);
+        draft.reset();
+    }
+
+    void clearSelection() {
+        selection.clear();
         draft.reset();
     }
 
@@ -156,6 +162,26 @@ public:
     /// `applyPicked`, as one step. A path point is moved, never turned.
     void applyTransform(std::vector<SceneNode> nodes, const viewport::TransformEdit& edit);
 
+    /// Duplicates the placements selected, as Shift+D does: the copies are
+    /// selected, to be moved with the mouse at once.
+    void pickDuplicateSelected();
+
+    /// Deletes the placements selected, as the Delete key does.
+    void pickDeleteSelected();
+
+    /// Keeps the placements selected to be pasted, in this scene or another.
+    void copySelected(const Scene& scene);
+
+    /// Adds what was copied to the layer numbered `layer`, where it stood:
+    /// an actor in its room, or the first when the layer has no such room.
+    void pickPaste(usize layer);
+
+    /// Whether the copies a duplicate made are to be moved with the mouse,
+    /// asked once.
+    [[nodiscard]] bool takeMoveWanted() {
+        return std::exchange(isMoveWanted, false);
+    }
+
     /// Makes `edit` by `applyPicked`, as one step.
     void pickSceneEdit(SceneEditor::ModelEdit edit) {
         pickModelEdit(std::move(edit), std::nullopt);
@@ -230,7 +256,7 @@ private:
     /// What a menu or button opened on `where` acts on: the selection when
     /// `where` is in it, or else only `where`.
     [[nodiscard]] std::vector<PlacementRef> listActedOn(const PlacementRef& where) const;
-    void pickDuplicate(std::vector<PlacementRef> placements);
+    void pickDuplicate(std::vector<PlacementRef> placements, bool movesCopies = false);
     void pickDelete(std::vector<PlacementRef> placements);
     void drawHeader(const PlacementRef& where, s16 actorId, const actor::ActorEntry* entry) const;
     [[nodiscard]] bool drawParams(const Scene& scene, const PlacementRef& where,
@@ -255,6 +281,15 @@ private:
     SceneEditor sceneEditor;
     SceneSelection selection;
     std::optional<Placement> draft;
+
+    /// A placement copied, and where it stood.
+    struct Copied {
+        PlacementRef where;
+        Placement placement;
+    };
+
+    std::vector<Copied> copied;
+    bool isMoveWanted = false;
     std::string failure;
     std::function<void(Scene&)> picked;
 };

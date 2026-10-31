@@ -50,16 +50,30 @@ enum class Action : u8 {
     MergeVertices,
     ExtrudeFaces,
     InsetFaces,
-    AddMesh,
+    AddBox,
+    AddPlane,
+    DeleteComponentsAgain,
+    FillVertices,
+    SplitFaces,
+    FlipFaces,
+    SubdivideFaces,
+    Duplicate,
+    Copy,
+    Paste,
+    SelectAll,
+    SelectNone,
+    InvertSelection,
 };
 
-inline constexpr usize ActionCount = static_cast<usize>(Action::AddMesh) + 1;
+inline constexpr usize ActionCount = static_cast<usize>(Action::InvertSelection) + 1;
 
-/// Where an action's key is heard: anywhere in the window, or only while the
-/// cursor is over the viewport.
+/// Where an action's key is heard: anywhere in the window, only while the
+/// cursor is over the viewport, or only while a transform with the mouse runs
+/// there, when no other key of the viewport is.
 enum class ActionScope : u8 {
     Global,
     Viewport,
+    Transform,
 };
 
 /// An action as the config and the settings name it, and the key it has

@@ -7,6 +7,7 @@
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/MaterialBindings.h"
+#include "app/scene/domain/MaterialRef.h"
 #include "app/scene/domain/MeshEdits.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
@@ -20,6 +21,7 @@
 #include "app/scene/domain/SceneView.h"
 #include "app/scene/domain/SurfaceOperations.h"
 #include "app/scene/ui/ComponentForm.h"
+#include "app/scene/ui/MaterialForm.h"
 #include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
@@ -27,6 +29,8 @@
 #include "app/viewport/ui/ViewportPanel.h"
 #include "app/viewport/ui/ViewportTransform.h"
 
+#include <array>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -85,6 +89,24 @@ public:
     /// numbered `material`.
     void pickMaterial(usize material);
 
+    /// Selects `material`, whose settings the Properties panel then shows and
+    /// whose faces the viewport highlights, picking none of them.
+    void selectMaterial(const MaterialRef& material);
+
+    [[nodiscard]] const std::optional<MaterialRef>& findSelectedMaterial() const {
+        return selectedMaterial;
+    }
+
+    void clearSelectedMaterial();
+
+    /// Draws the Properties panel's settings of the render material numbered
+    /// `material`.
+    void drawMaterialSettings(usize material);
+
+    /// Adds to `overlay` the faces of the material selected. Called every
+    /// frame, after `refresh`, whatever the viewport selects by.
+    void addMaterialOverlay(viewport::ViewportOverlay& overlay);
+
     /// Selects by faces, and selects the faces made of `material`, and the
     /// polygons no face has that are.
     void pickCollisionMaterial(const CollisionMaterial& material);
@@ -129,6 +151,14 @@ private:
         std::vector<CollisionVertexMove> collision;
     };
 
+    /// A face a rebuild made solid with its corners in a line, which has no
+    /// polygon until a move stands them apart: by the entries its corners
+    /// load from.
+    struct FlatSolidFace {
+        std::array<MeshEntryKey, 3> corners;
+        CollisionMaterial material;
+    };
+
     void read(const Scene& scene, const SceneView& view);
     void pick(const viewport::ViewportPanel::ViewportPick& hit, viewport::PickMode mode);
     void offerTransform();
@@ -152,8 +182,15 @@ private:
     makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const;
     /// Makes what is picked drawn, solid or of a collision material as `edit`
     /// says, `listed` the materials it names by index.
+    /// The shown room drawing the face nearest the first of `faces` of
+    /// `solidOnly`, which renders them when they are rendered.
+    [[nodiscard]] std::optional<usize> findNearestRoom(const RoomDraft& solidOnly,
+                                                       std::span<const usize> faces) const;
     void editSurface(const ComponentEdit& edit, const std::vector<SceneCollisionMaterial>& listed);
     void commit(std::span<const glm::vec3> points);
+    /// Makes `moves` as a rebuild of the rooms they move, when they stand
+    /// any of `flatSolidFaces` apart, so that those are given their polygons.
+    [[nodiscard]] bool commitFlatSolidFaces(const Moves& moves);
     void preview(const std::optional<viewport::TransformEdit>& edit);
     /// What is offered of `editMesh`: the faces of the shown rooms, and while
     /// the collision is shown, the solid faces of hidden rooms and the
@@ -161,6 +198,12 @@ private:
     void makeShown();
     /// Selects by faces, and selects `faces`.
     void selectFaces(const std::vector<ComponentRef>& faces);
+    [[nodiscard]] std::vector<ComponentRef> listMaterialFaces(usize material) const;
+    /// The faces made of `material`, and the polygons no face has that are.
+    [[nodiscard]] std::vector<ComponentRef>
+    listCollisionMaterialFaces(const CollisionMaterial& material) const;
+    [[nodiscard]] BindingRows makeBindingRows(usize material) const;
+    void makeMaterialOverlay();
     [[nodiscard]] std::optional<u16> makePickedSurfaceType() const;
     void makeOffer();
     void makeOverlay();
@@ -169,10 +212,12 @@ private:
     [[nodiscard]] bool canOperate(MeshOperation operation) const;
     void operate(MeshOperation operation);
     /// Writes what `operated` made of rooms, and picks what it says once
-    /// the scene is read again, then begins a transform of it of `then`.
+    /// the scene is read again, then begins a transform of it of `then`. The
+    /// collision is drafted from `base` where given, else from `collision`.
     void rebuild(const std::vector<OperatedRoom>& operated,
                  std::optional<viewport::TransformKind> then,
-                 std::optional<MaterialBindings> bindings = std::nullopt);
+                 std::optional<MaterialBindings> bindings = std::nullopt,
+                 const Collision* base = nullptr);
     /// Binds the material numbered `material` to `binding`, or unbinds it,
     /// and makes its faces what the binding says.
     void bindMaterial(usize material, std::optional<MaterialBinding> binding);
@@ -183,6 +228,12 @@ private:
     void assignPicked(usize material);
     void drawAssignMenu();
     void addShape(MeshShape shape);
+    /// Makes faces between the vertices picked, of one room.
+    void fill();
+    /// What the viewport offers to pick in the mode it selects by.
+    [[nodiscard]] const std::vector<ComponentRef>& listOffered() const;
+    void selectAll();
+    void invertSelection();
     void moveToRoom(usize room);
     void drawRoomMenu();
     /// The room a shape is added to: that of the faces picked, else the
@@ -225,6 +276,9 @@ private:
     std::optional<SceneMesh> madeMesh;
     /// What the last rebuild grouped its entries into, to read them so.
     std::optional<SceneMesh> keptMesh;
+    /// The meshes read before `sceneMesh`, newest first, so that an undo
+    /// reads a room grouped as it was before.
+    std::deque<SceneMesh> pastMeshes;
     /// What to pick once the scene is read after the last rebuild: faces by
     /// the entries their corners load from, and vertices by one entry each.
     std::vector<std::array<MeshEntryKey, 3>> wantedFaces;
@@ -232,6 +286,7 @@ private:
     /// Polygons no face has to pick, by where their corners stand.
     std::vector<std::array<std::array<s16, 3>, 3>> wantedPolygons;
     std::optional<viewport::TransformKind> wantedTransform;
+    std::vector<FlatSolidFace> flatSolidFaces;
     std::string failure;
     ComponentSelection selection;
     viewport::ViewportPanel::Pickables pickables;
@@ -241,6 +296,9 @@ private:
     std::vector<ComponentRef> pickedBoxes;
     viewport::ViewportOverlay componentOverlay;
     bool isOfferStale = true;
+    std::optional<MaterialRef> selectedMaterial;
+    viewport::ViewportOverlay materialOverlay;
+    bool isMaterialOverlayStale = true;
 };
 
 } // namespace toki::scene

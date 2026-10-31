@@ -86,9 +86,10 @@ private:
     void report(const PolygonProblem& problem) {
         if (!problem.polygons.empty()) {
             collision.diagnostics.push_back(base::makeWarning(
-                {}, std::format("the collision at 0x{:08X} has {} {}: {}", collision.address,
-                                problem.polygons.size() == 1 ? "a polygon that" : "polygons that",
-                                problem.what, listPolygons(problem.polygons))));
+                {},
+                std::format("the collision at 0x{:08X} has {} {}: {}", collision.address,
+                            problem.polygons.size() == 1 ? "a solid face that" : "solid faces that",
+                            problem.what, listPolygons(problem.polygons))));
         }
     }
 

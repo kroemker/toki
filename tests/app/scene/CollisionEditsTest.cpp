@@ -3,6 +3,7 @@
 #include "app/scene/domain/Collision.h"
 #include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/CollisionMaterials.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
@@ -223,8 +224,8 @@ TEST_CASE("collision materials are surface types and flags, each surface type li
     CHECK(materials[2].material.type == 1);
     CHECK(materials[3].material.type == 2);
     CHECK(materials[3].polygons.empty());
-    CHECK(toki::scene::hasPolygonFlag(collision.polygons[1],
-                                      toki::scene::PolygonFlag::IgnoreCamera));
+    CHECK(
+        toki::scene::hasPolygonFlag(collision.polygons[1], toki::scene::PolygonFlag::IgnoreCamera));
     CHECK(toki::scene::hasPolygonFlag(collision.polygons[1],
                                       toki::scene::PolygonFlag::IgnoreProjectiles));
     CHECK(toki::scene::makeCollisionMaterialName(nullptr, collision, materials[1].material) ==
@@ -238,8 +239,8 @@ TEST_CASE("a collision material's settings change its polygons and no other mate
     REQUIRE(toki::scene::setPolygonMaterial(model, 0, second, {.type = 0, .flags = 0b0001}));
     const toki::scene::SurfaceType changed{.data = {0xAB, 0xCD}};
 
-    const auto moved = toki::scene::setMaterialSurface(
-        model, 0, readLayerCollision(model, "scene"), {.type = 0, .flags = 0b0001}, changed);
+    const auto moved = toki::scene::setMaterialSurface(model, 0, readLayerCollision(model, "scene"),
+                                                       {.type = 0, .flags = 0b0001}, changed);
 
     REQUIRE(moved == toki::scene::CollisionMaterial{.type = 3, .flags = 0b0001});
     toki::scene::Collision collision = readLayerCollision(model, "scene");
@@ -248,12 +249,33 @@ TEST_CASE("a collision material's settings change its polygons and no other mate
     CHECK(collision.polygons[0].type == 0);
     CHECK(collision.polygons[1].type == 3);
 
-    const auto inPlace = toki::scene::setMaterialSurface(model, 0, collision,
-                                                         {.type = 0, .flags = 0}, changed);
+    const auto inPlace =
+        toki::scene::setMaterialSurface(model, 0, collision, {.type = 0, .flags = 0}, changed);
     REQUIRE(inPlace == toki::scene::CollisionMaterial{.type = 0, .flags = 0});
     collision = readLayerCollision(model, "scene");
     CHECK(collision.surfaceTypes.size() == 4);
     CHECK(collision.surfaceTypes[0] == changed);
+}
+
+TEST_CASE("a collision material's flags change its polygons and the bindings to it",
+          "[scene][edit][collision]") {
+    toki::scene::SceneModel model(makeScene());
+    const std::array<usize, 1> second{1};
+    REQUIRE(toki::scene::setPolygonMaterial(model, 0, second, {.type = 0, .flags = 0b0001}));
+    toki::scene::Collision collision = readLayerCollision(model, "scene");
+    toki::scene::MaterialBindings bindings;
+    bindings.materials["a"] = {.isSolid = true, .surface = collision.surfaceTypes[0]};
+    model.setMaterialBindings(bindings);
+
+    const auto made =
+        toki::scene::setMaterialFlags(model, 0, collision, {.type = 0, .flags = 0}, 0b0100);
+
+    REQUIRE(made == toki::scene::CollisionMaterial{.type = 0, .flags = 0b0100});
+    collision = readLayerCollision(model, "scene");
+    CHECK(toki::scene::getPolygonMaterial(collision.polygons[0]) == *made);
+    CHECK(toki::scene::getPolygonMaterial(collision.polygons[1]) ==
+          toki::scene::CollisionMaterial{.type = 0, .flags = 0b0001});
+    CHECK(model.getMaterialBindings().materials.at("a").flags == 0b0100);
 }
 
 TEST_CASE("a collision made again from its own polygons is the collision read",

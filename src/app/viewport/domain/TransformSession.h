@@ -2,6 +2,7 @@
 
 #include "app/viewport/Types.h"
 
+#include <glm/ext/matrix_float3x3.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -21,27 +22,41 @@ enum class TransformKind : u8 {
     Scale,
 };
 
-/// The world axes a transform is held to, X, Y and Z; none held leaves it
-/// free. A move held to one axis slides along it, held to two slides in
-/// their plane; a rotation turns about the one axis held, or Y when it is
-/// free; a scale stretches along the axes held, or along all of them.
+/// The axes a transform is held to, X, Y and Z of the world or of `basis`;
+/// none held leaves it free. A move held to one axis slides along it, held to
+/// two slides in their plane; a rotation turns about the one axis held, or Y
+/// when it is free; a scale stretches along the axes held, or along all of
+/// them.
 struct AxisConstraint {
     std::array<bool, 3> axes{};
+    /// The axes held in place of the world's, one a column each: a normal of
+    /// what is transformed in the column of the key pressed twice, and two
+    /// axes square to it. Nothing holds to the world's.
+    std::optional<glm::mat3> basis;
 
     [[nodiscard]] bool isFree() const {
         return !axes[0] && !axes[1] && !axes[2];
     }
 
-    /// Holds the transform to `axis` alone, or frees it when it was held to
-    /// that alone, as X does in Blender.
-    void constrainTo(usize axis);
+    /// Holds the transform to `axis` alone, then, with a `normal` given, to
+    /// the normal, and then frees it, as X pressed again and again does in
+    /// Blender.
+    void constrainTo(usize axis, const std::optional<glm::vec3>& normal = std::nullopt);
 
     /// Holds the transform to the plane of the two axes other than `axis`,
-    /// as Shift+X does in Blender.
-    void constrainToPlane(usize axis);
+    /// then, with a `normal` given, to the plane square to the normal, and
+    /// then frees it, as Shift+X does in Blender.
+    void constrainToPlane(usize axis, const std::optional<glm::vec3>& normal = std::nullopt);
 
     /// The axis a rotation turns about.
     [[nodiscard]] usize findRotationAxis() const;
+
+    /// Which way `axis` points in the world.
+    [[nodiscard]] glm::vec3 findDirection(usize axis) const;
+
+    /// What `axis` is called: X, Y or Z, or, held to a normal, N for the
+    /// normal and U and V for the two square to it.
+    [[nodiscard]] const char* findName(usize axis) const;
 
     friend bool operator==(const AxisConstraint&, const AxisConstraint&) = default;
 };
@@ -64,6 +79,8 @@ struct TransformResult {
     usize axis = 1;
     f32 degrees = 0.0F;
     glm::vec3 factor{1.0F};
+    /// The axes `axis` and `factor` are of, where they are not the world's.
+    std::optional<glm::mat3> basis;
 
     friend bool operator==(const TransformResult&, const TransformResult&) = default;
 };

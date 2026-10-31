@@ -103,14 +103,13 @@ owned by its node (`WaterBoxRef`), and so a click through water picks the waterb
 nearer of the two. A waterbox selected has no selection box around it
 (`ViewportDraw::isBoxed`): its highlight already shows all of it.
 
-The polygons of the faces picked show in the Properties panel below the faces
-(`CollisionForm`): what passes through them; the settings of the collision material they
-share, each decoded and named, the camera with its setting, and the exit with the entrance
-it leads to; and, folded away, the kind, vertices, normal and distance of the one picked
-last. Faces of several collision materials show none's settings. Every polygon of the
-surface type the picked faces share is tinted. Faces whose material is bound show what
-passes through them, and cannot set it: the binding does. A waterbox selected shows its bounds, surface, room, light
-setting, camera and flag (`WaterBoxForm`). Each of these is edited in place; see below.
+The collision material of the faces picked shows its settings in the Properties panel
+below them (`CollisionForm`), as one selected under Materials does: its surface type, what
+passes through it, and its surface type's settings, each decoded and named, the camera with
+its setting, and the exit with the entrance it leads to. Faces of several collision
+materials show none's settings. Every polygon of the surface type shown is tinted. A
+waterbox selected shows its bounds, surface, room, light setting, camera and flag
+(`WaterBoxForm`). Each of these is edited in place; see below.
 
 ## The Scene panel
 
@@ -122,9 +121,10 @@ and the flags of what passes through a polygon (`CollisionMaterial`), which is w
 sets on a material and what a face of the mesh is made of
 ([geometry.md](geometry.md#one-surface)). Each is named by both (`makeCollisionMaterialName`:
 a summary of what its surface type sets, then "· Ignored by Camera" and the like), beside a
-square of the colour Surface Type colours its polygons, with how many polygons it has, a
-click showing the collision and picking its faces and the polygons no face has that are made
-of it, and that of the faces picked highlighted and scrolled to. A surface type no polygon
+square of the colour Surface Type colours its polygons, with how many polygons it has, and
+that of the faces picked highlighted and scrolled to. A click shows the collision and
+selects the material, a double-click picks its faces and the polygons no face has that are
+made of it. A surface type no polygon
 has is listed alone. Waterboxes are a group of their own, a click selecting one.
 
 ## Editing
@@ -134,8 +134,10 @@ writes the bytes of the symbol it changes (`CollisionEdits`), the model lays the
 again, and the collision is read again out of them, so what is shown is what was written.
 Each edit is one undo step.
 
-- **What passes through a polygon** and whether it is a conveyor are its vertex words' flags,
-  set for every polygon selected at once. A flag some of them have and some not shows mixed.
+- **What passes through a polygon** and whether it is a conveyor are its vertex words'
+  flags, and part of its collision material: they are set for every polygon of the material
+  at once (`setMaterialFlags`), and bindings to it follow. Faces that should differ are given
+  another collision material, or an Own Copy.
 - **Which collision material a polygon is made of** is set as a face's is, in the Surface
   rows ([geometry.md](geometry.md#one-surface)). Own Copy gives the picked faces a copy of
   their surface type, so its settings can change without changing any other polygon.
