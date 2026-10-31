@@ -34,6 +34,12 @@ namespace toki::scene {
                                              std::span<const RoomDraft> drafts,
                                              const RoomDraft* solidOnly);
 
+/// How many polygons `makeDraftedCollision` leaves out because their
+/// corners are in a line at whole units: solid faces that lose their polygon.
+[[nodiscard]] usize countLeftOutPolygons(const Collision& collision, const SceneSurface& surface,
+                                         std::span<const RoomDraft> drafts,
+                                         const RoomDraft* solidOnly);
+
 /// The mesh vertices welded to the collision vertices `moves` moves, moved
 /// with them.
 [[nodiscard]] std::vector<MeshVertexMove>
@@ -46,8 +52,8 @@ findWeldedMeshMoves(const SceneSurface& surface, std::span<const CollisionVertex
 /// follow one move is moved; the corners that follow it of one whose corners
 /// do not all follow are given a vertex of their own. Polygons that moved are
 /// faced again, and the bounds made around every vertex.
-[[nodiscard]] Collision makeWeldedCollision(const Collision& collision,
-                                            const SceneSurface& surface, const SceneMesh& mesh,
+[[nodiscard]] Collision makeWeldedCollision(const Collision& collision, const SceneSurface& surface,
+                                            const SceneMesh& mesh,
                                             std::span<const MeshVertexMove> meshMoves,
                                             std::span<const CollisionVertexMove> collisionMoves);
 

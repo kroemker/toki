@@ -53,6 +53,10 @@ using Point = std::array<s16, 3>;
     return corners;
 }
 
+[[nodiscard]] glm::vec3 findFacing(const std::array<glm::vec3, 3>& corners) {
+    return glm::cross(corners[1] - corners[0], corners[2] - corners[0]);
+}
+
 /// The vertices of a collision as polygons are added to it: those it had,
 /// then those added at places none of them stands.
 class VertexList {
@@ -92,7 +96,7 @@ std::optional<CollisionPolygon> makeFacedPolygon(CollisionPolygon polygon,
         }
         corners[corner] = glm::vec3(vertices[index][0], vertices[index][1], vertices[index][2]);
     }
-    const glm::vec3 facing = glm::cross(corners[1] - corners[0], corners[2] - corners[0]);
+    const glm::vec3 facing = findFacing(corners);
     if (glm::length(facing) < Flat) {
         return std::nullopt;
     }
@@ -137,6 +141,22 @@ std::vector<SurfacePolygon> listSurfacePolygons(const Collision& collision) {
                             .read = i});
     }
     return polygons;
+}
+
+bool isInLine(const std::array<Point, 3>& corners) {
+    std::array<glm::vec3, 3> points{};
+    for (usize corner = 0; corner < 3; ++corner) {
+        points[corner] = glm::vec3(corners[corner][0], corners[corner][1], corners[corner][2]);
+    }
+    return glm::length(findFacing(points)) < Flat;
+}
+
+bool isPolygonLeftOut(const Collision& collision, const SurfacePolygon& polygon) {
+    if (polygon.read && *polygon.read < collision.polygons.size() &&
+        findCorners(collision, collision.polygons[*polygon.read]) == polygon.corners) {
+        return false;
+    }
+    return isInLine(polygon.corners);
 }
 
 Collision makeSurfaceCollision(const Collision& collision,

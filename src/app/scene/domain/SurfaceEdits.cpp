@@ -11,6 +11,7 @@
 
 #include <glm/ext/vector_float3.hpp>
 
+#include <algorithm>
 #include <array>
 #include <map>
 #include <optional>
@@ -76,8 +77,13 @@ public:
         if (const auto found = movedCollision.find(vertex); found != movedCollision.end()) {
             return found->second;
         }
-        if (const std::optional<MeshFaceRef>& face = surface.polygonFaces[polygon]) {
-            return findFaceTarget(*face, collision.vertices[vertex]);
+        if (polygon < surface.polygonFaces.size()) {
+            if (const std::optional<MeshFaceRef>& face = surface.polygonFaces[polygon]) {
+                return findFaceTarget(*face, collision.vertices[vertex]);
+            }
+        }
+        if (vertex >= surface.welds.size()) {
+            return std::nullopt;
         }
         for (const MeshVertexRef& weld : surface.welds[vertex]) {
             if (const auto found = movedMesh.find(weld); found != movedMesh.end()) {
@@ -110,6 +116,45 @@ private:
     std::map<MeshVertexRef, Point> movedMesh;
     std::map<usize, Point> movedCollision;
 };
+
+[[nodiscard]] std::vector<SurfacePolygon>
+listDraftedPolygons(const Collision& collision, const SceneSurface& surface,
+                    const std::span<const RoomDraft> drafts, const RoomDraft* solidOnly) {
+    std::set<usize> rooms;
+    DraftedPolygons drafted;
+    for (const RoomDraft& draft : drafts) {
+        rooms.insert(draft.room);
+        for (const DraftFace& face : draft.faces) {
+            drafted.add(draft, face,
+                        face.original
+                            ? findFacePolygon(surface, {.room = draft.room, .face = *face.original})
+                            : std::nullopt);
+        }
+    }
+    if (solidOnly != nullptr) {
+        for (const DraftFace& face : solidOnly->faces) {
+            const bool isSolidOnly = face.original &&
+                                     *face.original < surface.polygonFaces.size() &&
+                                     !surface.polygonFaces[*face.original];
+            drafted.add(*solidOnly, face, isSolidOnly ? face.original : std::nullopt);
+        }
+    }
+    const std::vector<SurfacePolygon> read = listSurfacePolygons(collision);
+    std::vector<SurfacePolygon> polygons;
+    for (usize polygon = 0; polygon < read.size(); ++polygon) {
+        const std::optional<MeshFaceRef> face =
+            polygon < surface.polygonFaces.size() ? surface.polygonFaces[polygon] : std::nullopt;
+        const bool isDrafted = face ? rooms.contains(face->room) : solidOnly != nullptr;
+        if (!isDrafted) {
+            polygons.push_back(read[polygon]);
+        } else if (const auto found = drafted.replacing.find(polygon);
+                   found != drafted.replacing.end()) {
+            polygons.push_back(found->second);
+        }
+    }
+    polygons.insert(polygons.end(), drafted.added.begin(), drafted.added.end());
+    return polygons;
+}
 
 } // namespace
 
@@ -156,38 +201,17 @@ RoomDraft makeSolidOnlyDraft(const Collision& collision, const SceneSurface& sur
 Collision makeDraftedCollision(const Collision& collision, const SceneSurface& surface,
                                const std::span<const RoomDraft> drafts,
                                const RoomDraft* solidOnly) {
-    std::set<usize> rooms;
-    DraftedPolygons drafted;
-    for (const RoomDraft& draft : drafts) {
-        rooms.insert(draft.room);
-        for (const DraftFace& face : draft.faces) {
-            drafted.add(draft, face,
-                        face.original ? findFacePolygon(surface, {.room = draft.room,
-                                                                  .face = *face.original})
-                                      : std::nullopt);
-        }
-    }
-    if (solidOnly != nullptr) {
-        for (const DraftFace& face : solidOnly->faces) {
-            const bool isSolidOnly = face.original && *face.original < surface.polygonFaces.size() &&
-                                     !surface.polygonFaces[*face.original];
-            drafted.add(*solidOnly, face, isSolidOnly ? face.original : std::nullopt);
-        }
-    }
-    const std::vector<SurfacePolygon> read = listSurfacePolygons(collision);
-    std::vector<SurfacePolygon> polygons;
-    for (usize polygon = 0; polygon < read.size(); ++polygon) {
-        const std::optional<MeshFaceRef>& face = surface.polygonFaces[polygon];
-        const bool isDrafted = face ? rooms.contains(face->room) : solidOnly != nullptr;
-        if (!isDrafted) {
-            polygons.push_back(read[polygon]);
-        } else if (const auto found = drafted.replacing.find(polygon);
-                   found != drafted.replacing.end()) {
-            polygons.push_back(found->second);
-        }
-    }
-    polygons.insert(polygons.end(), drafted.added.begin(), drafted.added.end());
-    return makeSurfaceCollision(collision, polygons);
+    return makeSurfaceCollision(collision,
+                                listDraftedPolygons(collision, surface, drafts, solidOnly));
+}
+
+usize countLeftOutPolygons(const Collision& collision, const SceneSurface& surface,
+                           const std::span<const RoomDraft> drafts, const RoomDraft* solidOnly) {
+    return static_cast<usize>(
+        std::ranges::count_if(listDraftedPolygons(collision, surface, drafts, solidOnly),
+                              [&collision](const SurfacePolygon& polygon) {
+                                  return isPolygonLeftOut(collision, polygon);
+                              }));
 }
 
 std::vector<MeshVertexMove> findWeldedMeshMoves(const SceneSurface& surface,
@@ -208,7 +232,8 @@ std::vector<MeshVertexMove> findWeldedMeshMoves(const SceneSurface& surface,
 }
 
 Collision makeWeldedCollision(const Collision& collision, const SceneSurface& surface,
-                              const SceneMesh& mesh, const std::span<const MeshVertexMove> meshMoves,
+                              const SceneMesh& mesh,
+                              const std::span<const MeshVertexMove> meshMoves,
                               const std::span<const CollisionVertexMove> collisionMoves) {
     const CornerTargets targets(collision, surface, mesh, meshMoves, collisionMoves);
     std::vector<std::array<std::optional<Point>, 3>> corners(collision.polygons.size());

@@ -11,7 +11,9 @@
 #include "base/Types.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
 
+#include <array>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -38,13 +40,19 @@ Collision makeCollision() {
 /// under that of 9, of which the first is solid of surface type 1.
 toki::scene::SceneMesh makeMesh() {
     toki::scene::RoomMesh room{.room = 0};
-    room.vertices.push_back({.entries = {0}});
-    room.entries.push_back({.key = {.symbol = "vtx"}});
+    for (const glm::vec3& position :
+         {glm::vec3(0.0F, 0.0F, 0.0F), glm::vec3(100.0F, 0.0F, 0.0F), glm::vec3(0.0F, 0.0F, 100.0F),
+          glm::vec3(100.0F, 0.0F, 100.0F), glm::vec3(200.0F, 0.0F, 0.0F)}) {
+        room.vertices.push_back({.position = position, .entries = {room.entries.size()}});
+        room.entries.push_back({.key = {.symbol = "vtx", .index = room.entries.size()}});
+    }
+    const std::array<std::array<usize, 3>, 3> corners{{{0, 2, 1}, {1, 2, 3}, {1, 3, 4}}};
     for (usize face = 0; face < 3; ++face) {
-        room.faces.push_back({.material = face < 2 ? toki::scene::MeshMaterial{.content = 7,
-                                                                             .texture = "Grass"}
-                                                   : toki::scene::MeshMaterial{.content = 9,
-                                                                             .texture = "Rock"}});
+        room.faces.push_back(
+            {.vertices = corners[face],
+             .corners = corners[face],
+             .material = face < 2 ? toki::scene::MeshMaterial{.content = 7, .texture = "Grass"}
+                                  : toki::scene::MeshMaterial{.content = 9, .texture = "Rock"}});
     }
     room.faces[0].collision = CollisionMaterial{.type = 1};
     toki::scene::SceneMesh mesh;
@@ -60,17 +68,16 @@ std::vector<SceneMaterial> makeMaterials() {
 
 TEST_CASE("material bindings read back from the text they are written as", "[scene][surface]") {
     MaterialBindings bindings;
-    bindings.materials["grass"] = {.isSolid = true,
-                                   .surface = {.data = {0x00200000, 0x000007C2}},
-                                   .flags = toki::scene::setMaterialFlag(
-                                                CollisionMaterial{},
-                                                toki::scene::PolygonFlag::IgnoreCamera, true)
-                                                .flags};
+    bindings.materials["grass"] = {
+        .isSolid = true,
+        .surface = {.data = {0x00200000, 0x000007C2}},
+        .flags = toki::scene::setMaterialFlag(CollisionMaterial{},
+                                              toki::scene::PolygonFlag::IgnoreCamera, true)
+                     .flags};
     bindings.materials["00000000DEADBEEF"] = {};
 
     const std::string text = toki::scene::formatMaterialBindings(bindings);
-    const toki::scene::ReadBindings read =
-        toki::scene::parseMaterialBindings(text, "scene.toml");
+    const toki::scene::ReadBindings read = toki::scene::parseMaterialBindings(text, "scene.toml");
 
     CHECK(read.diagnostics.empty());
     CHECK(read.bindings == bindings);
@@ -80,8 +87,7 @@ TEST_CASE("material bindings read back from the text they are written as", "[sce
 TEST_CASE("a binding file that cannot be read is a diagnostic, and the rest is kept",
           "[scene][surface]") {
     const toki::scene::ReadBindings read = toki::scene::parseMaterialBindings(
-        "[materials.a]\nsolid = true\nsurface = [1]\n[materials.b]\nsolid = false\n",
-        "scene.toml");
+        "[materials.a]\nsolid = true\nsurface = [1]\n[materials.b]\nsolid = false\n", "scene.toml");
 
     REQUIRE(read.diagnostics.size() == 1);
     CHECK(read.diagnostics[0].location.line == 1);
@@ -148,4 +154,19 @@ TEST_CASE("binding a material makes every face drawn under it what the binding s
     CHECK(operated[0].draft.faces[1].collision == CollisionMaterial{.type = 1});
     CHECK_FALSE(operated[0].draft.faces[2].collision);
     CHECK(toki::scene::bindFaces(mesh, materials, 1, std::nullopt).empty());
+
+    const std::vector<toki::scene::OperatedRoom> assigned = toki::scene::makeBoundFaces(
+        {toki::scene::OperatedRoom{.draft = operated[0].draft, .faces = {2}}}, resolved[0]);
+    CHECK(assigned[0].draft.faces[2].collision == CollisionMaterial{.type = 1});
+    CHECK_FALSE(toki::scene::makeBoundFaces(operated, resolved[1])[0].draft.faces[2].collision);
+}
+
+TEST_CASE("renaming a material moves its binding", "[scene][surface]") {
+    MaterialBindings bindings;
+    bindings.materials["stone"] = toki::scene::MaterialBinding{.isSolid = true, .flags = 2};
+
+    const MaterialBindings renamed = toki::scene::makeRenamedBindings(bindings, "stone", "brick");
+    CHECK_FALSE(renamed.materials.contains("stone"));
+    CHECK(renamed.materials.at("brick").flags == 2);
+    CHECK(toki::scene::makeRenamedBindings(bindings, "grass", "moss") == bindings);
 }

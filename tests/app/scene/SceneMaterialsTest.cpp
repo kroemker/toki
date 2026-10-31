@@ -2,6 +2,7 @@
 
 #include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/GeometryChanges.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/MaterialEdits.h"
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
@@ -222,7 +223,11 @@ TEST_CASE("a material renamed renames its list and what points at it, and one du
     const std::vector<SceneMaterial> materials = toki::scene::listSceneMaterials(scene, mesh);
     toki::scene::SceneModel model(scene);
 
+    model.setMaterialBindings(toki::scene::MaterialBindings{
+        .materials = {{"grass", toki::scene::MaterialBinding{.isSolid = true}}}});
     REQUIRE(toki::scene::renameMaterial(model, findMaterial(materials, "grass"), "moss"));
+    CHECK(model.getMaterialBindings().materials.contains("moss"));
+    CHECK_FALSE(model.getMaterialBindings().materials.contains("grass"));
     REQUIRE(toki::scene::duplicateMaterial(model, findMaterial(materials, "stone"), "brick"));
     REQUIRE_FALSE(toki::scene::renameMaterial(model, findMaterial(materials, "stone"), "a b"));
 

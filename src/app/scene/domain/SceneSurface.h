@@ -12,6 +12,7 @@
 namespace toki::scene {
 
 struct Collision;
+struct RoomMesh;
 struct SceneMesh;
 
 /// A face of a room's mesh: the room's number, and the face's index there.
@@ -55,6 +56,11 @@ struct SceneSurface {
 
 /// The polygons that are no face's, in order.
 [[nodiscard]] std::vector<usize> listSolidOnlyPolygons(const SceneSurface& surface);
+
+/// Whether a polygon can be made of face `face` of `room`: its corners, in
+/// whole units, are not in a line. A face that cannot is never solid, however
+/// it is set, since the collision it would be is left out.
+[[nodiscard]] bool canFaceBeSolid(const RoomMesh& room, usize face);
 
 /// A position in the world in whole units, as collision stores it.
 [[nodiscard]] std::array<s16, 3> roundToCollision(const glm::vec3& position);

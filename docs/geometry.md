@@ -45,7 +45,10 @@ out: about three in four of their polygons stand exactly on a face.
   unpaired face winning. A paired face is **solid**, and its collision material
   (`MeshFace::collision`) is that of its polygon: a surface type and the flags of what passes
   through it ([collision.md](collision.md#the-scene-panel)). A polygon no face has is
-  **solid only**, as an invisible wall is.
+  **solid only**, as an invisible wall is. A face whose corners in whole units are in a line
+  can have no polygon (`canFaceBeSolid`), and is never solid: making it so is skipped, by
+  Properties and by bindings alike, and a rebuild that leaves a polygon out for it is a
+  warning.
 - **Welds.** A collision vertex standing where mesh vertices stand is welded to them, and
   follows them when they move; when only some of the faces around it move, the polygons of
   the others keep it and those that moved are given a vertex of their own
@@ -73,7 +76,7 @@ out: about three in four of their polygons stand exactly on a face.
   means the same in every collision of the scene, and it follows a surface type whose
   settings are edited. Bindings are saved with the scene in `.toki/scenes/<scene>.toml`,
   keyed by the material's name where every room sets it by a list of its own, else by its
-  RDP state. They change how Toki edits, never what the game reads: each read checks them,
+  RDP state; renaming the material carries its binding. They change how Toki edits, never what the game reads: each read checks them,
   and faces not as their material is bound are a warning, the material's menu offering to
   re-apply or unbind the binding.
 

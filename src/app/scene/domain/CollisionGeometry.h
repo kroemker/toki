@@ -35,6 +35,13 @@ struct SurfacePolygon {
 /// The polygons of `collision` as they were read.
 [[nodiscard]] std::vector<SurfacePolygon> listSurfacePolygons(const Collision& collision);
 
+/// Whether `corners` are in a line, so that no polygon can be faced at them.
+[[nodiscard]] bool isInLine(const std::array<std::array<s16, 3>, 3>& corners);
+
+/// Whether `makeSurfaceCollision` leaves `polygon` out of `collision`: its
+/// corners are in a line, and it is not one read standing where it stood.
+[[nodiscard]] bool isPolygonLeftOut(const Collision& collision, const SurfacePolygon& polygon);
+
 /// `collision` with `polygons` in place of its own, in their order. A polygon
 /// read whose corners stand where they stood is kept as it was, its normal
 /// and distance with it, and only made of its material; every other is

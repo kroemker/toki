@@ -62,6 +62,9 @@ struct SceneMaterial {
 [[nodiscard]] std::vector<SceneMaterial> listSceneMaterials(const Scene& scene,
                                                             const SceneMesh& mesh);
 
+/// Whether `face` is drawn under `material`.
+[[nodiscard]] bool isDrawnUnder(const SceneMaterial& material, const MeshFace& face);
+
 /// The material of `materials` `face` is drawn under, if one is.
 [[nodiscard]] std::optional<usize> findFaceMaterial(const std::vector<SceneMaterial>& materials,
                                                     const MeshFace& face);

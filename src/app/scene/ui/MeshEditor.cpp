@@ -6,8 +6,8 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/Collision.h"
-#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/ComponentSummary.h"
 #include "app/scene/domain/EditMesh.h"
@@ -245,8 +245,9 @@ std::vector<MeshPick> MeshEditor::makePicks() const {
         for (const ComponentRef& ref : refs) {
             MeshPick& pick = picks[ref.piece];
             pick.room = ref.piece;
-            (pick.*list).push_back(isFace ? findFaceSource(editMesh->pieces[ref.piece], ref.index)
-                                          : ref.index);
+            (pick.*list)
+                .push_back(isFace ? findFaceSource(editMesh->pieces[ref.piece], ref.index)
+                                  : ref.index);
         }
     };
     add(selection.listFaces(*editMesh), &MeshPick::faces, true);
@@ -272,7 +273,8 @@ MeshEditor::splitPicks(std::vector<MeshPick> picks) const {
     return {std::move(picks), std::move(solidOnly)};
 }
 
-std::vector<ComponentRef> MeshEditor::findMeshFaces(const std::span<const ComponentRef> faces) const {
+std::vector<ComponentRef>
+MeshEditor::findMeshFaces(const std::span<const ComponentRef> faces) const {
     std::vector<ComponentRef> found;
     for (const ComponentRef& face : faces) {
         if (face.piece < roomCount && face.piece < editMesh->pieces.size()) {
@@ -363,6 +365,12 @@ void MeshEditor::rebuild(const std::vector<OperatedRoom>& operated,
     }
     std::optional<Collision> drafted;
     if (collision && surface) {
+        if (const usize flat = countLeftOutPolygons(*collision, *surface, drafts, solidOnly);
+            flat > 0) {
+            core::logWarn("{}: {} solid faces have their corners in a line at whole units, and "
+                          "are left without collision",
+                          shownScene->name, flat);
+        }
         Collision made = makeDraftedCollision(*collision, *surface, drafts, solidOnly);
         if (made.vertices != collision->vertices || made.polygons != collision->polygons) {
             drafted = std::move(made);
@@ -435,13 +443,13 @@ void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<
 }
 
 void MeshEditor::pickMaterial(const usize material) {
-    if (target != EditTarget::Mesh || !sceneMesh || !editMesh) {
+    if (target != EditTarget::Mesh || !sceneMesh || !editMesh || material >= materials.size()) {
         return;
     }
     std::vector<ComponentRef> faces;
     for (const RoomMesh& room : sceneMesh->rooms) {
         for (usize face = 0; face < room.faces.size(); ++face) {
-            if (findFaceMaterial(materials, room.faces[face]) == material) {
+            if (isDrawnUnder(materials[material], room.faces[face])) {
                 faces.push_back({.piece = room.room, .index = face});
             }
         }
@@ -462,15 +470,10 @@ void MeshEditor::assignPicked(const usize material) {
         core::logWarn("{}: {}", shownScene->name, failure);
         return;
     }
-    if (material < resolvedBindings.size() && resolvedBindings[material] &&
-        resolvedBindings[material]->collision) {
-        for (OperatedRoom& room : *operated) {
-            for (const usize face : room.faces) {
-                room.draft.faces[face].collision = *resolvedBindings[material]->collision;
-            }
-        }
-    }
-    rebuild(*operated, std::nullopt);
+    rebuild(makeBoundFaces(std::move(*operated), material < resolvedBindings.size()
+                                                     ? resolvedBindings[material]
+                                                     : std::nullopt),
+            std::nullopt);
 }
 
 void MeshEditor::bindMaterial(const usize material, const std::optional<MaterialBinding> binding) {

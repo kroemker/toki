@@ -26,13 +26,14 @@ struct Collision;
                                                      const MeshMaterial& material);
 
 /// The rooms of `mesh` with the faces `picks` names made of `material`, or
-/// not solid without one.
-[[nodiscard]] std::vector<OperatedRoom> setFacesCollision(const SceneMesh& mesh,
-                                                          std::span<const MeshPick> picks,
-                                                          const std::optional<CollisionMaterial>& material);
+/// not solid without one. Faces that cannot be solid are left as they are.
+[[nodiscard]] std::vector<OperatedRoom>
+setFacesCollision(const SceneMesh& mesh, std::span<const MeshPick> picks,
+                  const std::optional<CollisionMaterial>& material);
 
 /// The rooms of `mesh` with the faces `picks` names solid: those that were
-/// as they were, each other made of what its material's faces are made of.
+/// as they were, each other that can be made of what its material's faces are
+/// made of.
 [[nodiscard]] std::vector<OperatedRoom>
 makeFacesSolid(const SceneMesh& mesh, const Collision& collision, std::span<const MeshPick> picks);
 
@@ -44,9 +45,8 @@ makeFacesSolid(const SceneMesh& mesh, const Collision& collision, std::span<cons
 /// The rooms of `mesh` with the solid faces `picks` names drawn no more, and
 /// `solidOnly`, the draft of the polygons no face has, with a face for each
 /// of them, made of what it was. Faces that are not solid are left alone.
-[[nodiscard]] std::vector<OperatedRoom> undrawFaces(const SceneMesh& mesh,
-                                                    std::span<const MeshPick> picks,
-                                                    RoomDraft solidOnly);
+[[nodiscard]] std::vector<OperatedRoom>
+undrawFaces(const SceneMesh& mesh, std::span<const MeshPick> picks, RoomDraft solidOnly);
 
 /// A render material's binding as it stands against a layer's collision and
 /// mesh: the collision material it makes faces of, or why it makes them of
@@ -57,24 +57,31 @@ struct ResolvedBinding {
     usize unbound = 0;
 };
 
+/// `operated` with the faces each names made of what `binding` makes faces
+/// of: what faces newly drawn under a bound material are made. Without a
+/// binding, or with one to collision that is not there, it is unchanged.
+[[nodiscard]] std::vector<OperatedRoom>
+makeBoundFaces(std::vector<OperatedRoom> operated, const std::optional<ResolvedBinding>& binding);
+
 /// The binding of each of `materials`, where it has one.
 [[nodiscard]] std::vector<std::optional<ResolvedBinding>>
 resolveMaterialBindings(const MaterialBindings& bindings, const Collision& collision,
                         const SceneMesh& mesh, const std::vector<SceneMaterial>& materials);
 
 /// Whether the faces drawn under `materials[material]` are made of more than
-/// one collision material, or some are solid and some not.
+/// one collision material, or some are solid and some not, of those that can
+/// be solid.
 [[nodiscard]] bool isCollisionMixed(const SceneMesh& mesh,
                                     const std::vector<SceneMaterial>& materials, usize material);
 
 /// How many faces drawn under `materials[material]` are not made of `bound`,
-/// or are solid when it is nothing.
+/// or are solid when it is nothing; a face that cannot be solid is as bound.
 [[nodiscard]] usize countUnbound(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
                                  usize material, const std::optional<CollisionMaterial>& bound);
 
 /// The rooms of `mesh` that draw a face under `materials[material]` that is
 /// not made of `bound`, with every such face made of it, or not solid when
-/// it is nothing.
+/// it is nothing; a face that cannot be solid is left as it is.
 [[nodiscard]] std::vector<OperatedRoom> bindFaces(const SceneMesh& mesh,
                                                   const std::vector<SceneMaterial>& materials,
                                                   usize material,

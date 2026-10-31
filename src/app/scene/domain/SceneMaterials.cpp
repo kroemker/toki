@@ -148,17 +148,17 @@ std::vector<SceneMaterial> listSceneMaterials(const Scene& scene, const SceneMes
     return materials;
 }
 
+bool isDrawnUnder(const SceneMaterial& material, const MeshFace& face) {
+    return material.content == face.material.content &&
+           material.isTranslucent == face.isTranslucent && material.name == makeName(face.material);
+}
+
 std::optional<usize> findFaceMaterial(const std::vector<SceneMaterial>& materials,
                                       const MeshFace& face) {
-    const std::string name = makeName(face.material);
-    for (usize index = 0; index < materials.size(); ++index) {
-        const SceneMaterial& material = materials[index];
-        if (material.content == face.material.content && material.name == name &&
-            material.isTranslucent == face.isTranslucent) {
-            return index;
-        }
-    }
-    return std::nullopt;
+    const auto found = std::ranges::find_if(
+        materials, [&face](const SceneMaterial& material) { return isDrawnUnder(material, face); });
+    return found != materials.end() ? std::optional(static_cast<usize>(found - materials.begin()))
+                                    : std::nullopt;
 }
 
 } // namespace toki::scene

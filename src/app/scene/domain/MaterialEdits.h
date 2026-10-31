@@ -24,7 +24,7 @@ assignMaterial(const SceneMesh& mesh, std::span<const MeshPick> picks,
                const SceneMaterial& material);
 
 /// Renames the list of its own that sets `material` in every room to the
-/// fast64 name of `name`, and every pointer at it with it.
+/// fast64 name of `name`, and every pointer at it and its binding with it.
 [[nodiscard]] std::expected<void, base::Diagnostic>
 renameMaterial(SceneModel& model, const SceneMaterial& material, std::string_view name);
 

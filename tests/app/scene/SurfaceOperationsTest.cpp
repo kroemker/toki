@@ -5,6 +5,7 @@
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/RoomMesh.h"
+#include "app/scene/domain/SceneMaterials.h"
 #include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SurfaceEdits.h"
 #include "base/Types.h"
@@ -73,8 +74,7 @@ TEST_CASE("a face made solid takes what its material's faces are made of, else w
     const Floor floor = makeFloor();
     REQUIRE_FALSE(floor.mesh.rooms[0].faces[2].collision);
 
-    CHECK(toki::scene::findDefaultCollision(floor.mesh, floor.collision, {.content = 7}).type ==
-          1);
+    CHECK(toki::scene::findDefaultCollision(floor.mesh, floor.collision, {.content = 7}).type == 1);
     CHECK(toki::scene::findDefaultCollision(floor.mesh, floor.collision, {.content = 9}) ==
           CollisionMaterial{.type = 1});
 
@@ -145,4 +145,56 @@ TEST_CASE("polygons no face has are given a material, or taken out without one",
         toki::scene::makeSolidOnlyDraft(floor.collision, floor.surface, 1), wall, std::nullopt);
     CHECK(toki::scene::makeDraftedCollision(floor.collision, floor.surface, {}, &taken.draft)
               .polygons.size() == 2);
+}
+
+TEST_CASE("a face whose corners are in a line at whole units is never made solid",
+          "[scene][surface]") {
+    Floor floor;
+    RoomMesh room{.room = 0};
+    const std::vector<glm::vec3> positions{{0.0F, 0.0F, 0.0F},
+                                           {100.0F, 0.0F, 0.0F},
+                                           {0.0F, 0.0F, 100.0F},
+                                           {100.0F, 0.0F, 100.0F},
+                                           {50.2F, 0.0F, 0.3F}};
+    for (usize vertex = 0; vertex < positions.size(); ++vertex) {
+        room.vertices.push_back({.position = positions[vertex], .entries = {vertex}});
+        room.entries.push_back({.key = {.symbol = "vtx", .index = vertex}});
+        toki::scene::setVtxPosition(room.entries.back().vtx, glm::mat4(1.0F), positions[vertex]);
+    }
+    for (const std::array<usize, 3>& face :
+         std::array<std::array<usize, 3>, 3>{{{0, 2, 1}, {1, 2, 3}, {0, 4, 1}}}) {
+        room.faces.push_back({.vertices = face, .corners = face, .material = {.content = 7}});
+    }
+    floor.mesh.rooms.push_back(room);
+    floor.collision.vertices = {{0, 0, 0}, {100, 0, 0}, {0, 0, 100}, {100, 0, 100}};
+    floor.collision.polygons = {{.type = 1, .vertexData = {0, 2, 1}},
+                                {.type = 1, .vertexData = {1, 2, 3}}};
+    floor.surface = toki::scene::pairSurface(floor.mesh, floor.collision);
+    floor.mesh = toki::scene::makeSolidMesh(floor.mesh, floor.surface, floor.collision);
+    const std::vector<toki::scene::SceneMaterial> materials{{.name = "Untextured", .content = 7}};
+    const CollisionMaterial wood{.type = 3};
+
+    CHECK(toki::scene::canFaceBeSolid(floor.mesh.rooms[0], 0));
+    CHECK_FALSE(toki::scene::canFaceBeSolid(floor.mesh.rooms[0], 2));
+    CHECK_FALSE(toki::scene::isCollisionMixed(floor.mesh, materials, 0));
+    CHECK(toki::scene::countUnbound(floor.mesh, materials, 0, wood) == 2);
+    CHECK(toki::scene::countUnbound(floor.mesh, materials, 0, std::nullopt) == 2);
+
+    const std::vector<toki::scene::OperatedRoom> bound =
+        toki::scene::bindFaces(floor.mesh, materials, 0, wood);
+    REQUIRE(bound.size() == 1);
+    CHECK(bound[0].draft.faces[0].collision == wood);
+    CHECK_FALSE(bound[0].draft.faces[2].collision);
+    const std::array<toki::scene::RoomDraft, 1> drafts{bound[0].draft};
+    CHECK(toki::scene::countLeftOutPolygons(floor.collision, floor.surface, drafts, nullptr) == 0);
+    const Collision made =
+        toki::scene::makeDraftedCollision(floor.collision, floor.surface, drafts, nullptr);
+    const SceneMesh reread =
+        toki::scene::makeSolidMesh(floor.mesh, toki::scene::pairSurface(floor.mesh, made), made);
+    CHECK(toki::scene::countUnbound(reread, materials, 0, wood) == 0);
+
+    const std::array<MeshPick, 1> flat{MeshPick{.room = 0, .faces = {2}}};
+    CHECK_FALSE(toki::scene::setFacesCollision(floor.mesh, flat, wood)[0].draft.faces[2].collision);
+    CHECK_FALSE(
+        toki::scene::makeFacesSolid(floor.mesh, floor.collision, flat)[0].draft.faces[2].collision);
 }

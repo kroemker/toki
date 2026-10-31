@@ -1,5 +1,6 @@
 #include "MaterialEdits.h"
 
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/MeshDraft.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/SceneMaterials.h"
@@ -120,6 +121,9 @@ renameMaterial(SceneModel& model, const SceneMaterial& material, const std::stri
             return removed;
         }
     }
+    model.setMaterialBindings(makeRenamedBindings(
+        model.getMaterialBindings(), makeMaterialKey(material),
+        findMaterialName(renameMaterialList(material.rooms.front().list, name))));
     return {};
 }
 

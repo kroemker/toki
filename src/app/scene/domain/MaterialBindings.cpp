@@ -9,6 +9,7 @@
 #include <format>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace toki::scene {
@@ -45,6 +46,18 @@ findBoundCollision(const Collision& collision, const MaterialBinding& binding) {
     }
     return std::unexpected(std::format("the collision has no surface type {:08X} {:08X}",
                                        binding.surface.data[0], binding.surface.data[1]));
+}
+
+MaterialBindings makeRenamedBindings(MaterialBindings bindings, const std::string_view from,
+                                     const std::string_view to) {
+    const auto found = bindings.materials.find(from);
+    if (found == bindings.materials.end() || from == to) {
+        return bindings;
+    }
+    const MaterialBinding binding = found->second;
+    bindings.materials.erase(found);
+    bindings.materials.insert_or_assign(std::string(to), binding);
+    return bindings;
 }
 
 MaterialBindings makeReboundSurface(MaterialBindings bindings, const SurfaceType& from,

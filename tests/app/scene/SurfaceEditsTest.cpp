@@ -155,8 +155,8 @@ TEST_CASE("polygons no face has are edited as a draft of their own", "[scene][su
     const std::optional<toki::scene::OperatedRoom> operated = toki::scene::operateDraft(
         solidOnly, toki::scene::MeshOperation::Delete, {.room = 1, .touchedFaces = {0}});
     REQUIRE(operated);
-    const Collision made = toki::scene::makeDraftedCollision(floor.collision, floor.surface, {},
-                                                             &operated->draft);
+    const Collision made =
+        toki::scene::makeDraftedCollision(floor.collision, floor.surface, {}, &operated->draft);
 
     REQUIRE(made.polygons.size() == 2);
     CHECK(made.vertices.size() == 4);
@@ -169,8 +169,8 @@ TEST_CASE("a collision vertex welded to a mesh vertex moved follows it, with the
     const std::array<toki::scene::MeshVertexMove, 1> moves{
         {{.room = 0, .vertex = 1, .position = {100.0F, 10.0F, 0.0F}}}};
 
-    const Collision moved = toki::scene::makeWeldedCollision(floor.collision, floor.surface,
-                                                             floor.mesh, moves, {});
+    const Collision moved =
+        toki::scene::makeWeldedCollision(floor.collision, floor.surface, floor.mesh, moves, {});
 
     REQUIRE(moved.vertices.size() == floor.collision.vertices.size());
     CHECK(moved.vertices[1] == Point{100, 10, 0});
@@ -213,8 +213,25 @@ TEST_CASE("mesh vertices welded to a collision vertex moved follow it", "[scene]
     CHECK(welded[0].room == 0);
     CHECK(welded[0].vertex == 3);
     CHECK(welded[0].position == glm::vec3(120.0F, 0.0F, 100.0F));
-    const Collision moved = toki::scene::makeWeldedCollision(floor.collision, floor.surface,
-                                                             floor.mesh, welded, moves);
+    const Collision moved =
+        toki::scene::makeWeldedCollision(floor.collision, floor.surface, floor.mesh, welded, moves);
     CHECK(moved.vertices[3] == Point{120, 0, 100});
     CHECK(moved.vertices.size() == floor.collision.vertices.size());
+}
+
+TEST_CASE("a solid face with its corners in a line is counted as left without a polygon",
+          "[scene][surface]") {
+    const Floor floor = makeFloor();
+    toki::scene::RoomDraft draft = toki::scene::makeRoomDraft(floor.mesh.rooms[0]);
+    draft.vertices[2] = {.position = {50.0F, 0.0F, 0.0F}, .isMoved = true};
+
+    const std::array<toki::scene::RoomDraft, 1> drafts{draft};
+    CHECK(toki::scene::countLeftOutPolygons(floor.collision, floor.surface, drafts, nullptr) == 1);
+    CHECK(toki::scene::makeDraftedCollision(floor.collision, floor.surface, drafts, nullptr)
+              .polygons.size() == 2);
+
+    const std::array<toki::scene::RoomDraft, 1> unchanged{
+        toki::scene::makeRoomDraft(floor.mesh.rooms[0])};
+    CHECK(toki::scene::countLeftOutPolygons(floor.collision, floor.surface, unchanged, nullptr) ==
+          0);
 }

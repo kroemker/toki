@@ -9,6 +9,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace toki::scene {
 
@@ -51,6 +52,11 @@ struct MaterialBindings {
 /// no surface type of its words.
 [[nodiscard]] std::expected<std::optional<CollisionMaterial>, std::string>
 findBoundCollision(const Collision& collision, const MaterialBinding& binding);
+
+/// `bindings` with the binding of the material named by key `from`, if any,
+/// moved to key `to`: what renaming the material makes of it.
+[[nodiscard]] MaterialBindings makeRenamedBindings(MaterialBindings bindings, std::string_view from,
+                                                   std::string_view to);
 
 /// `bindings` with every binding to `from` bound to `to` instead, of those
 /// with `flags` alone when given: what a surface type's settings being

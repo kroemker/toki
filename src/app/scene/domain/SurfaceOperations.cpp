@@ -8,6 +8,7 @@
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/SceneMaterials.h"
+#include "app/scene/domain/SceneSurface.h"
 
 #include <glm/ext/matrix_float4x4.hpp>
 
@@ -23,12 +24,18 @@ namespace toki::scene {
 
 namespace {
 
+/// Whether face `face` of `room` stays as it is when made of `material`:
+/// it is not solid, and cannot be, so making it solid would make nothing.
+[[nodiscard]] bool isKeptUnsolid(const RoomMesh& room, const usize face,
+                                 const std::optional<CollisionMaterial>& material) {
+    return material && !room.faces[face].collision && !canFaceBeSolid(room, face);
+}
+
 [[nodiscard]] std::optional<CollisionMaterial>
 findMostCommon(const std::map<CollisionMaterial, usize>& counts) {
     const auto found = std::ranges::max_element(
-        counts, {}, [](const std::pair<const CollisionMaterial, usize>& count) {
-            return count.second;
-        });
+        counts, {},
+        [](const std::pair<const CollisionMaterial, usize>& count) { return count.second; });
     return found != counts.end() ? std::optional(found->first) : std::nullopt;
 }
 
@@ -65,7 +72,7 @@ std::vector<OperatedRoom> setFacesCollision(const SceneMesh& mesh,
         }
         OperatedRoom made{.draft = makeRoomDraft(*room), .faces = pick.faces};
         for (const usize face : pick.faces) {
-            if (face < made.draft.faces.size()) {
+            if (face < made.draft.faces.size() && !isKeptUnsolid(*room, face, material)) {
                 made.draft.faces[face].collision = material;
             }
         }
@@ -84,7 +91,8 @@ std::vector<OperatedRoom> makeFacesSolid(const SceneMesh& mesh, const Collision&
         }
         OperatedRoom made{.draft = makeRoomDraft(*room), .faces = pick.faces};
         for (const usize face : pick.faces) {
-            if (face < made.draft.faces.size() && !made.draft.faces[face].collision) {
+            if (face < made.draft.faces.size() && !made.draft.faces[face].collision &&
+                canFaceBeSolid(*room, face)) {
                 made.draft.faces[face].collision =
                     findDefaultCollision(mesh, collision, room->faces[face].material);
             }
@@ -147,6 +155,21 @@ std::vector<OperatedRoom> undrawFaces(const SceneMesh& mesh, const std::span<con
     return operated;
 }
 
+std::vector<OperatedRoom> makeBoundFaces(std::vector<OperatedRoom> operated,
+                                         const std::optional<ResolvedBinding>& binding) {
+    if (!binding || !binding->collision) {
+        return operated;
+    }
+    for (OperatedRoom& room : operated) {
+        for (const usize face : room.faces) {
+            if (face < room.draft.faces.size()) {
+                room.draft.faces[face].collision = *binding->collision;
+            }
+        }
+    }
+    return operated;
+}
+
 std::vector<std::optional<ResolvedBinding>>
 resolveMaterialBindings(const MaterialBindings& bindings, const Collision& collision,
                         const SceneMesh& mesh, const std::vector<SceneMaterial>& materials) {
@@ -169,15 +192,20 @@ resolveMaterialBindings(const MaterialBindings& bindings, const Collision& colli
 
 bool isCollisionMixed(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
                       const usize material) {
+    if (material >= materials.size()) {
+        return false;
+    }
     std::optional<std::optional<CollisionMaterial>> first;
     for (const RoomMesh& room : mesh.rooms) {
-        for (const MeshFace& face : room.faces) {
-            if (findFaceMaterial(materials, face) != material) {
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            const MeshFace& drawn = room.faces[face];
+            if (!isDrawnUnder(materials[material], drawn) ||
+                (!drawn.collision && !canFaceBeSolid(room, face))) {
                 continue;
             }
             if (!first) {
-                first = face.collision;
-            } else if (*first != face.collision) {
+                first = drawn.collision;
+            } else if (*first != drawn.collision) {
                 return true;
             }
         }
@@ -188,9 +216,14 @@ bool isCollisionMixed(const SceneMesh& mesh, const std::vector<SceneMaterial>& m
 usize countUnbound(const SceneMesh& mesh, const std::vector<SceneMaterial>& materials,
                    const usize material, const std::optional<CollisionMaterial>& bound) {
     usize count = 0;
+    if (material >= materials.size()) {
+        return count;
+    }
     for (const RoomMesh& room : mesh.rooms) {
-        for (const MeshFace& face : room.faces) {
-            if (face.collision != bound && findFaceMaterial(materials, face) == material) {
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            if (room.faces[face].collision != bound &&
+                isDrawnUnder(materials[material], room.faces[face]) &&
+                !isKeptUnsolid(room, face, bound)) {
                 ++count;
             }
         }
@@ -203,11 +236,15 @@ std::vector<OperatedRoom> bindFaces(const SceneMesh& mesh,
                                     const usize material,
                                     const std::optional<CollisionMaterial>& bound) {
     std::vector<OperatedRoom> operated;
+    if (material >= materials.size()) {
+        return operated;
+    }
     for (const RoomMesh& room : mesh.rooms) {
         std::vector<usize> faces;
         for (usize face = 0; face < room.faces.size(); ++face) {
             if (room.faces[face].collision != bound &&
-                findFaceMaterial(materials, room.faces[face]) == material) {
+                isDrawnUnder(materials[material], room.faces[face]) &&
+                !isKeptUnsolid(room, face, bound)) {
                 faces.push_back(face);
             }
         }

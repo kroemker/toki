@@ -2,6 +2,7 @@
 
 #include "app/scene/Types.h"
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionGeometry.h"
 #include "app/scene/domain/RoomMesh.h"
 
 #include <glm/ext/vector_float3.hpp>
@@ -31,9 +32,9 @@ using Corners = std::array<Point, 3>;
 std::array<s16, 3> roundToCollision(const glm::vec3& position) {
     std::array<s16, 3> rounded{};
     for (usize axis = 0; axis < 3; ++axis) {
-        rounded[axis] = static_cast<s16>(
-            std::clamp(std::lround(position[static_cast<glm::length_t>(axis)]), long{INT16_MIN},
-                       long{INT16_MAX}));
+        rounded[axis] =
+            static_cast<s16>(std::clamp(std::lround(position[static_cast<glm::length_t>(axis)]),
+                                        long{INT16_MIN}, long{INT16_MAX}));
     }
     return rounded;
 }
@@ -90,6 +91,18 @@ SceneSurface pairSurface(const SceneMesh& mesh, const Collision& collision) {
         }
     }
     return surface;
+}
+
+bool canFaceBeSolid(const RoomMesh& room, const usize face) {
+    if (face >= room.faces.size()) {
+        return false;
+    }
+    Corners corners{};
+    for (usize corner = 0; corner < 3; ++corner) {
+        corners[corner] =
+            roundToCollision(room.vertices[room.faces[face].vertices[corner]].position);
+    }
+    return !isInLine(corners);
 }
 
 std::optional<usize> findFacePolygon(const SceneSurface& surface, const MeshFaceRef face) {
