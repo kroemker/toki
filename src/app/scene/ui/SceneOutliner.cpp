@@ -471,8 +471,7 @@ void SceneOutliner::drawMaterials() {
     }
     if (materials == nullptr) {
         drawUnread(core::icons::Palette, "Materials",
-                   "The materials the rooms are drawn with are read once the viewport selects by "
-                   "faces, edges or vertices.");
+                   "The materials the rooms are drawn with are read with the rooms' faces.");
         return;
     }
     const bool isOpen = beginNode("##materials", GroupFlags);

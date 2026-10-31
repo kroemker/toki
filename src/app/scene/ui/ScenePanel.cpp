@@ -284,6 +284,7 @@ void ScenePanel::draw() {
     ImGui::Separator();
     drawPickers(shown);
     const SceneLayer& layer = scene->layers[sceneView.layer];
+    meshEditor.refresh(*scene, sceneView);
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     sceneOutliner.draw(*scene, sceneView, workspace != nullptr ? &workspace->getTables() : nullptr);
     const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
@@ -934,7 +935,7 @@ void ScenePanel::drawOverlay(const std::vector<SceneFlagUse>& flags, const Scene
         }
     }
     if (viewportPanel.getSelectionMode() != viewport::SelectionMode::Node) {
-        meshEditor.offer(*scene, sceneView, overlay);
+        meshEditor.offer(overlay);
     }
     viewportPanel.setOverlay(std::move(overlay));
 }

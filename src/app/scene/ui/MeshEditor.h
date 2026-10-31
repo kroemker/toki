@@ -58,12 +58,16 @@ public:
         : viewportPanel(viewportPanel), applyEdit(std::move(applyEdit)),
           showPreview(std::move(showPreview)) {}
 
+    /// Reads the shown layer's surface again whenever the scene's images or
+    /// the layer changed, and keeps up with what `view` shows. Called every
+    /// frame a scene is shown, whatever the viewport selects by.
+    void refresh(const Scene& scene, const SceneView& view);
+
     /// Offers the viewport what it picks in the mode it selects by, and what
     /// is picked to transform, and adds to `overlay` the edges, vertices and
-    /// selection drawn over it. Called every frame while the viewport selects
-    /// by faces, edges or vertices; what is edited is read again whenever
-    /// the scene's images or the shown layer changed.
-    void offer(const Scene& scene, const SceneView& view, viewport::ViewportOverlay& overlay);
+    /// selection drawn over it. Called every frame, after `refresh`, while the
+    /// viewport selects by faces, edges or vertices.
+    void offer(viewport::ViewportOverlay& overlay);
 
     /// Forgets the scene, when another is shown.
     void reset();
@@ -135,6 +139,10 @@ private:
     void editSurface(const ComponentEdit& edit, const std::vector<SceneCollisionMaterial>& listed);
     void commit(std::span<const glm::vec3> points);
     void preview(const std::optional<viewport::TransformEdit>& edit);
+    /// What is offered of `editMesh`: the faces of the shown rooms, and while
+    /// the collision is shown, the solid faces of hidden rooms and the
+    /// polygons no face has.
+    void makeShown();
     void makeOffer();
     void makeOverlay();
     void applyHotkeys();
@@ -186,6 +194,7 @@ private:
     std::optional<Collision> collision;
     std::optional<SceneSurface> surface;
     std::optional<EditMesh> editMesh;
+    EditShown editShown;
     /// `editMesh` as a transform being previewed moves it.
     std::optional<EditMesh> shownMesh;
     /// The vertices the transform offered moves, in the order of its points.

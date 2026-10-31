@@ -53,17 +53,27 @@ struct ComponentRef {
 [[nodiscard]] EditMesh makeSurfaceEdit(const SceneMesh& mesh, usize roomCount,
                                        const SceneSurface& surface, const Collision& collision);
 
-/// Which vertices of `piece` a face has.
-[[nodiscard]] std::vector<bool> findUsedVertices(const EditPiece& piece);
+/// What of an `EditMesh` is offered to pick and drawn over the viewport: for
+/// each piece, which of its faces, edges and vertices.
+struct EditShown {
+    std::vector<std::vector<bool>> faces;
+    std::vector<std::vector<bool>> edges;
+    std::vector<std::vector<bool>> vertices;
+};
+
+/// What of `mesh` is shown when `faces` holds which faces of each piece are:
+/// an edge or a vertex is shown where a shown face has it.
+[[nodiscard]] EditShown makeEditShown(const EditMesh& mesh, std::vector<std::vector<bool>> faces);
 
 /// The face of the room's mesh, or the polygon, face `face` of `piece` is.
 [[nodiscard]] usize findFaceSource(const EditPiece& piece, usize face);
 
 /// The face nearest `origin` along `direction` that a ray from there meets,
-/// either side, of the pieces `isShown` holds true, if the ray meets one.
-[[nodiscard]] std::optional<ComponentRef> findHitFace(const EditMesh& mesh, const glm::vec3& origin,
-                                                      const glm::vec3& direction,
-                                                      const std::vector<bool>& isShown);
+/// either side, of the faces `isShown` holds true for each piece, if the ray
+/// meets one. A face `isShown` does not reach is shown.
+[[nodiscard]] std::optional<ComponentRef>
+findHitFace(const EditMesh& mesh, const glm::vec3& origin, const glm::vec3& direction,
+            const std::vector<std::vector<bool>>& isShown);
 
 /// The middle of a face.
 [[nodiscard]] glm::vec3 findFaceMiddle(const EditPiece& piece, usize face);

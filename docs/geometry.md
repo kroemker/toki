@@ -61,8 +61,10 @@ out: about three in four of their polygons stand exactly on a face.
   corners, vertices no polygon has are dropped, and the lists are written whole with their
   counts and bounds (`setCollisionGeometry`).
 - **Picking.** Faces, edges and vertices are picked of one surface: every face of the shown
-  rooms, solid or not, and, while the collision is shown, the solid-only polygons as faces
-  of their own, edited with the same tools. Whether a face is solid is a property of it,
+  rooms, solid or not, and, while the collision is shown, the solid faces of hidden rooms
+  too and the solid-only polygons as faces of their own, edited with the same tools: what
+  is drawn can be picked. The surface is read whenever the scene or its layer is, whatever
+  the viewport selects by. Whether a face is solid is a property of it,
   shown and set in Properties, never a mode of the viewport.
 - **Properties.** The picked faces show whether they are **Drawn** and **Solid**, and their
   **Collision Material**. A face made solid is made of what its material's solid faces are

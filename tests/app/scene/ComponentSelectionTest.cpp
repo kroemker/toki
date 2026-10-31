@@ -51,7 +51,7 @@ TEST_CASE("a ray from above picks the face it meets first", "[scene][mesh]") {
     const std::optional<ComponentRef> missed =
         toki::scene::findHitFace(mesh, {150.0F, 50.0F, 80.0F}, {0.0F, -1.0F, 0.0F}, {});
     const std::optional<ComponentRef> hidden =
-        toki::scene::findHitFace(mesh, {10.0F, 50.0F, 80.0F}, {0.0F, -1.0F, 0.0F}, {false});
+        toki::scene::findHitFace(mesh, {10.0F, 50.0F, 80.0F}, {0.0F, -1.0F, 0.0F}, {{true, false}});
 
     REQUIRE(hit == ComponentRef{.piece = 0, .index = 1});
     REQUIRE_FALSE(missed);
@@ -79,4 +79,21 @@ TEST_CASE("a selection carries over between modes as Blender carries it", "[scen
 
     selection.pick(face, PickMode::Remove);
     REQUIRE(selection.getComponents() == std::set<ComponentRef>{{0, 1}});
+}
+
+TEST_CASE("what is shown of an edit is the faces shown, and the edges and vertices they have",
+          "[scene][mesh]") {
+    const toki::scene::EditMesh mesh = makeSquare();
+
+    const toki::scene::EditShown shown = toki::scene::makeEditShown(mesh, {{false, true}});
+
+    REQUIRE(shown.faces == std::vector<std::vector<bool>>{{false, true}});
+    REQUIRE(shown.vertices == std::vector<std::vector<bool>>{{true, false, true, true}});
+    usize edges = 0;
+    for (usize edge = 0; edge < mesh.pieces[0].edges.size(); ++edge) {
+        edges += shown.edges[0][edge] ? 1 : 0;
+    }
+    REQUIRE(edges == 3);
+    REQUIRE(toki::scene::makeEditShown(mesh, {}).faces ==
+            std::vector<std::vector<bool>>{{false, false}});
 }

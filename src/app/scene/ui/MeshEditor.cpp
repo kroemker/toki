@@ -59,12 +59,8 @@ constexpr f32 SelectedEdgeWidth = 2.0F;
 constexpr f32 VertexSize = 5.0F;
 constexpr f32 MenuWrapEms = 24.0F;
 
-[[nodiscard]] bool isPieceShown(const std::vector<bool>& hiddenRooms, const bool showsCollision,
-                                const usize roomCount, const usize piece) {
-    if (piece >= roomCount) {
-        return showsCollision;
-    }
-    return piece >= hiddenRooms.size() || !hiddenRooms[piece];
+[[nodiscard]] bool isRoomShown(const std::vector<bool>& hiddenRooms, const usize room) {
+    return room >= hiddenRooms.size() || !hiddenRooms[room];
 }
 
 [[nodiscard]] const char* findMissingPick(const MeshOperation operation) {
@@ -580,8 +576,7 @@ const RoomMesh* MeshEditor::findShapeRoom() const {
         }
     }
     for (const RoomMesh& room : sceneMesh->rooms) {
-        if (!room.faces.empty() &&
-            isPieceShown(readHiddenRooms, readShowsCollision, roomCount, room.room)) {
+        if (!room.faces.empty() && isRoomShown(readHiddenRooms, room.room)) {
             return &room;
         }
     }
@@ -920,8 +915,9 @@ void MeshEditor::drawMenu() {
              "move and are lit apart from it.");
     ImGui::Separator();
     drawItem("Delete Faces", MeshOperation::Delete, core::Action::DeleteComponents,
-             "Take out every face that holds anything picked. Lists that drew them are rebuilt "
-             "without them.");
+             "Take out every face that holds anything picked, and the polygons of those that are "
+             "solid. Lists that drew them are rebuilt without them. To keep a face as collision "
+             "alone, turn Drawn off in Properties instead.");
     ImGui::Separator();
     const RoomMesh* shapeRoom = findShapeRoom();
     const std::string shortcut = core::getShortcutLabel(core::Action::AddMesh);
@@ -938,8 +934,7 @@ void MeshEditor::drawMenu() {
     }
 }
 
-void MeshEditor::offer(const Scene& scene, const SceneView& view,
-                       viewport::ViewportOverlay& overlay) {
+void MeshEditor::refresh(const Scene& scene, const SceneView& view) {
     shownScene = &scene;
     if (readImages != scene.images || readLayer != view.layer || !editMesh || !sceneMesh) {
         read(scene, view);
@@ -949,12 +944,19 @@ void MeshEditor::offer(const Scene& scene, const SceneView& view,
         readShowsCollision = view.showsCollision;
         isOfferStale = true;
     }
+}
+
+void MeshEditor::offer(viewport::ViewportOverlay& overlay) {
+    if (!editMesh || !sceneMesh) {
+        return;
+    }
     const SelectionMode mode = viewportPanel.getSelectionMode();
     if (mode != selection.getMode()) {
         selection.setMode(mode, *editMesh);
         isOfferStale = true;
     }
     if (isOfferStale) {
+        makeShown();
         makeOffer();
         makeOverlay();
         isOfferStale = false;
@@ -963,7 +965,7 @@ void MeshEditor::offer(const Scene& scene, const SceneView& view,
                                [this](const viewport::ViewportPanel::ViewportPick& hit,
                                       const viewport::PickMode pickMode) { pick(hit, pickMode); });
     viewportPanel.setSelectedOwners({});
-    viewportPanel.setEditMenu("Mesh", [this] { drawMenu(); });
+    viewportPanel.setEditMenu("Surface", [this] { drawMenu(); });
     viewportPanel.setStripActions(makeStripActions(mode));
     applyHotkeys();
     offerTransform();
@@ -1091,17 +1093,32 @@ void MeshEditor::pick(const viewport::ViewportPanel::ViewportPick& hit,
         picked.push_back(pickedBoxes[index]);
     }
     if (hit.ray && selection.getMode() == SelectionMode::Face && editMesh) {
-        std::vector<bool> isShown;
-        for (usize piece = 0; piece < editMesh->pieces.size(); ++piece) {
-            isShown.push_back(isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece));
-        }
         if (const std::optional<ComponentRef> face =
-                findHitFace(*editMesh, hit.ray->origin, hit.ray->direction, isShown)) {
+                findHitFace(*editMesh, hit.ray->origin, hit.ray->direction, editShown.faces)) {
             picked.push_back(*face);
         }
     }
     selection.pick(picked, pickMode);
     isOfferStale = true;
+}
+
+void MeshEditor::makeShown() {
+    std::vector<std::vector<bool>> faces;
+    for (usize piece = 0; piece < editMesh->pieces.size(); ++piece) {
+        const EditPiece& edited = editMesh->pieces[piece];
+        if (piece >= roomCount || isRoomShown(readHiddenRooms, piece)) {
+            faces.emplace_back(edited.faces.size(), piece < roomCount || readShowsCollision);
+            continue;
+        }
+        const RoomMesh* room = findRoomMesh(*sceneMesh, piece);
+        std::vector<bool>& isShown = faces.emplace_back(edited.faces.size(), false);
+        for (usize face = 0; readShowsCollision && room != nullptr && face < isShown.size();
+             ++face) {
+            const usize source = findFaceSource(edited, face);
+            isShown[face] = source < room->faces.size() && room->faces[source].collision;
+        }
+    }
+    editShown = makeEditShown(*editMesh, std::move(faces));
 }
 
 void MeshEditor::makeOffer() {
@@ -1111,14 +1128,10 @@ void MeshEditor::makeOffer() {
     pickedBoxes.clear();
     const SelectionMode mode = selection.getMode();
     for (usize piece = 0; piece < editMesh->pieces.size(); ++piece) {
-        if (!isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece)) {
-            continue;
-        }
         const EditPiece& shown = editMesh->pieces[piece];
         if (mode == SelectionMode::Vertex) {
-            const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
-                if (!isUsed[vertex]) {
+                if (!editShown.vertices[piece][vertex]) {
                     continue;
                 }
                 pickables.points.push_back(shown.vertices[vertex]);
@@ -1126,12 +1139,18 @@ void MeshEditor::makeOffer() {
             }
         } else if (mode == SelectionMode::Edge) {
             for (usize edge = 0; edge < shown.edges.size(); ++edge) {
+                if (!editShown.edges[piece][edge]) {
+                    continue;
+                }
                 const std::array<usize, 2>& ends = shown.edges[edge].vertices;
                 pickables.segments.push_back({shown.vertices[ends[0]], shown.vertices[ends[1]]});
                 pickedSegments.push_back({.piece = piece, .index = edge});
             }
         } else {
             for (usize face = 0; face < shown.faces.size(); ++face) {
+                if (!editShown.faces[piece][face]) {
+                    continue;
+                }
                 pickables.boxedPoints.push_back(findFaceMiddle(shown, face));
                 pickedBoxes.push_back({.piece = piece, .index = face});
             }
@@ -1149,11 +1168,11 @@ void MeshEditor::makeOverlay() {
     const u32 faceColor = ImGui::GetColorU32(faceFill);
     const u32 vertexColor = ImGui::GetColorU32(VertexColor);
     for (usize piece = 0; piece < shownMesh->pieces.size(); ++piece) {
-        if (!isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece)) {
-            continue;
-        }
         const EditPiece& shown = shownMesh->pieces[piece];
         for (usize edge = 0; edge < shown.edges.size(); ++edge) {
+            if (!editShown.edges[piece][edge]) {
+                continue;
+            }
             const std::array<usize, 2>& ends = shown.edges[edge].vertices;
             const bool isSelected =
                 mode == SelectionMode::Edge && selection.contains({.piece = piece, .index = edge});
@@ -1164,7 +1183,8 @@ void MeshEditor::makeOverlay() {
         }
         if (mode == SelectionMode::Face) {
             for (usize face = 0; face < shown.faces.size(); ++face) {
-                if (!selection.contains({.piece = piece, .index = face})) {
+                if (!editShown.faces[piece][face] ||
+                    !selection.contains({.piece = piece, .index = face})) {
                     continue;
                 }
                 const std::array<usize, 3>& corners = shown.faces[face];
@@ -1182,9 +1202,8 @@ void MeshEditor::makeOverlay() {
             }
         }
         if (mode == SelectionMode::Vertex) {
-            const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
-                if (!isUsed[vertex]) {
+                if (!editShown.vertices[piece][vertex]) {
                     continue;
                 }
                 const bool isSelected = selection.contains({.piece = piece, .index = vertex});

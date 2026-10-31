@@ -126,16 +126,35 @@ EditMesh makeSurfaceEdit(const SceneMesh& mesh, const usize roomCount, const Sce
     return edit;
 }
 
-std::vector<bool> findUsedVertices(const EditPiece& piece) {
-    std::vector<bool> isUsed(piece.vertices.size(), false);
-    for (const std::array<usize, 3>& face : piece.faces) {
-        for (const usize vertex : face) {
-            if (vertex < isUsed.size()) {
-                isUsed[vertex] = true;
+EditShown makeEditShown(const EditMesh& mesh, std::vector<std::vector<bool>> faces) {
+    EditShown shown{.faces = std::move(faces)};
+    shown.faces.resize(mesh.pieces.size());
+    for (usize piece = 0; piece < mesh.pieces.size(); ++piece) {
+        const EditPiece& edited = mesh.pieces[piece];
+        std::vector<bool>& isFaceShown = shown.faces[piece];
+        isFaceShown.resize(edited.faces.size(), false);
+        std::vector<std::array<usize, 3>> shownFaces;
+        std::vector<bool> isVertexShown(edited.vertices.size(), false);
+        for (usize face = 0; face < edited.faces.size(); ++face) {
+            if (!isFaceShown[face]) {
+                continue;
+            }
+            shownFaces.push_back(edited.faces[face]);
+            for (const usize vertex : edited.faces[face]) {
+                if (vertex < isVertexShown.size()) {
+                    isVertexShown[vertex] = true;
+                }
             }
         }
+        const std::vector<MeshEdge> shownEdges = makeEdges(shownFaces);
+        std::vector<bool> isEdgeShown;
+        for (const MeshEdge& edge : edited.edges) {
+            isEdgeShown.push_back(std::ranges::binary_search(shownEdges, edge));
+        }
+        shown.edges.push_back(std::move(isEdgeShown));
+        shown.vertices.push_back(std::move(isVertexShown));
     }
-    return isUsed;
+    return shown;
 }
 
 usize findFaceSource(const EditPiece& piece, const usize face) {
@@ -144,15 +163,15 @@ usize findFaceSource(const EditPiece& piece, const usize face) {
 
 std::optional<ComponentRef> findHitFace(const EditMesh& mesh, const glm::vec3& origin,
                                         const glm::vec3& direction,
-                                        const std::vector<bool>& isShown) {
+                                        const std::vector<std::vector<bool>>& isShown) {
     std::optional<ComponentRef> hit;
     f32 nearest = std::numeric_limits<f32>::max();
     for (usize piece = 0; piece < mesh.pieces.size(); ++piece) {
-        if (piece < isShown.size() && !isShown[piece]) {
-            continue;
-        }
         const EditPiece& faces = mesh.pieces[piece];
         for (usize face = 0; face < faces.faces.size(); ++face) {
+            if (piece < isShown.size() && face < isShown[piece].size() && !isShown[piece][face]) {
+                continue;
+            }
             const std::array<usize, 3>& corners = faces.faces[face];
             const std::optional<f32> distance =
                 findHitDistance(origin, direction, faces.vertices[corners[0]],
