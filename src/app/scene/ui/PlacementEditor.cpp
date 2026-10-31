@@ -34,6 +34,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace toki::scene {
 
@@ -120,6 +121,87 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
         return std::format("Player entry #{}", where.index);
     }
     return {};
+}
+
+struct MovedPath {
+    usize layer = 0;
+    usize index = 0;
+    std::vector<std::array<s16, 3>> points;
+};
+
+struct MovedWaterBox {
+    usize layer = 0;
+    usize index = 0;
+    WaterBox box;
+};
+
+/// What moving `nodes` as `edit` says sets in the model, made as one edit, so
+/// that a move is taken back at once and fails whole.
+SceneEditor::ModelEdit makeTransformEdit(const Scene& scene, const std::span<const SceneNode> nodes,
+                                         const viewport::TransformEdit& edit) {
+    std::vector<PlacementChange> placements;
+    std::map<std::pair<usize, usize>, ScenePath> paths;
+    std::vector<MovedWaterBox> boxes;
+    for (usize i = 0; i < nodes.size() && i < edit.points.size(); ++i) {
+        const glm::vec3& point = edit.points[i];
+        if (const auto* where = std::get_if<PlacementRef>(&nodes[i])) {
+            const std::optional<Placement> placement = findPlacement(scene, *where);
+            const std::optional<PlacementList> list = findPlacementList(scene, *where);
+            if (placement && list) {
+                placements.push_back(
+                    {.list = *list,
+                     .index = where->index,
+                     .placement = makeTransformedPlacement(*placement, point, edit.result)});
+            }
+        } else if (const auto* pathPoint = std::get_if<PathPointRef>(&nodes[i])) {
+            const std::pair key(pathPoint->layer, pathPoint->path);
+            if (!paths.contains(key)) {
+                if (std::optional<ScenePath> path =
+                        findPath(scene, pathPoint->layer, pathPoint->path)) {
+                    paths.emplace(key, std::move(*path));
+                }
+            }
+            const auto found = paths.find(key);
+            if (found != paths.end() && pathPoint->point < found->second.points.size()) {
+                found->second.points[pathPoint->point] = {roundToS16(point.x), roundToS16(point.y),
+                                                          roundToS16(point.z)};
+            }
+        } else if (const auto* box = std::get_if<WaterBoxRef>(&nodes[i])) {
+            const Collision* collision = findLayerCollision(scene, box->layer);
+            if (collision != nullptr && box->box < collision->waterBoxes.size()) {
+                boxes.push_back({.layer = scene.layers[box->layer].index,
+                                 .index = box->box,
+                                 .box = makeMovedWaterBox(collision->waterBoxes[box->box], point)});
+            }
+        }
+    }
+    std::vector<MovedPath> movedPaths;
+    for (auto& [key, path] : paths) {
+        movedPaths.push_back({.layer = scene.layers[key.first].index,
+                              .index = key.second,
+                              .points = std::move(path.points)});
+    }
+    return [placements = std::move(placements), movedPaths = std::move(movedPaths),
+            boxes = std::move(boxes)](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+        if (std::expected<void, base::Diagnostic> set = setPlacements(model, placements); !set) {
+            return set;
+        }
+        for (const MovedPath& path : movedPaths) {
+            if (std::expected<void, base::Diagnostic> set =
+                    setPathPoints(model, path.layer, path.index, path.points);
+                !set) {
+                return set;
+            }
+        }
+        for (const MovedWaterBox& box : boxes) {
+            if (std::expected<void, base::Diagnostic> set =
+                    setWaterBox(model, box.layer, box.index, box.box);
+                !set) {
+                return set;
+            }
+        }
+        return {};
+    };
 }
 
 } // namespace
@@ -683,95 +765,8 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
 void PlacementEditor::applyTransform(std::vector<SceneNode> nodes,
                                      const viewport::TransformEdit& edit) {
     picked = [this, nodes = std::move(nodes), edit](Scene& edited) {
-        bool isJoined = false;
-        for (usize i = 0; i < nodes.size() && i < edit.points.size(); ++i) {
-            const auto* moved = std::get_if<PlacementRef>(&nodes[i]);
-            if (moved == nullptr) {
-                continue;
-            }
-            const PlacementRef& where = *moved;
-            std::optional<Placement> placement = findPlacement(edited, where);
-            if (!placement) {
-                continue;
-            }
-            placement = makeTransformedPlacement(*placement, edit.points[i], edit.result);
-            isJoined =
-                apply(
-                    edited, where,
-                    [&placement, &where](SceneModel& model, const PlacementList& list) {
-                        if (const auto* transition =
-                                std::get_if<TransitionActorPlacement>(&*placement)) {
-                            return setTransitionActor(model, list.layer, where.index, *transition);
-                        }
-                        return setPlacement(model, list, where.index,
-                                            std::get<ActorPlacement>(*placement));
-                    },
-                    isJoined) ||
-                isJoined;
-        }
-        isJoined = applyPathMoves(edited, nodes, edit.points, isJoined);
-        static_cast<void>(applyWaterBoxMoves(edited, nodes, edit.points, isJoined));
+        static_cast<void>(applyToModel(edited, makeTransformEdit(edited, nodes, edit)));
     };
-}
-
-bool PlacementEditor::applyPathMoves(Scene& scene, const std::span<const SceneNode> nodes,
-                                     const std::span<const glm::vec3> points,
-                                     const bool joinsLast) {
-    std::map<std::pair<usize, usize>, ScenePath> paths;
-    for (usize i = 0; i < nodes.size() && i < points.size(); ++i) {
-        const auto* point = std::get_if<PathPointRef>(&nodes[i]);
-        if (point == nullptr) {
-            continue;
-        }
-        const std::pair key(point->layer, point->path);
-        if (!paths.contains(key)) {
-            if (std::optional<ScenePath> path = findPath(scene, point->layer, point->path)) {
-                paths.emplace(key, std::move(*path));
-            }
-        }
-        const auto found = paths.find(key);
-        if (found != paths.end() && point->point < found->second.points.size()) {
-            found->second.points[point->point] = {roundToS16(points[i].x), roundToS16(points[i].y),
-                                                  roundToS16(points[i].z)};
-        }
-    }
-    bool isJoined = joinsLast;
-    for (const auto& [key, path] : paths) {
-        const usize gameLayer = scene.layers[key.first].index;
-        isJoined =
-            showApplied(scene, sceneEditor.applyToModel(
-                                   scene,
-                                   [gameLayer, index = key.second, &path](SceneModel& model) {
-                                       return setPathPoints(model, gameLayer, index, path.points);
-                                   },
-                                   isJoined)) ||
-            isJoined;
-    }
-    return isJoined;
-}
-
-bool PlacementEditor::applyWaterBoxMoves(Scene& scene, const std::span<const SceneNode> nodes,
-                                         const std::span<const glm::vec3> points,
-                                         const bool joinsLast) {
-    bool isJoined = joinsLast;
-    for (usize i = 0; i < nodes.size() && i < points.size(); ++i) {
-        const auto* box = std::get_if<WaterBoxRef>(&nodes[i]);
-        const Collision* collision =
-            box != nullptr ? findLayerCollision(scene, box->layer) : nullptr;
-        if (collision == nullptr || box->box >= collision->waterBoxes.size()) {
-            continue;
-        }
-        const WaterBox moved = makeMovedWaterBox(collision->waterBoxes[box->box], points[i]);
-        const usize gameLayer = scene.layers[box->layer].index;
-        isJoined = showApplied(scene, sceneEditor.applyToModel(
-                                          scene,
-                                          [gameLayer, index = box->box, moved](SceneModel& model) {
-                                              return setWaterBox(model, gameLayer, index, moved);
-                                          },
-                                          isJoined)) ||
-                   isJoined;
-    }
-    return isJoined;
 }
 
 void PlacementEditor::applyPicked(Scene& scene) {

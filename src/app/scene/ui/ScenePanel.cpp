@@ -296,8 +296,6 @@ void ScenePanel::draw() {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
     }
-    drawHeldScene();
-    placementEditor.getPathForm().drawRemovalQuestion(*scene);
     const Scene& shown = *scene;
     ImGui::TextUnformatted(shown.name.c_str());
     ImGui::SameLine();
@@ -314,17 +312,30 @@ void ScenePanel::draw() {
     }
     ImGui::Separator();
     drawPickers(shown);
-    const SceneLayer& layer = scene->layers[sceneView.layer];
-    meshEditor.refresh(*scene, sceneView);
+    refreshMesh();
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     sceneOutliner.draw(*scene, sceneView, workspace != nullptr ? &workspace->getTables() : nullptr);
-    const std::vector<SceneFlagUse> flags = listSceneFlags(layer, scene->actors);
-    drawFlags(flags);
-    drawOverlay(flags, layer);
+    drawFlags(listSceneFlags(scene->layers[sceneView.layer], scene->actors));
+}
+
+void ScenePanel::refreshMesh() {
+    if (scene && sceneView.layer < scene->layers.size()) {
+        meshEditor.refresh(*scene, sceneView);
+    }
+}
+
+void ScenePanel::offerViewport() {
+    if (sceneView.layer >= scene->layers.size()) {
+        return;
+    }
+    refreshMesh();
+    const SceneLayer& layer = scene->layers[sceneView.layer];
+    drawOverlay(listSceneFlags(layer, scene->actors), layer);
     if (viewportPanel.getSelectionMode() == viewport::SelectionMode::Node) {
         offerPlacements(layer);
     }
     offerWaterBoxHandles();
+    hoveredFlag.reset();
 }
 
 void ScenePanel::showPreview(const std::vector<SceneNode>& nodes,
@@ -462,9 +473,11 @@ void ScenePanel::showLayer(const SceneLayer& layer, const SceneView& view,
 }
 
 void ScenePanel::update() {
-    if (!scene) {
+    if (!scene || scene->layers.empty()) {
         return;
     }
+    drawHeldScene();
+    placementEditor.getPathForm().drawRemovalQuestion(*scene);
     placementEditor.applyPicked(*scene);
     const std::optional<MaterialRef>& selectedMaterial = meshEditor.findSelectedMaterial();
     if (selectedMaterial && !placementEditor.getSelection().isEmpty()) {
@@ -500,6 +513,7 @@ void ScenePanel::update() {
             showScene();
         }
     }
+    offerViewport();
 }
 
 void ScenePanel::drawProperties() {
@@ -507,6 +521,7 @@ void ScenePanel::drawProperties() {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
         return;
     }
+    refreshMesh();
     if (const std::optional<MaterialRef>& material = meshEditor.findSelectedMaterial()) {
         if (const auto* render = std::get_if<RenderMaterialRef>(&*material)) {
             meshEditor.drawMaterialSettings(render->material);

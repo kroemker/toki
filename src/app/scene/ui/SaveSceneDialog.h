@@ -33,6 +33,13 @@ public:
     /// Takes how a save that is not shown went; called every frame.
     void update();
 
+    /// Whether a save that is not shown is being planned or written, during
+    /// which the scene must not be edited: what is written is the scene as it
+    /// was when the save began.
+    [[nodiscard]] bool isSaving() const {
+        return isSavingUnshown;
+    }
+
     void draw() override;
 
 private:

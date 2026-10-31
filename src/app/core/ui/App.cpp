@@ -309,6 +309,9 @@ void App::drawFrame() {
         }
         viewportPanel->setReadingName(std::move(reading));
     }
+    if (scenePanel != nullptr) {
+        scenePanel->setSaving(saveSceneDialog.isSaving());
+    }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
     const MenuActions actions =
         drawMenuBar(panels, dialogs, settings,
@@ -329,7 +332,8 @@ void App::drawFrame() {
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }
-    if (openScene != nullptr && (actions.saveScene || isActionPressed(Action::SaveScene))) {
+    if (openScene != nullptr && !saveSceneDialog.isSaving() &&
+        (actions.saveScene || isActionPressed(Action::SaveScene))) {
         saveSceneDialog.open(*openScene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
     }
     saveSceneDialog.update();

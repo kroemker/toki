@@ -250,6 +250,28 @@ TEST_CASE("an edit is undone and redone as a step, and undoing every step leaves
     REQUIRE_FALSE(editor.redo(scene));
 }
 
+TEST_CASE("while a save is written, no edit, undo or redo is made", "[scene][edit]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::readSceneLayers(scene);
+    toki::scene::SceneEditor editor;
+    const toki::scene::PlacementRef first{.kind = toki::scene::PlacementKind::Actor};
+    const auto set = [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+        return toki::scene::setPlacement(model, list, 0, Moved);
+    };
+    REQUIRE(editor.apply(scene, first, set));
+    const auto images = scene.images;
+
+    editor.setSaving(true);
+    REQUIRE_FALSE(editor.canUndo());
+    REQUIRE_FALSE(editor.undo(scene));
+    REQUIRE_FALSE(editor.apply(scene, first, set));
+    REQUIRE(scene.images == images);
+
+    editor.setSaving(false);
+    REQUIRE(editor.undo(scene));
+    REQUIRE(editor.redo(scene));
+}
+
 TEST_CASE("objects are added to the end of a room's object list", "[scene][edit]") {
     toki::scene::Scene scene;
     scene.images.push_back(std::make_shared<const z64::MemoryImage>(

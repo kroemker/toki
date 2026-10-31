@@ -143,6 +143,10 @@ std::expected<void, base::Diagnostic> SceneEditor::apply(Scene& scene, const Pla
 
 std::expected<void, base::Diagnostic> SceneEditor::applyToModel(Scene& scene, const ModelEdit& edit,
                                                                 const bool joinsLast) {
+    if (isSaving) {
+        return std::unexpected(base::makeError(
+            {}, "the scene is being saved; edit it again once the save is written"));
+    }
     SceneModel before = sceneModel ? *sceneModel : SceneModel(scene);
     SceneModel edited = before;
     if (std::expected<void, base::Diagnostic> done = edit(edited); !done) {
@@ -161,7 +165,7 @@ std::expected<void, base::Diagnostic> SceneEditor::applyToModel(Scene& scene, co
 }
 
 bool SceneEditor::undo(Scene& scene) {
-    if (undone.empty() || !sceneModel) {
+    if (isSaving || undone.empty() || !sceneModel) {
         return false;
     }
     redone.push_back(std::move(*sceneModel));
@@ -172,7 +176,7 @@ bool SceneEditor::undo(Scene& scene) {
 }
 
 bool SceneEditor::redo(Scene& scene) {
-    if (redone.empty() || !sceneModel) {
+    if (isSaving || redone.empty() || !sceneModel) {
         return false;
     }
     undone.push_back(std::move(*sceneModel));

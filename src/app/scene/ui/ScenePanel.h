@@ -56,6 +56,12 @@ public:
         placementEditor.reset();
     }
 
+    /// Refuses edits while a save writes the open scene, as it was when the
+    /// save began.
+    void setSaving(const bool saving) {
+        placementEditor.setSaving(saving);
+    }
+
     /// What finds the object an actor needs, by its ID, as the actor database
     /// says, so that a room an actor is placed in loads it.
     void setActorObjectFinder(std::function<std::optional<std::string>(s16 actorId)> finder) {
@@ -163,6 +169,12 @@ public:
 private:
     void showScene();
     void offerChoices();
+    /// Reads the mesh of the shown layer again when the scene or the view
+    /// changed since it was read last.
+    void refreshMesh();
+    /// Hands the viewport what it draws over the scene, picks and moves, every
+    /// frame, whether the panel is drawn or not.
+    void offerViewport();
     void drawPickers(const Scene& shown);
     void drawRoomMenu(usize room, const RoomHeader& header);
     void drawHeldScene();

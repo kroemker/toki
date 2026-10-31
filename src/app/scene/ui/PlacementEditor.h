@@ -227,6 +227,10 @@ public:
         return sceneEditor.findModel();
     }
 
+    void setSaving(const bool saving) {
+        sceneEditor.setSaving(saving);
+    }
+
     /// Forgets the edits, once they were saved or thrown away.
     void reset() {
         sceneEditor.reset();
@@ -241,10 +245,6 @@ private:
     /// Makes `edit` by `applyPicked`, and selects `select` when it was made.
     void pickModelEdit(SceneEditor::ModelEdit edit, std::optional<SceneNode> select);
     void resetDrafts();
-    [[nodiscard]] bool applyPathMoves(Scene& scene, std::span<const SceneNode> nodes,
-                                      std::span<const glm::vec3> points, bool joinsLast);
-    [[nodiscard]] bool applyWaterBoxMoves(Scene& scene, std::span<const SceneNode> nodes,
-                                          std::span<const glm::vec3> points, bool joinsLast);
     /// Takes what an edit did: shows the scene, or keeps why it failed.
     bool showApplied(Scene& scene, const std::expected<void, base::Diagnostic>& applied);
     void showChanged(Scene& scene);

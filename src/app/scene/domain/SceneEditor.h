@@ -60,11 +60,18 @@ public:
     bool redo(Scene& scene);
 
     [[nodiscard]] bool canUndo() const {
-        return !undone.empty();
+        return !isSaving && !undone.empty();
     }
 
     [[nodiscard]] bool canRedo() const {
-        return !redone.empty();
+        return !isSaving && !redone.empty();
+    }
+
+    /// Refuses every edit, and undo and redo, while a save is written: it
+    /// writes the model as it was when it began, and the edits are taken as
+    /// written once it ends.
+    void setSaving(const bool saving) {
+        isSaving = saving;
     }
 
     /// How many steps are kept to take back; the oldest are dropped.
@@ -91,6 +98,7 @@ private:
     /// The model before each step, the last step's last.
     std::vector<SceneModel> undone;
     std::vector<SceneModel> redone;
+    bool isSaving = false;
 };
 
 /// A placement as the scene panel edits it: an actor or a player entry, or a

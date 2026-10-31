@@ -397,9 +397,14 @@ void SceneSaver::planCopies(hackeroot::EditPlan& plan) const {
 std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
     std::vector<SceneSource> sources;
     for (const std::filesystem::path& file : input.files) {
-        if (std::expected<std::string, std::string> text = hackeroot::readCheckoutText(file)) {
-            sources.push_back(SceneSource{.file = file.lexically_relative(root), .text = *text});
+        std::expected<std::string, std::string> text = hackeroot::readCheckoutText(file);
+        if (!text) {
+            return std::unexpected(std::format("The scene was not saved: {} could not be read: {}",
+                                               file.lexically_relative(root).generic_string(),
+                                               text.error()));
         }
+        sources.push_back(
+            SceneSource{.file = file.lexically_relative(root), .text = std::move(*text)});
     }
     SceneSourceScan scan =
         scanSceneSources(sources, [this](const std::string_view name) { return isSwitchOn(name); });

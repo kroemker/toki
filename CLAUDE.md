@@ -425,8 +425,8 @@ no commented-out code.
 
 ### Size
 
-A file past ~400 lines or a function past ~50 is a signal to look for a split, not a hard
-limit. The prototype had 1200-line files; that is what we are avoiding.
+A file is split where its content splits, not at a line count: what belongs together stays
+together. A function past ~50 lines is a signal to look for a split, not a hard limit.
 
 ### Tests
 
