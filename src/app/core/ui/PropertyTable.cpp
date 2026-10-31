@@ -1,5 +1,8 @@
 #include "PropertyTable.h"
 
+#include "app/core/ui/Icons.h"
+#include "app/core/ui/Theme.h"
+
 #include <imgui.h>
 
 #include <algorithm>
@@ -44,6 +47,27 @@ void drawPropertyLabel(const std::string_view label, const std::string_view help
     }
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(-FLT_MIN);
+}
+
+void drawPropertyLabel(const std::string_view label, const std::string_view help,
+                       const std::string_view warning) {
+    drawPropertyLabel(label, help);
+    if (warning.empty()) {
+        return;
+    }
+    const float iconWidth = ImGui::CalcTextSize(icons::Warning).x;
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(
+        ImVec2(start.x + ImGui::GetContentRegionAvail().x - iconWidth, start.y));
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(palette::Warning, "%s", icons::Warning);
+    if (ImGui::BeginItemTooltip()) {
+        ImGui::TextUnformatted(warning.data(), warning.data() + warning.size());
+        ImGui::EndTooltip();
+    }
+    ImGui::SetCursorScreenPos(start);
+    ImGui::SetNextItemWidth(-(iconWidth + spacing));
 }
 
 } // namespace toki::core

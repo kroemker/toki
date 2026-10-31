@@ -181,10 +181,12 @@ bool ParamsEditor::drawList(ActorEntry& entry, const std::span<const std::string
         ImGui::ColorButton("##color", findParamColor(i), ImGuiColorEditFlags_NoTooltip);
         ImGui::SameLine();
         const ActorParam& param = entry.params[i];
-        const std::string kind =
-            param.sceneFlag
-                ? std::format("{} flag", getEntryLabel(SceneFlagNames, *param.sceneFlag))
-                : std::string(getEntryLabel(ParamKindNames, param.kind));
+        std::string kind = std::string(getEntryLabel(ParamKindNames, param.kind));
+        if (param.sceneFlag) {
+            kind = std::format("{} flag", getEntryLabel(SceneFlagNames, *param.sceneFlag));
+        } else if (param.isPath) {
+            kind = "Path";
+        }
         const std::string label =
             std::format("{}  ·  {}, {}", param.name, kind, describeBits(param));
         if (ImGui::Selectable(label.c_str(), selectedIndex == i,
@@ -266,12 +268,20 @@ bool ParamsEditor::drawParam(ActorEntry& entry, ActorParam& param,
         isChanged = ImGui::Checkbox("Signed", &param.isSigned) || isChanged;
         ImGui::SameLine();
         isChanged = ImGui::Checkbox("Hexadecimal", &param.isHex) || isChanged;
-        isChanged =
-            editOptionalName("Scene flag", param.sceneFlag, SceneFlagNames, "None") || isChanged;
+        if (editOptionalName("Scene flag", param.sceneFlag, SceneFlagNames, "None")) {
+            param.isPath = param.isPath && !param.sceneFlag;
+            isChanged = true;
+        }
         ImGui::SetItemTooltip("The flag of the scene the number is, which the Scene panel "
                               "links to the other actors that use it");
         if (param.sceneFlag) {
             isChanged = editName("Use", param.flagUse, FlagUseNames) || isChanged;
+        } else {
+            core::drawPropertyLabel("Path",
+                                    "The number is the index of a path of the scene the actor "
+                                    "follows, which the Scene panel draws a line to and "
+                                    "renumbers when a path before it is deleted");
+            isChanged = ImGui::Checkbox("##path", &param.isPath) || isChanged;
         }
     }
     isChanged = editText("Description", param.description) || isChanged;

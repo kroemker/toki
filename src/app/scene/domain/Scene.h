@@ -1,6 +1,9 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/HeaderNames.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/SceneActors.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "base/Diagnostic.h"
@@ -11,6 +14,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,6 +28,8 @@ struct SceneLayer {
     usize index = 0;
     SceneHeader header;
     std::vector<RoomHeader> rooms;
+    /// Which of the scene's collisions the layer's header points at, if any.
+    std::optional<usize> collision;
 };
 
 /// A scene read from its folder: the images the game loads for it and what
@@ -38,10 +44,18 @@ struct Scene {
     std::vector<std::shared_ptr<const z64::MemoryImage>> images;
     /// The main layer first, then every alternate layer the scene has.
     std::vector<SceneLayer> layers;
+    /// Every collision header a layer points at, each read once however many
+    /// layers share it.
+    std::vector<Collision> collisions;
     /// The models of the actors the layers place, and the objects they are
     /// drawn from: read after the scene (`SceneActorLoader`), and empty until
     /// they are.
     SceneActors actors;
+    /// What the checkout names the values of the headers' settings.
+    HeaderNames headerNames;
+    /// What the scene's render materials make their faces, from
+    /// `.toki/scenes/<scene>.toml`.
+    MaterialBindings materialBindings;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
     std::chrono::milliseconds elapsed{};
@@ -60,6 +74,10 @@ inline constexpr usize FirstRoomImage = 2;
 /// Reads `scene`'s layers again out of its images, as `readScene` read them,
 /// once the images were laid out again after an edit.
 void readSceneLayers(Scene& scene);
+
+/// The collision the layer numbered `layer`, an index into `Scene::layers`,
+/// points at, if it has one.
+[[nodiscard]] const Collision* findLayerCollision(const Scene& scene, usize layer);
 
 /// What a scene layer is called: the four the game plays in, then its
 /// cutscenes.

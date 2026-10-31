@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/core/ui/Dialog.h"
+#include "app/scene/domain/GeometryChanges.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/tools/ui/EditFlow.h"
@@ -32,11 +33,19 @@ public:
     /// Takes how a save that is not shown went; called every frame.
     void update();
 
+    /// Whether a save that is not shown is being planned or written, during
+    /// which the scene must not be edited: what is written is the scene as it
+    /// was when the save began.
+    [[nodiscard]] bool isSaving() const {
+        return isSavingUnshown;
+    }
+
     void draw() override;
 
 private:
     void requestPlan(bool isReviewed);
     void finishSave(const std::filesystem::path& root);
+    void drawGeometryChanges() const;
 
     const workspace::WorkspaceService& workspaceService;
     std::function<void(const std::filesystem::path&)> saved;
@@ -45,6 +54,7 @@ private:
     bool isSavingUnshown = false;
     std::optional<Scene> scene;
     std::optional<SceneModel> sceneModel;
+    GeometryChanges geometryChanges;
     tools::EditFlow editFlow;
 };
 

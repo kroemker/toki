@@ -31,6 +31,7 @@
 #include "app/object/domain/Object.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
+#include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneLoader.h"
 #include "app/scene/ui/PropertiesPanel.h"
@@ -166,6 +167,14 @@ void App::registerPanels() {
     scenePanel = sceneView.get();
     scenePanel->setMarkerShape(settings.markerShape);
     setSceneAngleFormat();
+    if (const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory()) {
+        scene::CollisionNames collisionNames =
+            scene::readCollisionNames(scene::makeShippedCollisionNamesPath(*assets));
+        for (const base::Diagnostic& diagnostic : collisionNames.diagnostics) {
+            logWarn("{}", base::describe(diagnostic));
+        }
+        scenePanel->setCollisionNames(std::move(collisionNames));
+    }
     auto textures = std::make_unique<texture::TexturePanel>(*device);
     texturePanel = textures.get();
     auto objectView = std::make_unique<object::ObjectPanel>(*viewport, *textures);
@@ -305,6 +314,9 @@ void App::drawFrame() {
         }
         viewportPanel->setReadingName(std::move(reading));
     }
+    if (scenePanel != nullptr) {
+        scenePanel->setSaving(saveSceneDialog.isSaving());
+    }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
     const MenuActions actions =
         drawMenuBar(panels, dialogs, settings,
@@ -325,7 +337,8 @@ void App::drawFrame() {
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }
-    if (openScene != nullptr && (actions.saveScene || isActionPressed(Action::SaveScene))) {
+    if (openScene != nullptr && !saveSceneDialog.isSaving() &&
+        (actions.saveScene || isActionPressed(Action::SaveScene))) {
         saveSceneDialog.open(*openScene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
     }
     saveSceneDialog.update();

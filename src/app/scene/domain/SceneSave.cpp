@@ -1,6 +1,9 @@
 #include "SceneSave.h"
 
 #include "app/scene/domain/ActorEntryWriter.h"
+#include "app/scene/domain/CollisionWriters.h"
+#include "app/scene/domain/MaterialBindings.h"
+#include "app/scene/domain/MaterialBindingsFile.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneCommandWriter.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -104,6 +107,7 @@ private:
     [[nodiscard]] std::expected<void, std::string> check(const WrittenScene& written);
     [[nodiscard]] std::expected<void, std::string> planSpec(const WrittenScene& written,
                                                             hackeroot::EditPlan& plan) const;
+    [[nodiscard]] std::expected<void, std::string> planBindings(hackeroot::EditPlan& plan) const;
 
     [[nodiscard]] std::filesystem::path getReadFolder() const {
         return input.directory.lexically_relative(root);
@@ -212,6 +216,10 @@ z64::DeclarationWriter SceneSaver::makeWriter() const {
                            {"ActorEntry", makeActorEntryWriter(prelude.types)},
                            {"TransitionActorEntry", makeTransitionActorEntryWriter(prelude.types)},
                            {"Vtx", z64::makeVertexWriter()},
+                           {"CollisionPoly", makeCollisionPolyWriter()},
+                           {"SurfaceType", makeSurfaceTypeWriter()},
+                           {"WaterBox", makeWaterBoxWriter()},
+                           {"BgCamInfo", makeBgCamInfoWriter(prelude.types)},
                            {"Gfx", z64::makeDisplayListWriter(gbiNames)}},
         .elementConditions = {{"SceneCmd", makeSceneCommandCondition(prelude.types)}},
         .isExact = z64::makeEncodingCheck(data)});
@@ -348,6 +356,27 @@ std::expected<void, std::string> SceneSaver::planSpec(const WrittenScene& writte
     return {};
 }
 
+std::expected<void, std::string> SceneSaver::planBindings(hackeroot::EditPlan& plan) const {
+    const MaterialBindings& bindings = input.model.getMaterialBindings();
+    const std::filesystem::path path = makeSceneFilePath(root, input.name).lexically_relative(root);
+    std::expected<std::string, std::string> before = hackeroot::readCheckoutText(root / path);
+    if (!before && bindings.materials.empty()) {
+        return {};
+    }
+    std::string after = formatMaterialBindings(bindings);
+    if (parseMaterialBindings(after, path).bindings != bindings) {
+        return std::unexpected(std::format(
+            "The scene was not saved: its material bindings do not read back from {} as they "
+            "are.",
+            path.generic_string()));
+    }
+    plan.files.push_back(
+        hackeroot::FileEdit{.file = path,
+                            .before = before ? std::optional(std::move(*before)) : std::nullopt,
+                            .after = std::move(after)});
+    return {};
+}
+
 void SceneSaver::planCopies(hackeroot::EditPlan& plan) const {
     std::set<std::filesystem::path> copied;
     for (const std::vector<z64::SymbolData>& symbols : input.model.getImages()) {
@@ -368,9 +397,14 @@ void SceneSaver::planCopies(hackeroot::EditPlan& plan) const {
 std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
     std::vector<SceneSource> sources;
     for (const std::filesystem::path& file : input.files) {
-        if (std::expected<std::string, std::string> text = hackeroot::readCheckoutText(file)) {
-            sources.push_back(SceneSource{.file = file.lexically_relative(root), .text = *text});
+        std::expected<std::string, std::string> text = hackeroot::readCheckoutText(file);
+        if (!text) {
+            return std::unexpected(std::format("The scene was not saved: {} could not be read: {}",
+                                               file.lexically_relative(root).generic_string(),
+                                               text.error()));
         }
+        sources.push_back(
+            SceneSource{.file = file.lexically_relative(root), .text = std::move(*text)});
     }
     SceneSourceScan scan =
         scanSceneSources(sources, [this](const std::string_view name) { return isSwitchOn(name); });
@@ -434,6 +468,9 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
                 hackeroot::FileEdit{.file = source.file, .before = source.text, .isRemoved = true});
         }
     }
+    if (std::expected<void, std::string> bindings = planBindings(plan); !bindings) {
+        return std::unexpected(bindings.error());
+    }
     if (std::expected<void, std::string> spec = planSpec(written, plan); !spec) {
         return std::unexpected(spec.error());
     }
@@ -450,8 +487,9 @@ std::expected<hackeroot::EditPlan, std::string> SceneSaver::plan() {
                         input.name, getFolder().generic_string()));
     } else if (!scan.isTokiScene) {
         plan.warnings.push_back(
-            "This scene was exported by fast64. Once Toki writes it, its .blend and its C go "
-            "separate ways: exporting from Blender again replaces what Toki wrote.");
+            "This scene was exported by fast64. Once Toki saves it, Toki owns it: exporting it "
+            "from Blender again replaces everything Toki changed, so edit it in Toki from now "
+            "on.");
     }
     std::ranges::move(listObjectOverflows(), std::back_inserter(plan.warnings));
     if (const std::vector<std::string> literal = listLiteralAddresses(); !literal.empty()) {

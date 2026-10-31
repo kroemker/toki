@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base/Diagnostic.h"
+#include "n64/FixedMatrix.h"
 #include "n64/Types.h"
 #include "n64/Viewport.h"
 
@@ -20,6 +21,16 @@ struct ShadedVertex {
     std::array<u8, 4> color{};
 };
 
+/// Where a vertex of a triangle came from: the physical address of the `Vtx`
+/// its `G_VTX` loaded, and the modelview it was loaded under, an index into
+/// `RspResult::modelviews`. Kept only when the task asks for it.
+struct VertexSource {
+    u32 address = 0;
+    usize modelview = 0;
+
+    friend bool operator==(const VertexSource&, const VertexSource&) = default;
+};
+
 /// One triangle that survived culling. Which coefficients the RDP gets is
 /// decided here, by the geometry mode and `G_TEXTURE` at the time it was drawn.
 struct Triangle {
@@ -29,10 +40,15 @@ struct Triangle {
     bool shade = false;
     bool textured = false;
     bool depth = false;
+    /// Whether its vertices were lit, so that their colours hold normals.
+    bool lit = false;
     u8 tile = 0;
     u8 levels = 1;
     /// Physical address of the command that drew it.
     u32 address = 0;
+    /// Where each vertex came from, when the task records it
+    /// (`RspTask::recordsSources`).
+    std::array<VertexSource, 3> sources{};
 };
 
 /// `G_TEXRECT` or `G_TEXRECTFLIP`, as the four words the RDP receives.
@@ -90,6 +106,9 @@ struct RspResult {
     std::vector<ListMark> listMarks;
     /// Every command run, when the task asked for it.
     std::vector<TraceEntry> trace;
+    /// Every modelview vertices were loaded under, when the task records
+    /// where each vertex came from.
+    std::vector<FixedMatrix> modelviews;
     std::vector<base::Diagnostic> diagnostics;
     RspStatistics statistics;
 };

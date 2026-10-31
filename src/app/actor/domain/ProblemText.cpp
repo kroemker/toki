@@ -1,7 +1,7 @@
 #include "ProblemText.h"
 
 #include "app/actor/Types.h"
-#include "app/actor/domain/ReadableName.h"
+#include "app/core/domain/ReadableName.h"
 
 #include <array>
 #include <cctype>
@@ -39,7 +39,7 @@ constexpr std::array<NamedStep, 3> IndexedSteps{{
             return std::format("{} {}", named.name, index + 1);
         }
     }
-    return std::format("{} {}", makeReadableName(key), index + 1);
+    return std::format("{} {}", core::makeReadableName(key), index + 1);
 }
 
 [[nodiscard]] std::string makePlace(std::string_view path) {
@@ -56,7 +56,7 @@ constexpr std::array<NamedStep, 3> IndexedSteps{{
             break;
         }
         append(step.ends_with(']') && step.contains('[') ? makeIndexedStep(step)
-                                                         : makeReadableName(step));
+                                                         : core::makeReadableName(step));
         path = rest;
     }
     return place;

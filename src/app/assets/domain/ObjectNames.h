@@ -1,6 +1,9 @@
 #pragma once
 
+#include "hackeroot/Tables.h"
+
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace toki::assets {
@@ -10,5 +13,9 @@ namespace toki::assets {
 /// are written down here, after the CloudModding object list. Nothing for an
 /// object the game did not ship with.
 [[nodiscard]] std::optional<std::string_view> findObjectName(std::string_view folderName);
+
+/// An object of the object table as people read it: what it holds when that is
+/// known, or else its enum name as words, `OBJECT_TOKI_TEST` "Toki Test".
+[[nodiscard]] std::string makeObjectLabel(const hackeroot::ObjectEntry& object);
 
 } // namespace toki::assets

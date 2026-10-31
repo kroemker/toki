@@ -3,16 +3,24 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/ActorDescription.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionDrawing.h"
+#include "app/scene/domain/CollisionMaterials.h"
+#include "app/scene/domain/CollisionNames.h"
+#include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
+#include "app/scene/domain/SceneMaterials.h"
 #include "app/scene/domain/SceneView.h"
 
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <format>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -32,6 +40,10 @@ constexpr ImGuiTreeNodeFlags LeafFlags = ImGuiTreeNodeFlags_SpanAllColumns |
 constexpr ImVec4 RoomColor{0.498F, 0.706F, 1.0F, 1.0F};
 constexpr ImVec4 DoorColor{0.788F, 0.612F, 1.0F, 1.0F};
 constexpr ImVec4 EntranceColor{1.0F, 0.549F, 0.420F, 1.0F};
+constexpr ImVec4 PathColor{0.851F, 0.424F, 0.878F, 1.0F};
+constexpr ImVec4 CollisionColor{0.878F, 0.627F, 0.251F, 1.0F};
+constexpr ImVec4 WaterColor{0.314F, 0.612F, 1.0F, 1.0F};
+constexpr ImVec4 MaterialColor{0.565F, 0.792F, 0.494F, 1.0F};
 
 [[nodiscard]] bool containsIgnoringCase(const std::string_view text, const std::string_view part) {
     const auto lower = [](const char c) {
@@ -57,6 +69,20 @@ void drawLabel(const char* icon, const ImVec4& color, const std::string& name,
     ImGui::SameLine();
     ImGui::TextColored(isDimmed ? core::palette::TextDisabled : core::palette::Text, "%s",
                        name.c_str());
+}
+
+/// A square of `color` in place of a row's icon, as what it is drawn in.
+void drawSwatch(const std::array<u8, 3>& color) {
+    constexpr f32 Inset = 0.2F;
+    constexpr f32 Rounding = 2.0F;
+    ImGui::SameLine(0.0F, 0.0F);
+    const f32 size = ImGui::GetTextLineHeight();
+    const ImVec2 corner = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(size, size));
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(corner.x + (size * Inset), corner.y + (size * Inset)),
+        ImVec2(corner.x + (size * (1.0F - Inset)), corner.y + (size * (1.0F - Inset))),
+        IM_COL32(color[0], color[1], color[2], 0xFF), Rounding);
 }
 
 bool drawNode(const char* id, const ImGuiTreeNodeFlags flags, const char* icon, const ImVec4& color,
@@ -88,6 +114,9 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
     const std::optional<PlacementRef> selected =
         hooks.findSelected ? hooks.findSelected() : std::nullopt;
     revealing = selected != revealed ? selected : std::nullopt;
+    revealingSurface =
+        view.tintedSurfaceType != revealedSurface ? view.tintedSurfaceType : std::nullopt;
+    revealedSurface = view.tintedSurfaceType;
     revealed = selected;
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##filter", "Filter actors", &filter);
@@ -100,8 +129,17 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
     ImGui::TableSetupColumn("info", ImGuiTableColumnFlags_WidthFixed, font * InfoWidth);
     ImGui::TableSetupColumn("shown", ImGuiTableColumnFlags_WidthFixed, font * VisibilityWidth);
     const SceneLayer& layer = scene.layers[view.layer];
-    if (drawNode("##scene", GroupFlags | ImGuiTreeNodeFlags_DefaultOpen, core::icons::MapTrifold,
-                 RoomColor, scene.name)) {
+    ImGuiTreeNodeFlags sceneFlags = GroupFlags | ImGuiTreeNodeFlags_DefaultOpen;
+    if (hooks.isSelected && hooks.isSelected(SceneRef{.layer = view.layer})) {
+        sceneFlags |= ImGuiTreeNodeFlags_Selected;
+    }
+    const bool isSceneOpen = beginNode("##scene", sceneFlags);
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickScene) {
+        hooks.pickScene();
+    }
+    ImGui::SetItemTooltip("The scene's settings: its sound, skybox, keep object and camera.");
+    drawLabel(core::icons::MapTrifold, RoomColor, scene.name);
+    if (isSceneOpen) {
         drawInfo(std::format("{} rooms", layer.rooms.size()));
         drawRoomsShown(view);
         for (usize room = 0; room < layer.rooms.size(); ++room) {
@@ -110,14 +148,15 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawTransitionActors(scene, layer, view);
         drawEntrances(scene, layer, view);
         drawLightSettings(layer, view);
-        drawUnread(core::icons::Polygon, "Collision",
-                   "Toki does not read collision yet. A save writes it back as it was.");
-        drawUnread(core::icons::Path, "Paths",
-                   "Toki does not read paths yet. A save writes them back as they were.");
+        drawPaths(layer, view);
+        drawCameras(scene, view);
+        drawWaterBoxes(scene, view);
+        drawMaterials(scene, view);
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
-                   "Toki does not read the exit list yet. A save writes it back as it was.");
+                   "Toki reads the exit list only for the exits of collision. A save writes it "
+                   "back as it was.");
         ImGui::TreePop();
     } else {
         drawInfo(std::format("{} rooms", layer.rooms.size()));
@@ -291,26 +330,24 @@ void SceneOutliner::drawLightSettings(const SceneLayer& layer, SceneView& view) 
         return;
     }
     const std::vector<LightSetting>& settings = layer.header.lightSettings;
-    const bool isOpen = drawNode("##lights", GroupFlags, core::icons::Sun, core::palette::Warning,
-                                 "Light Settings");
+    const bool isOpen = beginNode("##lights", GroupFlags);
+    ImGui::SetItemTooltip("The layer's light settings. Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::LightSettings);
+    drawLabel(core::icons::Sun, core::palette::Warning, "Light Settings");
     drawInfo(std::format("{}", settings.size()));
     if (!isOpen) {
         return;
     }
     for (usize i = 0; i < settings.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        const ImGuiTreeNodeFlags flags =
-            LeafFlags | (i == view.lightSetting ? ImGuiTreeNodeFlags_Selected : 0);
-        ImGui::TreeNodeEx("##light", flags, "%s", "");
-        if (ImGui::IsItemClicked() && i != view.lightSetting) {
-            view.lightSetting = i;
-            if (hooks.showScene) {
-                hooks.showScene();
-            }
+        const SceneNode node = LightSettingRef{.layer = view.layer, .index = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##light", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNode) {
+            hooks.pickNode(node);
         }
-        ImGui::SetItemTooltip("Click to light the scene with it.");
+        ImGui::SetItemTooltip("Click to edit it and light the scene with it.");
+        drawNodeMenu(node);
         ImGui::SameLine(0.0F, 0.0F);
         const std::array<u8, 3>& ambient = settings[i].ambientColor;
         ImGui::ColorButton(
@@ -318,11 +355,316 @@ void SceneOutliner::drawLightSettings(const SceneLayer& layer, SceneView& view) 
             ImVec4(ambient[0] / 255.0F, ambient[1] / 255.0F, ambient[2] / 255.0F, 1.0F),
             ImGuiColorEditFlags_NoTooltip, ImVec2(ImGui::GetFontSize(), ImGui::GetFontSize()));
         ImGui::SameLine();
-        ImGui::TextUnformatted(std::format("Setting {}", i).c_str());
+        ImGui::TextUnformatted(makeLightSettingName(layer.header, i).c_str());
         drawInfo(i == view.lightSetting ? "shown" : "");
         ImGui::PopID();
     }
     ImGui::TreePop();
+}
+
+void SceneOutliner::drawPaths(const SceneLayer& layer, SceneView& view) {
+    if (!filter.empty()) {
+        return;
+    }
+    const std::vector<ScenePath>& paths = layer.header.paths;
+    const bool isOpen = beginNode("##paths", GroupFlags);
+    ImGui::SetItemTooltip("The layer's paths, which actors that follow one name by index. "
+                          "Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::Paths);
+    drawLabel(core::icons::Path, PathColor, "Paths");
+    drawInfo(std::format("{}", paths.size()));
+    drawShownSwitch(view.showsPaths, "the paths");
+    if (!isOpen) {
+        return;
+    }
+    for (usize path = 0; path < paths.size(); ++path) {
+        ImGui::PushID(static_cast<int>(path));
+        const SceneNode node = PathRef{.layer = view.layer, .path = path};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        const bool isPathOpen =
+            beginNode("##path", GroupFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && hooks.pickNode) {
+            hooks.pickNode(node);
+        }
+        drawNodeMenu(node);
+        drawLabel(core::icons::Path, PathColor, std::format("Path {}", path));
+        drawInfo(std::format("{} points", paths[path].points.size()));
+        if (isPathOpen) {
+            drawPathPoints(paths[path], node);
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawPathPoints(const ScenePath& path, const SceneNode& pathNode) {
+    const auto& [layer, index] = std::get<PathRef>(pathNode);
+    for (usize i = 0; i < path.points.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const SceneNode node = PathPointRef{.layer = layer, .path = index, .point = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##point", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNode) {
+            hooks.pickNode(node);
+        }
+        const std::array<s16, 3>& point = path.points[i];
+        ImGui::SetItemTooltip("At %d, %d, %d", point[0], point[1], point[2]);
+        drawNodeMenu(node);
+        drawLabel(core::icons::Dot, PathColor, std::format("Point {}", i));
+        drawInfo("");
+        ImGui::PopID();
+    }
+}
+
+void SceneOutliner::drawShownSwitch(bool& isShown, const std::string_view what) const {
+    ImGui::TableNextColumn();
+    ImGui::PushID(what.data(), what.data() + what.size());
+    const bool isClicked = ImGui::SmallButton(isShown ? core::icons::Eye : core::icons::EyeSlash);
+    ImGui::PopID();
+    if (isClicked) {
+        isShown = !isShown;
+        if (hooks.showScene) {
+            hooks.showScene();
+        }
+    }
+    ImGui::SetItemTooltip("%s",
+                          (isShown ? std::format("Click to hide {} in the viewport.", what)
+                                   : std::format("Hidden. Click to show {} in the viewport.", what))
+                              .c_str());
+}
+
+void SceneOutliner::drawMaterials(const Scene& scene, const SceneView& view) {
+    if (!filter.empty()) {
+        return;
+    }
+    if (revealingSurface) {
+        ImGui::SetNextItemOpen(true);
+    }
+    const bool isOpen = beginNode("##materials", GroupFlags);
+    ImGui::SetItemTooltip("What the rooms' faces are rendered under, and what the solid faces are "
+                          "made of.");
+    drawLabel(core::icons::Palette, MaterialColor, "Materials");
+    drawInfo("");
+    if (!isOpen) {
+        return;
+    }
+    drawRenderMaterials();
+    if (const Collision* collision = findLayerCollision(scene, view.layer)) {
+        drawCollisionMaterials(*collision, view);
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawRenderMaterials() {
+    const std::vector<SceneMaterial>* materials =
+        hooks.findMaterials ? hooks.findMaterials() : nullptr;
+    if (materials == nullptr) {
+        drawUnread(core::icons::Palette, "Render",
+                   "The materials the rooms are drawn with are read with the rooms' faces.");
+        return;
+    }
+    const bool isOpen = beginNode("##render", GroupFlags);
+    ImGui::SetItemTooltip("What the rooms' faces are drawn under, one row for every room's copy "
+                          "of it, with the collision material it is bound to. Click one to see "
+                          "its settings, double-click it to select its faces; right-click to "
+                          "bind, assign, rename or duplicate it.");
+    drawLabel(core::icons::Palette, MaterialColor, "Render");
+    drawInfo(std::format("{}", materials->size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize index = 0; index < materials->size(); ++index) {
+        const SceneMaterial& material = (*materials)[index];
+        ImGui::PushID(static_cast<int>(index));
+        const MaterialRef selected = RenderMaterialRef{.material = index};
+        beginNode("##material",
+                  LeafFlags | (isMaterialSelected(selected) ? ImGuiTreeNodeFlags_Selected : 0));
+        pickMaterialRow(selected, [this, index] {
+            if (hooks.pickMaterial) {
+                hooks.pickMaterial(index);
+            }
+        });
+        if (ImGui::BeginItemTooltip()) {
+            ImGui::TextUnformatted(material.name.c_str());
+            if (!material.texture.empty()) {
+                ImGui::TextColored(core::palette::TextMuted, "Texture %s",
+                                   material.texture.c_str());
+            }
+            ImGui::TextColored(core::palette::TextMuted, "%s, %s",
+                               material.isTranslucent ? "Translucent" : "Opaque",
+                               material.isLit ? "lit" : "vertex coloured");
+            for (const MaterialRoom& room : material.rooms) {
+                ImGui::TextColored(core::palette::TextMuted, "Room %zu: %zu faces%s%s", room.room,
+                                   room.faces, room.list.empty() ? "" : ", set by ",
+                                   room.list.c_str());
+            }
+            ImGui::EndTooltip();
+        }
+        if (hooks.drawMaterialMenu && ImGui::BeginPopupContextItem("##materialMenu")) {
+            hooks.drawMaterialMenu(index);
+            ImGui::EndPopup();
+        }
+        drawLabel(material.texture.empty() ? core::icons::Drop : core::icons::Checkerboard,
+                  MaterialColor, material.name, material.countFaces() == 0);
+        if (const std::optional<std::string> bound =
+                hooks.findBindingName ? hooks.findBindingName(index) : std::nullopt) {
+            ImGui::SameLine();
+            ImGui::TextColored(core::palette::TextMuted, "%s %s", core::icons::LinkSimple,
+                               bound->c_str());
+        }
+        drawInfo(
+            material.rooms.size() == 1
+                ? std::format("{} faces", material.countFaces())
+                : std::format("{} faces, {} rooms", material.countFaces(), material.rooms.size()));
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawCollisionMaterials(const Collision& collision, const SceneView& view) {
+    if (revealingSurface) {
+        ImGui::SetNextItemOpen(true);
+    }
+    const std::vector<SceneCollisionMaterial> materials = listCollisionMaterials(collision);
+    const bool isOpen = beginNode("##surfaces", GroupFlags);
+    ImGui::SetItemTooltip("What the solid faces are made of, rendered or not: a surface type, the "
+                          "settings faces share, and what passes through them; %zu solid faces "
+                          "in all. Click one to see its settings, double-click it to select its "
+                          "faces. Right-click to add a surface type or remove those no solid "
+                          "face has.",
+                          collision.polygons.size());
+    drawGroupMenu(OutlinerGroup::SurfaceTypes);
+    drawLabel(core::icons::Stack, CollisionColor, "Collision");
+    drawInfo(std::format("{}", materials.size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize i = 0; i < materials.size(); ++i) {
+        const SceneCollisionMaterial& material = materials[i];
+        const usize type = material.material.type;
+        ImGui::PushID(static_cast<int>(i));
+        const bool isSelected =
+            isMaterialSelected(material.material) || view.tintedSurfaceType == type;
+        beginNode("##surface", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (isSelected && revealingSurface) {
+            ImGui::SetScrollHereY();
+        }
+        pickMaterialRow(material.material, [this, picked = material.material] {
+            if (hooks.pickCollisionMaterial) {
+                hooks.pickCollisionMaterial(picked);
+            }
+        });
+        if (collisionNames != nullptr && type < collision.surfaceTypes.size()) {
+            ImGui::SetItemTooltip(
+                "%s",
+                makeSurfaceSummary(*collisionNames, readSurfaceFields(collision.surfaceTypes[type]))
+                    .c_str());
+        }
+        drawSwatch(findSurfaceTypeColor(type));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(
+            makeCollisionMaterialName(collisionNames, collision, material.material).c_str());
+        drawInfo(std::format("{} faces", material.polygons.size()));
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::pickMaterialRow(const MaterialRef& material,
+                                    const std::function<void()>& pick) const {
+    if (ImGui::IsItemClicked() && hooks.selectMaterial) {
+        hooks.selectMaterial(material);
+    }
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        pick();
+    }
+}
+
+bool SceneOutliner::isMaterialSelected(const MaterialRef& material) const {
+    return hooks.isMaterialSelected && hooks.isMaterialSelected(material);
+}
+
+void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {
+    const Collision* found = findLayerCollision(scene, view.layer);
+    if (!filter.empty() || found == nullptr) {
+        return;
+    }
+    const Collision& collision = *found;
+    const usize layer = view.layer;
+    const bool isOpen = beginNode("##waterBoxes", GroupFlags);
+    ImGui::SetItemTooltip("Where there is water, from each box's surface down. Shown whichever "
+                          "rooms are hidden, as the collision is. Right-click to add one.");
+    drawGroupMenu(OutlinerGroup::WaterBoxes);
+    drawLabel(core::icons::Waves, WaterColor, "Waterboxes");
+    drawInfo(std::format("{}", collision.waterBoxes.size()));
+    drawShownSwitch(view.showsWaterBoxes, "the waterboxes");
+    if (!isOpen) {
+        return;
+    }
+    for (usize i = 0; i < collision.waterBoxes.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const SceneNode node = WaterBoxRef{.layer = layer, .box = i};
+        const bool isSelected = hooks.isSelected && hooks.isSelected(node);
+        beginNode("##waterBox", LeafFlags | (isSelected ? ImGuiTreeNodeFlags_Selected : 0));
+        if (ImGui::IsItemClicked() && hooks.pickNodes) {
+            hooks.pickNodes(std::span(&node, 1));
+        }
+        drawNodeMenu(node);
+        const WaterBox& box = collision.waterBoxes[i];
+        ImGui::SetItemTooltip("Surface at %d.", box.ySurface);
+        drawLabel(core::icons::Waves, WaterColor, std::format("Waterbox {}", i));
+        const u8 room = getWaterBoxRoom(box);
+        drawInfo(room == WaterBoxAllRooms ? std::string("all rooms")
+                                          : std::format("room {}", room));
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawCameras(const Scene& scene, const SceneView& view) const {
+    const Collision* found = findLayerCollision(scene, view.layer);
+    if (!filter.empty() || found == nullptr) {
+        return;
+    }
+    const Collision& collision = *found;
+    const bool isOpen = beginNode("##cameras", GroupFlags);
+    ImGui::SetItemTooltip("The camera settings surface types and waterboxes name by index.");
+    drawLabel(core::icons::VideoCamera, core::palette::TextMuted, "Cameras");
+    drawInfo(std::format("{}", collision.cameras.size()));
+    if (!isOpen) {
+        return;
+    }
+    for (usize i = 0; i < collision.cameras.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        const CollisionCamera& camera = collision.cameras[i];
+        beginNode("##camera", LeafFlags);
+        ImGui::SetItemTooltip("Setting %u, data at 0x%08X, count %d.", camera.setting, camera.data,
+                              camera.count);
+        const auto named = std::ranges::find(scene.headerNames.cameraSettings, s64{camera.setting},
+                                             &NamedValue::value);
+        drawLabel(core::icons::VideoCamera, core::palette::TextMuted,
+                  named != scene.headerNames.cameraSettings.end()
+                      ? std::format("Camera {} · {}", i, named->label)
+                      : std::format("Camera {} · setting {}", i, camera.setting));
+        drawInfo("");
+        ImGui::PopID();
+    }
+    ImGui::TreePop();
+}
+
+void SceneOutliner::drawGroupMenu(const OutlinerGroup group) const {
+    if (hooks.drawGroupMenu && ImGui::BeginPopupContextItem()) {
+        hooks.drawGroupMenu(group);
+        ImGui::EndPopup();
+    }
+}
+
+void SceneOutliner::drawNodeMenu(const SceneNode& node) const {
+    if (hooks.drawNodeMenu && ImGui::BeginPopupContextItem()) {
+        hooks.drawNodeMenu(node);
+        ImGui::EndPopup();
+    }
 }
 
 void SceneOutliner::drawPlacement(const PlacementRow& row) {

@@ -1,5 +1,7 @@
 #include "app/viewport/domain/ViewportView.h"
 
+#include "app/viewport/domain/ViewportChoices.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
@@ -26,4 +28,14 @@ TEST_CASE("a render mode names its shading and each stage it turns off", "[viewp
     view.renderMode.textureFilter = toki::viewport::TextureFilter::Point;
 
     REQUIRE(listViewChanges(view) == std::vector<std::string>{"Normals", "No Fog", "Point Filter"});
+}
+
+TEST_CASE("collision and waterboxes the content shows are named as changes", "[viewport][view]") {
+    toki::viewport::ViewportChoices choices;
+    REQUIRE(listViewChanges(ViewportView{}, choices).empty());
+
+    choices.showsCollision = true;
+    choices.showsWaterBoxes = true;
+    REQUIRE(listViewChanges(ViewportView{}, choices) ==
+            std::vector<std::string>{"Collision", "Waterboxes"});
 }

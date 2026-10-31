@@ -5,12 +5,15 @@
 #include "app/viewport/Types.h"
 #include "app/viewport/domain/ClipTriangle.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ScreenPick.h"
 #include "app/viewport/domain/SelectionShape.h"
 #include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "app/viewport/domain/ViewportOverlay.h"
 #include "app/viewport/domain/ViewportTools.h"
 #include "app/viewport/domain/ViewportView.h"
+#include "app/viewport/ui/ToolStrip.h"
+#include "app/viewport/ui/ViewportHandles.h"
 #include "app/viewport/ui/ViewportStatusBar.h"
 #include "app/viewport/ui/ViewportTransform.h"
 #include "base/Diagnostic.h"
@@ -57,6 +60,10 @@ struct DrawnFrame {
     /// What each of the content's draws made, and what owns it.
     std::vector<std::optional<OutputRange>> drawOutputs;
     std::vector<std::optional<usize>> drawOwners;
+    /// `drawOwners`, without the owners of draws that are not boxed.
+    std::vector<std::optional<usize>> boxedOwners;
+    /// The draws whose triangles have their edges drawn.
+    std::vector<usize> edgedDraws;
 };
 
 class ViewportPanel : public core::Panel {
@@ -79,6 +86,11 @@ public:
     }
 
     [[nodiscard]] core::CameraPose getCameraPose() const;
+
+    /// Where the camera looks from, in the world.
+    [[nodiscard]] glm::vec3 getCameraEye() const {
+        return orbitCamera.getEye();
+    }
 
     void setCameraPose(const core::CameraPose& pose);
 
@@ -103,8 +115,10 @@ public:
     /// Replaces what is drawn over the image, hidden by what stands in front
     /// of it. The frame is drawn again, not run again.
     void setOverlay(ViewportOverlay overlay) {
-        viewportOverlay = std::move(overlay);
-        isOverlayStale = true;
+        if (overlay != viewportOverlay) {
+            viewportOverlay = std::move(overlay);
+            isOverlayStale = true;
+        }
     }
 
     [[nodiscard]] const ViewportView& getView() const {
@@ -161,20 +175,43 @@ public:
     }
 
     /// What a click or a box in the viewport hit: the indices of the points
-    /// it picked, and, for a click that picked none, the owner of the draw
-    /// that drew what is under it, if anything is and one owns it.
+    /// and segments it picked, and the boxed points a box held; for a click
+    /// that picked none, the owner of the draw that drew what is under it, if
+    /// anything is and one owns it, and the ray from the camera through it.
     struct ViewportPick {
         std::span<const usize> points;
+        std::span<const usize> segments;
+        std::span<const usize> boxedPoints;
         std::optional<usize> owner;
+        std::optional<PickRay> ray;
+    };
+
+    /// What a click or a box can pick: points, near which a click picks them;
+    /// segments, near which a click picks them and which a box picks when it
+    /// holds both their ends; and points only a box picks, as the middles of
+    /// faces, which a click picks by its ray instead.
+    struct Pickables {
+        std::vector<glm::vec3> points;
+        std::vector<std::array<glm::vec3, 2>> segments;
+        std::vector<glm::vec3> boxedPoints;
     };
 
     /// The points a click or a box in the viewport picks, and what picking
     /// does, as the pick changes the selection.
     using PickHandler = std::function<void(const ViewportPick&, PickMode)>;
 
-    void setPickables(std::vector<glm::vec3> points, PickHandler pick) {
-        pickables = std::move(points);
+    void setPickables(Pickables picked, PickHandler pick) {
+        pickables = std::move(picked);
         pickHandler = std::move(pick);
+    }
+
+    /// What clicks in the viewport select: nodes, or faces, edges or vertices.
+    [[nodiscard]] SelectionMode getSelectionMode() const {
+        return viewportTools.mode;
+    }
+
+    void setSelectionMode(const SelectionMode mode) {
+        viewportTools.mode = mode;
     }
 
     /// The owners of the draws selected, shown as the overlays say: what
@@ -195,6 +232,45 @@ public:
         viewportTransform.setTarget(std::move(target), std::move(handler), std::move(preview));
     }
 
+    /// Handles of what is selected that the mouse drags in node mode, and
+    /// what is done with a drag once it is let go.
+    void setHandles(std::vector<ViewportHandle> handles, ViewportHandles::Handler handler,
+                    ViewportHandles::PreviewHandler preview = nullptr) {
+        viewportHandles.setHandles(std::move(handles), std::move(handler), std::move(preview));
+    }
+
+    /// What the bar's edit menu, labelled `label`, and a right click on the
+    /// image hold while the viewport selects by faces, edges or vertices:
+    /// `drawMenu` draws its items. Nothing takes the menu away.
+    void setEditMenu(std::string label, std::function<void()> drawMenu) {
+        editMenuLabel = std::move(label);
+        editMenu = std::move(drawMenu);
+    }
+
+    /// Whether the cursor was over the viewport last frame with no transform
+    /// running, where its keys are heard.
+    [[nodiscard]] bool isHovered() const {
+        return isViewportHovered;
+    }
+
+    /// Adds `actions` below the tools for the next frame drawn, while the
+    /// viewport selects by faces, edges or vertices. Offered every frame;
+    /// what is not offered again is taken away once drawn.
+    void setStripActions(std::vector<StripAction> actions) {
+        stripActions = std::move(actions);
+    }
+
+    /// Opens the edit menu at the cursor, as a right click on the image does.
+    void openEditMenu() {
+        isEditMenuWanted = true;
+    }
+
+    /// Begins a transform of `kind` of what is offered to transform with the
+    /// mouse, as G or S do, once there is something to transform.
+    void startTransform(const TransformKind kind) {
+        viewportTransform.requestModal(kind);
+    }
+
     /// The scene being read for the panel, shown over what is drawn until it
     /// arrives.
     void setReadingName(std::optional<std::string> name) {
@@ -205,6 +281,10 @@ public:
 
 private:
     void drawBar();
+    /// Whether the content offers faces, edges or vertices to pick.
+    [[nodiscard]] bool canEdit() const;
+    /// Takes `chosen` as the bar's choices and hands it to their owner.
+    void choose(const ViewportChoices& chosen);
     void drawViewChanges(ImDrawList& drawList, ImVec2 origin, ImVec2 size) const;
     [[nodiscard]] bool handleInput(ImVec2 size);
     [[nodiscard]] TransformView makeTransformView(ImVec2 origin, ImVec2 size) const;
@@ -245,7 +325,7 @@ private:
     std::vector<std::optional<z64::MappedImage>> mappedImages;
     u64 frameGeneration = 0;
     ImVec2 imageOrigin{};
-    std::vector<glm::vec3> pickables;
+    Pickables pickables;
     PickHandler pickHandler;
     /// Where a box being dragged to select began, on the screen.
     std::optional<ImVec2> boxStart;
@@ -253,6 +333,7 @@ private:
     /// drew back to the world.
     glm::mat4 frameViewProjection{1.0F};
     ViewportTransform viewportTransform;
+    ViewportHandles viewportHandles;
     std::vector<usize> selectedOwners;
     /// The boxes around what is selected, found once per frame drawn.
     std::optional<std::vector<std::optional<WorldBox>>> selectionBoxes;
@@ -260,6 +341,11 @@ private:
     /// picks nothing.
     bool isPressSwallowed = false;
     ViewportTools viewportTools;
+    std::string editMenuLabel;
+    std::function<void()> editMenu;
+    bool isEditMenuWanted = false;
+    std::vector<StripAction> stripActions;
+    bool isViewportHovered = false;
     bool stale = true;
     bool isOverlayStale = false;
     bool reported = false;

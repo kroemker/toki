@@ -1,4 +1,13 @@
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/CollisionGeometry.h"
+#include "app/scene/domain/HeaderSettings.h"
+#include "app/scene/domain/LightSettingEdits.h"
+#include "app/scene/domain/MeshDraft.h"
+#include "app/scene/domain/MeshRebuild.h"
+#include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
+#include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneModel.h"
 #include "app/scene/domain/SceneSave.h"
@@ -12,12 +21,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <expected>
 #include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -52,6 +63,57 @@ planUnchangedSave(const std::shared_ptr<const hackeroot::Workspace>& workspace,
                                                .model = toki::scene::SceneModel(scene)});
 }
 
+std::expected<void, base::Diagnostic> editCollision(toki::scene::SceneModel& model,
+                                                    const toki::scene::Scene& scene) {
+    using toki::scene::PolygonFlag;
+    const toki::scene::Collision& collision = *toki::scene::findLayerCollision(scene, 0);
+    const usize layer = scene.layers.front().index;
+    if (scene.layers.size() > 1 && scene.layers[1].collision == scene.layers[0].collision) {
+        if (std::expected<void, base::Diagnostic> owned =
+                toki::scene::makeOwnCollision(model, scene.layers[1].index);
+            !owned) {
+            return owned;
+        }
+    }
+    const std::array<usize, 1> first{0};
+    toki::scene::SurfaceFields fields =
+        toki::scene::readSurfaceFields(collision.surfaceTypes[collision.polygons[0].type]);
+    fields.material = static_cast<base::u8>((fields.material + 1) & 0x0F);
+    const std::expected<usize, base::Diagnostic> added =
+        toki::scene::addSurfaceType(model, layer, toki::scene::makeSurfaceType(fields));
+    if (!added) {
+        return std::unexpected(added.error());
+    }
+    if (std::expected<void, base::Diagnostic> set =
+            toki::scene::setPolygonSurfaceType(model, layer, first, static_cast<base::u16>(*added));
+        !set) {
+        return set;
+    }
+    if (std::expected<void, base::Diagnostic> flagged =
+            toki::scene::setPolygonFlag(model, layer, first, PolygonFlag::IgnoreCamera, true);
+        !flagged) {
+        return flagged;
+    }
+    const toki::scene::WaterBox box{.xMin = -50,
+                                    .ySurface = 20,
+                                    .zMin = -50,
+                                    .xLength = 100,
+                                    .zLength = 100,
+                                    .properties = toki::scene::makeWaterBoxProperties(
+                                        0, 0, toki::scene::WaterBoxAllRooms, false)};
+    if (const std::expected<usize, base::Diagnostic> water =
+            toki::scene::addWaterBox(model, layer, box);
+        !water) {
+        return std::unexpected(water.error());
+    }
+    if (const std::expected<usize, base::Diagnostic> removed =
+            toki::scene::removeUnusedSurfaceTypes(model, layer);
+        !removed) {
+        return std::unexpected(removed.error());
+    }
+    return {};
+}
+
 } // namespace
 
 TEST_CASE("a vanilla scene saved without an edit is copied out and reads back the same",
@@ -79,6 +141,15 @@ TEST_CASE("a vanilla scene saved without an edit is copied out and reads back th
         return edit.file.generic_string().starts_with("spec/");
     }));
     REQUIRE_FALSE(plan->copies.empty());
+    const auto collision = std::ranges::find_if(plan->files, [](const hackeroot::FileEdit& edit) {
+        return edit.file.filename() == "spot04_scene_col.c";
+    });
+    REQUIRE(collision != plan->files.end());
+    for (const std::string_view macro : {"COLPOLY_VTX(", "COLPOLY_SNORMAL(", "SURFACETYPE0(",
+                                         "WATERBOX_PROPERTIES(", "CAM_SET_"}) {
+        INFO(macro);
+        CHECK(collision->after.contains(macro));
+    }
 }
 
 TEST_CASE("every vanilla scene saved without an edit reads back the same",
@@ -149,4 +220,249 @@ TEST_CASE("a vanilla scene with its actors edited reads back as edited",
     REQUIRE(std::ranges::any_of(plan->warnings, [](const std::string& warning) {
         return warning.starts_with("Room 1 lists") && warning.contains("slots");
     }));
+}
+
+TEST_CASE("a vanilla scene with its header settings edited reads back as edited",
+          "[scene][save][checkout]") {
+    using toki::scene::HeaderSetting;
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("spot04"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(workspace);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    toki::scene::SceneModel model(scene);
+
+    REQUIRE(toki::scene::setHeaderSetting(model, {}, HeaderSetting::Sequence, 0x7F));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.layer = 2}, HeaderSetting::Skybox, 0));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.room = 0}, HeaderSetting::LensMode, 1));
+    REQUIRE(toki::scene::setHeaderSetting(model, {.room = 1}, HeaderSetting::WindStrength, 30));
+    REQUIRE(toki::scene::setRoomObjects(model, 2, 1, {}));
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+        workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                               .directory = scene.directory,
+                                               .files = scene.files,
+                                               .model = std::move(model)});
+
+    INFO((plan ? std::string() : plan.error()));
+    REQUIRE(plan.has_value());
+}
+
+TEST_CASE("a vanilla scene with its light settings and paths edited reads back as edited",
+          "[scene][save][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const auto& scenes = workspace->getAssets().scenes;
+    const auto asset =
+        std::ranges::find(scenes, std::string("spot04"), &hackeroot::AssetDirectory::name);
+    REQUIRE(asset != scenes.end());
+    hackeroot::AssetImageReader reader(workspace);
+    const toki::scene::Scene scene = toki::scene::readScene(reader, *asset);
+    REQUIRE(scene.layers.size() > 2);
+    REQUIRE_FALSE(scene.layers[2].header.paths.empty());
+    toki::scene::SceneModel model(scene);
+    toki::scene::LightSetting dusk = scene.layers[2].header.lightSettings.front();
+    dusk.fogNear = 900;
+    dusk.blendRate = 5;
+    std::vector<std::array<base::s16, 3>> points = scene.layers[2].header.paths.front().points;
+    points.push_back({0, 100, 0});
+
+    REQUIRE(toki::scene::setLightSetting(model, 2, 0, dusk));
+    REQUIRE(toki::scene::addLightSetting(model, 0, dusk));
+    REQUIRE(toki::scene::setPathPoints(model, 2, 0, points));
+    REQUIRE(toki::scene::addPath(model, 0, points));
+    REQUIRE(toki::scene::removePath(model, 0, 0));
+    const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+        workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                               .directory = scene.directory,
+                                               .files = scene.files,
+                                               .model = std::move(model)});
+
+    INFO((plan ? std::string() : plan.error()));
+    REQUIRE(plan.has_value());
+}
+
+TEST_CASE("every vanilla scene with its collision edited reads back as edited",
+          "[scene][save][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize saved = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        const toki::scene::Collision* collision = toki::scene::findLayerCollision(scene, 0);
+        if (collision == nullptr || collision->polygons.empty()) {
+            continue;
+        }
+        toki::scene::SceneModel model(scene);
+        if (const std::expected<void, base::Diagnostic> edited = editCollision(model, scene);
+            !edited) {
+            failures.push_back(asset.name + ": " + edited.error().message);
+            continue;
+        }
+        const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+            workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                                   .directory = scene.directory,
+                                                   .files = scene.files,
+                                                   .model = std::move(model)});
+        if (plan) {
+            ++saved;
+        } else {
+            failures.push_back(asset.name + ": " + plan.error().substr(0, 600));
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + "\n\n";
+    }
+    WARN(saved << " scenes with their collision edited read back, " << failures.size()
+               << " did not");
+    INFO(listed);
+    CHECK(saved > 0);
+    CHECK(failures.empty());
+}
+
+TEST_CASE("every vanilla scene with a face taken out of every room reads back as edited",
+          "[scene][save][mesh][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize saved = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        if (scene.layers.empty()) {
+            continue;
+        }
+        const toki::scene::SceneMesh mesh = toki::scene::readSceneMesh(scene, 0);
+        std::vector<toki::scene::RoomDraft> drafts;
+        for (const toki::scene::RoomMesh& room : mesh.rooms) {
+            if (!room.faces.empty()) {
+                drafts.push_back(toki::scene::makeRoomDraft(room));
+                drafts.back().faces.erase(drafts.back().faces.begin());
+            }
+        }
+        if (drafts.empty()) {
+            continue;
+        }
+        toki::scene::SceneModel model(scene);
+        const std::expected<toki::scene::MeshRebuild, base::Diagnostic> rebuild =
+            toki::scene::planMeshRebuild(scene, model, mesh, drafts);
+        if (!rebuild) {
+            failures.push_back(asset.name + ": " + rebuild.error().message);
+            continue;
+        }
+        if (const std::expected<void, base::Diagnostic> applied =
+                toki::scene::applyMeshRebuild(model, *rebuild);
+            !applied) {
+            failures.push_back(asset.name + ": " + applied.error().message);
+            continue;
+        }
+        const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+            workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                                   .directory = scene.directory,
+                                                   .files = scene.files,
+                                                   .model = std::move(model)});
+        if (plan) {
+            ++saved;
+        } else {
+            failures.push_back(asset.name + ": " + plan.error().substr(0, 600));
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + "\n\n";
+    }
+    WARN(saved << " scenes with every room rebuilt read back, " << failures.size() << " did not");
+    INFO(listed);
+    CHECK(saved > 0);
+    CHECK(failures.empty());
+}
+
+TEST_CASE("every vanilla scene with its collision made again without a polygon reads back so",
+          "[scene][save][collision][surface][checkout]") {
+    const std::shared_ptr<const hackeroot::Workspace> workspace = loadCheckout();
+    if (!workspace) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    std::vector<std::string> failures;
+    usize saved = 0;
+    for (const hackeroot::AssetDirectory& asset : workspace->getAssets().scenes) {
+        if (!asset.isExtracted) {
+            continue;
+        }
+        hackeroot::AssetImageReader reader(workspace);
+        const toki::scene::Scene scene = toki::scene::readScene(reader, asset);
+        const toki::scene::Collision* collision = toki::scene::findLayerCollision(scene, 0);
+        if (collision == nullptr || collision->polygons.empty()) {
+            continue;
+        }
+        const toki::scene::Collision same =
+            toki::scene::makeSurfaceCollision(*collision, toki::scene::listSurfacePolygons(*collision));
+        if (same.vertices != collision->vertices || same.polygons != collision->polygons) {
+            failures.push_back(asset.name + ": made again from itself, the collision differs");
+            continue;
+        }
+        std::vector<toki::scene::SurfacePolygon> polygons =
+            toki::scene::listSurfacePolygons(*collision);
+        const std::array<std::array<base::s16, 3>, 3> corners = polygons.front().corners;
+        polygons.erase(polygons.begin());
+        polygons.push_back(
+            {.corners = {corners[0], corners[1],
+                         {corners[2][0], static_cast<base::s16>(corners[2][1] + 40), corners[2][2]}},
+             .material = polygons.front().material});
+        const toki::scene::Collision made = toki::scene::makeSurfaceCollision(*collision, polygons);
+        toki::scene::SceneModel model(scene);
+        if (const std::expected<void, base::Diagnostic> set =
+                toki::scene::setCollisionGeometry(model, scene.layers[0].index, made);
+            !set) {
+            failures.push_back(asset.name + ": " + set.error().message);
+            continue;
+        }
+        toki::scene::Scene written = scene;
+        written.images = model.layOut();
+        toki::scene::readSceneLayers(written);
+        const toki::scene::Collision* read = toki::scene::findLayerCollision(written, 0);
+        if (read == nullptr || read->polygons != made.polygons ||
+            read->vertices != made.vertices) {
+            failures.push_back(asset.name + ": the written collision reads back otherwise");
+            continue;
+        }
+        const std::expected<hackeroot::EditPlan, std::string> plan = toki::scene::planSceneSave(
+            workspace, toki::scene::SceneSaveInput{.name = scene.name,
+                                                   .directory = scene.directory,
+                                                   .files = scene.files,
+                                                   .model = std::move(model)});
+        if (plan) {
+            ++saved;
+        } else {
+            failures.push_back(asset.name + ": " + plan.error().substr(0, 600));
+        }
+    }
+    std::string listed;
+    for (const std::string& failure : failures) {
+        listed += failure + "\n\n";
+    }
+    WARN(saved << " scenes with their collision made again read back, " << failures.size()
+               << " did not");
+    INFO(listed);
+    CHECK(saved > 0);
+    CHECK(failures.empty());
 }

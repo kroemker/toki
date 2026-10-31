@@ -1,0 +1,254 @@
+# What Toki calls the values of a collision surface type's settings.
+#
+# The decomp names most of these values only by number (FLOOR_TYPE_5), so the
+# names here are read from what the game's code does with each value. A value
+# with no entry is shown as its constant. Each entry is the value, the
+# constant the decomp gives it, the name shown, and what the game does with it.
+
+format = 1
+
+[[floor_type]]
+value = 0
+constant = "FLOOR_TYPE_0"
+name = "Default"
+tooltip = "Nothing special."
+
+[[floor_type]]
+value = 1
+constant = "FLOOR_TYPE_1"
+name = "Camera Passes"
+tooltip = "The camera takes the floor as not solid and looks for one below it."
+
+[[floor_type]]
+value = 2
+constant = "FLOOR_TYPE_2"
+name = "Burns"
+tooltip = "Hurts Link and sets fire at his feet; in the Goron Tunic, only every 120 frames."
+
+[[floor_type]]
+value = 3
+constant = "FLOOR_TYPE_3"
+name = "Burns Faster"
+tooltip = "Hurts Link and sets fire at his feet; in the Goron Tunic, only every 60 frames."
+
+[[floor_type]]
+value = 4
+constant = "FLOOR_TYPE_4"
+name = "Sand"
+tooltip = "Link sinks into it. Leevers come out of it."
+
+[[floor_type]]
+value = 5
+constant = "FLOOR_TYPE_5"
+name = "Slippery"
+tooltip = "Link keeps sliding as he turns, unless he wears the Iron Boots."
+
+[[floor_type]]
+value = 6
+constant = "FLOOR_TYPE_6"
+name = "No Fall Damage"
+tooltip = "Landing on it from any height does not hurt, and a sword swung into it does not bounce off."
+
+[[floor_type]]
+value = 7
+constant = "FLOOR_TYPE_7"
+name = "Quicksand"
+tooltip = "Link sinks into it, and cannot roll or jump with A on it. Epona does not cross it. Leevers come out of it."
+
+[[floor_type]]
+value = 8
+constant = "FLOOR_TYPE_8"
+name = "Jabu-Jabu Flesh"
+tooltip = "What hits it bleeds blue and makes Jabu-Jabu's wall sound."
+
+[[floor_type]]
+value = 9
+constant = "FLOOR_TYPE_9"
+name = "Lava"
+tooltip = "Hurts Link, and burns him outside the Goron Tunic as a hot room does. Landing on it does not hurt."
+
+[[floor_type]]
+value = 10
+constant = "FLOOR_TYPE_10"
+name = "Exit Standing"
+tooltip = "Taking an exit from it, Link does not keep walking into the next scene."
+
+[[floor_type]]
+value = 11
+constant = "FLOOR_TYPE_11"
+name = "Hole Exit"
+tooltip = "Taking an exit from it plays the sound of climbing out of a hole and stops the music."
+
+[[floor_property]]
+value = 0
+constant = "FLOOR_PROPERTY_0"
+name = "Default"
+tooltip = "Nothing special."
+
+[[floor_property]]
+value = 5
+constant = "FLOOR_PROPERTY_5"
+name = "Respawn"
+tooltip = "As the decomp's FUNC_80041EA4_RESPAWN names it."
+
+[[floor_property]]
+value = 6
+constant = "FLOOR_PROPERTY_6"
+name = "Mount Wall"
+tooltip = "As the decomp's FUNC_80041EA4_MOUNT_WALL names it."
+
+[[floor_property]]
+value = 8
+constant = "FLOOR_PROPERTY_8"
+name = "Stop"
+tooltip = "As the decomp's FUNC_80041EA4_STOP names it."
+
+[[floor_property]]
+value = 12
+constant = "FLOOR_PROPERTY_12"
+name = "Void Out"
+tooltip = "As the decomp's FUNC_80041EA4_VOID_OUT names it."
+
+[[wall_type]]
+value = 0
+constant = "WALL_TYPE_0"
+name = "Default"
+tooltip = "Nothing special."
+
+[[wall_type]]
+value = 5
+constant = "WALL_TYPE_5"
+name = "Crawlspace"
+tooltip = "Link crawls into it (WALL_FLAG_CRAWLSPACE_1)."
+
+[[wall_type]]
+value = 6
+constant = "WALL_TYPE_6"
+name = "Crawlspace 2"
+tooltip = "Link crawls into it (WALL_FLAG_CRAWLSPACE_2)."
+
+[[material]]
+value = 0
+constant = "SURFACE_MATERIAL_DIRT"
+name = "Dirt"
+tooltip = "Steps sound of dirt."
+
+[[material]]
+value = 1
+constant = "SURFACE_MATERIAL_SAND"
+name = "Sand"
+tooltip = "Steps sound of sand."
+
+[[material]]
+value = 2
+constant = "SURFACE_MATERIAL_STONE"
+name = "Stone"
+tooltip = "Steps sound of stone."
+
+[[material]]
+value = 3
+constant = "SURFACE_MATERIAL_JABU"
+name = "Jabu-Jabu"
+tooltip = "Steps sound of Jabu-Jabu's insides."
+
+[[material]]
+value = 4
+constant = "SURFACE_MATERIAL_WATER_SHALLOW"
+name = "Shallow Water"
+tooltip = "Steps splash in shallow water."
+
+[[material]]
+value = 5
+constant = "SURFACE_MATERIAL_WATER_DEEP"
+name = "Deep Water"
+tooltip = "Steps splash in deeper water."
+
+[[material]]
+value = 6
+constant = "SURFACE_MATERIAL_TALL_GRASS"
+name = "Tall Grass"
+tooltip = "Steps sound of tall grass."
+
+[[material]]
+value = 7
+constant = "SURFACE_MATERIAL_LAVA"
+name = "Lava"
+tooltip = "Steps sound of lava."
+
+[[material]]
+value = 8
+constant = "SURFACE_MATERIAL_GRASS"
+name = "Grass"
+tooltip = "Steps sound of grass."
+
+[[material]]
+value = 9
+constant = "SURFACE_MATERIAL_BRIDGE"
+name = "Bridge"
+tooltip = "Steps sound of wooden planks."
+
+[[material]]
+value = 10
+constant = "SURFACE_MATERIAL_WOOD"
+name = "Wood"
+tooltip = "Steps sound of wood."
+
+[[material]]
+value = 11
+constant = "SURFACE_MATERIAL_DIRT_SOFT"
+name = "Soft Dirt"
+tooltip = "Steps sound of dirt."
+
+[[material]]
+value = 12
+constant = "SURFACE_MATERIAL_ICE"
+name = "Ice"
+tooltip = "Steps sound of ice."
+
+[[material]]
+value = 13
+constant = "SURFACE_MATERIAL_CARPET"
+name = "Carpet"
+tooltip = "Steps sound of carpet."
+
+[[floor_effect]]
+value = 0
+constant = "FLOOR_EFFECT_0"
+name = "Default"
+tooltip = "Nothing special."
+
+[[floor_effect]]
+value = 1
+constant = "FLOOR_EFFECT_1"
+name = "Steep Slope"
+tooltip = "Link slides down it and is slowed climbing it, and cannot roll or jump with A on it."
+
+[[floor_effect]]
+value = 2
+constant = "FLOOR_EFFECT_2"
+name = "Exit Voids Out"
+tooltip = "Taking an exit from it voids Link out, to come back at the exit's entrance when he falls."
+
+[[conveyor_speed]]
+value = 0
+constant = "CONVEYOR_SPEED_DISABLED"
+name = "Off"
+tooltip = "Not a conveyor."
+
+[[conveyor_speed]]
+value = 1
+constant = "CONVEYOR_SPEED_SLOW"
+name = "Slow"
+tooltip = "Moves what stands on it slowly."
+
+[[conveyor_speed]]
+value = 2
+constant = "CONVEYOR_SPEED_MEDIUM"
+name = "Medium"
+tooltip = "Moves what stands on it at medium speed."
+
+[[conveyor_speed]]
+value = 3
+constant = "CONVEYOR_SPEED_FAST"
+name = "Fast"
+tooltip = "Moves what stands on it fast."

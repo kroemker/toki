@@ -38,6 +38,11 @@ struct LineStyle {
 [[nodiscard]] std::vector<gfx::OverlayLine> makeOutlines(const std::vector<ClipTriangle>& triangles,
                                                          const LineStyle& style);
 
+/// The edges of the faces `triangles` make: each edge once, leaving out one
+/// two triangles in the same plane share, as a quad's diagonal is.
+[[nodiscard]] std::vector<gfx::OverlayLine>
+makeFaceEdges(const std::vector<ClipTriangle>& triangles, const LineStyle& style);
+
 /// How the lines of a `ViewportOverlay` are drawn, in target pixels.
 struct ArrowStyle {
     f32 width = 2.0F;
@@ -54,6 +59,15 @@ struct ArrowStyle {
 [[nodiscard]] std::vector<gfx::OverlayLine> makeArrowLines(const ViewportOverlay& overlay,
                                                            const glm::mat4& viewProjection,
                                                            FrameSize size, const ArrowStyle& style);
+
+/// The faces, edges and points of `overlay` in the clip space
+/// `viewProjection` takes the world to, on a screen of `size` pixels, `scale`
+/// pixels to a point: a face as a triangle, left out when a corner is behind
+/// the camera; an edge as a line; and a point as a short line as wide as it
+/// is long, lying flat on the screen at the point's depth.
+[[nodiscard]] gfx::Overlay makeComponentOverlay(const ViewportOverlay& overlay,
+                                                const glm::mat4& viewProjection, FrameSize size,
+                                                f32 scale);
 
 /// A floor grid on the XZ plane, `GridCells` cells each way from the cell
 /// under `center`, each `GridSpacing` units, with the X axis red and the Z

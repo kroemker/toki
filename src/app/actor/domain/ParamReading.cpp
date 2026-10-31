@@ -39,7 +39,7 @@ std::string makeParamText(const ActorParam& param, const s64 value,
         collection != nullptr ? collection->values : param.values;
     const auto found = std::ranges::find(values, looked, &ChoiceValue::value);
     if (found != values.end()) {
-        return found->label;
+        return found->readableLabel.empty() ? found->label : found->readableLabel;
     }
     return collection != nullptr
                ? std::format("{} (not in {})", formatNumber(param, looked), collection->name)

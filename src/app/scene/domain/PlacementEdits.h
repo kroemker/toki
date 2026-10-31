@@ -26,9 +26,10 @@ enum class PlacementKind : u8 {
 /// for the layer is shown its main header, as the game falls back to it, and
 /// so is edited there.
 ///
-/// An edit changes the bytes of the list the header points at. A list another
-/// header points at too is copied for this header first, so an edit of one
-/// layer never shows in another that shared its list.
+/// An edit changes the bytes of the list the header points at. A header or a
+/// list another layer reads too is copied for this layer first, so an edit of
+/// one layer never shows in another that shared it. A header with no list of
+/// the kind is given one when a placement is added.
 struct PlacementList {
     PlacementKind kind = PlacementKind::Actor;
     usize layer = 0;
@@ -48,7 +49,6 @@ setTransitionActor(SceneModel& model, usize layer, usize index,
                    const TransitionActorPlacement& placement);
 
 /// Adds `placement` to the end of a room's actor list, and returns its index.
-/// A header with no actor list cannot be added to yet.
 [[nodiscard]] std::expected<usize, base::Diagnostic>
 addPlacement(SceneModel& model, const PlacementList& list, const ActorPlacement& placement);
 
@@ -60,6 +60,11 @@ addTransitionActor(SceneModel& model, usize layer, const TransitionActorPlacemen
 /// `layer`, the game's scene layer, as for its actors.
 [[nodiscard]] std::expected<void, base::Diagnostic>
 addRoomObjects(SceneModel& model, usize layer, usize room, std::span<const s16> objects);
+
+/// Makes `objects`, by ID and in order, the object list of `room`'s header for
+/// `layer`. No objects remove the list from the header.
+[[nodiscard]] std::expected<void, base::Diagnostic>
+setRoomObjects(SceneModel& model, usize layer, usize room, std::span<const s16> objects);
 
 /// Removes the placement at `index`. Removing the last one removes the list's
 /// command from the header, and the list itself once nothing points at it.

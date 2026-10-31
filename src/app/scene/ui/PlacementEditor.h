@@ -8,15 +8,24 @@
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/ui/ActorForm.h"
+#include "app/scene/ui/CollisionForm.h"
+#include "app/scene/ui/HeaderForm.h"
+#include "app/scene/ui/LightSettingForm.h"
 #include "app/scene/ui/ParamsForm.h"
+#include "app/scene/ui/PathForm.h"
+#include "app/scene/ui/WaterBoxForm.h"
 #include "app/viewport/ui/ViewportTransform.h"
 #include "app/workspace/domain/WorkspaceService.h"
 
+#include <glm/ext/vector_float3.hpp>
+
 #include <array>
+#include <expected>
 #include <functional>
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -25,8 +34,10 @@ namespace toki::scene {
 struct Scene;
 
 /// Edits the placements of the open scene: the one selected in a form, and
-/// adding, copying and removing them from the scene panel's menus. Every edit
-/// goes through a `SceneEditor`, and what it changed is handed on to be shown.
+/// adding, copying and removing them from the scene panel's menus, and what
+/// else is selected in its own form: a header, a light setting or a path.
+/// Every edit goes through a `SceneEditor`, and what it changed is handed on
+/// to be shown.
 class PlacementEditor {
 public:
     /// Shows an edited scene; `hasNewActors` when it places an actor whose
@@ -45,7 +56,12 @@ public:
     /// Shows rotations as `format`; `changed` is told when the form's own
     /// button switches it.
     void setNameFinder(ActorForm::FindName finder) {
+        paramsForm.setNameFinder(finder);
         actorForm.setNameFinder(std::move(finder));
+    }
+
+    void setCollisionNames(const CollisionNames* names) {
+        collisionForm.setNames(names);
     }
 
     void setAngleFormat(core::AngleFormat format, std::function<void(core::AngleFormat)> changed) {
@@ -60,6 +76,11 @@ public:
 
     void select(const PlacementRef& where) {
         selection.select(where);
+        draft.reset();
+    }
+
+    void clearSelection() {
+        selection.clear();
         draft.reset();
     }
 
@@ -88,6 +109,23 @@ public:
     /// what `scene` holds; nothing otherwise.
     [[nodiscard]] std::optional<Draft> findChangedDraft(const Scene& scene) const;
 
+    /// What the Properties panel holds while it is edited, each draft while
+    /// it differs from what the scene holds, for the viewport to show before
+    /// the edit is made.
+    struct Preview {
+        std::optional<Draft> placement;
+        std::optional<LightSettingForm::Draft> lightSetting;
+        std::optional<PathForm::Draft> path;
+
+        [[nodiscard]] bool isEmpty() const {
+            return !placement && !lightSetting && !path;
+        }
+
+        friend bool operator==(const Preview&, const Preview&) = default;
+    };
+
+    [[nodiscard]] Preview findPreview(const Scene& scene) const;
+
     [[nodiscard]] const SceneSelection& getSelection() const {
         return selection;
     }
@@ -97,7 +135,8 @@ public:
     void refresh(const Scene& scene);
 
     /// Draws the selected placement's properties: the actor as stored, its
-    /// params as the actor database names them, and the object it needs.
+    /// params as the actor database names them, and the object it needs. The
+    /// scene or a room selected shows its header's settings instead.
     void drawInspector(Scene& scene);
 
     /// The items of a placement's context menu that edit it. What is picked is
@@ -110,18 +149,59 @@ public:
     /// Makes the edit picked from a menu this frame, if one was.
     void applyPicked(Scene& scene);
 
-    /// The selected placements as the viewport transforms them, and which
-    /// they are, in the order of the target's points.
+    /// The selected placements and path points as the viewport transforms
+    /// them, and which they are, in the order of the target's points.
     struct SelectionTransform {
         viewport::TransformTarget target;
-        std::vector<PlacementRef> placements;
+        std::vector<SceneNode> nodes;
     };
 
     [[nodiscard]] std::optional<SelectionTransform> makeTransformTarget(const Scene& scene) const;
 
-    /// Moves and turns `placements` as a confirmed transform says, by
-    /// `applyPicked`, as one step.
-    void applyTransform(std::vector<PlacementRef> placements, const viewport::TransformEdit& edit);
+    /// Moves and turns `nodes` as a confirmed transform says, by
+    /// `applyPicked`, as one step. A path point is moved, never turned.
+    void applyTransform(std::vector<SceneNode> nodes, const viewport::TransformEdit& edit);
+
+    /// Duplicates the placements selected, as Shift+D does: the copies are
+    /// selected, to be moved with the mouse at once.
+    void pickDuplicateSelected();
+
+    /// Deletes the placements selected, as the Delete key does.
+    void pickDeleteSelected();
+
+    /// Keeps the placements selected to be pasted, in this scene or another.
+    void copySelected(const Scene& scene);
+
+    /// Adds what was copied to the layer numbered `layer`, where it stood:
+    /// an actor in its room, or the first when the layer has no such room.
+    void pickPaste(usize layer);
+
+    /// Whether the copies a duplicate made are to be moved with the mouse,
+    /// asked once.
+    [[nodiscard]] bool takeMoveWanted() {
+        return std::exchange(isMoveWanted, false);
+    }
+
+    /// Makes `edit` by `applyPicked`, as one step.
+    void pickSceneEdit(SceneEditor::ModelEdit edit) {
+        pickModelEdit(std::move(edit), std::nullopt);
+    }
+
+    [[nodiscard]] LightSettingForm& getLightSettingForm() {
+        return lightSettingForm;
+    }
+
+    [[nodiscard]] PathForm& getPathForm() {
+        return pathForm;
+    }
+
+    [[nodiscard]] CollisionForm& getCollisionForm() {
+        return collisionForm;
+    }
+
+    [[nodiscard]] WaterBoxForm& getWaterBoxForm() {
+        return waterBoxForm;
+    }
 
     /// Why the last edit was not made, or empty.
     [[nodiscard]] const std::string& getFailure() const {
@@ -147,16 +227,26 @@ public:
         return sceneEditor.findModel();
     }
 
+    void setSaving(const bool saving) {
+        sceneEditor.setSaving(saving);
+    }
+
     /// Forgets the edits, once they were saved or thrown away.
     void reset() {
         sceneEditor.reset();
-        draft.reset();
+        resetDrafts();
         failure.clear();
     }
 
 private:
     bool apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
                bool joinsLast = false);
+    bool applyToModel(Scene& scene, const SceneEditor::ModelEdit& edit);
+    /// Makes `edit` by `applyPicked`, and selects `select` when it was made.
+    void pickModelEdit(SceneEditor::ModelEdit edit, std::optional<SceneNode> select);
+    void resetDrafts();
+    /// Takes what an edit did: shows the scene, or keeps why it failed.
+    bool showApplied(Scene& scene, const std::expected<void, base::Diagnostic>& applied);
     void showChanged(Scene& scene);
     void addObjectFor(Scene& scene, const PlacementRef& where, s16 actorId);
     void addObject(Scene& scene, const PlacementRef& where, const std::string& object,
@@ -166,14 +256,13 @@ private:
     /// What a menu or button opened on `where` acts on: the selection when
     /// `where` is in it, or else only `where`.
     [[nodiscard]] std::vector<PlacementRef> listActedOn(const PlacementRef& where) const;
-    void pickDuplicate(std::vector<PlacementRef> placements);
+    void pickDuplicate(std::vector<PlacementRef> placements, bool movesCopies = false);
     void pickDelete(std::vector<PlacementRef> placements);
     void drawHeader(const PlacementRef& where, s16 actorId, const actor::ActorEntry* entry) const;
     [[nodiscard]] bool drawParams(const Scene& scene, const PlacementRef& where,
                                   const actor::ActorEntry* entry, s16 actorId);
     void drawObject(const Scene& scene, const PlacementRef& where, const actor::ActorEntry& entry);
     void drawActions(const PlacementRef& where);
-    void drawRoom(const Scene& scene, const RoomRef& where);
     void commitDraft(Scene& scene, const PlacementRef& where);
     [[nodiscard]] s16 findDefaultActor() const;
 
@@ -182,11 +271,25 @@ private:
     Show show;
     ActorForm actorForm;
     ParamsForm paramsForm;
+    HeaderForm headerForm;
+    LightSettingForm lightSettingForm;
+    PathForm pathForm;
+    CollisionForm collisionForm;
+    WaterBoxForm waterBoxForm;
     std::function<void(const std::string&)> openActorEditor;
     std::function<std::optional<std::string>(s16)> findActorObject;
     SceneEditor sceneEditor;
     SceneSelection selection;
     std::optional<Placement> draft;
+
+    /// A placement copied, and where it stood.
+    struct Copied {
+        PlacementRef where;
+        Placement placement;
+    };
+
+    std::vector<Copied> copied;
+    bool isMoveWanted = false;
     std::string failure;
     std::function<void(Scene&)> picked;
 };

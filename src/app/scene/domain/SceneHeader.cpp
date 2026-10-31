@@ -27,27 +27,13 @@ constexpr usize TransitionActorEntrySize = 0x10;
 constexpr usize PointerSize = 4;
 constexpr usize ObjectIdSize = 2;
 constexpr usize UnsizedAlternateHeaders = 3;
+constexpr usize PathSize = 0x08;
+constexpr usize PathPointSize = 6;
+constexpr usize ExitSize = 2;
 constexpr u16 FogNearMask = 0x03FF;
+constexpr u16 BlendRateShift = 10;
 
-enum class CommandCode : u8 {
-    PlayerEntryList = 0x00,
-    ActorList = 0x01,
-    RoomList = 0x04,
-    SpecialFiles = 0x07,
-    ObjectList = 0x0B,
-    RoomShape = 0x0A,
-    TransitionActorList = 0x0E,
-    LightSettingsList = 0x0F,
-    SkyboxSettings = 0x11,
-    End = 0x14,
-    AlternateHeaderList = 0x18,
-};
-
-struct Command {
-    u8 code = 0;
-    u8 data1 = 0;
-    u32 data2 = 0;
-};
+using Command = HeaderCommand;
 
 [[nodiscard]] bool isCode(const Command& command, const CommandCode code) {
     return command.code == static_cast<u8>(code);
@@ -83,6 +69,10 @@ public:
     [[nodiscard]] std::vector<s16> readObjects(const Command& command);
 
     [[nodiscard]] std::vector<LightSetting> readLightSettings(const Command& command);
+
+    [[nodiscard]] std::vector<ScenePath> readPaths(const Command& command);
+
+    [[nodiscard]] std::vector<u16> readExits(const Command& command);
 
     [[nodiscard]] RoomHeader readRoomShape(u32 address);
 
@@ -225,10 +215,65 @@ std::vector<LightSetting> HeaderReader::readLightSettings(const Command& command
             .light2Color = readColor(entry, 0x0C),
             .fogColor = readColor(entry, 0x0F),
             .fogNear = static_cast<s16>(n64::readU16(entry, 0x12) & FogNearMask),
+            .blendRate = static_cast<u8>(n64::readU16(entry, 0x12) >> BlendRateShift),
             .zFar = n64::readS16(entry, 0x14),
         });
     }
     return settings;
+}
+
+std::vector<ScenePath> HeaderReader::readPaths(const Command& command) {
+    std::vector<ScenePath> paths;
+    const std::optional<z64::ImageSymbol> list = image.findSymbolAt(command.data2);
+    if (!list) {
+        diagnostics.push_back(base::makeWarning(
+            {}, std::format("the path list at 0x{:08X} is no symbol, so how many paths it holds "
+                            "is not known",
+                            command.data2)));
+        return paths;
+    }
+    const usize count = list->size / PathSize;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, count, PathSize, "path list");
+    if (!bytes) {
+        return paths;
+    }
+    for (usize i = 0; i < count; ++i) {
+        const std::span<const u8> entry = bytes->subspan(i * PathSize, PathSize);
+        const usize points = entry[0];
+        ScenePath& path = paths.emplace_back();
+        const std::optional<std::span<const u8>> pointBytes =
+            findArray(n64::readU32(entry, 4), points, PathPointSize, "path's points");
+        if (!pointBytes) {
+            continue;
+        }
+        for (usize point = 0; point < points; ++point) {
+            path.points.push_back(readVector(*pointBytes, point * PathPointSize));
+        }
+    }
+    return paths;
+}
+
+std::vector<u16> HeaderReader::readExits(const Command& command) {
+    std::vector<u16> exits;
+    const std::optional<z64::ImageSymbol> list = image.findSymbolAt(command.data2);
+    if (!list) {
+        diagnostics.push_back(base::makeWarning(
+            {}, std::format("the exit list at 0x{:08X} is no symbol, so how many exits it holds "
+                            "is not known",
+                            command.data2)));
+        return exits;
+    }
+    const usize count = list->size / ExitSize;
+    const std::optional<std::span<const u8>> bytes =
+        findArray(command.data2, count, ExitSize, "exit list");
+    if (!bytes) {
+        return exits;
+    }
+    for (usize i = 0; i < count; ++i) {
+        exits.push_back(n64::readU16(*bytes, i * ExitSize));
+    }
+    return exits;
 }
 
 std::vector<RoomDisplayLists> HeaderReader::readEntries(const u32 address, const usize count,
@@ -285,8 +330,8 @@ RoomHeader HeaderReader::readRoomShape(const u32 address) {
 
 SceneHeader readSceneHeader(const z64::MemoryImage& image, const u32 address) {
     HeaderReader reader(image);
-    SceneHeader scene;
-    for (const Command& command : reader.readCommands(address)) {
+    SceneHeader scene{.address = address, .commands = reader.readCommands(address)};
+    for (const Command& command : scene.commands) {
         if (isCode(command, CommandCode::RoomList)) {
             scene.roomCount = command.data1;
         } else if (isCode(command, CommandCode::PlayerEntryList)) {
@@ -297,6 +342,12 @@ SceneHeader readSceneHeader(const z64::MemoryImage& image, const u32 address) {
             scene.alternateHeaders = reader.readAlternateHeaders(command);
         } else if (isCode(command, CommandCode::LightSettingsList)) {
             scene.lightSettings = reader.readLightSettings(command);
+        } else if (isCode(command, CommandCode::PathList)) {
+            scene.paths = reader.readPaths(command);
+        } else if (isCode(command, CommandCode::CollisionHeader)) {
+            scene.collisionHeader = command.data2;
+        } else if (isCode(command, CommandCode::ExitList)) {
+            scene.exits = reader.readExits(command);
         } else if (isCode(command, CommandCode::SpecialFiles)) {
             scene.keepObjectId = static_cast<s16>(command.data2 & 0xFFFF);
         } else if (isCode(command, CommandCode::SkyboxSettings)) {
@@ -316,7 +367,8 @@ RoomHeader readRoomHeader(const z64::MemoryImage& image, const u32 address) {
     std::vector<ActorPlacement> actors;
     std::vector<s16> objects;
     std::vector<u32> alternateHeaders;
-    for (const Command& command : reader.readCommands(address)) {
+    std::vector<Command> commands = reader.readCommands(address);
+    for (const Command& command : commands) {
         if (isCode(command, CommandCode::RoomShape)) {
             room = reader.readRoomShape(command.data2);
             hasShape = true;
@@ -328,6 +380,8 @@ RoomHeader readRoomHeader(const z64::MemoryImage& image, const u32 address) {
             alternateHeaders = reader.readAlternateHeaders(command);
         }
     }
+    room.address = address;
+    room.commands = std::move(commands);
     room.actors = std::move(actors);
     room.objects = std::move(objects);
     room.alternateHeaders = std::move(alternateHeaders);

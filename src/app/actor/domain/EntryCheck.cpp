@@ -79,6 +79,12 @@ void EntryChecker::checkParam(const ActorParam& param) {
     if (param.sceneFlag && param.kind != ParamKind::Number) {
         report(param.location, path, "only a number is a scene flag");
     }
+    if (param.isPath && param.kind != ParamKind::Number) {
+        report(param.location, path, "only a number is a path");
+    }
+    if (param.isPath && param.sceneFlag) {
+        report(param.location, path, "a number is a scene flag or a path, not both");
+    }
     const s64 lowest = param.isSigned ? -(s64{1} << (width - 1)) : 0;
     const s64 highest = param.isSigned ? (s64{1} << (width - 1)) - 1 : (s64{1} << width) - 1;
     std::set<s64> seen;

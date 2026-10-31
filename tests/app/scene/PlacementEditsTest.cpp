@@ -139,7 +139,21 @@ TEST_CASE("the last actor removed takes its command, and the list once nothing p
 
     REQUIRE(model.findSymbol("actors") == nullptr);
     REQUIRE(model.findSymbol("room")->bytes.size() == 16);
-    REQUIRE_FALSE(toki::scene::addPlacement(model, main, Moved));
+}
+
+TEST_CASE("an actor added to a header with no actor list is given a list of its own",
+          "[scene][edit]") {
+    toki::scene::SceneModel model(makeScene(1));
+    const toki::scene::PlacementList main{.kind = toki::scene::PlacementKind::Actor};
+    REQUIRE(toki::scene::removePlacement(model, main, 0));
+
+    REQUIRE(toki::scene::addPlacement(model, main, Moved) == usize{0});
+
+    const toki::scene::RoomHeader room = readRoom(model, "room");
+    REQUIRE(room.actors.size() == 1);
+    REQUIRE(room.actors[0].id == 0x22);
+    REQUIRE(model.findSymbol("room_header00_actorList") != nullptr);
+    REQUIRE(readRoom(model, "roomAlt").actors.size() == 1);
 }
 
 TEST_CASE("a transition actor set keeps the cameras of its sides", "[scene][edit]") {
@@ -154,6 +168,22 @@ TEST_CASE("a transition actor set keeps the cameras of its sides", "[scene][edit
 
     const std::vector<u8>& bytes = model.findSymbol("doors")->bytes;
     REQUIRE(bytes == std::vector<u8>{2, 5, 3, 6, 0, 0x2E, 0, 4, 0, 5, 0, 6, 0x80, 0, 1, 2});
+}
+
+TEST_CASE("placements are set together, each in its own list", "[scene][edit]") {
+    toki::scene::SceneModel model(makeScene());
+    const std::vector<toki::scene::PlacementChange> changes{
+        {.list = {.kind = toki::scene::PlacementKind::Actor, .layer = 1},
+         .index = 1,
+         .placement = Moved},
+        {.list = {.kind = toki::scene::PlacementKind::TransitionActor},
+         .placement = toki::scene::TransitionActorPlacement{.id = 0x2E, .params = 0x0102}}};
+
+    REQUIRE(toki::scene::setPlacements(model, changes));
+
+    REQUIRE(readRoom(model, "room").actors[1] != Moved);
+    REQUIRE(readRoom(model, "roomAlt").actors[1] == Moved);
+    REQUIRE(model.findSymbol("doors")->bytes[5] == 0x2E);
 }
 
 TEST_CASE("a player entry is set but not removed", "[scene][edit]") {
@@ -218,6 +248,28 @@ TEST_CASE("an edit is undone and redone as a step, and undoing every step leaves
     REQUIRE(scene.layers.front().rooms.front().actors.size() == 3);
     REQUIRE(editor.isEdited());
     REQUIRE_FALSE(editor.redo(scene));
+}
+
+TEST_CASE("while a save is written, no edit, undo or redo is made", "[scene][edit]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::readSceneLayers(scene);
+    toki::scene::SceneEditor editor;
+    const toki::scene::PlacementRef first{.kind = toki::scene::PlacementKind::Actor};
+    const auto set = [](toki::scene::SceneModel& model, const toki::scene::PlacementList& list) {
+        return toki::scene::setPlacement(model, list, 0, Moved);
+    };
+    REQUIRE(editor.apply(scene, first, set));
+    const auto images = scene.images;
+
+    editor.setSaving(true);
+    REQUIRE_FALSE(editor.canUndo());
+    REQUIRE_FALSE(editor.undo(scene));
+    REQUIRE_FALSE(editor.apply(scene, first, set));
+    REQUIRE(scene.images == images);
+
+    editor.setSaving(false);
+    REQUIRE(editor.undo(scene));
+    REQUIRE(editor.redo(scene));
 }
 
 TEST_CASE("objects are added to the end of a room's object list", "[scene][edit]") {

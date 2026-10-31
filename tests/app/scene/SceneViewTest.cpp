@@ -2,9 +2,12 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/scene/domain/ActorMarkers.h"
+#include "app/scene/domain/Collision.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
 #include "app/viewport/domain/OrbitCamera.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 #include "base/Types.h"
 #include "n64/DisplayListWriter.h"
@@ -174,8 +177,13 @@ TEST_CASE("a session opens the scene again on the same layer of the game", "[sce
     view.lightSetting = 0;
     view.hiddenRooms[0] = true;
     view.showsActors = false;
+    view.showsPaths = false;
+    view.showsCollision = true;
+    view.showsWaterBoxes = false;
+    view.collisionColoring = toki::scene::CollisionColoring::SurfaceType;
 
     const toki::core::SceneSession session = toki::scene::makeSceneSession(scene, view);
+    REQUIRE(session.collisionColoring == "surface_type");
     REQUIRE(session.layer == 1);
     REQUIRE(session.hiddenRooms == std::vector<usize>{0});
 
@@ -184,6 +192,10 @@ TEST_CASE("a session opens the scene again on the same layer of the game", "[sce
     REQUIRE(restored.lightSetting == 0);
     REQUIRE(restored.hiddenRooms == std::vector<bool>{true, false});
     REQUIRE_FALSE(restored.showsActors);
+    REQUIRE_FALSE(restored.showsPaths);
+    REQUIRE(restored.showsCollision);
+    REQUIRE_FALSE(restored.showsWaterBoxes);
+    REQUIRE(restored.collisionColoring == toki::scene::CollisionColoring::SurfaceType);
 }
 
 TEST_CASE("a session's layer the scene no longer has opens the main one", "[scene][view]") {
@@ -221,4 +233,112 @@ TEST_CASE("segments a scene's draw config fills as it runs neither move a room n
             REQUIRE(got->vertices[corner].position == want->vertices[corner].position);
         }
     }
+}
+
+TEST_CASE("a layer's collision is drawn over the rooms shown, or alone with every room hidden, "
+          "every polygon edged",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.vertices = {{0, 0, 0}, {0, 0, 100}, {100, 0, 0}, {0, 100, 0}};
+    collision.polygons = {{.vertexData = {0, 1, 2}, .normal = {0, 0x7FFF, 0}},
+                          {.vertexData = {0, 3, 1}, .normal = {0x7FFF, 0, 0}},
+                          {.vertexData = {0, 9, 1}, .normal = {0x7FFF, 0, 0}}};
+    collision.surfaceTypes.resize(1);
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+
+    const toki::viewport::ViewportContent off =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::none_of(off.draws, &toki::viewport::ViewportDraw::isEdged));
+
+    view.showsCollision = true;
+    const toki::viewport::ViewportContent over =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::count_if(over.draws, &toki::viewport::ViewportDraw::isEdged) == 2);
+    REQUIRE(over.draws.back().isEdged);
+    REQUIRE(over.labels.back().name == "Collision");
+    const toki::viewport::Frame overFrame = runScene(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(overFrame.diagnostics.empty());
+    REQUIRE(countTriangles(overFrame.rspResult) == 4);
+
+    std::ranges::fill(view.hiddenRooms, true);
+    const toki::viewport::Frame only = runScene(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(only.diagnostics.empty());
+    REQUIRE(countTriangles(only.rspResult) == 2);
+}
+
+TEST_CASE("waterboxes are shown without the collision, whichever rooms are hidden",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.minBounds = {0, -100, 0};
+    const auto makeBox = [](const u32 room) {
+        return toki::scene::WaterBox{.xMin = 0,
+                                     .ySurface = 0,
+                                     .zMin = 0,
+                                     .xLength = 100,
+                                     .zLength = 100,
+                                     .properties = room << 13};
+    };
+    collision.waterBoxes = {makeBox(0), makeBox(1), makeBox(toki::scene::WaterBoxAllRooms)};
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+
+    const toki::viewport::ViewportContent all =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::count_if(all.draws, &toki::viewport::ViewportDraw::isEdged) == 3);
+    REQUIRE(runScene(scene, view, toki::core::MarkerShape::Cube).diagnostics.empty());
+
+    std::ranges::fill(view.hiddenRooms, true);
+    const toki::viewport::ViewportContent hidden =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::count_if(hidden.draws, &toki::viewport::ViewportDraw::isEdged) == 3);
+}
+
+TEST_CASE("while collision is shown, the rooms and waterboxes own their draws, and the polygons "
+          "none",
+          "[scene][view][collision]") {
+    toki::scene::Scene scene = makeScene();
+    toki::scene::Collision collision;
+    collision.vertices = {{0, 0, 0}, {0, 0, 100}, {100, 0, 0}};
+    collision.polygons = {{.type = 1, .vertexData = {0, 1, 2}, .normal = {0, 0x7FFF, 0}}};
+    collision.surfaceTypes.resize(2);
+    collision.waterBoxes = {
+        {.xLength = 100, .zLength = 100, .properties = u32{toki::scene::WaterBoxAllRooms} << 13}};
+    scene.collisions.push_back(collision);
+    scene.layers[0].collision = 0;
+    toki::scene::SceneView view = toki::scene::makeSceneView(scene);
+    view.showsActors = false;
+    view.showsCollision = true;
+
+    const toki::viewport::ViewportContent content =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::none_of(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+        return draw.isEdged && draw.owner &&
+               !std::holds_alternative<toki::scene::WaterBoxRef>(
+                   *toki::scene::findNode(*draw.owner));
+    }));
+    REQUIRE(std::ranges::any_of(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+        return draw.owner &&
+               std::holds_alternative<toki::scene::RoomRef>(*toki::scene::findNode(*draw.owner));
+    }));
+    REQUIRE(std::ranges::count_if(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+                return draw.owner && std::holds_alternative<toki::scene::WaterBoxRef>(
+                                         *toki::scene::findNode(*draw.owner));
+            }) == 1);
+
+    view.showsCollision = false;
+    view.showsWaterBoxes = false;
+    const toki::viewport::ViewportContent hidden =
+        toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
+    REQUIRE(std::ranges::none_of(hidden.draws, &toki::viewport::ViewportDraw::isEdged));
+    REQUIRE(std::ranges::any_of(hidden.draws, [](const toki::viewport::ViewportDraw& draw) {
+        return draw.owner &&
+               std::holds_alternative<toki::scene::RoomRef>(*toki::scene::findNode(*draw.owner));
+    }));
 }

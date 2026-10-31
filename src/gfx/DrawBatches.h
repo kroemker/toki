@@ -24,7 +24,9 @@ static_assert(sizeof(GpuVertex) == 28, "GpuVertex must match the pipeline's vert
 enum class DepthCompare : u8 {
     Always,
     Less,
-    LessOrEqual,
+    /// Less or equal, the triangle pulled towards the camera by its depth slope,
+    /// as the RDP passes a decal within its per-pixel depth delta of the surface.
+    Decal,
 };
 
 /// Everything about a draw that SDL bakes into a pipeline.

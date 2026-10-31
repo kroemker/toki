@@ -3,6 +3,7 @@
 #include "DisplayListBuilder.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
+#include "n64/FixedMatrix.h"
 #include "n64/Memory.h"
 #include "n64/RspResult.h"
 
@@ -33,10 +34,12 @@ constexpr u32 Load = 0x02;
 constexpr u32 Push = 0x01;
 
 n64::RspResult runDisplayList(const DisplayListBuilder& builder, const u32 start,
-                              const n64::RspOverrides& overrides = {}) {
+                              const n64::RspOverrides& overrides = {},
+                              const bool recordsSources = false) {
     n64::Memory memory;
     REQUIRE(memory.map(SegmentBase, builder.getBytes()));
-    n64::RspTask task{.displayList = start, .overrides = overrides};
+    n64::RspTask task{
+        .displayList = start, .recordsSources = recordsSources, .overrides = overrides};
     task.segments[DisplayListBuilder::Segment] = SegmentBase;
     return n64::runTask(memory, task);
 }
@@ -289,6 +292,30 @@ TEST_CASE("no triangle is culled when culling is overridden", "[n64][rsp]") {
 
     REQUIRE(findTriangles(result).size() == 2);
     REQUIRE(result.statistics.culled == 0);
+}
+
+TEST_CASE("a task records where each vertex came from and its modelview", "[n64][rsp]") {
+    DisplayListBuilder builder;
+    const u32 translate = builder.addMatrix(makeTransform(One, {5 * One, 0, 0}));
+    const u32 vertices = addTriangleVertices(builder);
+    const u32 start = builder.loadVertices(vertices, 3, 0);
+    builder.applyMatrix(translate, Load);
+    builder.loadVertices(vertices + 16, 2, 3);
+    builder.setGeometryMode(0, Lighting);
+    builder.drawTriangle(2, 3, 4);
+    builder.endDisplayList();
+
+    const n64::RspResult result = runDisplayList(builder, start, {}, true);
+
+    const std::vector<n64::Triangle> triangles = findTriangles(result);
+    REQUIRE(triangles.size() == 1);
+    const u32 physical = SegmentBase + (vertices & 0x00FF'FFFF);
+    REQUIRE(triangles[0].sources[0] == n64::VertexSource{.address = physical + 32, .modelview = 0});
+    REQUIRE(triangles[0].sources[1] == n64::VertexSource{.address = physical + 16, .modelview = 1});
+    REQUIRE(triangles[0].sources[2] == n64::VertexSource{.address = physical + 32, .modelview = 1});
+    REQUIRE(triangles[0].lit);
+    REQUIRE(result.modelviews.size() == 2);
+    REQUIRE(result.modelviews[0] == n64::makeIdentityMatrix());
 }
 
 TEST_CASE("fog replaces alpha by depth", "[n64][rsp]") {

@@ -6,6 +6,35 @@ target_sources(toki_core PRIVATE
         ActorObjects.cpp
         ActorMarkers.cpp
         BinaryAngle.cpp
+        Collision.cpp
+        CollisionEdits.cpp
+        CollisionGeometry.cpp
+        CollisionMaterials.cpp
+        CollisionDrawing.cpp
+        CollisionNames.cpp
+        CollisionWriters.cpp
+        ComponentSelection.cpp
+        ComponentSummary.cpp
+        EditMesh.cpp
+        GeometryChanges.cpp
+        HeaderNames.cpp
+        HeaderSettings.cpp
+        HeaderSymbols.cpp
+        LightSettingEdits.cpp
+        ListEditor.cpp
+        MaterialBindings.cpp
+        MaterialBindingsFile.cpp
+        MaterialEdits.cpp
+        MaterialTracker.cpp
+        MeshDraft.cpp
+        MeshEdits.cpp
+        MeshFill.cpp
+        MeshOperations.cpp
+        MeshRebuild.cpp
+        MeshShapes.cpp
+        PathEdits.cpp
+        PathUsers.cpp
+        RoomMesh.cpp
         RuntimeSegments.cpp
         Scene.cpp
         SceneCommandWriter.cpp
@@ -16,10 +45,17 @@ target_sources(toki_core PRIVATE
         SceneHeader.cpp
         SceneLayout.cpp
         SceneLoader.cpp
+        SceneMaterials.cpp
         SceneSourceScan.cpp
+        SceneSurface.cpp
+        SurfaceEdits.cpp
+        SurfaceOperations.cpp
         PlacementEdits.cpp
         SceneModel.cpp
         PlacementTransform.cpp
         SceneSave.cpp
         SceneSelection.cpp
+        NodeBounds.cpp
+        SurfaceRules.cpp
+        WaterBoxShape.cpp
         SceneView.cpp)

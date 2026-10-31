@@ -2,6 +2,8 @@
 
 #include "app/actor/domain/CollectionCatalog.h"
 #include "app/actor/domain/ValueCollection.h"
+#include "app/core/domain/ReadableName.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
@@ -197,14 +199,18 @@ void RegisterSceneDialog::drawRegistration() {
 
 bool RegisterSceneDialog::drawNames(const char* comboId, std::string& value,
                                     const std::span<const std::string_view> names) {
-    if (!ImGui::BeginCombo(comboId, value.c_str())) {
+    const std::vector<std::string> labels = core::makeConstantLabels(names);
+    const auto current = std::ranges::find(names, value);
+    const std::string& preview =
+        current != names.end() ? labels[static_cast<usize>(current - names.begin())] : value;
+    if (!ImGui::BeginCombo(comboId, preview.c_str())) {
         return false;
     }
     bool isChanged = false;
-    for (const std::string_view name : names) {
-        if (ImGui::Selectable(std::string(name).c_str(), name == value)) {
-            isChanged = name != value;
-            value = std::string(name);
+    for (usize i = 0; i < names.size(); ++i) {
+        if (core::drawConstantSelectable(labels[i], names[i], names[i] == value)) {
+            isChanged = names[i] != value;
+            value = std::string(names[i]);
         }
     }
     ImGui::EndCombo();
@@ -214,15 +220,20 @@ bool RegisterSceneDialog::drawNames(const char* comboId, std::string& value,
 void RegisterSceneDialog::drawOptionalNames(const char* comboId, std::optional<std::string>& value,
                                             const std::span<const std::string_view> names) {
     constexpr const char* Unchanged = "Keep current";
-    if (!ImGui::BeginCombo(comboId, value ? value->c_str() : Unchanged)) {
+    const std::vector<std::string> labels = core::makeConstantLabels(names);
+    const auto current = value ? std::ranges::find(names, *value) : names.end();
+    const std::string preview = current != names.end()
+                                    ? labels[static_cast<usize>(current - names.begin())]
+                                    : value.value_or(Unchanged);
+    if (!ImGui::BeginCombo(comboId, preview.c_str())) {
         return;
     }
     if (ImGui::Selectable(Unchanged, !value)) {
         value.reset();
     }
-    for (const std::string_view name : names) {
-        if (ImGui::Selectable(std::string(name).c_str(), value == name)) {
-            value = std::string(name);
+    for (usize i = 0; i < names.size(); ++i) {
+        if (core::drawConstantSelectable(labels[i], names[i], value == names[i])) {
+            value = std::string(names[i]);
         }
     }
     ImGui::EndCombo();

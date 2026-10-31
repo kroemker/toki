@@ -456,3 +456,23 @@ TEST_CASE("a number may be a scene flag the actor reads, sets or both", "[actor]
     REQUIRE(again.entries.at("ACTOR_EN_BOX").params[1].sceneFlag == toki::actor::SceneFlag::Switch);
     REQUIRE(again.entries.at("ACTOR_EN_BOX").params[1].flagUse == toki::actor::FlagUse::Reads);
 }
+
+TEST_CASE("a number may be the path an actor follows", "[actor][database]") {
+    const toki::actor::ActorDatabase read = toki::actor::parseActorDatabase(R"(format = 2
+[actors.ACTOR_EN_DOG.params]
+"Path" = { mask = 0x00F0, kind = "number", path = true }
+"Sits" = { mask = 0x0001, kind = "flag", path = true }
+"Both" = { mask = 0x0F00, kind = "number", path = true, scene_flag = "switch" }
+)",
+                                                                            "actors.toml");
+
+    REQUIRE(isReported(read, "params.Sits: only a number is a path"));
+    REQUIRE(isReported(read, "params.Both: a number is a scene flag or a path, not both"));
+    REQUIRE(read.entries.at("ACTOR_EN_DOG").params[1].name == "Path");
+    REQUIRE(read.entries.at("ACTOR_EN_DOG").params[1].isPath);
+
+    const std::string written = toki::actor::formatActorDatabase(read);
+    REQUIRE(written.contains("path = true"));
+    const toki::actor::ActorDatabase again = toki::actor::parseActorDatabase(written, "again.toml");
+    REQUIRE(again.entries.at("ACTOR_EN_DOG").params[1].isPath);
+}

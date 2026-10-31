@@ -4,6 +4,7 @@
 #include "gfx/DrawBatches.h"
 #include "gfx/GpuHandle.h"
 #include "gfx/RenderTarget.h"
+#include "gfx/Types.h"
 
 #include <SDL3/SDL_gpu.h>
 
@@ -14,6 +15,8 @@
 namespace gfx {
 
 namespace {
+
+constexpr f32 DecalDepthBias = -2.0F;
 
 SDL_GPUBlendFactor findBlendFactor(const BlendFactor factor) {
     switch (factor) {
@@ -37,7 +40,7 @@ SDL_GPUCompareOp findCompareOp(const DepthCompare compare) {
         return SDL_GPU_COMPAREOP_ALWAYS;
     case DepthCompare::Less:
         return SDL_GPU_COMPAREOP_LESS;
-    case DepthCompare::LessOrEqual:
+    case DepthCompare::Decal:
         return SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     }
     return SDL_GPU_COMPAREOP_ALWAYS;
@@ -79,6 +82,8 @@ SDL_GPUGraphicsPipeline* PipelineCache::findPipeline(const PipelineKey& key) {
     }};
     const SDL_GPUBlendFactor source = findBlendFactor(key.blend.source);
     const SDL_GPUBlendFactor destination = findBlendFactor(key.blend.destination);
+    const bool isOver =
+        key.blend.path == BlendPath::OverMemory || key.blend.path == BlendPath::MemoryUnder;
     const SDL_GPUColorTargetDescription colorTarget{
         .format = RenderTarget::ColorFormat,
         .blend_state =
@@ -86,8 +91,10 @@ SDL_GPUGraphicsPipeline* PipelineCache::findPipeline(const PipelineKey& key) {
                 .src_color_blendfactor = source,
                 .dst_color_blendfactor = destination,
                 .color_blend_op = SDL_GPU_BLENDOP_ADD,
-                .src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
-                .dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
+                .src_alpha_blendfactor =
+                    isOver ? SDL_GPU_BLENDFACTOR_ONE : SDL_GPU_BLENDFACTOR_ZERO,
+                .dst_alpha_blendfactor =
+                    isOver ? SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA : SDL_GPU_BLENDFACTOR_ONE,
                 .alpha_blend_op = SDL_GPU_BLENDOP_ADD,
                 .color_write_mask = 0,
                 .enable_blend = key.blend.enabled,
@@ -108,6 +115,11 @@ SDL_GPUGraphicsPipeline* PipelineCache::findPipeline(const PipelineKey& key) {
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     info.rasterizer_state.enable_depth_clip = true;
+    if (key.depthCompare == DepthCompare::Decal) {
+        info.rasterizer_state.enable_depth_bias = true;
+        info.rasterizer_state.depth_bias_constant_factor = DecalDepthBias;
+        info.rasterizer_state.depth_bias_slope_factor = DecalDepthBias;
+    }
     info.multisample_state.sample_count = SDL_GPU_SAMPLECOUNT_1;
     info.depth_stencil_state.compare_op = findCompareOp(key.depthCompare);
     info.depth_stencil_state.enable_depth_test = key.depthTest;

@@ -14,10 +14,12 @@
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
 #include <glm/geometric.hpp>
+#include <glm/matrix.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <map>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -95,6 +97,21 @@ void addArrowHead(std::vector<gfx::OverlayLine>& lines, const gfx::OverlayLine& 
     }
 }
 
+/// How far from flat four corners may be and still count as one face's.
+constexpr f32 FlatTolerance = 1.0e-4F;
+
+/// Whether `a`, `b`, `c` and `d` are corners of one plane. Clip space is the
+/// world through a linear map, so they are when the matrix of the four is
+/// singular.
+[[nodiscard]] bool isFlat(const Position& a, const Position& b, const Position& c,
+                          const Position& d) {
+    const glm::mat4 corners{glm::vec4{a[0], a[1], a[2], a[3]}, glm::vec4{b[0], b[1], b[2], b[3]},
+                            glm::vec4{c[0], c[1], c[2], c[3]}, glm::vec4{d[0], d[1], d[2], d[3]}};
+    const f32 scale = glm::length(corners[0]) * glm::length(corners[1]) * glm::length(corners[2]) *
+                      glm::length(corners[3]);
+    return std::abs(glm::determinant(corners)) <= FlatTolerance * scale;
+}
+
 [[nodiscard]] std::array<u8, 4> findGridColor(const f32 coordinate, const std::array<u8, 4>& axis) {
     return coordinate == 0.0F ? axis : GridColor;
 }
@@ -114,6 +131,41 @@ std::vector<gfx::OverlayLine> makeOutlines(const std::vector<ClipTriangle>& tria
                                      .width = style.width})) {
                 lines.push_back(*clipped);
             }
+        }
+    }
+    return lines;
+}
+
+std::vector<gfx::OverlayLine> makeFaceEdges(const std::vector<ClipTriangle>& triangles,
+                                            const LineStyle& style) {
+    struct Edge {
+        Position firstOpposite{};
+        usize count = 0;
+        bool isInside = false;
+    };
+
+    std::map<std::array<Position, 2>, Edge> edges;
+    for (const ClipTriangle& triangle : triangles) {
+        for (usize i = 0; i < 3; ++i) {
+            const std::array<Position, 2> ends = orderEnds(triangle[i], triangle[(i + 1) % 3]);
+            const Position& opposite = triangle[(i + 2) % 3];
+            Edge& edge = edges[ends];
+            if (edge.count == 0) {
+                edge.firstOpposite = opposite;
+            }
+            ++edge.count;
+            edge.isInside =
+                edge.count == 2 && isFlat(ends[0], ends[1], edge.firstOpposite, opposite);
+        }
+    }
+    std::vector<gfx::OverlayLine> lines;
+    for (const auto& [ends, edge] : edges) {
+        if (edge.isInside) {
+            continue;
+        }
+        if (const std::optional<gfx::OverlayLine> clipped = clipToNearPlane(
+                {.from = ends[0], .to = ends[1], .color = style.color, .width = style.width})) {
+            lines.push_back(*clipped);
         }
     }
     return lines;
@@ -148,6 +200,48 @@ std::vector<gfx::OverlayLine> makeArrowLines(const ViewportOverlay& overlay,
         }
     }
     return lines;
+}
+
+gfx::Overlay makeComponentOverlay(const ViewportOverlay& overlay, const glm::mat4& viewProjection,
+                                  const FrameSize size, const f32 scale) {
+    const glm::vec2 halfSize(static_cast<f32>(size.width) / 2.0F,
+                             static_cast<f32>(size.height) / 2.0F);
+    gfx::Overlay drawn;
+    for (const OverlayFace& face : overlay.faces) {
+        gfx::OverlayTriangle triangle{.color = unpackColor(face.color)};
+        bool isInFront = true;
+        for (usize corner = 0; corner < 3; ++corner) {
+            triangle.corners[corner] = makeClip(viewProjection, face.corners[corner]);
+            isInFront &= findNearDistance(triangle.corners[corner]) > NearMargin;
+        }
+        if (isInFront) {
+            drawn.triangles.push_back(triangle);
+        }
+    }
+    std::vector<gfx::OverlayLine>& lines = drawn.lines;
+    lines.reserve(overlay.edges.size() + overlay.points.size());
+    for (const OverlayEdge& edge : overlay.edges) {
+        if (const std::optional<gfx::OverlayLine> clipped =
+                clipToNearPlane({.from = makeClip(viewProjection, edge.from),
+                                 .to = makeClip(viewProjection, edge.to),
+                                 .color = unpackColor(edge.color),
+                                 .width = edge.width * scale})) {
+            lines.push_back(*clipped);
+        }
+    }
+    for (const OverlayPoint& point : overlay.points) {
+        const Position clip = makeClip(viewProjection, point.position);
+        if (findNearDistance(clip) <= NearMargin || clip[3] <= 0.0F) {
+            continue;
+        }
+        const glm::vec2 screen = findScreenPoint(clip, halfSize);
+        const glm::vec2 half(point.size * scale / 2.0F, 0.0F);
+        lines.push_back({.from = placeAtDepth(screen - half, halfSize, clip),
+                         .to = placeAtDepth(screen + half, halfSize, clip),
+                         .color = unpackColor(point.color),
+                         .width = point.size * scale});
+    }
+    return drawn;
 }
 
 std::vector<gfx::OverlayLine> makeGridLines(const glm::mat4& viewProjection,

@@ -2,8 +2,12 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 
 #include <array>
+#include <string>
+#include <vector>
 
 using Catch::Approx;
 using toki::viewport::AxisConstraint;
@@ -27,6 +31,47 @@ TEST_CASE("an axis key holds to that axis alone or frees it, with Shift to the o
     REQUIRE(constraint.axes == std::array{true, false, true});
     constraint.constrainToPlane(1);
     REQUIRE(constraint.isFree());
+}
+
+TEST_CASE("an axis key pressed twice holds to the normal, and a third time frees it",
+          "[viewport][transform]") {
+    const glm::vec3 normal = glm::normalize(glm::vec3(1.0F, 1.0F, 0.0F));
+    AxisConstraint constraint;
+    constraint.constrainTo(2, normal);
+    REQUIRE_FALSE(constraint.basis);
+    constraint.constrainTo(2, normal);
+    REQUIRE(constraint.basis);
+    REQUIRE(constraint.axes == std::array{false, false, true});
+    REQUIRE(constraint.findDirection(2) == normal);
+    REQUIRE(std::string(constraint.findName(2)) == "N");
+    constraint.constrainTo(2, normal);
+    REQUIRE(constraint.isFree());
+    REQUIRE_FALSE(constraint.basis);
+
+    constraint.constrainToPlane(0, normal);
+    constraint.constrainToPlane(0, normal);
+    REQUIRE(constraint.axes == std::array{false, true, true});
+    REQUIRE(glm::dot(constraint.findDirection(1), normal) == Approx(0.0F).margin(1e-6));
+    REQUIRE(glm::dot(constraint.findDirection(2), normal) == Approx(0.0F).margin(1e-6));
+
+    AxisConstraint alongNormal;
+    alongNormal.constrainTo(1, normal);
+    alongNormal.constrainTo(1, normal);
+    TransformSession session(TransformKind::Move);
+    session.setDragged({3.0F, 1.0F, 5.0F});
+    const glm::vec3 offset = session.makeResult(alongNormal, {}).offset;
+    REQUIRE(offset.x == Approx(2.0F));
+    REQUIRE(offset.y == Approx(2.0F));
+    REQUIRE(offset.z == Approx(0.0F).margin(1e-6));
+    REQUIRE(session.describe(alongNormal, {}) == "Move  N 2.8");
+
+    const std::array<glm::vec3, 1> points{glm::vec3(1.0F, 0.0F, 0.0F)};
+    TransformSession turn(TransformKind::Rotate);
+    turn.setDraggedAngle(180.0F);
+    const std::vector<glm::vec3> turned = toki::viewport::makeTransformedPoints(
+        points, glm::vec3(0.0F), turn.makeResult(alongNormal, {}));
+    REQUIRE(turned[0].x == Approx(0.0F).margin(1e-5));
+    REQUIRE(turned[0].y == Approx(1.0F));
 }
 
 TEST_CASE("typed numbers take the drag's place, field by field", "[viewport][transform]") {
@@ -123,4 +168,28 @@ TEST_CASE("points are moved and set down on the ground, or turned about the pivo
         points, {0.0F, 20.0F, 0.0F}, {.kind = TransformKind::Rotate, .axis = 1, .degrees = 90.0F});
     REQUIRE(turned[0].x == Approx(0.0F).margin(1e-4));
     REQUIRE(turned[0].z == Approx(-10.0F));
+}
+
+TEST_CASE("a scale stretches from the pivot along the axes held, by a drag or a typed factor",
+          "[viewport][transform]") {
+    TransformSession session(TransformKind::Scale);
+    session.setDraggedFactor(glm::vec3(1.23F));
+    AxisConstraint free;
+    AxisConstraint alongX;
+    alongX.constrainTo(0);
+
+    REQUIRE(session.makeResult(free, {}).factor == glm::vec3(1.23F));
+    REQUIRE(session.makeResult(alongX, {}).factor == glm::vec3(1.23F, 1.0F, 1.0F));
+    REQUIRE(session.makeResult(free, {.isGridOn = true}).factor.y == Approx(1.2F));
+    REQUIRE(session.describe(alongX, {}) == "Scale  X 1.23");
+
+    REQUIRE(session.type('2'));
+    REQUIRE(session.makeResult(free, {}).factor == glm::vec3(2.0F));
+
+    const std::array<glm::vec3, 1> points{glm::vec3(3.0F, 1.0F, 1.0F)};
+    const std::vector<glm::vec3> scaled = toki::viewport::makeTransformedPoints(
+        points, glm::vec3(1.0F), session.makeResult(alongX, {}));
+    REQUIRE(scaled[0] == glm::vec3(5.0F, 1.0F, 1.0F));
+    REQUIRE(toki::viewport::findDragFactor({0.0F, 0.0F}, {10.0F, 0.0F}, {0.0F, 25.0F}) ==
+            Approx(2.5F));
 }

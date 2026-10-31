@@ -1,5 +1,7 @@
 #include "ActorForm.h"
 
+#include "app/core/domain/ReadableName.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/scene/domain/BinaryAngle.h"
@@ -29,21 +31,6 @@ constexpr float AngleButtonWidth = 1.4F;
 
 [[nodiscard]] std::string makeEnumLabel(const hackeroot::ActorEntry& actor) {
     return actor.enumName.empty() ? std::format("0x{:04X}", actor.id) : actor.enumName;
-}
-
-[[nodiscard]] bool isFilteredIn(const std::string& label, const std::string& filter) {
-    const auto lower = [](const char c) {
-        return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-    };
-    std::string text;
-    std::string wanted;
-    for (const char c : label) {
-        text += lower(c);
-    }
-    for (const char c : filter) {
-        wanted += lower(c);
-    }
-    return text.contains(wanted);
 }
 
 [[nodiscard]] bool editHex(const char* id, s16& value) {
@@ -77,7 +64,8 @@ std::string ActorForm::makeActorLabel(const hackeroot::ActorEntry& actor) const 
             return std::move(*name);
         }
     }
-    return makeEnumLabel(actor);
+    return actor.enumName.empty() ? makeEnumLabel(actor)
+                                  : core::makeConstantLabel(actor.enumName, "ACTOR_");
 }
 
 bool ActorForm::editType(s16& id) {
@@ -106,19 +94,13 @@ bool ActorForm::editType(s16& id) {
     for (const hackeroot::ActorEntry& actor : actors) {
         const std::string label = makeActorLabel(actor);
         const std::string enumName = makeEnumLabel(actor);
-        if (actor.isUnset ||
-            (!isFilteredIn(label, actorFilter) && !isFilteredIn(enumName, actorFilter))) {
+        if (actor.isUnset || !core::isConstantFilteredIn(label, enumName, actorFilter)) {
             continue;
         }
         ImGui::PushID(static_cast<int>(actor.id));
-        if (ImGui::Selectable(label.c_str(), actor.id == index)) {
+        if (core::drawConstantSelectable(label, enumName, actor.id == index)) {
             id = static_cast<s16>(actor.id);
             isChanged = true;
-        }
-        if (label != enumName) {
-            ImGui::SameLine(ImGui::GetContentRegionMax().x -
-                            ImGui::CalcTextSize(enumName.c_str()).x);
-            ImGui::TextColored(core::palette::TextMuted, "%s", enumName.c_str());
         }
         ImGui::PopID();
     }

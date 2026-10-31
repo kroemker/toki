@@ -291,6 +291,10 @@ TEST_CASE("the scene last open round-trips with how it was shown", "[core][setti
         .hiddenRooms = {1, 4},
         .marksActors = false,
         .drawsModels = false,
+        .showsPaths = false,
+        .showsCollision = true,
+        .showsWaterBoxes = false,
+        .collisionColoring = "floor_type",
         .camera = toki::core::CameraPose{
             .target = {1522.0F, -8.5F, 105.0F}, .yaw = 30.0F, .pitch = 12.5F, .distance = 400.0F}};
 
@@ -306,6 +310,10 @@ TEST_CASE("the scene last open round-trips with how it was shown", "[core][setti
     REQUIRE(session.hiddenRooms == std::vector<base::usize>{1, 4});
     REQUIRE_FALSE(session.marksActors);
     REQUIRE_FALSE(session.drawsModels);
+    REQUIRE_FALSE(session.showsPaths);
+    REQUIRE(session.showsCollision);
+    REQUIRE_FALSE(session.showsWaterBoxes);
+    REQUIRE(session.collisionColoring == "floor_type");
     REQUIRE(session.camera.has_value());
     REQUIRE(session.camera->target[1] == -8.5F);
     REQUIRE(session.camera->distance == 400.0F);

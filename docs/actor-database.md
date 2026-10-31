@@ -136,18 +136,25 @@ rotation, which some actors read more params from. Its name is free text, as peo
 | `signed`, `hex` | a number read as signed, or shown in hexadecimal |
 | `scene_flag` | a number that is a flag of the scene: `switch`, `treasure`, `collectible` or `clear` |
 | `flag_use` | whether the actor `reads` the scene flag (left out), `sets` it, or does `both` |
+| `path` | `true` for a number that is the index of the scene path the actor follows; its highest value is none to the actors that check for one |
 | `description` | a line on what it is for |
 
 A mask whose bits are not adjacent, two params of one source that share a bit, a choice
-value that does not fit the mask, a scene flag on anything but a number, and a param named
+value that does not fit the mask, a scene flag or a path on anything but a number, a
+number that is both, and a param named
 `age` or `scene` are each a warning naming the actor and the param.
 
 ### Value collections
 
 A choice whose values the checkout already lists names them instead of copying them, so
 they follow the checkout and never drift: `values = "GetItemID"`. Each value is labelled
-with its constant's name, `GI_HEART_PIECE`, since that is what modders search the code
-for; the file still holds numbers, in matches and `default_params` alike.
+with its constant's name, `GI_HEART_PIECE`, and shown as words, "Heart Piece": the words
+every constant of the collection starts with dropped, each word with only its first letter
+in capitals but for abbreviations (`ID`, `BGM`, `SFX`, ...), and the constant faint beside
+it, since that is what modders search the code for; a filter matches both
+(`core::makeConstantLabels`, `core::drawConstantSelectable`). Objects are shown by what
+they hold where that is known, and actors by their entry's name. The file still holds
+numbers, in matches and `default_params` alike.
 
 - **Shared collections** every actor can choose from: `GetItemID`, `ItemID` and
   `GetItemDrawID` from `include/item.h`, `Item00Type` from `include/z_en_item00.h`, sound
@@ -484,9 +491,12 @@ every checkout is seeded from.
 - **Parts**, each self-contained, in place of display list keys and steps; a skeleton is
   posed at the first frame of an animation, never played.
 - **Left out**: animation playback, shadows, spawn conditions, lights,
-  collision, text IDs, roles of params other than scene flags, descriptions of entries.
-- **Scene flags** are the one role a param has, since what links actors to each other in a
-  scene is mostly the flags they share: a switch and the door it opens.
+  collision, text IDs, roles of params other than scene flags and paths, descriptions of
+  entries.
+- **Scene flags and paths** are the roles a param has, since what links actors to each other
+  in a scene is mostly the flags they share, a switch and the door it opens, and what links
+  an actor to the scene is the path it follows, which moves when a path before it is
+  deleted. A read passed to `Path_GetByIndex` is derived as a path.
 - **Variants edited as cards** of a condition, the parts and the children, each a row that
   opens in place, rather than as a text language, as nested forms or as sentences of
   tokens, which read well but wrapped badly once names grew long.

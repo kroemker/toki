@@ -80,6 +80,12 @@ struct SceneSession {
     std::vector<usize> hiddenRooms;
     bool marksActors = true;
     bool drawsModels = true;
+    bool showsPaths = true;
+    bool showsCollision = false;
+    bool showsWaterBoxes = true;
+    /// What collision is coloured by, as the scene names it; empty for its
+    /// default.
+    std::string collisionColoring;
     std::optional<CameraPose> camera;
 };
 

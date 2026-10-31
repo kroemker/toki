@@ -21,6 +21,7 @@ using base::f32;
 using base::usize;
 using toki::viewport::clipToNearPlane;
 using toki::viewport::LineStyle;
+using toki::viewport::makeFaceEdges;
 using toki::viewport::makeOutlines;
 using toki::viewport::makeTriangleEdges;
 
@@ -177,4 +178,41 @@ TEST_CASE("an outline has each triangle's three edges, cut at the near plane",
         REQUIRE(lines[i].from[2] >= -lines[i].from[3] - 1.0e-3F);
         REQUIRE(lines[i].to[2] >= -lines[i].to[3] - 1.0e-3F);
     }
+}
+
+TEST_CASE("a face's edges leave out the diagonal two triangles in its plane share",
+          "[viewport][overlay]") {
+    const toki::viewport::ClipPosition a{0.0F, 0.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition b{1.0F, 0.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition c{1.0F, 1.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition d{0.0F, 1.0F, 0.0F, 1.0F};
+    const toki::viewport::ClipPosition raised{0.0F, 1.0F, 0.5F, 1.0F};
+
+    REQUIRE(makeFaceEdges({{a, b, c}, {a, c, d}}, Style).size() == 4);
+    REQUIRE(makeFaceEdges({{a, b, c}, {a, c, raised}}, Style).size() == 5);
+}
+
+TEST_CASE("faces, edges and points of what is edited are drawn as triangles and lines",
+          "[viewport][overlay]") {
+    toki::viewport::ViewportOverlay overlay;
+    overlay.faces.push_back({.corners = {glm::vec3{0.0F, 0.0F, 0.0F}, glm::vec3{0.5F, 0.0F, 0.0F},
+                                         glm::vec3{0.0F, 0.5F, 0.0F}},
+                             .color = 0xFF00'00FFU});
+    overlay.faces.push_back({.corners = {glm::vec3{0.0F, 0.0F, -5.0F}, glm::vec3{0.5F, 0.0F, 0.0F},
+                                         glm::vec3{0.0F, 0.5F, 0.0F}}});
+    overlay.edges.push_back({.from = {0.0F, 0.0F, 0.0F}, .to = {0.5F, 0.5F, 0.0F}, .width = 2.0F});
+    overlay.points.push_back({.position = {0.0F, 0.0F, 0.0F}, .size = 4.0F});
+
+    const gfx::Overlay drawn = toki::viewport::makeComponentOverlay(
+        overlay, glm::mat4(1.0F), {.width = 200, .height = 100}, 2.0F);
+
+    REQUIRE(drawn.triangles.size() == 1);
+    REQUIRE(drawn.triangles[0].color == std::array<base::u8, 4>{255, 0, 0, 255});
+    REQUIRE(drawn.lines.size() == 2);
+    REQUIRE(drawn.lines[0].width == 4.0F);
+    const gfx::OverlayLine& dot = drawn.lines[1];
+    REQUIRE(dot.width == 8.0F);
+    REQUIRE(dot.from[0] == Catch::Approx(-0.04F));
+    REQUIRE(dot.to[0] == Catch::Approx(0.04F));
+    REQUIRE(dot.from[1] == Catch::Approx(0.0F));
 }

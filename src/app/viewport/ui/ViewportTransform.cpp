@@ -56,7 +56,7 @@ constexpr f32 NoteMargin = 8.0F;
 }
 
 [[nodiscard]] bool isTransformTool(const EditTool tool) {
-    return tool == EditTool::Move || tool == EditTool::Rotate;
+    return tool == EditTool::Move || tool == EditTool::Rotate || tool == EditTool::Scale;
 }
 
 [[nodiscard]] glm::vec2 makeLocal(const ImVec2 point, const TransformView& view) {
@@ -74,12 +74,19 @@ bool drawToggle(const char* label, const bool isLit) {
     return isClicked;
 }
 
-/// How far the gizmo turned this frame about each axis, in degrees, from the
-/// turn it reports.
-[[nodiscard]] std::array<f32, 3> findTurns(const glm::mat4& delta) {
-    return {glm::degrees(std::atan2(delta[1][2], delta[1][1])),
-            glm::degrees(std::atan2(delta[2][0], delta[0][0])),
-            glm::degrees(std::atan2(delta[0][1], delta[0][0]))};
+/// How far the gizmo turned this frame about each axis of `constraint`, in
+/// degrees, from the turn it reports.
+[[nodiscard]] std::array<f32, 3> findTurns(const glm::mat4& delta,
+                                           const AxisConstraint& constraint) {
+    const f32 cosine = (delta[0][0] + delta[1][1] + delta[2][2] - 1.0F) * 0.5F;
+    const glm::vec3 sines(delta[1][2] - delta[2][1], delta[2][0] - delta[0][2],
+                          delta[0][1] - delta[1][0]);
+    std::array<f32, 3> turns{};
+    for (usize axis = 0; axis < turns.size(); ++axis) {
+        turns[axis] = glm::degrees(
+            std::atan2(glm::dot(sines * 0.5F, constraint.findDirection(axis)), cosine));
+    }
+    return turns;
 }
 
 } // namespace
@@ -181,18 +188,24 @@ void ViewportTransform::cancel() {
     gizmoConstraint.reset();
 }
 
+bool ViewportTransform::isScalable() const {
+    return transformTarget && transformTarget->scaleNote.empty();
+}
+
 bool ViewportTransform::isTurnable(const AxisConstraint& constraint) const {
     return transformTarget && transformTarget->isTurnable[constraint.findRotationAxis()];
 }
 
 void ViewportTransform::applyConstraintKeys() {
     const AxisConstraint before = axisConstraint;
+    const std::optional<glm::vec3> normal =
+        transformTarget ? transformTarget->normal : std::nullopt;
     for (usize axis = 0; axis < AxisLabels.size(); ++axis) {
         if (core::isActionPressed(findConstrainAction(axis))) {
-            axisConstraint.constrainTo(axis);
+            axisConstraint.constrainTo(axis, normal);
         }
         if (core::isActionPressed(findPlaneAction(axis))) {
-            axisConstraint.constrainToPlane(axis);
+            axisConstraint.constrainToPlane(axis, normal);
         }
     }
     if (session && session->getKind() == TransformKind::Rotate && !isTurnable(axisConstraint)) {
@@ -200,7 +213,7 @@ void ViewportTransform::applyConstraintKeys() {
     }
 }
 
-void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& view) {
+void ViewportTransform::applyHotkeys(const TransformView& view) {
     if (!transformTarget || transformTarget->points.empty() || isModalRunning || isGizmoHeld) {
         return;
     }
@@ -213,12 +226,16 @@ void ViewportTransform::applyHotkeys(const EditTool tool, const TransformView& v
                             ImGui::GetIO().MousePos.y - view.origin.y);
         lastMouse = modalStart;
     };
-    if (core::isActionPressed(core::Action::Grab)) {
+    if (requestedModal) {
+        const TransformKind kind = *requestedModal;
+        requestedModal.reset();
+        startModal(kind);
+    } else if (core::isActionPressed(core::Action::Grab)) {
         startModal(TransformKind::Move);
     } else if (core::isActionPressed(core::Action::Turn) && isTurnable(AxisConstraint{})) {
         startModal(TransformKind::Rotate);
-    } else if (isTransformTool(tool)) {
-        applyConstraintKeys();
+    } else if (core::isActionPressed(core::Action::Stretch) && isScalable()) {
+        startModal(TransformKind::Scale);
     }
 }
 
@@ -243,10 +260,15 @@ bool ViewportTransform::updateModal(const TransformView& view) {
     if (session->getKind() == TransformKind::Move) {
         session->setDragged(findDragOffset(viewProjection, size, {modalStart.x, modalStart.y},
                                            {mouse.x, mouse.y}, pivot, view.eye, axisConstraint));
+    } else if (session->getKind() == TransformKind::Scale) {
+        if (const std::optional<glm::vec2> center =
+                findScreenPosition(viewProjection, size, pivot)) {
+            session->setDraggedFactor(glm::vec3(
+                findDragFactor(*center, {modalStart.x, modalStart.y}, {mouse.x, mouse.y})));
+        }
     } else if (const std::optional<glm::vec2> center =
                    findScreenPosition(viewProjection, size, pivot)) {
-        glm::vec3 axis(0.0F);
-        axis[static_cast<glm::length_t>(axisConstraint.findRotationAxis())] = 1.0F;
+        const glm::vec3 axis = axisConstraint.findDirection(axisConstraint.findRotationAxis());
         turnedDegrees += findDragAngle(*center, {lastMouse.x, lastMouse.y}, {mouse.x, mouse.y},
                                        axis, view.eye, pivot);
         session->setDraggedAngle(turnedDegrees);
@@ -314,13 +336,18 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
         return;
     }
     const bool isMove = tool == EditTool::Move;
+    const bool isScale = tool == EditTool::Scale;
     unsigned operation = 0;
     for (usize axis = 0; axis < AxisLabels.size(); ++axis) {
-        if (isMove && (axisConstraint.isFree() || axisConstraint.axes[axis])) {
+        const bool isAlong = axisConstraint.isFree() || axisConstraint.axes[axis];
+        if (isMove && isAlong) {
             operation |= ImGuizmo::TRANSLATE_X << axis;
         }
+        if (isScale && isAlong && isScalable()) {
+            operation |= ImGuizmo::SCALE_X << axis;
+        }
         const bool isHeld = axisConstraint.isFree() || axisConstraint.findRotationAxis() == axis;
-        if (!isMove && isHeld && transformTarget->isTurnable[axis]) {
+        if (tool == EditTool::Rotate && isHeld && transformTarget->isTurnable[axis]) {
             operation |= ImGuizmo::ROTATE_X << axis;
         }
     }
@@ -332,19 +359,28 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
     ImGuizmo::SetDrawlist(&drawList);
     ImGuizmo::SetRect(view.origin.x, view.origin.y, view.size.x, view.size.y);
     if (!isGizmoHeld) {
-        gizmoMatrix = glm::translate(glm::mat4(1.0F), transformTarget->pivot);
+        gizmoMatrix = glm::translate(glm::mat4(1.0F), transformTarget->pivot) *
+                      glm::mat4(axisConstraint.basis.value_or(glm::mat3(1.0F)));
     }
     glm::mat4 delta(1.0F);
     if (ImGuizmo::Manipulate(glm::value_ptr(view.view), glm::value_ptr(view.projection),
-                             static_cast<ImGuizmo::OPERATION>(operation), ImGuizmo::WORLD,
+                             static_cast<ImGuizmo::OPERATION>(operation),
+                             axisConstraint.basis ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
                              glm::value_ptr(gizmoMatrix), glm::value_ptr(delta))) {
         if (isMove) {
             if (!session) {
                 begin(TransformKind::Move);
             }
             session->setDragged(glm::vec3(gizmoMatrix[3]) - transformTarget->pivot);
+        } else if (isScale) {
+            if (!session) {
+                begin(TransformKind::Scale);
+            }
+            session->setDraggedFactor({glm::length(glm::vec3(gizmoMatrix[0])),
+                                       glm::length(glm::vec3(gizmoMatrix[1])),
+                                       glm::length(glm::vec3(gizmoMatrix[2]))});
         } else {
-            const std::array<f32, 3> turns = findTurns(delta);
+            const std::array<f32, 3> turns = findTurns(delta, axisConstraint);
             if (!session) {
                 usize turned = 0;
                 for (usize axis = 1; axis < turns.size(); ++axis) {
@@ -354,6 +390,7 @@ void ViewportTransform::drawGizmo(ImDrawList& drawList, const TransformView& vie
                 }
                 AxisConstraint held;
                 held.constrainTo(turned);
+                held.basis = axisConstraint.basis;
                 gizmoConstraint = held;
                 begin(TransformKind::Rotate);
             }
@@ -384,8 +421,7 @@ void ViewportTransform::drawAxisLines(ImDrawList& drawList, const TransformView&
         if (!isShown) {
             continue;
         }
-        glm::vec3 direction(0.0F);
-        direction[static_cast<glm::length_t>(axis)] = 1.0F;
+        const glm::vec3 direction = constraint.findDirection(axis);
         if (const std::optional<std::array<glm::vec2, 2>> line = findScreenLine(
                 viewProjection, {view.size.x, view.size.y}, transformTarget->pivot, direction)) {
             drawList.AddLine(ImVec2(view.origin.x + (*line)[0].x, view.origin.y + (*line)[0].y),
@@ -409,12 +445,13 @@ void ViewportTransform::drawOverlay(ImDrawList& drawList, const TransformView& v
     if (isModalRunning) {
         const std::string hint = std::format(
             "Enter or click confirms · Esc or right-click cancels · {} {} {} hold to an axis, "
-            "{} to the other two · type a number, Tab for the next · hold Ctrl to switch the "
+            "{} to the other two{} · type a number, Tab for the next · hold Ctrl to switch the "
             "grid{}",
             core::getShortcutLabel(core::Action::ConstrainX),
             core::getShortcutLabel(core::Action::ConstrainY),
             core::getShortcutLabel(core::Action::ConstrainZ),
             core::getShortcutLabel(core::Action::ConstrainPlaneX),
+            transformTarget->normal ? ", twice to the normal" : "",
             session->getKind() == TransformKind::Move ? ", Alt the ground" : "");
         drawList.AddText(position, ImGui::GetColorU32(core::palette::TextMuted), hint.c_str());
         position.y -= line;
@@ -427,9 +464,14 @@ bool ViewportTransform::drawOptions(const EditTool tool) {
     if (!isTransformTool(tool) && !session) {
         return false;
     }
-    const TransformKind kind = session                  ? session->getKind()
-                               : tool == EditTool::Move ? TransformKind::Move
-                                                        : TransformKind::Rotate;
+    TransformKind kind = TransformKind::Rotate;
+    if (session) {
+        kind = session->getKind();
+    } else if (tool == EditTool::Move) {
+        kind = TransformKind::Move;
+    } else if (tool == EditTool::Scale) {
+        kind = TransformKind::Scale;
+    }
     drawAxisOptions(kind);
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * 2.0F);
     const Snapping shown = findSnapping();
@@ -437,8 +479,9 @@ bool ViewportTransform::drawOptions(const EditTool tool) {
         snapping.isGridOn = !snapping.isGridOn;
     }
     ImGui::SetItemTooltip(
-        "Snap to the grid: %g units, %g° (hold Ctrl while transforming to switch it)",
-        snapping.gridStep, snapping.angleStep);
+        "Snap to the grid: %g units, %g°, a factor of %g (hold Ctrl while transforming to "
+        "switch it)",
+        snapping.gridStep, snapping.angleStep, snapping.factorStep);
     if (kind == TransformKind::Move) {
         ImGui::SameLine(0.0F, 1.0F);
         if (drawToggle(core::icons::ArrowLineDown, shown.isGroundOn)) {
@@ -458,13 +501,16 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
             ImGui::SameLine(0.0F, 1.0F);
         }
         ImGui::PushID(static_cast<int>(axis));
-        const bool isBlocked =
-            kind == TransformKind::Rotate && transformTarget && !transformTarget->isTurnable[axis];
+        const bool isBlocked = (kind == TransformKind::Rotate && transformTarget &&
+                                !transformTarget->isTurnable[axis]) ||
+                               (kind == TransformKind::Scale && transformTarget && !isScalable());
         const bool isLit = kind == TransformKind::Rotate
                                ? findConstraint().findRotationAxis() == axis
                                : findConstraint().axes[axis];
         ImGui::BeginDisabled(isBlocked);
-        if (drawToggle(AxisLabels[axis], isLit)) {
+        const std::string label = std::format("{}###axis", findConstraint().findName(axis));
+        if (drawToggle(label.c_str(), isLit)) {
+            axisConstraint.basis.reset();
             if (kind == TransformKind::Rotate) {
                 axisConstraint.constrainTo(axis);
             } else {
@@ -475,7 +521,12 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled |
                                  ImGuiHoveredFlags_ForTooltip)) {
             const std::string name = axis == 1 ? "Y (up)" : AxisLabels[axis];
-            const std::string held =
+            std::string note;
+            if (transformTarget) {
+                note = kind == TransformKind::Scale ? transformTarget->scaleNote
+                                                    : transformTarget->turnNote;
+            }
+            std::string held =
                 kind == TransformKind::Rotate
                     ? core::makeShortcutText(std::format("Turn about {}", name),
                                              findConstrainAction(axis))
@@ -483,9 +534,12 @@ void ViewportTransform::drawAxisOptions(const TransformKind kind) {
                                   core::makeShortcutText(std::format("Hold to {}", name),
                                                          findConstrainAction(axis)),
                                   core::getShortcutLabel(findPlaneAction(axis)));
-            ImGui::SetTooltip(
-                "%s", isBlocked ? std::format("{}: {}", held, transformTarget->turnNote).c_str()
-                                : held.c_str());
+            if (transformTarget && transformTarget->normal) {
+                held += ". Pressed twice, the key holds to the picked faces' normal, N, in "
+                        "place of the axis";
+            }
+            ImGui::SetTooltip("%s",
+                              isBlocked ? std::format("{}: {}", held, note).c_str() : held.c_str());
         }
         ImGui::PopID();
     }

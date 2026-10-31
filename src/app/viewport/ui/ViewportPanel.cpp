@@ -60,6 +60,7 @@ namespace {
 
 constexpr f32 HighlightFill = 0.35F;
 constexpr LineStyle WireframeStyle{.color = {210, 214, 222, 255}, .width = 1.0F};
+constexpr LineStyle EdgeStyle{.color = {20, 21, 25, 200}, .width = 1.0F};
 constexpr f32 HighlightEdgeWidth = 1.0F;
 
 constexpr f32 DegreesPerPoint = 0.4F;
@@ -67,6 +68,8 @@ constexpr f32 DegreesPerPoint = 0.4F;
 /// click to pick, and how near a point it must be.
 constexpr f32 ClickDistance = 4.0F;
 constexpr f32 BoxFillAlpha = 0.15F;
+constexpr const char* EditMenuPopup = "##editMenu";
+constexpr const char* EditContextPopup = "##editContext";
 constexpr f32 SelectionFill = 0.18F;
 constexpr f32 SelectionEdge = 0.85F;
 constexpr f32 SelectionEdgeWidth = 1.0F;
@@ -143,24 +146,45 @@ void ViewportPanel::setView(const ViewportView& view) {
     viewportView = view;
 }
 
+bool ViewportPanel::canEdit() const {
+    return viewportChoices && viewportChoices->canEdit;
+}
+
 void ViewportPanel::drawBar() {
-    drawSelectionModes(viewportTools);
+    if (!canEdit()) {
+        viewportTools.mode = SelectionMode::Node;
+    }
+    drawSelectionModes(viewportTools, canEdit());
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    if (viewportTools.mode != SelectionMode::Node && editMenu) {
+        const std::string label = std::format("{} {}", editMenuLabel, core::icons::CaretDown);
+        if (beginBarMenu(label, EditMenuPopup)) {
+            editMenu();
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
+    }
     drawPickModes(viewportTools, findPickMode());
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
-    if (viewportTools.mode == SelectionMode::Node &&
-        viewportTransform.drawOptions(viewportTools.tool)) {
+    if (viewportTransform.drawOptions(viewportTools.tool)) {
         ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
     }
     const ViewportBarEdit edit = drawViewportBar(viewportView, viewportChoices);
     if (edit.view) {
         setView(*edit.view);
     }
-    if (edit.choices && viewportChoices && chooseHandler != nullptr) {
-        viewportChoices = *edit.choices;
-        const std::function<void(const ViewportChoices&)> choose = chooseHandler;
+    if (edit.choices) {
         choose(*edit.choices);
     }
+}
+
+void ViewportPanel::choose(const ViewportChoices& chosen) {
+    if (!viewportChoices || chooseHandler == nullptr) {
+        return;
+    }
+    viewportChoices = chosen;
+    const std::function<void(const ViewportChoices&)> handler = chooseHandler;
+    handler(chosen);
 }
 
 void ViewportPanel::draw() {
@@ -179,19 +203,22 @@ void ViewportPanel::draw() {
          ImGui::IsMouseClicked(ImGuiMouseButton_Right))) {
         isPressSwallowed = true;
     }
-    if (!isModal && !viewportTransform.isModal() &&
-        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+    isViewportHovered = !isModal && !viewportTransform.isModal() &&
+                        ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    if (isViewportHovered) {
         if (const std::optional<ViewportView> changed = applyViewportHotkeys(viewportView)) {
             setView(*changed);
         }
-        applyToolHotkeys(viewportTools);
-        if (viewportTools.mode == SelectionMode::Node) {
-            viewportTransform.applyHotkeys(viewportTools.tool, transformView);
-        }
+        applyToolHotkeys(viewportTools, canEdit());
+        viewportTransform.applyHotkeys(transformView);
     }
+    const bool isHandleHeld = viewportTools.mode == SelectionMode::Node && !isModal &&
+                              !viewportTransform.isModal() && !isTransforming() &&
+                              viewportHandles.update(transformView);
     // ImGuizmo takes the mouse only while no item is hovered, so over its
-    // gizmo the viewport's own button gives way to a dummy of the same size.
-    if (isTransforming()) {
+    // gizmo the viewport's own button gives way to a dummy of the same size,
+    // and so it does over a handle.
+    if (isTransforming() || isHandleHeld) {
         ImGui::Dummy(size);
     } else {
         ImGui::InvisibleButton("##viewport", size,
@@ -199,8 +226,23 @@ void ViewportPanel::draw() {
                                    ImGuiButtonFlags_MouseButtonRight |
                                    ImGuiButtonFlags_MouseButtonMiddle);
     }
+    const bool isImageHovered = ImGui::IsItemHovered();
     if (handleInput(size)) {
         stale = true;
+    }
+    if (isImageHovered && editMenu && viewportTools.mode != SelectionMode::Node && !isModal &&
+        ImGui::IsMouseReleased(ImGuiMouseButton_Right) &&
+        ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] <
+            ClickDistance * ClickDistance) {
+        ImGui::OpenPopup(EditContextPopup);
+    }
+    if (isEditMenuWanted && editMenu && viewportTools.mode != SelectionMode::Node && !isModal) {
+        ImGui::OpenPopup(EditContextPopup);
+    }
+    isEditMenuWanted = false;
+    if (ImGui::BeginPopup(EditContextPopup)) {
+        editMenu();
+        ImGui::EndPopup();
     }
     if (ImGui::IsItemActive() && !isPressSwallowed &&
         ImGui::IsMouseDragging(ImGuiMouseButton_Left, ClickDistance)) {
@@ -263,8 +305,9 @@ void ViewportPanel::draw() {
     drawSelectionBoxes(*drawList, transformView);
     viewportTransform.drawOverlay(*drawList, transformView, viewportTools.tool);
     if (viewportTools.mode == SelectionMode::Node) {
-        viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
+        viewportHandles.draw(*drawList, transformView);
     }
+    viewportTransform.drawGizmo(*drawList, transformView, viewportTools.tool);
     viewportTransform.updatePreview();
     if (boxStart) {
         const ImVec2 mouse = ImGui::GetIO().MousePos;
@@ -274,7 +317,9 @@ void ViewportPanel::draw() {
         drawList->AddRect(*boxStart, mouse, ImGui::GetColorU32(core::palette::Accent));
     }
     drawList->PopClipRect();
-    drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin));
+    drawToolStrip(viewportTools, ImVec2(origin.x + ToolStripMargin, origin.y + ToolStripMargin),
+                  stripActions);
+    stripActions.clear();
     ImVec2 notePosition{ImGui::GetItemRectMax().x + ToolStripMargin, origin.y + 6.0F};
     if (readingName) {
         const std::string note = std::format("Reading {}…", *readingName);
@@ -321,7 +366,7 @@ void ViewportPanel::drawSelectionBoxes(ImDrawList& drawList, const TransformView
     if (!selectionBoxes) {
         selectionBoxes =
             findOwnedBoxes(drawnFrame->rspResult,
-                           {.ranges = drawnFrame->drawOutputs, .owners = drawnFrame->drawOwners},
+                           {.ranges = drawnFrame->drawOutputs, .owners = drawnFrame->boxedOwners},
                            selectedOwners, glm::inverse(frameViewProjection));
     }
     const glm::mat4 viewProjection = view.projection * view.view;
@@ -367,7 +412,7 @@ gfx::Overlay ViewportPanel::makeHighlight(const f32 scale) const {
 
 void ViewportPanel::drawViewChanges(ImDrawList& drawList, const ImVec2 origin,
                                     const ImVec2 size) const {
-    const std::vector<std::string> changes = listViewChanges(viewportView);
+    const std::vector<std::string> changes = listViewChanges(viewportView, viewportChoices);
     if (changes.empty()) {
         return;
     }
@@ -400,25 +445,33 @@ void ViewportPanel::pick(const ImVec2 origin, const ImVec2 size) const {
         return;
     }
     const ImVec2 mouse = ImGui::GetIO().MousePos;
-    const std::optional<usize> picked =
-        findPickedPoint(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
-                        {mouse.x - origin.x, mouse.y - origin.y}, pickables, PickRadius);
-    if (picked) {
+    const glm::mat4 viewProjection = makeProjection(size) * orbitCamera.makeViewMatrix();
+    const glm::vec2 imageSize{size.x, size.y};
+    const glm::vec2 point{mouse.x - origin.x, mouse.y - origin.y};
+    if (const std::optional<usize> picked =
+            findPickedPoint(viewProjection, imageSize, point, pickables.points, PickRadius)) {
         pickHandler({.points = std::span(&*picked, 1)}, findPickMode());
+        return;
+    }
+    if (const std::optional<usize> picked =
+            findPickedSegment(viewProjection, imageSize, point, pickables.segments, PickRadius)) {
+        pickHandler({.segments = std::span(&*picked, 1)}, findPickMode());
         return;
     }
     std::optional<usize> owner;
     if (drawnFrame) {
-        const glm::vec2 point{(mouse.x - origin.x) / size.x * 2.0F - 1.0F,
-                              1.0F - (mouse.y - origin.y) / size.y * 2.0F};
-        if (const std::optional<usize> output = findPickedTriangle(drawnFrame->rspResult, point)) {
+        const glm::vec2 onDevice{(point.x / size.x * 2.0F) - 1.0F,
+                                 1.0F - (point.y / size.y * 2.0F)};
+        if (const std::optional<usize> output =
+                findPickedTriangle(drawnFrame->rspResult, onDevice)) {
             if (const std::optional<usize> draw = findRangeOf(drawnFrame->drawOutputs, *output);
                 draw && *draw < drawnFrame->drawOwners.size()) {
                 owner = drawnFrame->drawOwners[*draw];
             }
         }
     }
-    pickHandler({.owner = owner}, findPickMode());
+    pickHandler({.owner = owner, .ray = makePickRay(viewProjection, imageSize, point)},
+                findPickMode());
 }
 
 void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
@@ -426,11 +479,18 @@ void ViewportPanel::pickInBox(const ImVec2 origin, const ImVec2 size) const {
         return;
     }
     const ImVec2 mouse = ImGui::GetIO().MousePos;
-    const std::vector<usize> picked =
-        findPointsInRect(makeProjection(size) * orbitCamera.makeViewMatrix(), {size.x, size.y},
-                         {boxStart->x - origin.x, boxStart->y - origin.y},
-                         {mouse.x - origin.x, mouse.y - origin.y}, pickables);
-    pickHandler({.points = picked}, findPickMode());
+    const glm::mat4 viewProjection = makeProjection(size) * orbitCamera.makeViewMatrix();
+    const glm::vec2 imageSize{size.x, size.y};
+    const glm::vec2 corner{boxStart->x - origin.x, boxStart->y - origin.y};
+    const glm::vec2 otherCorner{mouse.x - origin.x, mouse.y - origin.y};
+    const std::vector<usize> points =
+        findPointsInRect(viewProjection, imageSize, corner, otherCorner, pickables.points);
+    const std::vector<usize> segments =
+        findSegmentsInRect(viewProjection, imageSize, corner, otherCorner, pickables.segments);
+    const std::vector<usize> boxedPoints =
+        findPointsInRect(viewProjection, imageSize, corner, otherCorner, pickables.boxedPoints);
+    pickHandler({.points = points, .segments = segments, .boxedPoints = boxedPoints},
+                findPickMode());
 }
 
 PickMode ViewportPanel::findPickMode() const {
@@ -446,8 +506,7 @@ TransformView ViewportPanel::makeTransformView(const ImVec2 origin, const ImVec2
 }
 
 bool ViewportPanel::isTransforming() const {
-    return viewportTools.mode == SelectionMode::Node &&
-           viewportTransform.isGizmoActive(viewportTools.tool);
+    return viewportTransform.isGizmoActive(viewportTools.tool);
 }
 
 std::vector<glm::vec3> ViewportPanel::listGroundTriangles() const {
@@ -513,8 +572,13 @@ void ViewportPanel::render(const gfx::RenderTarget& target) {
                        .rdpResult = isTracing ? frame.rdpResult : std::move(frame.rdpResult),
                        .generation = generation,
                        .drawOutputs = std::move(frame.drawOutputs)};
-    for (const ViewportDraw& draw : viewportContent.draws) {
-        drawing.drawOwners.push_back(draw.owner);
+    for (usize i = 0; i < viewportContent.draws.size(); ++i) {
+        drawing.drawOwners.push_back(viewportContent.draws[i].owner);
+        drawing.boxedOwners.push_back(
+            viewportContent.draws[i].isBoxed ? viewportContent.draws[i].owner : std::nullopt);
+        if (viewportContent.draws[i].isEdged) {
+            drawing.edgedDraws.push_back(i);
+        }
     }
     selectionBoxes.reset();
     if (mode != RenderMode{}) {
@@ -565,6 +629,12 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
                                           WireframeStyle);
     }
     const f32 scale = ImGui::GetIO().DisplayFramebufferScale.x;
+    for (const usize draw : drawing.edgedDraws) {
+        std::ranges::move(
+            makeFaceEdges(listDrawTriangles(drawing.rspResult, drawing.drawOutputs, {&draw, 1}),
+                          {.color = EdgeStyle.color, .width = EdgeStyle.width * scale}),
+            std::back_inserter(overlay.lines));
+    }
     if (overlays.isShown) {
         const glm::mat4 viewProjection = makeViewProjection(viewportContent, orbitCamera, size);
         if (overlays.grid) {
@@ -576,10 +646,17 @@ gfx::Overlay ViewportPanel::makeOverlay(const DrawnFrame& drawing, const FrameSi
                 makeArrowLines(viewportOverlay, viewProjection, size, scaleArrowStyle(scale)),
                 std::back_inserter(overlay.lines));
         }
+        gfx::Overlay components =
+            makeComponentOverlay(viewportOverlay, viewProjection, size, scale);
+        std::ranges::move(components.triangles, std::back_inserter(overlay.triangles));
+        std::ranges::move(components.lines, std::back_inserter(overlay.lines));
     }
     if (overlays.xray) {
         for (gfx::OverlayLine& line : overlay.lines) {
             line.hiddenOpacity = XrayOpacity;
+        }
+        for (gfx::OverlayTriangle& triangle : overlay.triangles) {
+            triangle.hiddenOpacity = XrayOpacity;
         }
     }
     if (overlays.isShown && overlays.selectionHighlight) {

@@ -5,6 +5,8 @@
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDraws.h"
 #include "app/scene/domain/ActorMarkers.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/RuntimeSegments.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneActors.h"
@@ -18,12 +20,14 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -32,9 +36,14 @@ namespace {
 
 constexpr usize SettingsPerDay = 4;
 constexpr usize Midday = 1;
+constexpr f32 PathPointScale = 0.5F;
 
 [[nodiscard]] bool isShown(const SceneView& view, const usize room) {
     return room >= view.hiddenRooms.size() || !view.hiddenRooms[room];
+}
+
+[[nodiscard]] bool areRoomsHidden(const SceneView& view) {
+    return !view.hiddenRooms.empty() && std::ranges::all_of(view.hiddenRooms, std::identity{});
 }
 
 struct Placed {
@@ -138,6 +147,21 @@ struct Placed {
     return markers;
 }
 
+[[nodiscard]] std::vector<Marker> makePathMarkers(const SceneLayer& layer, const usize shownLayer) {
+    std::vector<Marker> markers;
+    const std::vector<ScenePath>& paths = layer.header.paths;
+    for (usize path = 0; path < paths.size(); ++path) {
+        for (usize point = 0; point < paths[path].points.size(); ++point) {
+            markers.push_back(Marker{.position = paths[path].points[point],
+                                     .kind = MarkerKind::PathPoint,
+                                     .scale = PathPointScale,
+                                     .owner = makeNodeKey(PathPointRef{
+                                         .layer = shownLayer, .path = path, .point = point})});
+        }
+    }
+    return markers;
+}
+
 void addMarkers(viewport::ViewportContent& content, const std::span<const Marker> markers,
                 const core::MarkerShape shape) {
     if (markers.empty()) {
@@ -236,6 +260,53 @@ struct PassSource {
     return draws;
 }
 
+/// The collision's drawing, its image added to `content`.
+struct AddedCollision {
+    CollisionDrawing drawing;
+    usize image = 0;
+};
+
+[[nodiscard]] AddedCollision addCollisionImage(viewport::ViewportContent& content,
+                                               const Collision& collision, const SceneView& view) {
+    AddedCollision added{.drawing = makeCollisionDrawing(
+                             collision, CollisionLook{.coloring = view.collisionColoring,
+                                                      .isTranslucent = !areRoomsHidden(view),
+                                                      .tintedSurfaceType = view.tintedSurfaceType}),
+                         .image = content.images.size()};
+    content.images.push_back(std::make_shared<const z64::MemoryImage>(added.drawing.image));
+    labelImages(content, "Collision", viewport::ImageKind::Generated);
+    return added;
+}
+
+void addPolygons(viewport::ViewportContent& content, const AddedCollision& added) {
+    content.draws.push_back(
+        viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.setup});
+    const std::vector<u32>& polygons = added.drawing.polygons;
+    for (usize i = 0; i < polygons.size(); ++i) {
+        if (polygons[i] != 0) {
+            content.draws.push_back(viewport::ViewportDraw{
+                .image = added.image, .displayList = polygons[i], .isEdged = true});
+        }
+    }
+}
+
+void addWaterBoxes(viewport::ViewportContent& content, const AddedCollision& added,
+                   const Collision& collision, const SceneView& view) {
+    if (collision.waterBoxes.empty()) {
+        return;
+    }
+    content.draws.push_back(
+        viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.waterBoxSetup});
+    for (usize i = 0; i < added.drawing.waterBoxes.size(); ++i) {
+        content.draws.push_back(
+            viewport::ViewportDraw{.image = added.image,
+                                   .displayList = added.drawing.waterBoxes[i],
+                                   .owner = makeNodeKey(WaterBoxRef{.layer = view.layer, .box = i}),
+                                   .isEdged = true,
+                                   .isBoxed = false});
+    }
+}
+
 [[nodiscard]] usize findDefaultLightSetting(const SceneHeader& header) {
     if (header.lightMode == LightMode::Time && Midday < header.lightSettings.size()) {
         return Midday;
@@ -276,6 +347,11 @@ SceneView restoreSceneView(const Scene& scene, const core::SceneSession& session
     view.lightSetting = session.lightSetting;
     view.showsActors = session.marksActors;
     view.drawsModels = session.drawsModels;
+    view.showsPaths = session.showsPaths;
+    view.showsCollision = session.showsCollision;
+    view.showsWaterBoxes = session.showsWaterBoxes;
+    view.collisionColoring =
+        findCollisionColoring(session.collisionColoring).value_or(CollisionColoring::Kind);
     view = keepSceneView(scene, std::move(view));
     for (const usize room : session.hiddenRooms) {
         if (room < view.hiddenRooms.size()) {
@@ -289,7 +365,12 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
     core::SceneSession session{.directory = scene.directory,
                                .lightSetting = view.lightSetting,
                                .marksActors = view.showsActors,
-                               .drawsModels = view.drawsModels};
+                               .drawsModels = view.drawsModels,
+                               .showsPaths = view.showsPaths,
+                               .showsCollision = view.showsCollision,
+                               .showsWaterBoxes = view.showsWaterBoxes,
+                               .collisionColoring =
+                                   makeCollisionColoringKey(view.collisionColoring)};
     if (view.layer < scene.layers.size()) {
         session.layer = scene.layers[view.layer].index;
     }
@@ -303,7 +384,8 @@ core::SceneSession makeSceneSession(const Scene& scene, const SceneView& view) {
 
 viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                            const core::MarkerShape markerShape,
-                                           const SceneLayer* shownLayer) {
+                                           const SceneLayer* shownLayer,
+                                           const Collision* shownCollision) {
     viewport::ViewportContent content{.images = scene.images};
     labelSceneImages(content, scene);
     if (scene.images.empty() || view.layer >= scene.layers.size()) {
@@ -312,6 +394,11 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     const SceneLayer& layer = shownLayer != nullptr ? *shownLayer : scene.layers[view.layer];
     const hackeroot::GameSetup setup = hackeroot::findGameSetup(*scene.images.front());
     const RuntimeSegments runtime = makeRuntimeSegments();
+    const Collision* collision =
+        shownCollision != nullptr ? shownCollision : findLayerCollision(scene, view.layer);
+    const bool showsCollision = collision != nullptr && view.showsCollision;
+    const bool showsWaterBoxes = collision != nullptr && view.showsWaterBoxes;
+    const bool isCollisionOnly = showsCollision && areRoomsHidden(view);
     const PassSource source{.layer = layer,
                             .view = view,
                             .setup = setup,
@@ -322,6 +409,13 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
     content.draws = makePass(source, true);
+    std::optional<AddedCollision> added;
+    if (showsCollision || showsWaterBoxes) {
+        added = addCollisionImage(content, *collision, view);
+    }
+    if (isCollisionOnly) {
+        addPolygons(content, *added);
+    }
     std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
         Placed placed = collectPlaced(layer, view);
@@ -335,8 +429,18 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         addMarkers(content, makeMarkers(placed), markerShape);
         labelImages(content, "Actor markers", viewport::ImageKind::Generated);
     }
+    if (view.showsPaths) {
+        addMarkers(content, makePathMarkers(layer, view.layer), markerShape);
+        labelImages(content, "Path markers", viewport::ImageKind::Generated);
+    }
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
+    if (showsCollision && !isCollisionOnly) {
+        addPolygons(content, *added);
+    }
+    if (showsWaterBoxes) {
+        addWaterBoxes(content, *added, *collision, view);
+    }
 
     if (view.lightSetting < layer.header.lightSettings.size()) {
         content.lighting = makeLighting(layer.header.lightSettings[view.lightSetting]);

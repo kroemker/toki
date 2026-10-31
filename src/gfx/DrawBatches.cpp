@@ -64,7 +64,7 @@ PipelineKey makePipelineKey(const n64::RdpState& state, const BlendSetup& blend,
     }
     key.depthTest = otherMode.isDepthCompared();
     key.depthWrite = otherMode.isDepthUpdated();
-    key.depthCompare = otherMode.getDepthMode() == n64::DepthMode::Decal ? DepthCompare::LessOrEqual
+    key.depthCompare = otherMode.getDepthMode() == n64::DepthMode::Decal ? DepthCompare::Decal
                                                                          : DepthCompare::Less;
     if (key.depthWrite && !key.depthTest) {
         key.depthTest = true;

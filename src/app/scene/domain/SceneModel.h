@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "base/Diagnostic.h"
 #include "z64/MemoryImage.h"
 #include "z64/SymbolData.h"
@@ -8,6 +9,7 @@
 #include <expected>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace toki::scene {
@@ -53,6 +55,17 @@ public:
     /// Removes `name`, which nothing may point at any more.
     [[nodiscard]] std::expected<void, base::Diagnostic> removeSymbol(std::string_view name);
 
+    /// What the scene's render materials make their faces, saved beside
+    /// its C rather than in it.
+    [[nodiscard]] const MaterialBindings& getMaterialBindings() const {
+        return materialBindings;
+    }
+
+    void setMaterialBindings(MaterialBindings bindings) {
+        edited = edited || bindings != materialBindings;
+        materialBindings = std::move(bindings);
+    }
+
     /// Whether anything was changed since the model was made.
     [[nodiscard]] bool isEdited() const {
         return edited;
@@ -70,6 +83,7 @@ private:
     std::shared_ptr<const z64::MemoryImage> gameCode;
     std::vector<u8> segments;
     std::vector<std::vector<z64::SymbolData>> images;
+    MaterialBindings materialBindings;
     bool edited = false;
 };
 

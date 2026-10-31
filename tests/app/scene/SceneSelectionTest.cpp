@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <vector>
 
 using base::usize;
 using toki::scene::PickMode;
@@ -46,10 +47,14 @@ TEST_CASE("a node is the same node again from its key", "[scene][selection]") {
     for (const SceneNode& node :
          {SceneNode{PlacementRef{
               .kind = toki::scene::PlacementKind::TransitionActor, .layer = 2, .index = 7}},
-          SceneNode{PlacementRef{.layer = 1, .room = 3, .index = 40}}, Room}) {
+          SceneNode{PlacementRef{.layer = 1, .room = 3, .index = 40}}, Room,
+          SceneNode{toki::scene::LightSettingRef{.layer = 1, .index = 9}},
+          SceneNode{toki::scene::PathRef{.layer = 3, .path = 2}},
+          SceneNode{toki::scene::PathPointRef{.layer = 3, .path = 2, .point = 17}},
+          SceneNode{toki::scene::WaterBoxRef{.layer = 1, .box = 4}}}) {
         REQUIRE(toki::scene::findNode(toki::scene::makeNodeKey(node)) == node);
     }
-    REQUIRE_FALSE(toki::scene::findNode(usize{9} << 56U));
+    REQUIRE_FALSE(toki::scene::findNode(usize{10} << 56U));
 }
 
 TEST_CASE("the placements of a selection leave its rooms out", "[scene][selection]") {
@@ -61,4 +66,14 @@ TEST_CASE("the placements of a selection leave its rooms out", "[scene][selectio
     selection.removeIf([](const SceneNode& node) { return node == Second; });
     REQUIRE(selection.listPlacements().size() == 1);
     REQUIRE(selection.contains(Room));
+}
+
+TEST_CASE("what a transform moves is the placements and path points selected",
+          "[scene][selection]") {
+    SceneSelection selection;
+    const SceneNode point = toki::scene::PathPointRef{.path = 1, .point = 2};
+    const std::array<SceneNode, 4> picked{Room, First, toki::scene::PathRef{.path = 1}, point};
+    selection.pick(picked, PickMode::Replace);
+
+    REQUIRE(selection.listMovable() == std::vector<SceneNode>{First, point});
 }

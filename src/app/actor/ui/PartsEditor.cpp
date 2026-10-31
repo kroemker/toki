@@ -59,14 +59,20 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
     return true;
 }
 
-[[nodiscard]] std::vector<std::string> listDrawIds(const EditContext& context) {
+struct DrawIds {
     std::vector<std::string> names;
-    if (const ValueCollection* drawIds = context.findCollection(DrawIdCollection)) {
-        for (const ChoiceValue& value : drawIds->values) {
-            names.push_back(value.label);
+    std::vector<std::string> labels;
+};
+
+[[nodiscard]] DrawIds listDrawIds(const EditContext& context) {
+    DrawIds drawIds;
+    if (const ValueCollection* collection = context.findCollection(DrawIdCollection)) {
+        for (const ChoiceValue& value : collection->values) {
+            drawIds.names.push_back(value.label);
+            drawIds.labels.push_back(value.readableLabel);
         }
     }
-    return names;
+    return drawIds;
 }
 
 [[nodiscard]] bool editItem(ActorPart& part, const std::span<const ActorParam> params,
@@ -89,7 +95,9 @@ constexpr std::string_view DrawIdCollection = "GetItemDrawID";
     ImGui::SetItemTooltip("Drawn as GetItem_Draw draws a GetItemDrawID, from the object the "
                           "get item loads");
     if (!part.itemChoice) {
-        isChanged = editPicked("Draw ID", part.symbol, listDrawIds(context), nullptr) || isChanged;
+        const DrawIds drawIds = listDrawIds(context);
+        isChanged =
+            editPicked("Draw ID", part.symbol, drawIds.names, nullptr, drawIds.labels) || isChanged;
     } else {
         std::vector<std::string> names;
         for (const ActorParam& param : params) {

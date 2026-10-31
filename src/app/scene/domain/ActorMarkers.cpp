@@ -171,6 +171,8 @@ struct Shape {
         return {0x5C, 0xC9, 0x7A, 0xFF};
     case MarkerKind::TransitionActor:
         return {0x5A, 0xA3, 0xF2, 0xFF};
+    case MarkerKind::PathPoint:
+        return {0xD9, 0x6C, 0xE0, 0xFF};
     }
     return {0xFF, 0xFF, 0xFF, 0xFF};
 }
@@ -247,7 +249,7 @@ void drawTriangles(n64::DisplayListWriter& writer, const std::span<const std::ar
 
 struct ShapeData {
     Shape shape;
-    std::array<u32, 3> fills{};
+    std::array<u32, 4> fills{};
     u32 edges = 0;
 };
 
@@ -268,7 +270,8 @@ void drawMarker(n64::DisplayListWriter& writer, const ShapeData& data, const Mar
 
 [[nodiscard]] glm::mat4 makeMarkerMatrix(const Marker& marker) {
     const glm::vec3 position{marker.position[0], marker.position[1], marker.position[2]};
-    return glm::scale(glm::translate(glm::mat4(1.0F), position), glm::vec3(1.0F / LocalScale));
+    return glm::scale(glm::translate(glm::mat4(1.0F), position),
+                      glm::vec3(marker.scale / LocalScale));
 }
 
 } // namespace
@@ -277,8 +280,8 @@ ActorMarkers makeActorMarkers(const std::span<const Marker> markers,
                               const core::MarkerShape shape) {
     n64::DisplayListWriter writer(MarkerSegment);
     ShapeData data{.shape = makeShape(shape)};
-    for (const MarkerKind kind :
-         {MarkerKind::Actor, MarkerKind::PlayerEntry, MarkerKind::TransitionActor}) {
+    for (const MarkerKind kind : {MarkerKind::Actor, MarkerKind::PlayerEntry,
+                                  MarkerKind::TransitionActor, MarkerKind::PathPoint}) {
         data.fills[static_cast<usize>(kind)] = addFill(writer, data.shape, findColor(kind));
     }
     data.edges = addEdges(writer, data.shape);

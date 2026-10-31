@@ -113,9 +113,11 @@ template <typename Enum, usize Count>
                                   std::span<const std::string> names);
 
 /// A name picked from `candidates`, or typed; `empty` is shown while it is
-/// empty, or nothing may be left empty when it is null.
+/// empty, or nothing may be left empty when it is null. Each candidate is
+/// shown by its entry of `labels`, when given, the candidate faint beside it.
 [[nodiscard]] bool editPicked(const char* label, std::string& value,
-                              std::span<const std::string> candidates, const char* empty);
+                              std::span<const std::string> candidates, const char* empty,
+                              std::span<const std::string> labels = {});
 
 /// A number that may be negative, typed in hexadecimal.
 [[nodiscard]] bool editSignedHex(const char* label, s64& value);

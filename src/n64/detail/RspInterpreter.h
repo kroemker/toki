@@ -26,7 +26,8 @@ class RspInterpreter {
 public:
     RspInterpreter(const Memory& memory, const RspTask& task)
         : memory(memory), segments(task.segments), pc(resolve(task.displayList) & DmaMask),
-          recordsTrace(task.recordsTrace), overrides(task.overrides) {}
+          recordsTrace(task.recordsTrace), recordsSources(task.recordsSources),
+          overrides(task.overrides) {}
 
     [[nodiscard]] RspResult run();
 
@@ -48,6 +49,7 @@ private:
     struct VertexSlot {
         ShadedVertex vertex;
         usize viewport = 0;
+        VertexSource source;
         bool loaded = false;
     };
 
@@ -84,6 +86,7 @@ private:
     [[nodiscard]] const LightSetup& getLightSetup();
     void writeLightMemory(usize offset, std::span<const u8> bytes);
     [[nodiscard]] usize findViewportIndex();
+    [[nodiscard]] usize findModelviewIndex();
 
     [[nodiscard]] const Viewport& getViewport(const VertexSlot& slot) const {
         return result.viewports.empty() ? viewport : result.viewports[slot.viewport];
@@ -105,6 +108,7 @@ private:
     std::array<u32, SegmentCount> segments;
     u32 pc;
     bool recordsTrace = false;
+    bool recordsSources = false;
     RspOverrides overrides;
     usize culled = 0;
     u32 commandAddress = 0;

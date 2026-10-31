@@ -1,11 +1,16 @@
 #include "Scene.h"
 
 #include "app/scene/Types.h"
+#include "app/scene/domain/Collision.h"
+#include "app/scene/domain/HeaderNames.h"
+#include "app/scene/domain/MaterialBindingsFile.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSave.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/AssetImage.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/GameCode.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/SceneFiles.h"
 #include "hackeroot/Workspace.h"
 #include "z64/MemoryImage.h"
@@ -17,6 +22,7 @@
 #include <format>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -93,6 +99,26 @@ SceneLayer LayerReader::readLayer(const usize index, const u32 sceneHeader,
     return layer;
 }
 
+void readCollisions(Scene& scene, const HeaderFiles& files) {
+    scene.collisions.clear();
+    for (SceneLayer& layer : scene.layers) {
+        const u32 address = layer.header.collisionHeader;
+        if (address == 0) {
+            continue;
+        }
+        const auto shared = std::ranges::find(scene.collisions, address, &Collision::address);
+        if (shared != scene.collisions.end()) {
+            layer.collision = static_cast<usize>(shared - scene.collisions.begin());
+            continue;
+        }
+        Collision collision = readCollision(*scene.images[SceneImage], address);
+        std::ranges::move(placeIn(std::exchange(collision.diagnostics, {}), files.scene),
+                          std::back_inserter(scene.diagnostics));
+        layer.collision = scene.collisions.size();
+        scene.collisions.push_back(std::move(collision));
+    }
+}
+
 void readLayers(Scene& scene, const HeaderFiles& files) {
     scene.layers.clear();
     LayerReader layers(scene, files);
@@ -105,6 +131,7 @@ void readLayers(Scene& scene, const HeaderFiles& files) {
         }
     }
     std::ranges::move(layers.takeDiagnostics(), std::back_inserter(scene.diagnostics));
+    readCollisions(scene, files);
 }
 
 } // namespace
@@ -116,6 +143,14 @@ void readSceneLayers(Scene& scene) {
     readLayers(scene, HeaderFiles{.scene = scene.directory,
                                   .rooms = std::vector<std::filesystem::path>(
                                       scene.images.size() - FirstRoomImage, scene.directory)});
+}
+
+const Collision* findLayerCollision(const Scene& scene, const usize layer) {
+    if (layer >= scene.layers.size()) {
+        return nullptr;
+    }
+    const std::optional<usize> index = scene.layers[layer].collision;
+    return index && *index < scene.collisions.size() ? &scene.collisions[*index] : nullptr;
 }
 
 std::string makeLayerName(const usize index) {
@@ -161,6 +196,8 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
         headerFiles.rooms.push_back(room.front());
     }
     readLayers(scene, headerFiles);
+    const hackeroot::Prelude& prelude = reader.getPrelude(getSceneIncludes());
+    scene.headerNames = readHeaderNames(prelude.types, prelude.macros);
 
     if (scene.layers.front().header.roomCount != files.rooms.size()) {
         scene.diagnostics.push_back(base::makeWarning(
@@ -168,6 +205,10 @@ Scene readScene(hackeroot::AssetImageReader& reader, const hackeroot::AssetDirec
             std::format("the scene's room list has {} rooms, but its folder holds {}",
                         scene.layers.front().header.roomCount, files.rooms.size())));
     }
+    ReadBindings bindings =
+        readMaterialBindings(makeSceneFilePath(reader.getWorkspace().getRoot(), scene.name));
+    scene.materialBindings = std::move(bindings.bindings);
+    std::ranges::move(bindings.diagnostics, std::back_inserter(scene.diagnostics));
     scene.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - started);
     return scene;

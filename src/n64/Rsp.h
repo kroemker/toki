@@ -27,6 +27,9 @@ struct RspTask {
     /// Whether to record every command run (`RspResult::trace`), for looking
     /// into what a frame did.
     bool recordsTrace = false;
+    /// Whether every triangle records where its vertices came from
+    /// (`Triangle::sources`), for reading a mesh back out of its display list.
+    bool recordsSources = false;
     RspOverrides overrides;
 };
 

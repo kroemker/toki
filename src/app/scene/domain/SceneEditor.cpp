@@ -11,9 +11,11 @@
 #include <expected>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace toki::scene {
@@ -42,6 +44,37 @@ std::optional<Placement> findPlacement(const Scene& scene, const PlacementRef& w
         break;
     }
     return std::nullopt;
+}
+
+std::expected<void, base::Diagnostic>
+setPlacements(SceneModel& model, const std::span<const PlacementChange> changes) {
+    for (const PlacementChange& change : changes) {
+        const std::expected<void, base::Diagnostic> set =
+            std::holds_alternative<ActorPlacement>(change.placement)
+                ? setPlacement(model, change.list, change.index,
+                               std::get<ActorPlacement>(change.placement))
+                : setTransitionActor(model, change.list.layer, change.index,
+                                     std::get<TransitionActorPlacement>(change.placement));
+        if (!set) {
+            return set;
+        }
+    }
+    return {};
+}
+
+std::optional<LightSetting> findLightSetting(const Scene& scene, const usize layer,
+                                             const usize index) {
+    if (layer >= scene.layers.size() || index >= scene.layers[layer].header.lightSettings.size()) {
+        return std::nullopt;
+    }
+    return scene.layers[layer].header.lightSettings[index];
+}
+
+std::optional<ScenePath> findPath(const Scene& scene, const usize layer, const usize index) {
+    if (layer >= scene.layers.size() || index >= scene.layers[layer].header.paths.size()) {
+        return std::nullopt;
+    }
+    return scene.layers[layer].header.paths[index];
 }
 
 bool hasUnreadActors(const Scene& scene) {
@@ -90,6 +123,7 @@ namespace {
 
 void showModel(Scene& scene, const SceneModel& model) {
     scene.images = model.layOut();
+    scene.materialBindings = model.getMaterialBindings();
     scene.diagnostics.clear();
     readSceneLayers(scene);
 }
@@ -103,9 +137,19 @@ std::expected<void, base::Diagnostic> SceneEditor::apply(Scene& scene, const Pla
         return std::unexpected(
             base::makeError({}, std::format("the scene has no layer {}", where.layer)));
     }
+    return applyToModel(
+        scene, [&edit, &list](SceneModel& model) { return edit(model, *list); }, joinsLast);
+}
+
+std::expected<void, base::Diagnostic> SceneEditor::applyToModel(Scene& scene, const ModelEdit& edit,
+                                                                const bool joinsLast) {
+    if (isSaving) {
+        return std::unexpected(base::makeError(
+            {}, "the scene is being saved; edit it again once the save is written"));
+    }
     SceneModel before = sceneModel ? *sceneModel : SceneModel(scene);
     SceneModel edited = before;
-    if (std::expected<void, base::Diagnostic> done = edit(edited, *list); !done) {
+    if (std::expected<void, base::Diagnostic> done = edit(edited); !done) {
         return done;
     }
     showModel(scene, edited);
@@ -121,7 +165,7 @@ std::expected<void, base::Diagnostic> SceneEditor::apply(Scene& scene, const Pla
 }
 
 bool SceneEditor::undo(Scene& scene) {
-    if (undone.empty() || !sceneModel) {
+    if (isSaving || undone.empty() || !sceneModel) {
         return false;
     }
     redone.push_back(std::move(*sceneModel));
@@ -132,7 +176,7 @@ bool SceneEditor::undo(Scene& scene) {
 }
 
 bool SceneEditor::redo(Scene& scene) {
-    if (redone.empty() || !sceneModel) {
+    if (isSaving || redone.empty() || !sceneModel) {
         return false;
     }
     undone.push_back(std::move(*sceneModel));

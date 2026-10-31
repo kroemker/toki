@@ -73,6 +73,14 @@ TEST_CASE("switch and collectible flags from 0x20 are reset on leaving the scene
     REQUIRE_FALSE(toki::scene::findFlagNumber(wide, {.params = 0x007F}).has_value());
 }
 
+TEST_CASE("collectible flag 0 names none and its highest value names a flag", "[scene][flags]") {
+    const toki::actor::ActorParam collectible{
+        .name = "Flag", .mask = 0x003F, .sceneFlag = toki::actor::SceneFlag::Collectible};
+    REQUIRE_FALSE(toki::scene::findFlagNumber(collectible, {.params = 0x0000}).has_value());
+    REQUIRE(toki::scene::findFlagNumber(collectible, {.params = 0x0001}) == 0x01);
+    REQUIRE(toki::scene::findFlagNumber(collectible, {.params = 0x003F}) == 0x3F);
+}
+
 TEST_CASE("a flag links each actor that sets it to each that reads it", "[scene][flags]") {
     toki::scene::SceneFlagUse flag{.users = {{.use = toki::actor::FlagUse::Reads},
                                              {.use = toki::actor::FlagUse::Sets},

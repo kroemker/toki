@@ -1,9 +1,10 @@
 #include "EditWidgets.h"
 
 #include "app/actor/Types.h"
-#include "app/actor/domain/ReadableName.h"
 #include "app/actor/domain/SymbolCatalog.h"
+#include "app/core/domain/ReadableName.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 #include "app/object/domain/ObjectAssets.h"
@@ -75,14 +76,10 @@ std::string pickerFilter;
                 !core::containsIgnoringCase(shownLabel, pickerFilter)) {
                 continue;
             }
-            const std::string item = std::format("{}##{}", shownLabel, candidate);
-            if (ImGui::Selectable(item.c_str(), candidate == typed)) {
+            if (core::drawConstantSelectable(shownLabel, candidate, candidate == typed)) {
                 isChanged = candidate != typed;
                 typed = candidate;
                 ImGui::CloseCurrentPopup();
-            }
-            if (shownLabel != candidate) {
-                ImGui::SetItemTooltip("%s", candidate.c_str());
             }
         }
     }
@@ -258,7 +255,7 @@ bool editCollection(const char* label, std::optional<std::string>& collection,
     std::vector<std::string> labels;
     labels.reserve(names.size());
     for (const std::string& name : names) {
-        labels.push_back(makeReadableName(name));
+        labels.push_back(core::makeReadableName(name));
     }
     const bool isChanged = drawPicker("##value", typed, names, "Listed here", labels);
     if (collection) {
@@ -273,10 +270,11 @@ bool editCollection(const char* label, std::optional<std::string>& collection,
 }
 
 bool editPicked(const char* label, std::string& value,
-                const std::span<const std::string> candidates, const char* empty) {
+                const std::span<const std::string> candidates, const char* empty,
+                const std::span<const std::string> labels) {
     core::drawPropertyLabel(label);
     ImGui::PushID(label);
-    const bool isChanged = drawPicker("##value", value, candidates, empty);
+    const bool isChanged = drawPicker("##value", value, candidates, empty, labels);
     ImGui::PopID();
     return isChanged;
 }

@@ -1,6 +1,6 @@
 #include "ConfigSettings.h"
 
-#include "app/actor/domain/ReadableName.h"
+#include "app/core/domain/ReadableName.h"
 #include "app/core/domain/TextCase.h"
 #include "app/tools/configure/Types.h"
 #include "hackeroot/CheckoutEdits.h"
@@ -98,7 +98,7 @@ constexpr std::array<CollectionChoice, 3> CollectionChoices{{
 
 [[nodiscard]] ConfigSetting makeSetting(const hackeroot::ConfigDefine& define) {
     ConfigSetting setting{.define = define,
-                          .label = actor::makeReadableName(core::makeLowerCase(define.name))};
+                          .label = core::makeReadableName(core::makeLowerCase(define.name))};
     const std::string_view written = define.written;
     if (written == "true" || written == "false") {
         setting.control = SettingControl::Toggle;
@@ -127,7 +127,7 @@ constexpr std::array<CollectionChoice, 3> CollectionChoices{{
     if (stem.starts_with("config_")) {
         stem.erase(0, std::string_view("config_").size());
     }
-    return actor::makeReadableName(stem);
+    return core::makeReadableName(stem);
 }
 
 } // namespace

@@ -74,6 +74,12 @@ struct ViewportDraw {
     /// it shows, as a scene numbers its rooms and placements; what the frame
     /// drew of it can be picked and outlined by it.
     std::optional<usize> owner;
+    /// Whether the edges of the triangles the draw makes are drawn over the
+    /// frame as lines, as a collision's are to show its shape.
+    bool isEdged = false;
+    /// Whether its owner, selected, has a box drawn around what it drew. A
+    /// collision polygon has not: its highlight already shows all of it.
+    bool isBoxed = true;
 };
 
 /// The outputs of `n64::RspResult::outputs` one draw made, from `first` to
@@ -195,5 +201,12 @@ inline constexpr u8 FrameSegment = 0x01;
 [[nodiscard]] Frame runFrame(const ViewportContent& content, const OrbitCamera& camera,
                              FrameSize size, bool recordsTrace = false,
                              const n64::RspOverrides& overrides = {});
+
+/// Runs the content's display lists as `runFrame` does, but seen from nowhere:
+/// the view and projection are the identity, so the RSP puts every vertex at
+/// its place in the world, and no triangle is culled. Every triangle records
+/// where its vertices came from (`n64::RspTask::recordsSources`), for reading
+/// the meshes the lists draw. The RDP is not run.
+[[nodiscard]] Frame runWorldFrame(const ViewportContent& content);
 
 } // namespace toki::viewport

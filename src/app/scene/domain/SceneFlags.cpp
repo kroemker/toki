@@ -99,12 +99,15 @@ std::optional<s64> findFlagNumber(const actor::ActorParam& param,
         return std::nullopt;
     }
     const s64 value = actor::readParamValue(param, placement);
-    const u8 width = actor::findMaskWidth(param.mask);
-    const s64 highest = param.isSigned ? -1 : (s64{1} << width) - 1;
-    if (value == highest || value < 0 || value >= getSceneFlagCount(*param.sceneFlag)) {
+    if (value < 0 || value >= getSceneFlagCount(*param.sceneFlag)) {
         return std::nullopt;
     }
-    return value;
+    if (*param.sceneFlag == actor::SceneFlag::Collectible) {
+        return value == 0 ? std::nullopt : std::optional(value);
+    }
+    const u8 width = actor::findMaskWidth(param.mask);
+    const s64 highest = param.isSigned ? -1 : (s64{1} << width) - 1;
+    return value == highest ? std::nullopt : std::optional(value);
 }
 
 std::vector<SceneFlagUse> listSceneFlags(const SceneLayer& layer, const SceneActors& actors) {

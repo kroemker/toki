@@ -4,6 +4,8 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/CollisionEdits.h"
+#include "app/scene/domain/PathEdits.h"
 #include "app/scene/domain/PlacementEdits.h"
 #include "app/scene/domain/PlacementTransform.h"
 #include "app/scene/domain/Scene.h"
@@ -11,6 +13,7 @@
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
 #include "app/scene/domain/SceneModel.h"
+#include "app/scene/domain/WaterBoxShape.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Tables.h"
 #include "hackeroot/Workspace.h"
@@ -24,12 +27,14 @@
 #include <cmath>
 #include <expected>
 #include <format>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace toki::scene {
 
@@ -75,6 +80,37 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
     return axes;
 }
 
+[[nodiscard]] s16 roundToS16(const f32 value) {
+    return static_cast<s16>(std::clamp(std::lround(value), long{INT16_MIN}, long{INT16_MAX}));
+}
+
+/// Whether `node` is still something `scene` holds.
+[[nodiscard]] bool isInScene(const Scene& scene, const SceneNode& node) {
+    if (const auto* placement = std::get_if<PlacementRef>(&node)) {
+        return findPlacement(scene, *placement).has_value();
+    }
+    if (const auto* sceneNode = std::get_if<SceneRef>(&node)) {
+        return sceneNode->layer < scene.layers.size();
+    }
+    if (const auto* room = std::get_if<RoomRef>(&node)) {
+        return room->layer < scene.layers.size() &&
+               room->room < scene.layers[room->layer].rooms.size();
+    }
+    if (const auto* light = std::get_if<LightSettingRef>(&node)) {
+        return findLightSetting(scene, light->layer, light->index).has_value();
+    }
+    if (const auto* path = std::get_if<PathRef>(&node)) {
+        return findPath(scene, path->layer, path->path).has_value();
+    }
+    if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
+        const Collision* collision = findLayerCollision(scene, box->layer);
+        return collision != nullptr && box->box < collision->waterBoxes.size();
+    }
+    const auto& point = std::get<PathPointRef>(node);
+    const std::optional<ScenePath> path = findPath(scene, point.layer, point.path);
+    return path && point.point < path->points.size();
+}
+
 [[nodiscard]] std::string makeWhere(const PlacementRef& where) {
     switch (where.kind) {
     case PlacementKind::Actor:
@@ -85,6 +121,87 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
         return std::format("Player entry #{}", where.index);
     }
     return {};
+}
+
+struct MovedPath {
+    usize layer = 0;
+    usize index = 0;
+    std::vector<std::array<s16, 3>> points;
+};
+
+struct MovedWaterBox {
+    usize layer = 0;
+    usize index = 0;
+    WaterBox box;
+};
+
+/// What moving `nodes` as `edit` says sets in the model, made as one edit, so
+/// that a move is taken back at once and fails whole.
+SceneEditor::ModelEdit makeTransformEdit(const Scene& scene, const std::span<const SceneNode> nodes,
+                                         const viewport::TransformEdit& edit) {
+    std::vector<PlacementChange> placements;
+    std::map<std::pair<usize, usize>, ScenePath> paths;
+    std::vector<MovedWaterBox> boxes;
+    for (usize i = 0; i < nodes.size() && i < edit.points.size(); ++i) {
+        const glm::vec3& point = edit.points[i];
+        if (const auto* where = std::get_if<PlacementRef>(&nodes[i])) {
+            const std::optional<Placement> placement = findPlacement(scene, *where);
+            const std::optional<PlacementList> list = findPlacementList(scene, *where);
+            if (placement && list) {
+                placements.push_back(
+                    {.list = *list,
+                     .index = where->index,
+                     .placement = makeTransformedPlacement(*placement, point, edit.result)});
+            }
+        } else if (const auto* pathPoint = std::get_if<PathPointRef>(&nodes[i])) {
+            const std::pair key(pathPoint->layer, pathPoint->path);
+            if (!paths.contains(key)) {
+                if (std::optional<ScenePath> path =
+                        findPath(scene, pathPoint->layer, pathPoint->path)) {
+                    paths.emplace(key, std::move(*path));
+                }
+            }
+            const auto found = paths.find(key);
+            if (found != paths.end() && pathPoint->point < found->second.points.size()) {
+                found->second.points[pathPoint->point] = {roundToS16(point.x), roundToS16(point.y),
+                                                          roundToS16(point.z)};
+            }
+        } else if (const auto* box = std::get_if<WaterBoxRef>(&nodes[i])) {
+            const Collision* collision = findLayerCollision(scene, box->layer);
+            if (collision != nullptr && box->box < collision->waterBoxes.size()) {
+                boxes.push_back({.layer = scene.layers[box->layer].index,
+                                 .index = box->box,
+                                 .box = makeMovedWaterBox(collision->waterBoxes[box->box], point)});
+            }
+        }
+    }
+    std::vector<MovedPath> movedPaths;
+    for (auto& [key, path] : paths) {
+        movedPaths.push_back({.layer = scene.layers[key.first].index,
+                              .index = key.second,
+                              .points = std::move(path.points)});
+    }
+    return [placements = std::move(placements), movedPaths = std::move(movedPaths),
+            boxes = std::move(boxes)](SceneModel& model) -> std::expected<void, base::Diagnostic> {
+        if (std::expected<void, base::Diagnostic> set = setPlacements(model, placements); !set) {
+            return set;
+        }
+        for (const MovedPath& path : movedPaths) {
+            if (std::expected<void, base::Diagnostic> set =
+                    setPathPoints(model, path.layer, path.index, path.points);
+                !set) {
+                return set;
+            }
+        }
+        for (const MovedWaterBox& box : boxes) {
+            if (std::expected<void, base::Diagnostic> set =
+                    setWaterBox(model, box.layer, box.index, box.box);
+                !set) {
+                return set;
+            }
+        }
+        return {};
+    };
 }
 
 } // namespace
@@ -103,25 +220,55 @@ s16 PlacementEditor::findDefaultActor() const {
 PlacementEditor::PlacementEditor(const workspace::WorkspaceService& workspaceService,
                                  actor::CollectionCatalog& collectionCatalog, Show show)
     : workspaceService(workspaceService), collectionCatalog(collectionCatalog),
-      show(std::move(show)), actorForm(workspaceService) {}
+      show(std::move(show)), actorForm(workspaceService),
+      headerForm(workspaceService,
+                 [this](Scene& scene, const SceneEditor::ModelEdit& edit) {
+                     return applyToModel(scene, edit);
+                 }),
+      lightSettingForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }),
+      pathForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }),
+      collisionForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }),
+      waterBoxForm([this](SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+          pickModelEdit(std::move(edit), std::move(select));
+      }) {}
 
 void PlacementEditor::refresh(const Scene& scene) {
+    resetDrafts();
+    selection.removeIf([&scene](const SceneNode& node) { return !isInScene(scene, node); });
+}
+
+void PlacementEditor::resetDrafts() {
     draft.reset();
-    selection.removeIf([&scene](const SceneNode& node) {
-        if (const auto* placement = std::get_if<PlacementRef>(&node)) {
-            return !findPlacement(scene, *placement);
+    lightSettingForm.reset();
+    pathForm.reset();
+}
+
+void PlacementEditor::pickModelEdit(SceneEditor::ModelEdit edit, std::optional<SceneNode> select) {
+    picked = [this, edit = std::move(edit), select = std::move(select)](Scene& edited) {
+        if (applyToModel(edited, edit) && select) {
+            selection.select(*select);
         }
-        const auto& room = std::get<RoomRef>(node);
-        return room.layer >= scene.layers.size() ||
-               room.room >= scene.layers[room.layer].rooms.size();
-    });
+    };
 }
 
 bool PlacementEditor::apply(Scene& scene, const PlacementRef& where, const SceneEditor::Edit& edit,
                             const bool joinsLast) {
-    const std::expected<void, base::Diagnostic> applied =
-        sceneEditor.apply(scene, where, edit, joinsLast);
-    draft.reset();
+    return showApplied(scene, sceneEditor.apply(scene, where, edit, joinsLast));
+}
+
+bool PlacementEditor::applyToModel(Scene& scene, const SceneEditor::ModelEdit& edit) {
+    return showApplied(scene, sceneEditor.applyToModel(scene, edit));
+}
+
+bool PlacementEditor::showApplied(Scene& scene,
+                                  const std::expected<void, base::Diagnostic>& applied) {
+    resetDrafts();
     if (!applied) {
         failure = applied.error().message;
         return false;
@@ -184,13 +331,32 @@ void PlacementEditor::addObject(Scene& scene, const PlacementRef& where, const s
 void PlacementEditor::drawInspector(Scene& scene) {
     const SceneNode* node = selection.findActive();
     if (const auto* room = node != nullptr ? std::get_if<RoomRef>(node) : nullptr) {
-        drawRoom(scene, *room);
+        headerForm.drawRoom(scene, *room, selection.getNodes().size());
+        return;
+    }
+    if (const auto* sceneNode = node != nullptr ? std::get_if<SceneRef>(node) : nullptr) {
+        headerForm.drawScene(scene, *sceneNode, selection.getNodes().size());
+        return;
+    }
+    if (const auto* light = node != nullptr ? std::get_if<LightSettingRef>(node) : nullptr) {
+        lightSettingForm.draw(scene, *light, selection.getNodes().size());
+        return;
+    }
+    if (node != nullptr &&
+        (std::holds_alternative<PathRef>(*node) || std::holds_alternative<PathPointRef>(*node))) {
+        pathForm.draw(scene, *node, selection.getNodes().size());
+        return;
+    }
+    if (const auto* box = node != nullptr ? std::get_if<WaterBoxRef>(node) : nullptr) {
+        waterBoxForm.draw(scene, *box, selection.getNodes().size());
         return;
     }
     const std::optional<PlacementRef> active = findSelected();
     if (!active) {
-        ImGui::TextColored(core::palette::TextMuted,
-                           "Select a room or a placement in the Scene panel or the viewport.");
+        ImGui::TextColored(
+            core::palette::TextMuted,
+            "Select the scene, a room, a placement, a light setting, a path or a piece of "
+            "collision in the Scene panel or the viewport.");
         return;
     }
     if (!draft) {
@@ -326,51 +492,6 @@ void PlacementEditor::drawObject(const Scene& scene, const PlacementRef& where,
     core::endProperties();
 }
 
-void PlacementEditor::drawRoom(const Scene& scene, const RoomRef& where) {
-    if (where.layer >= scene.layers.size() ||
-        where.room >= scene.layers[where.layer].rooms.size()) {
-        return;
-    }
-    const RoomHeader& header = scene.layers[where.layer].rooms[where.room];
-    ImGui::TextUnformatted(std::format("Room {}", where.room).c_str());
-    ImGui::TextColored(core::palette::TextMuted, "%s",
-                       std::format("Layer {}", where.layer).c_str());
-    if (const usize count = selection.getNodes().size(); count > 1) {
-        ImGui::TextColored(core::palette::Accent, "%zu selected; shown is the one picked last.",
-                           count);
-    }
-    ImGui::Spacing();
-    if (ImGui::CollapsingHeader("Room", ImGuiTreeNodeFlags_DefaultOpen) &&
-        core::beginProperties("##room", LabelWidth)) {
-        constexpr std::array<const char*, 3> ShapeNames{"Normal", "Image", "Cullable"};
-        core::drawPropertyLabel("Shape", "How the room's mesh is drawn, from its "
-                                         "SCENE_CMD_ROOM_SHAPE: every part, a prerendered "
-                                         "image, or the parts the camera sees.");
-        ImGui::TextUnformatted(ShapeNames[static_cast<usize>(header.shapeType)]);
-        core::drawPropertyLabel("Parts", "The display list pairs of the room's mesh.");
-        ImGui::Text("%zu", header.displayLists.size());
-        core::drawPropertyLabel("Actors", "The actors the room places in this layer.");
-        ImGui::Text("%zu", header.actors.size());
-        core::endProperties();
-    }
-    if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
-        const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-        const hackeroot::Tables* tables = workspace != nullptr ? &workspace->getTables() : nullptr;
-        if (header.objects.empty()) {
-            ImGui::TextColored(core::palette::TextMuted, "The room loads no objects of its own.");
-        }
-        for (const s16 id : header.objects) {
-            const auto index = static_cast<usize>(id);
-            ImGui::BulletText("%s", tables != nullptr && id >= 0 && index < tables->objects.size()
-                                        ? tables->objects[index].enumName.c_str()
-                                        : std::format("0x{:04X}", static_cast<u16>(id)).c_str());
-        }
-    }
-    ImGui::Spacing();
-    ImGui::TextColored(core::palette::TextMuted,
-                       "Rooms are read-only here; their mesh is authored in fast64.");
-}
-
 void PlacementEditor::drawActions(const PlacementRef& where) {
     ImGui::Spacing();
     ImGui::BeginDisabled(where.kind == PlacementKind::PlayerEntry);
@@ -413,6 +534,12 @@ std::optional<PlacementEditor::Draft> PlacementEditor::findChangedDraft(const Sc
     return Draft{.where = *where, .placement = *draft};
 }
 
+PlacementEditor::Preview PlacementEditor::findPreview(const Scene& scene) const {
+    return Preview{.placement = findChangedDraft(scene),
+                   .lightSetting = lightSettingForm.findChangedDraft(scene),
+                   .path = pathForm.findChangedDraft(scene)};
+}
+
 std::optional<PlacementRef> PlacementEditor::findSelected() const {
     const SceneNode* active = selection.findActive();
     const auto* placement = active != nullptr ? std::get_if<PlacementRef>(active) : nullptr;
@@ -428,8 +555,8 @@ std::vector<PlacementRef> PlacementEditor::listActedOn(const PlacementRef& where
     return placements;
 }
 
-void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements) {
-    picked = [this, placements = std::move(placements)](Scene& edited) {
+void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements, const bool movesCopies) {
+    picked = [this, placements = std::move(placements), movesCopies](Scene& edited) {
         std::vector<SceneNode> added;
         for (const PlacementRef& where : placements) {
             if (const std::optional<Placement> placement = findPlacement(edited, where)) {
@@ -437,6 +564,70 @@ void PlacementEditor::pickDuplicate(std::vector<PlacementRef> placements) {
                         add(edited, where, *placement, !added.empty())) {
                     added.emplace_back(*copy);
                 }
+            }
+        }
+        selection.pick(added, PickMode::Replace);
+        isMoveWanted = movesCopies && !added.empty();
+    };
+}
+
+void PlacementEditor::pickDuplicateSelected() {
+    std::vector<PlacementRef> placements = selection.listPlacements();
+    std::erase_if(placements, [](const PlacementRef& placement) {
+        return placement.kind == PlacementKind::PlayerEntry;
+    });
+    if (!placements.empty()) {
+        pickDuplicate(std::move(placements), true);
+    }
+}
+
+void PlacementEditor::pickDeleteSelected() {
+    std::vector<PlacementRef> placements = selection.listPlacements();
+    std::erase_if(placements, [](const PlacementRef& placement) {
+        return placement.kind == PlacementKind::PlayerEntry;
+    });
+    if (!placements.empty()) {
+        pickDelete(std::move(placements));
+    }
+}
+
+void PlacementEditor::copySelected(const Scene& scene) {
+    std::vector<Copied> made;
+    for (const PlacementRef& where : selection.listPlacements()) {
+        if (where.kind == PlacementKind::PlayerEntry) {
+            continue;
+        }
+        if (const std::optional<Placement> placement = findPlacement(scene, where)) {
+            made.push_back({.where = where, .placement = *placement});
+        }
+    }
+    if (!made.empty()) {
+        copied = std::move(made);
+    }
+}
+
+void PlacementEditor::pickPaste(const usize layer) {
+    if (copied.empty()) {
+        return;
+    }
+    picked = [this, layer, pasted = copied](Scene& edited) {
+        if (layer >= edited.layers.size()) {
+            return;
+        }
+        const usize rooms = edited.layers[layer].rooms.size();
+        std::vector<SceneNode> added;
+        for (const Copied& copy : pasted) {
+            PlacementRef where = copy.where;
+            where.layer = layer;
+            if (where.kind == PlacementKind::Actor && where.room >= rooms) {
+                if (rooms == 0) {
+                    continue;
+                }
+                where.room = 0;
+            }
+            if (const std::optional<PlacementRef> made =
+                    add(edited, where, copy.placement, !added.empty())) {
+                added.emplace_back(*made);
             }
         }
         selection.pick(added, PickMode::Replace);
@@ -498,21 +689,51 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
     SelectionTransform made;
     viewport::TransformTarget& target = made.target;
     target.scaleNote = "Actors set their own scale.";
-    const std::optional<PlacementRef> active = findSelected();
+    const SceneNode* active = selection.findActive();
     glm::vec3 sum(0.0F);
-    for (const PlacementRef& where : selection.listPlacements()) {
+    for (const SceneNode& node : selection.listMovable()) {
+        if (const auto* point = std::get_if<PathPointRef>(&node)) {
+            const std::optional<ScenePath> path = findPath(scene, point->layer, point->path);
+            if (!path || point->point >= path->points.size()) {
+                continue;
+            }
+            if (active != nullptr && *active == node) {
+                target.activePoint = target.points.size();
+            }
+            const std::array<s16, 3>& position = path->points[point->point];
+            target.points.emplace_back(position[0], position[1], position[2]);
+            sum += target.points.back();
+            made.nodes.push_back(node);
+            continue;
+        }
+        if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
+            const Collision* collision = findLayerCollision(scene, box->layer);
+            if (collision == nullptr || box->box >= collision->waterBoxes.size()) {
+                continue;
+            }
+            if (active != nullptr && *active == node) {
+                target.activePoint = target.points.size();
+            }
+            target.points.push_back(findWaterBoxCenter(collision->waterBoxes[box->box]));
+            sum += target.points.back();
+            made.nodes.push_back(node);
+            target.isTurnable = {false, false, false};
+            target.turnNote = "a waterbox does not turn";
+            continue;
+        }
+        const auto& where = std::get<PlacementRef>(node);
         const std::optional<Placement> placement = findPlacement(scene, where);
         if (!placement) {
             continue;
         }
-        if (where == active) {
+        if (active != nullptr && *active == node) {
             target.activePoint = target.points.size();
         }
         const std::array<s16, 3> position =
             std::visit([](const auto& held) { return held.position; }, *placement);
         target.points.emplace_back(position[0], position[1], position[2]);
         sum += target.points.back();
-        made.placements.push_back(where);
+        made.nodes.push_back(node);
         if (std::holds_alternative<TransitionActorPlacement>(*placement)) {
             target.isTurnable[0] = false;
             target.isTurnable[2] = false;
@@ -534,38 +755,17 @@ PlacementEditor::makeTransformTarget(const Scene& scene) const {
                               "about X or Z would change on every axis";
         }
     }
-    if (made.placements.empty()) {
+    if (made.nodes.empty()) {
         return std::nullopt;
     }
-    target.pivot = sum / static_cast<f32>(made.placements.size());
+    target.pivot = sum / static_cast<f32>(made.nodes.size());
     return made;
 }
 
-void PlacementEditor::applyTransform(std::vector<PlacementRef> placements,
+void PlacementEditor::applyTransform(std::vector<SceneNode> nodes,
                                      const viewport::TransformEdit& edit) {
-    picked = [this, placements = std::move(placements), edit](Scene& edited) {
-        bool isJoined = false;
-        for (usize i = 0; i < placements.size() && i < edit.points.size(); ++i) {
-            const PlacementRef& where = placements[i];
-            std::optional<Placement> placement = findPlacement(edited, where);
-            if (!placement) {
-                continue;
-            }
-            placement = makeTransformedPlacement(*placement, edit.points[i], edit.result);
-            isJoined =
-                apply(
-                    edited, where,
-                    [&placement, &where](SceneModel& model, const PlacementList& list) {
-                        if (const auto* transition =
-                                std::get_if<TransitionActorPlacement>(&*placement)) {
-                            return setTransitionActor(model, list.layer, where.index, *transition);
-                        }
-                        return setPlacement(model, list, where.index,
-                                            std::get<ActorPlacement>(*placement));
-                    },
-                    isJoined) ||
-                isJoined;
-        }
+    picked = [this, nodes = std::move(nodes), edit](Scene& edited) {
+        static_cast<void>(applyToModel(edited, makeTransformEdit(edited, nodes, edit)));
     };
 }
 

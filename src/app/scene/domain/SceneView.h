@@ -2,8 +2,11 @@
 
 #include "app/core/domain/Settings.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionDrawing.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneHeader.h"
+#include "app/scene/domain/SceneSelection.h"
+#include "app/viewport/domain/ViewportChoices.h"
 #include "app/viewport/domain/ViewportFrame.h"
 
 #include <optional>
@@ -22,8 +25,17 @@ struct SceneView {
     std::vector<bool> hiddenRooms;
     bool showsActors = true;
     bool drawsModels = true;
+    /// Whether the layer's paths have their points marked.
+    bool showsPaths = true;
     /// The player entry Link is drawn at; the others are marked.
     usize shownEntrance = 0;
+    /// Whether the layer's collision is drawn: see-through over the rooms
+    /// shown, or opaque when every room is hidden.
+    bool showsCollision = false;
+    bool showsWaterBoxes = true;
+    CollisionColoring collisionColoring = CollisionColoring::Kind;
+    /// The surface type whose polygons are tinted, as the selected polygon's.
+    std::optional<u16> tintedSurfaceType;
 };
 
 /// How a scene is first shown: its main layer, at midday where the time of
@@ -46,12 +58,20 @@ struct SceneView {
 /// config's `sDefaultDisplayList` and `sSetupDL[SETUPDL_25]`, then that pass's
 /// display list of every part of every shown room, then that pass's placed
 /// actors drawn as their models (`makeActorDraws`). Actors without one, and
-/// player entries, are marked by `markerShape` between the two passes. With
-/// `shownLayer`, its placements are drawn in place of the shown layer's, as
-/// an edit is previewed before it is made.
+/// player entries, are marked by `markerShape` between the two passes, and so
+/// are the points of the layer's paths, smaller, while `view` shows them. With
+/// `shownLayer`, its placements, paths and light settings are drawn in place
+/// of the shown layer's, as an edit is previewed before it is made, and with
+/// `shownCollision`, its waterboxes and polygons in place of the layer's. The
+/// layer's collision is drawn after everything else over the rooms, or after
+/// the opaque pass in place of the rooms, as `view` shows it, every polygon a
+/// draw of its own with its edges drawn, owned by its node, and its waterboxes
+/// after everything else. While it is drawn, the rooms are owned by nothing, so
+/// that a click picks the collision over them.
 [[nodiscard]] viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& view,
                                                          core::MarkerShape markerShape,
-                                                         const SceneLayer* shownLayer = nullptr);
+                                                         const SceneLayer* shownLayer = nullptr,
+                                                         const Collision* shownCollision = nullptr);
 
 /// The light and fog the game draws a scene under while `setting` is its
 /// current light setting.

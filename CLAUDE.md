@@ -33,11 +33,12 @@ Nothing is an IDE for decomp. This is trying to be that.
 Reads the HackerOoT source tree and renders, inspects, and edits its assets without a
 build. Generates the boilerplate the decomp requires. Drives the build.
 
+Once Toki saves a scene, Toki owns it: a scene fast64 exported is edited in Toki from then
+on, geometry included once Toki edits geometry, and a re-export from Blender replaces it.
+
 ## Non-goals
 
 - **No ROM parsing.** The decomp source tree is the only input.
-- **No geometry editing** for now. fast64 stays the authoring tool; this is a viewer.
-  Editing is far back on the backlog.
 - **No embedded emulator** for now. Architecture must not exclude it later.
 - **Not multi-game.** OoT only. `z64` naming keeps the door open, nothing more.
 
@@ -213,8 +214,11 @@ it. Labels are in title case and say exactly what is set ("Min. Log Level", not 
 from").
 
 Dropdown options that are words are capitalized ("Cube", not "cube"), whatever the config
-file stores. Options that are identifiers from the checkout (`ACTORCAT_BG`, a symbol name)
-are shown as written.
+file stores. Options that are constants of the checkout (`ACTORCAT_BG`) are shown as words,
+the prefix every option shares dropped ("Bg"), with the constant faint at the row's right,
+and a filter matches both (`core::makeConstantLabels`, `core::drawConstantSelectable`). An
+actor is shown by its database entry's name and an object by what it holds, where known.
+Symbol names (`gGoldenTorchDL`) are shown as written.
 
 ---
 
@@ -260,12 +264,35 @@ listed below is only what no change may break.
     never out of the C: the bytes are what the game sees.
   - What the game draws a room with comes from the checkout's own code (`sSetupDL`,
     `sDefaultDisplayList`), not from constants written down here.
+- **[Collision](docs/collision.md)** — how a scene's collision is read, drawn, picked and
+  named.
+  - Collision is read out of the scene's bytes, never out of the C, and an edit writes those
+    bytes, then reads them again.
+  - An edit of collision changes it for every layer that reads it, unless the layer is given
+    its own copy first.
+  - A broken polygon is a diagnostic naming it, never a failed read; it is kept as it is.
+  - Value names Toki gives (`assets/collision.toml`) are read from what the game's code does
+    with each value; a value nobody read the code for is shown as its number.
 - **[Writing scenes](docs/scene-writing.md)** — how a scene is saved: its C written again,
   whole, from the memory image, in fast64's layout.
   - A save writes declarations from their bytes, never edits the C it read.
   - Nothing is written that does not read back as the same symbols, bytes and relocations.
   - An edit of one layer never shows in another: a list two headers share is copied first.
+    Collision and room geometry are the exceptions ([collision.md](docs/collision.md#editing),
+    [geometry.md](docs/geometry.md#layers)).
   - Unsaved edits are never thrown away without asking.
+- **[Geometry](docs/geometry.md)** — how the rooms' meshes are read, picked and edited, and
+  the materials their faces are drawn under listed across rooms.
+  - A vertex edit writes only the `Vtx` bytes and what they make stale: lit normals,
+    cullable bounds, and the collision welded to them.
+  - Collision is a property of a face: a polygon is paired with the face at its corners, and
+    every tool carries it. A material bound to a collision material drives its faces'
+    collision; bindings live in `.toki/scenes/<scene>.toml`, never in the game's code.
+  - A topology edit rebuilds only the runs of vertex loads and triangles whose faces
+    changed; every other command, and every list it does not touch, is written as read.
+  - Every rebuild is run on the RSP and read back as the faces drafted before it is made.
+  - Room geometry is the second exception to layers: every layer that loads a room draws
+    one mesh, so an edit of it shows in all of them.
 - **[Objects](docs/objects.md)** — how an object folder becomes a catalog of assets, and how
   a skeleton is posed and drawn.
   - An object is a catalog, not a model. What is drawn is picked from it; nothing assumes
@@ -396,8 +423,8 @@ no commented-out code.
 
 ### Size
 
-A file past ~400 lines or a function past ~50 is a signal to look for a split, not a hard
-limit. The prototype had 1200-line files; that is what we are avoiding.
+A file is split where its content splits, not at a line count: what belongs together stays
+together. A function past ~50 lines is a signal to look for a split, not a hard limit.
 
 ### Tests
 

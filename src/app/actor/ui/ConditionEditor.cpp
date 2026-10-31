@@ -6,7 +6,9 @@
 #include "app/actor/domain/ParamReading.h"
 #include "app/actor/ui/EditWidgets.h"
 #include "app/actor/ui/ItemRow.h"
+#include "app/core/domain/ReadableName.h"
 #include "app/core/domain/TextSearch.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 
@@ -47,7 +49,7 @@ namespace {
     if (name == "child" || name == "adult") {
         return name == "child" ? "Child" : "Adult";
     }
-    return name;
+    return core::makeConstantLabel(name, "SCENE_");
 }
 
 constexpr float ChipValueShare = 0.7F;
@@ -183,13 +185,15 @@ std::string choiceFilter;
 }
 
 [[nodiscard]] bool toggleChoice(std::vector<MatchValue>& values, const MatchValue& value,
-                                const std::string& label) {
-    if (!core::containsIgnoringCase(label, choiceFilter)) {
+                                const std::string& label, const std::string_view name = {}) {
+    if (!core::isConstantFilteredIn(label, name, choiceFilter)) {
         return false;
     }
     const auto found = std::ranges::find(values, value);
     bool isOn = found != values.end();
-    if (!ImGui::Checkbox(label.c_str(), &isOn)) {
+    const bool isToggled = ImGui::Checkbox(std::format("{}##{}", label, name).c_str(), &isOn);
+    core::drawConstantName(label, name);
+    if (!isToggled) {
         return false;
     }
     if (isOn) {
@@ -205,8 +209,12 @@ std::string choiceFilter;
     bool isChanged = false;
     if (beginChoiceList(choices.size())) {
         for (const ChoiceValue& choice : choices) {
-            const std::string label = std::format("{}  ({})", choice.label, choice.value);
-            isChanged = toggleChoice(values, MatchValue(choice.value - offset), label) || isChanged;
+            const std::string label = std::format(
+                "{}  ({})", choice.readableLabel.empty() ? choice.label : choice.readableLabel,
+                choice.value);
+            isChanged = toggleChoice(values, MatchValue(choice.value - offset), label,
+                                     choice.readableLabel.empty() ? "" : choice.label) ||
+                        isChanged;
         }
     }
     ImGui::EndChild();
@@ -217,7 +225,9 @@ std::string choiceFilter;
     bool isChanged = false;
     if (beginChoiceList(scenes.values.size())) {
         for (const ChoiceValue& scene : scenes.values) {
-            isChanged = toggleChoice(values, MatchValue(scene.label), scene.label) || isChanged;
+            isChanged =
+                toggleChoice(values, MatchValue(scene.label), scene.readableLabel, scene.label) ||
+                isChanged;
         }
     }
     ImGui::EndChild();

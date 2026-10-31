@@ -27,6 +27,11 @@ struct DrawnOwners {
                                                            const DrawnOwners& drawn,
                                                            std::span<const usize> selected);
 
+/// The triangles `result` drew for the draws of `ranges` numbered `draws`.
+[[nodiscard]] std::vector<ClipTriangle>
+listDrawTriangles(const n64::RspResult& result, std::span<const std::optional<OutputRange>> ranges,
+                  std::span<const usize> draws);
+
 /// A box in the world, its lowest and highest corner.
 struct WorldBox {
     glm::vec3 lowest{0.0F};

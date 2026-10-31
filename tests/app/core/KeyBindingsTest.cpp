@@ -28,10 +28,22 @@ TEST_CASE("the default bindings have no conflicts, and a rebinding can make one"
     REQUIRE(bindings.findConflicts().empty());
     REQUIRE(bindings.isDefault(Action::MoveTool));
 
-    bindings.setChord(Action::MoveTool, KeyChord{.key = "Q"});
+    bindings.setChord(Action::MoveTool, KeyChord{.key = "M"});
     REQUIRE_FALSE(bindings.isDefault(Action::MoveTool));
     REQUIRE(bindings.findConflicts().size() == 1);
-    REQUIRE(bindings.findConflicts()[0].first == Action::SelectTool);
+    REQUIRE(bindings.findConflicts()[0].first == Action::MoveTool);
+    REQUIRE(bindings.findConflicts()[0].second == Action::MergeVertices);
+}
+
+TEST_CASE("a key a transform holds to an axis with is free for the viewport otherwise",
+          "[core][keys]") {
+    KeyBindings bindings;
+    REQUIRE(bindings.getChord(Action::ConstrainX) ==
+            bindings.getChord(Action::DeleteComponentsAgain));
+    REQUIRE(bindings.findConflicts().empty());
+
+    bindings.setChord(Action::ConstrainY, KeyChord{.key = "X"});
+    REQUIRE(bindings.findConflicts().size() == 1);
 }
 
 TEST_CASE("an action is found by the name the config gives it", "[core][keys]") {

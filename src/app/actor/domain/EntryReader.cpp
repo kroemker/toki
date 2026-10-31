@@ -215,6 +215,7 @@ ActorParam DatabaseReader::readParam(const std::string_view name, const toml::ta
     param.description = readString(table, "description", path).value_or("");
     param.offset = readInteger(table, "offset", path).value_or(0);
     param.sceneFlag = readName(table, "scene_flag", path, SceneFlagNames);
+    param.isPath = readBool(table, "path", path).value_or(false);
     if (const std::optional<FlagUse> use = readName(table, "flag_use", path, FlagUseNames)) {
         param.flagUse = *use;
         if (!param.sceneFlag) {

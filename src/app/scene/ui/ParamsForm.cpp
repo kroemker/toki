@@ -1,6 +1,7 @@
 #include "ParamsForm.h"
 
 #include "app/actor/domain/ParamReading.h"
+#include "app/core/ui/ConstantSelectable.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
 
@@ -71,15 +72,10 @@ constexpr usize ShortList = 12;
         help += std::format(" A {} flag of the scene, which the actor {}.",
                             getSceneFlagName(*param.sceneFlag), getFlagUseWord(param.flagUse));
     }
+    if (param.isPath) {
+        help += " The index of the path of the scene the actor follows.";
+    }
     return help;
-}
-
-[[nodiscard]] bool isFilteredIn(const std::string_view label, const std::string_view filter) {
-    const auto lower = [](const char c) {
-        return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-    };
-    return filter.empty() ||
-           std::ranges::search(label, filter, {}, lower, lower).begin() != label.end();
 }
 
 [[nodiscard]] bool editNumber(const actor::ActorParam& param, s64& value) {
@@ -148,12 +144,15 @@ bool ParamsForm::drawChoice(const actor::ActorParam& param, s64& value,
     if (param.collection && collection == nullptr) {
         return editNumber(param, value);
     }
-    const std::string current = actor::makeParamText(param, value, collection);
+    const std::vector<actor::ChoiceValue>& values =
+        collection != nullptr ? collection->values : param.values;
+    const auto picked = std::ranges::find(values, value + param.offset, &actor::ChoiceValue::value);
+    const std::string current = picked != values.end()
+                                    ? makeChoiceLabel(collection, *picked)
+                                    : actor::makeParamText(param, value, collection);
     if (!ImGui::BeginCombo("##value", current.c_str(), ImGuiComboFlags_HeightLarge)) {
         return false;
     }
-    const std::vector<actor::ChoiceValue>& values =
-        collection != nullptr ? collection->values : param.values;
     if (ImGui::IsWindowAppearing()) {
         filter.clear();
         if (values.size() > ShortList) {
@@ -168,12 +167,15 @@ bool ParamsForm::drawChoice(const actor::ActorParam& param, s64& value,
     bool isPicked = false;
     for (const actor::ChoiceValue& choice : values) {
         const s64 stored = choice.value - param.offset;
+        const std::string label = makeChoiceLabel(collection, choice);
         if (stored < range.lowest || stored > range.highest ||
-            !isFilteredIn(choice.label, filter)) {
+            !core::isConstantFilteredIn(label, choice.label, filter)) {
             continue;
         }
-        const std::string label = std::format("{}##{}", choice.label, choice.value);
-        if (ImGui::Selectable(label.c_str(), stored == value)) {
+        ImGui::PushID(static_cast<int>(choice.value));
+        const bool isClicked = core::drawConstantSelectable(label, choice.label, stored == value);
+        ImGui::PopID();
+        if (isClicked) {
             value = stored;
             isPicked = true;
         }
@@ -183,6 +185,16 @@ bool ParamsForm::drawChoice(const actor::ActorParam& param, s64& value,
     }
     ImGui::EndCombo();
     return isPicked;
+}
+
+std::string ParamsForm::makeChoiceLabel(const actor::ValueCollection* collection,
+                                        const actor::ChoiceValue& choice) const {
+    if (collection != nullptr && collection->name == "ActorID" && findName) {
+        if (std::optional<std::string> name = findName(choice.label); name && !name->empty()) {
+            return std::move(*name);
+        }
+    }
+    return choice.readableLabel.empty() ? choice.label : choice.readableLabel;
 }
 
 } // namespace toki::scene

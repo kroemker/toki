@@ -1,8 +1,10 @@
 #include "SceneLoader.h"
 
 #include "app/assets/domain/WatchedReader.h"
+#include "app/scene/domain/MaterialBindingsFile.h"
 #include "app/scene/domain/Scene.h"
 #include "hackeroot/Assets.h"
+#include "hackeroot/Workspace.h"
 #include "hackeroot/SceneFiles.h"
 
 #include <filesystem>
@@ -11,11 +13,12 @@
 namespace toki::scene {
 
 SceneLoader::SceneLoader()
-    : WatchedReader(readScene, [](const hackeroot::Workspace& /*workspace*/,
+    : WatchedReader(readScene, [](const hackeroot::Workspace& workspace,
                                   const hackeroot::AssetDirectory& asset) {
           std::vector<std::filesystem::path> watched =
               hackeroot::findSceneFiles(asset).getAllFiles();
           watched.push_back(asset.directory);
+          watched.push_back(makeSceneFilePath(workspace.getRoot(), asset.name));
           return watched;
       }) {}
 

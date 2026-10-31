@@ -25,6 +25,9 @@ struct TransformTarget {
     std::vector<glm::vec3> points;
     std::optional<usize> activePoint;
     glm::vec3 pivot{0.0F};
+    /// The normal an axis key pressed twice holds the transform to, where it
+    /// has one.
+    std::optional<glm::vec3> normal;
     std::array<bool, 3> isTurnable{true, true, true};
     std::string turnNote;
     /// Why what is selected cannot be scaled; empty when it can.
@@ -49,8 +52,8 @@ struct TransformView {
     ImVec2 size{};
 };
 
-/// Moves and turns what is selected in the viewport, by a gizmo or with the
-/// mouse alone, as G and R begin, its axes held and snapped as the bar's
+/// Moves, turns and scales what is selected in the viewport, by a gizmo or
+/// with the mouse alone, as G, R and S begin, its axes held and snapped as the bar's
 /// options say. Every way runs one `TransformSession`, so a drag, a typed
 /// number, the grid and the ground mean the same in all of them.
 class ViewportTransform {
@@ -82,9 +85,8 @@ public:
     /// the tool has none.
     bool drawOptions(EditTool tool);
 
-    /// Begins a transform with the mouse, or holds one to an axis, as the
-    /// keys pressed this frame say.
-    void applyHotkeys(EditTool tool, const TransformView& view);
+    /// Begins a transform with the mouse as the keys pressed this frame say.
+    void applyHotkeys(const TransformView& view);
 
     /// Runs the transform the mouse makes, once a key began it: follows the
     /// mouse, takes typed numbers, and is confirmed or cancelled. True while
@@ -97,6 +99,13 @@ public:
 
     [[nodiscard]] bool isModal() const {
         return isModalRunning;
+    }
+
+    /// Begins a transform of `kind` with the mouse the next time hotkeys are
+    /// applied while there is something to transform, as an edit that made
+    /// what is selected asks.
+    void requestModal(const TransformKind kind) {
+        requestedModal = kind;
     }
 
     /// Whether the gizmo has the mouse, so the viewport's button gives way.
@@ -112,6 +121,7 @@ private:
     [[nodiscard]] Snapping findSnapping() const;
     [[nodiscard]] const AxisConstraint& findConstraint() const;
     [[nodiscard]] bool isTurnable(const AxisConstraint& constraint) const;
+    [[nodiscard]] bool isScalable() const;
     [[nodiscard]] std::vector<glm::vec3> makePoints() const;
     void begin(TransformKind kind);
     void confirm();
@@ -132,6 +142,7 @@ private:
     Snapping snapping;
     std::optional<TransformSession> session;
     bool isModalRunning = false;
+    std::optional<TransformKind> requestedModal;
     EditTool shownTool = EditTool::Select;
     /// The axes the bar held before G or R began a transform of their own,
     /// given back once it ends.

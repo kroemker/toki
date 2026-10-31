@@ -29,17 +29,26 @@ at a time until `SCENE_CMD_END`, and follows each pointer into the image's bytes
 - the player entry list, an `ActorEntry` each, which is where the camera starts;
 - the transition actor list, a `TransitionActorEntry` each: doors and loading planes, with
   the room on either side;
-- the light settings list, an `EnvLightSettings` each, with the fog near value unpacked
-  from the blend rate it shares a half with;
+- the light settings list, an `EnvLightSettings` each, with the fog near value and the
+  blend rate unpacked from the half they share;
+- the path list, a `Path` each: a count and the points it counts. The list holds no count of
+  its own, so, as for an alternate header list, its length is that of the array the image
+  laid out at its address;
 - the skybox settings' light mode, which says whether the time of day picks the setting;
 - the special files' keep object, which the game loads into segment 5 for the whole scene
   (`gameplay_field_keep`, `gameplay_dangeon_keep`);
+- the collision header, read once however many layers point at it
+  ([collision.md](collision.md)), and the exit list, which a surface type's exit indexes;
 - the alternate header list.
 
 `readRoomHeader` does the same from the start of segment 3: the room shape, of any of the
 three types (normal, image, cullable), as each entry's opaque and translucent display list,
 the actor list, the object list (the objects loaded for the room's actors, by ID), and the
 room's own alternate header list.
+
+Both keep every command before the end as it was read (`HeaderCommand`), and a setting a
+command holds in its own bytes rather than in a list, such as the music, the skybox or a
+room's echo, is read out of them by where its bits are (`findSetting`).
 
 Reading the bytes rather than the C is the same decision as the memory image itself: the
 bytes are byte-identical to what the build makes, so every macro, cast and initializer
@@ -114,24 +123,66 @@ The Scene panel is the view's controls for what is shown: the layer, and a tree 
 (`SceneOutliner`). Under the scene are its rooms, each with an eye that hides it (the
 scene's own eye shows every room when any is hidden, and hides them all otherwise), its actors
 by name from the checkout's actor table, with how each is drawn and its params, and the
-objects its object list loads; then the transition actors, the entrances, and the light
-settings, a click on one lighting the scene with it. Collision, paths, cutscenes and exits
-are rows that say they are not read yet. A filter keeps the placements whose name, enum name
+objects its object list loads; then the transition actors, the entrances, the light
+settings, a click on one selecting it and lighting the scene with it, and the paths, each
+with its points, and an eye that hides them all in the viewport; then the collision's
+cameras, the waterboxes with an eye of their own ([collision.md](collision.md)), and the
+materials: the render materials each with what it is bound to, and the collision materials
+([geometry.md](geometry.md#materials)). Cutscenes are a row
+that says they are not read yet, and exits one that says their list is read only for
+collision. A filter keeps the placements whose name, enum name
 or database name holds it. A placement selected elsewhere, in the viewport, opens its group
 and is scrolled to.
 How it is drawn is chosen in the viewport's bar: the scene offers its light settings and how
 its actors are shown (hidden, marked, or drawn as their models) there as
 `viewport::ViewportChoices`, and applies what is picked to its view. The viewport knows no
-scene; it only shows the rows it was offered. Choosing an actor
-turns the camera to it. A scene read again keeps its view, kept within what the scene now
+scene; it only shows the rows it was offered. Whatever a click in the tree selects alone,
+the camera turns to (`findNodeBounds`): a placement or a path point close up, and a path,
+the polygons of a surface type or a waterbox framed whole. A light setting, a room or the
+scene stands nowhere, and leaves the camera where it is. A scene read again keeps its view, kept within what the scene now
 has; opening another starts afresh.
 
-A room or an actor is selected by its row or by clicking anything it draws in the viewport.
+The scene is selected by its row, and a room or an actor by its row or by clicking anything
+it draws in the viewport.
 Every draw of the scene's content is owned by the node it is part of, a room's mesh by its
 room and an actor's models, its children's and its marker by its placement, as a number
 (`makeNodeKey`), and the click picks the owner of the nearest triangle the frame drew under
-the mouse, so it is what the game drew, not a bounding box. A selected room is shown
-read-only: its shape, parts, actors and objects.
+the mouse, so it is what the game drew, not a bounding box.
+
+The scene or a room selected shows its header's settings in the Properties panel
+(`HeaderForm`), the scene its collision's counts and bounds too, a section for each command that holds them: the scene's sound, skybox,
+special files and camera, and a room's behavior, time, sky, wind and echo, each setting a
+row. A setting the checkout names a value of is a dropdown of those names, read from the
+enumerations the scene headers declare (`SkyboxId`, `NA_BGM`, `RoomType`) and from the
+`SCENE_CAM_TYPE_*` defines (`readHeaderNames`), and a number where it names none. A header
+without one of these commands says so, with a button that adds it. A room also shows its
+shape, parts and actors, read-only until Toki edits geometry, and its object
+list, which can be added to, reordered and removed from. A room with no header of its own in
+the layer shown says that an edit changes its main header.
+
+A light setting selected shows its colours, light directions and fog in the Properties
+panel (`LightSettingForm`), as the game stores them: a direction as a signed byte along each
+axis, the fog near value and the blend rate as the bits they share. A setting is held as a
+draft while a field is held, the viewport lit by the draft, and made, one undo step, once
+nothing of the form is. Its menu and the panel duplicate and delete it, and the group's menu
+adds one; the last is kept, since the game lights every scene by one.
+
+A path or one of its points selected shows the path's points in the Properties panel
+(`PathForm`), each a position, with buttons that add a point after it and remove it; a path
+keeps at least one. The points are drawn in the viewport as markers smaller than an
+actor's, picked and moved with G and R like a placement, and the path as lines from each
+point to the next, headed in the direction it runs, the selected path brighter. The group's
+menu adds a path of one point where the camera looks.
+
+Actors name a path by its index, in a param the actor database marks as a path
+(`listPathUsers`). Each actor that follows one is drawn a faint line to its path's first
+point, and the path's Properties count them. A path deleted moves the ones after it down,
+and the actors that follow them are renumbered with it, in the same step
+(`listPathRemovalChanges`). A path actors follow is deleted only once the panel has listed
+them and been told to: their params are left as they are, since an actor that indexes the
+path list without checking for none (En_Heishi1) would read past its end. The actors of a
+room header another layer reads too, as a layer reads the main header of a room with none of
+its own, are left as they are, since that layer keeps its paths.
 
 The Properties panel, below it, shows the placement selected in the panel or picked in the
 viewport, in three sections:
@@ -159,7 +210,8 @@ Its Flags section lists every scene flag the layer's placed actors use, by the p
 entries mark as one ([actor-database.md](actor-database.md)), in the rooms and between them
 (`listSceneFlags`): each flag by kind and number, whether it is saved or reset when the
 scene is left, and the actors that read or set it, those more than one actor uses first. A
-flag at its param's highest value means none, as actors take it, and is left out. A flag
+collectible flag of 0 means none, since `Flags_SetCollectible` never sets it, and a flag of
+another kind at its param's highest value means none, as actors take it; both are left out. A flag
 read but set by no actor here says so, since a cutscene, another scene or the player may set
 it. Choosing an actor turns the camera to it.
 
@@ -175,7 +227,9 @@ of the end it points at (`makeArrowLines`). Actors in hidden rooms are not linke
 viewport bar's Flag Links overlay hides the lines.
 
 The scene open when the app closes is saved in `config.toml` under `[session]`, with its
-view and the camera, and opened again once the checkout has been read. The layer is saved as
+view and the camera, and opened again once the checkout has been read. The view saved is
+the layer, the light setting, the hidden rooms, how actors are shown, whether paths,
+collision and waterboxes are, and what collision is coloured by. The layer is saved as
 the game's layer number rather than a position in the scene's list, so it means the same
 layer after the scene gains or loses one; anything the scene no longer has falls back as
 `keepSceneView` keeps a view. A folder that is gone is a warning in the log.

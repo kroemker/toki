@@ -1,10 +1,12 @@
 target_sources(toki PRIVATE
         App.cpp
+        ConstantSelectable.cpp
         Dialog.cpp
         Fonts.cpp
         Hotkeys.cpp
         LogPanel.cpp
         MenuBar.cpp
+        NumberField.cpp
         Panel.cpp
         PanelManager.cpp
         PathDialog.cpp

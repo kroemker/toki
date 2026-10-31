@@ -9,7 +9,6 @@ add_executable(toki_tests
         app/actor/ParamReadingTest.cpp
         app/actor/ParamRulesTest.cpp
         app/actor/ProblemTextTest.cpp
-        app/actor/ReadableNameTest.cpp
         app/actor/ValueCollectionTest.cpp
         app/actor/ActorModelCheckoutTest.cpp
         app/actor/GuessedEntryTest.cpp
@@ -22,6 +21,7 @@ add_executable(toki_tests
         app/core/KeyBindingsTest.cpp
         app/core/LogTest.cpp
         app/core/MakeVariablesTest.cpp
+        app/core/ReadableNameTest.cpp
         app/displayList/FrameInspectionTest.cpp
         app/displayList/RdpStateTextTest.cpp
         app/core/SettingsSearchTest.cpp
@@ -38,8 +38,34 @@ add_executable(toki_tests
         app/scene/ActorDescriptionTest.cpp
         app/scene/ActorDrawsTest.cpp
         app/scene/ActorEntryWriterTest.cpp
+        app/scene/CollisionCheckoutTest.cpp
+        app/scene/CollisionDrawingTest.cpp
+        app/scene/CollisionEditsTest.cpp
+        app/scene/NodeBoundsTest.cpp
+        app/scene/SurfaceRulesTest.cpp
+        app/scene/WaterBoxShapeTest.cpp
+        app/scene/CollisionNamesTest.cpp
+        app/scene/CollisionWritersTest.cpp
+        app/scene/CollisionTest.cpp
         app/scene/SceneCheckoutTest.cpp
         app/scene/BinaryAngleTest.cpp
+        app/scene/HeaderSettingsTest.cpp
+        app/scene/LightSettingEditsTest.cpp
+        app/scene/PathEditsTest.cpp
+        app/scene/PathUsersTest.cpp
+        app/scene/RoomMeshTest.cpp
+        app/scene/SceneSurfaceTest.cpp
+        app/scene/MaterialBindingsTest.cpp
+        app/scene/SurfaceCheckoutTest.cpp
+        app/scene/SurfaceEditsTest.cpp
+        app/scene/SurfaceOperationsTest.cpp
+        app/scene/ComponentSelectionTest.cpp
+        app/scene/MeshEditsTest.cpp
+        app/scene/MeshFillTest.cpp
+        app/scene/MeshOperationsTest.cpp
+        app/scene/SceneMaterialsTest.cpp
+        app/scene/MeshRebuildTest.cpp
+        app/scene/MeshCheckoutTest.cpp
         app/scene/SceneCommandWriterTest.cpp
         app/scene/SceneFlagsTest.cpp
         app/scene/SceneHeaderTest.cpp
@@ -129,6 +155,7 @@ file(TO_CMAKE_PATH "${TOKI_HACKEROOT}" TOKI_HACKEROOT_PATH)
 target_compile_definitions(toki_tests PRIVATE
         TOKI_TEST_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}"
         TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
+        TOKI_SHIPPED_COLLISION="${CMAKE_SOURCE_DIR}/assets/collision.toml"
         TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 
 include(Catch)
@@ -139,7 +166,8 @@ catch_discover_tests(toki_tests)
 add_executable(toki_gpu_tests
         gpu/ActorRenderTest.cpp
         gpu/BlendSetupTest.cpp
-        gpu/RendererTest.cpp)
+        gpu/RendererTest.cpp
+        gpu/SceneRenderTest.cpp)
 target_include_directories(toki_gpu_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(toki_gpu_tests PRIVATE toki_core toki_gfx Catch2::Catch2WithMain toki_warnings)
 target_compile_definitions(toki_gpu_tests PRIVATE

@@ -45,6 +45,26 @@ std::vector<ClipTriangle> listOwnedTriangles(const n64::RspResult& result, const
     return triangles;
 }
 
+std::vector<ClipTriangle>
+listDrawTriangles(const n64::RspResult& result,
+                  const std::span<const std::optional<OutputRange>> ranges,
+                  const std::span<const usize> draws) {
+    std::vector<ClipTriangle> triangles;
+    for (const usize draw : draws) {
+        if (draw >= ranges.size() || !ranges[draw]) {
+            continue;
+        }
+        for (usize i = ranges[draw]->first; i < ranges[draw]->end && i < result.outputs.size();
+             ++i) {
+            if (const auto* triangle = std::get_if<n64::Triangle>(&result.outputs[i])) {
+                triangles.push_back({triangle->vertices[0].position, triangle->vertices[1].position,
+                                     triangle->vertices[2].position});
+            }
+        }
+    }
+    return triangles;
+}
+
 std::vector<std::optional<WorldBox>> findOwnedBoxes(const n64::RspResult& result,
                                                     const DrawnOwners& drawn,
                                                     const std::span<const usize> selected,
