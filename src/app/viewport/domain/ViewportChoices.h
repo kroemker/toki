@@ -32,11 +32,9 @@ struct ViewportChoices {
     /// them.
     std::vector<std::string> collisionColorings;
     usize collisionColoring = 0;
-    /// What faces, edges and vertices are picked of, as a scene's mesh or its
-    /// collision, and which, an index into them. Empty when the content has
-    /// nothing to edit by them, and only node mode is offered.
-    std::vector<std::string> editTargets;
-    usize editTarget = 0;
+    /// Whether the content has faces, edges and vertices to edit; when not,
+    /// only node mode is offered.
+    bool canEdit = false;
 
     friend bool operator==(const ViewportChoices&, const ViewportChoices&) = default;
 };

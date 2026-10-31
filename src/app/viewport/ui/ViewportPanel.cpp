@@ -147,7 +147,7 @@ void ViewportPanel::setView(const ViewportView& view) {
 }
 
 bool ViewportPanel::canEdit() const {
-    return viewportChoices && !viewportChoices->editTargets.empty();
+    return viewportChoices && viewportChoices->canEdit;
 }
 
 void ViewportPanel::drawBar() {
@@ -156,12 +156,6 @@ void ViewportPanel::drawBar() {
     }
     drawSelectionModes(viewportTools, canEdit());
     ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
-    if (viewportTools.mode != SelectionMode::Node && viewportChoices) {
-        if (const std::optional<ViewportChoices> chosen = drawEditTargets(*viewportChoices)) {
-            choose(*chosen);
-        }
-        ImGui::SameLine(0.0F, ImGui::GetStyle().ItemSpacing.x * ModeGap);
-    }
     if (viewportTools.mode != SelectionMode::Node && editMenu) {
         const std::string label = std::format("{} {}", editMenuLabel, core::icons::CaretDown);
         if (beginBarMenu(label, EditMenuPopup)) {

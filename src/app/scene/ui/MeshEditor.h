@@ -6,6 +6,7 @@
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/ComponentSelection.h"
 #include "app/scene/domain/EditMesh.h"
+#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/MeshEdits.h"
 #include "app/scene/domain/MeshOperations.h"
 #include "app/scene/domain/MeshRebuild.h"
@@ -13,12 +14,11 @@
 #include "app/scene/domain/RoomMesh.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneEditor.h"
-#include "app/scene/domain/MaterialBindings.h"
 #include "app/scene/domain/SceneMaterials.h"
-#include "app/scene/domain/SurfaceOperations.h"
 #include "app/scene/domain/SceneSelection.h"
 #include "app/scene/domain/SceneSurface.h"
 #include "app/scene/domain/SceneView.h"
+#include "app/scene/domain/SurfaceOperations.h"
 #include "app/scene/ui/ComponentForm.h"
 #include "app/viewport/domain/TransformSession.h"
 #include "app/viewport/domain/ViewportOverlay.h"
@@ -37,9 +37,9 @@
 
 namespace toki::scene {
 
-/// The faces, edges and vertices of the shown layer's rooms or of its
-/// collision, offered to the viewport to pick and transform while it
-/// selects by them.
+/// The faces, edges and vertices of the shown layer's surface, offered to the
+/// viewport to pick and transform while it selects by them: the faces of its
+/// shown rooms, and the polygons no face has while its collision is shown.
 class MeshEditor {
 public:
     /// What an edit of the mesh writes, and the collision it leaves, shown
@@ -57,14 +57,6 @@ public:
     MeshEditor(viewport::ViewportPanel& viewportPanel, ApplyEdit applyEdit, ShowPreview showPreview)
         : viewportPanel(viewportPanel), applyEdit(std::move(applyEdit)),
           showPreview(std::move(showPreview)) {}
-
-    [[nodiscard]] EditTarget getTarget() const {
-        return target;
-    }
-
-    /// Picks by faces, edges and vertices of `next` from now on, what was
-    /// picked of the other let go.
-    void setTarget(EditTarget next);
 
     /// Offers the viewport what it picks in the mode it selects by, and what
     /// is picked to transform, and adds to `overlay` the edges, vertices and
@@ -130,12 +122,14 @@ private:
     splitPicks(std::vector<MeshPick> picks) const;
     /// What is picked as the rooms' meshes number it: each face of a piece
     /// that holds only the solid faces as its face of the room.
-    [[nodiscard]] std::vector<ComponentRef> findMeshFaces(std::span<const ComponentRef> faces) const;
+    [[nodiscard]] std::vector<ComponentRef>
+    findMeshFaces(std::span<const ComponentRef> faces) const;
     /// Makes `collision` the collision, with `rebuild`, as one step.
     void applySurface(std::optional<MeshRebuild> rebuild, std::optional<Collision> made,
                       std::optional<MaterialBindings> bindings = std::nullopt);
     /// The Surface rows of the Properties panel for what is picked.
-    [[nodiscard]] SurfaceRows makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const;
+    [[nodiscard]] SurfaceRows
+    makeSurfaceRows(const std::vector<SceneCollisionMaterial>& listed) const;
     /// Makes what is picked drawn, solid or of a collision material as `edit`
     /// says, `listed` the materials it names by index.
     void editSurface(const ComponentEdit& edit, const std::vector<SceneCollisionMaterial>& listed);
@@ -171,7 +165,6 @@ private:
     viewport::ViewportPanel& viewportPanel;
     ApplyEdit applyEdit;
     ShowPreview showPreview;
-    EditTarget target = EditTarget::Mesh;
     /// The scene offered last, whose edits the viewport's handlers make.
     const Scene* shownScene = nullptr;
     /// The images what is edited was read from, to tell when to read it again.
@@ -181,6 +174,7 @@ private:
     usize readGameLayer = 0;
     usize roomCount = 0;
     std::vector<bool> readHiddenRooms;
+    bool readShowsCollision = false;
     std::optional<SceneMesh> sceneMesh;
     std::vector<SceneMaterial> materials;
     /// The binding of each of `materials`, where it has one.

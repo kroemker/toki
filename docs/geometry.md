@@ -60,9 +60,10 @@ out: about three in four of their polygons stand exactly on a face.
   polygons standing where they were read are kept as read, every other one is faced at its
   corners, vertices no polygon has are dropped, and the lists are written whole with their
   counts and bounds (`setCollisionGeometry`).
-- **Targets.** In the Mesh target every face is picked; in the Collision target the solid
-  faces are, as the same faces, with the solid-only polygons as faces of their own, edited
-  with the same tools.
+- **Picking.** Faces, edges and vertices are picked of one surface: every face of the shown
+  rooms, solid or not, and, while the collision is shown, the solid-only polygons as faces
+  of their own, edited with the same tools. Whether a face is solid is a property of it,
+  shown and set in Properties, never a mode of the viewport.
 - **Properties.** The picked faces show whether they are **Drawn** and **Solid**, and their
   **Collision Material**. A face made solid is made of what its material's solid faces are
   made of, else what most polygons are (`findDefaultCollision`). A solid face no longer

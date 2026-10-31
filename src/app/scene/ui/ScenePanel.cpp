@@ -237,13 +237,7 @@ void ScenePanel::offerChoices() {
         }
         choices.collisionColoring = static_cast<usize>(sceneView.collisionColoring);
     }
-    choices.editTargets.emplace_back("Mesh");
-    if (findLayerCollision(*scene, sceneView.layer) != nullptr) {
-        choices.editTargets.emplace_back("Collision");
-    } else {
-        meshEditor.setTarget(EditTarget::Mesh);
-    }
-    choices.editTarget = static_cast<usize>(meshEditor.getTarget());
+    choices.canEdit = true;
     viewportPanel.setChoices(std::move(choices), [this](const viewport::ViewportChoices& chosen) {
         sceneView.lightSetting = chosen.lightSetting;
         const viewport::ActorDisplay actors =
@@ -255,11 +249,6 @@ void ScenePanel::offerChoices() {
         if (chosen.collisionColoring < CollisionColoringCount) {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
         }
-        const auto editTarget = static_cast<EditTarget>(chosen.editTarget);
-        if (editTarget != meshEditor.getTarget()) {
-            sceneView.showsCollision = editTarget == EditTarget::Collision;
-        }
-        meshEditor.setTarget(editTarget);
         showScene();
     });
 }

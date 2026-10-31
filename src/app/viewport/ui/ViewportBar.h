@@ -19,11 +19,6 @@ struct ViewportBarEdit {
 [[nodiscard]] ViewportBarEdit drawViewportBar(const ViewportView& view,
                                               const std::optional<ViewportChoices>& choices);
 
-/// Draws the edit targets `choices` offers as a group of buttons, the one
-/// picked lit, and the link toggle where it offers one. The choices as they
-/// were changed, or nothing.
-[[nodiscard]] std::optional<ViewportChoices> drawEditTargets(const ViewportChoices& choices);
-
 /// A button labelled `label` that opens `popup` under it. True while the
 /// popup is open, which must then be ended.
 [[nodiscard]] bool beginBarMenu(const std::string& label, const char* popup);

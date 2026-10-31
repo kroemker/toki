@@ -59,9 +59,12 @@ constexpr f32 SelectedEdgeWidth = 2.0F;
 constexpr f32 VertexSize = 5.0F;
 constexpr f32 MenuWrapEms = 24.0F;
 
-[[nodiscard]] bool isPieceShown(const std::vector<bool>& hiddenRooms, const EditTarget target,
-                                const usize piece) {
-    return target == EditTarget::Collision || piece >= hiddenRooms.size() || !hiddenRooms[piece];
+[[nodiscard]] bool isPieceShown(const std::vector<bool>& hiddenRooms, const bool showsCollision,
+                                const usize roomCount, const usize piece) {
+    if (piece >= roomCount) {
+        return showsCollision;
+    }
+    return piece >= hiddenRooms.size() || !hiddenRooms[piece];
 }
 
 [[nodiscard]] const char* findMissingPick(const MeshOperation operation) {
@@ -76,14 +79,6 @@ constexpr f32 MenuWrapEms = 24.0F;
 }
 
 } // namespace
-
-void MeshEditor::setTarget(const EditTarget next) {
-    if (next != target) {
-        target = next;
-        readImages.clear();
-        selection.clear();
-    }
-}
 
 void MeshEditor::reset() {
     shownScene = nullptr;
@@ -113,6 +108,7 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
     readGameLayer = hasLayer ? scene.layers[view.layer].index : 0;
     roomCount = hasLayer ? scene.layers[view.layer].rooms.size() : 0;
     readHiddenRooms = view.hiddenRooms;
+    readShowsCollision = view.showsCollision;
     isOfferStale = true;
     const Collision* found = findLayerCollision(scene, view.layer);
     collision = found != nullptr ? std::optional<Collision>(*found) : std::nullopt;
@@ -160,13 +156,8 @@ void MeshEditor::read(const Scene& scene, const SceneView& view) {
             }
         }
     }
-    if (target == EditTarget::Mesh) {
-        editMesh = makeMeshEdit(*sceneMesh, roomCount);
-    } else if (collision) {
-        editMesh = makeSurfaceEdit(*sceneMesh, roomCount, *surface, *collision);
-    } else {
-        editMesh = EditMesh{.target = EditTarget::Collision};
-    }
+    editMesh = collision ? makeSurfaceEdit(*sceneMesh, roomCount, *surface, *collision)
+                         : makeMeshEdit(*sceneMesh, roomCount);
     shownMesh = editMesh;
     selection.keepWithin(*editMesh);
     pickWanted();
@@ -204,7 +195,7 @@ void MeshEditor::pickWanted() {
                 }
             }
         }
-        if (target == EditTarget::Collision && roomCount < editMesh->pieces.size()) {
+        if (roomCount < editMesh->pieces.size()) {
             std::set<std::array<std::array<s16, 3>, 3>> polygons;
             for (std::array<std::array<s16, 3>, 3> corners : wantedPolygons) {
                 std::ranges::sort(corners);
@@ -443,7 +434,7 @@ void MeshEditor::applySurface(std::optional<MeshRebuild> rebuild, std::optional<
 }
 
 void MeshEditor::pickMaterial(const usize material) {
-    if (target != EditTarget::Mesh || !sceneMesh || !editMesh || material >= materials.size()) {
+    if (!sceneMesh || !editMesh || material >= materials.size()) {
         return;
     }
     std::vector<ComponentRef> faces;
@@ -589,7 +580,8 @@ const RoomMesh* MeshEditor::findShapeRoom() const {
         }
     }
     for (const RoomMesh& room : sceneMesh->rooms) {
-        if (!room.faces.empty() && isPieceShown(readHiddenRooms, target, room.room)) {
+        if (!room.faces.empty() &&
+            isPieceShown(readHiddenRooms, readShowsCollision, roomCount, room.room)) {
             return &room;
         }
     }
@@ -786,7 +778,7 @@ void MeshEditor::drawMaterialMenu(const usize material) {
     if (ImGui::IsWindowAppearing()) {
         materialName = picked.name;
     }
-    if (ImGui::MenuItem("Select Its Faces", nullptr, false, target == EditTarget::Mesh)) {
+    if (ImGui::MenuItem("Select Its Faces")) {
         pickMaterial(material);
     }
     if (ImGui::MenuItem("Assign to Selected Faces", nullptr, false,
@@ -890,8 +882,7 @@ void MeshEditor::applyHotkeys() {
 
 void MeshEditor::drawMenu() {
     if (editMesh) {
-        ImGui::TextDisabled("%s · %zu faces", target == EditTarget::Mesh ? "Mesh" : "Collision",
-                            selection.listFaces(*editMesh).size());
+        ImGui::TextDisabled("%zu faces", selection.listFaces(*editMesh).size());
     }
     if (!failure.empty()) {
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * MenuWrapEms);
@@ -953,8 +944,9 @@ void MeshEditor::offer(const Scene& scene, const SceneView& view,
     if (readImages != scene.images || readLayer != view.layer || !editMesh || !sceneMesh) {
         read(scene, view);
     }
-    if (readHiddenRooms != view.hiddenRooms) {
+    if (readHiddenRooms != view.hiddenRooms || readShowsCollision != view.showsCollision) {
         readHiddenRooms = view.hiddenRooms;
+        readShowsCollision = view.showsCollision;
         isOfferStale = true;
     }
     const SelectionMode mode = viewportPanel.getSelectionMode();
@@ -1101,7 +1093,7 @@ void MeshEditor::pick(const viewport::ViewportPanel::ViewportPick& hit,
     if (hit.ray && selection.getMode() == SelectionMode::Face && editMesh) {
         std::vector<bool> isShown;
         for (usize piece = 0; piece < editMesh->pieces.size(); ++piece) {
-            isShown.push_back(isPieceShown(readHiddenRooms, target, piece));
+            isShown.push_back(isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece));
         }
         if (const std::optional<ComponentRef> face =
                 findHitFace(*editMesh, hit.ray->origin, hit.ray->direction, isShown)) {
@@ -1119,14 +1111,14 @@ void MeshEditor::makeOffer() {
     pickedBoxes.clear();
     const SelectionMode mode = selection.getMode();
     for (usize piece = 0; piece < editMesh->pieces.size(); ++piece) {
-        if (!isPieceShown(readHiddenRooms, target, piece)) {
+        if (!isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece)) {
             continue;
         }
         const EditPiece& shown = editMesh->pieces[piece];
         if (mode == SelectionMode::Vertex) {
             const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
-                if (target == EditTarget::Collision && !isUsed[vertex]) {
+                if (!isUsed[vertex]) {
                     continue;
                 }
                 pickables.points.push_back(shown.vertices[vertex]);
@@ -1157,7 +1149,7 @@ void MeshEditor::makeOverlay() {
     const u32 faceColor = ImGui::GetColorU32(faceFill);
     const u32 vertexColor = ImGui::GetColorU32(VertexColor);
     for (usize piece = 0; piece < shownMesh->pieces.size(); ++piece) {
-        if (!isPieceShown(readHiddenRooms, target, piece)) {
+        if (!isPieceShown(readHiddenRooms, readShowsCollision, roomCount, piece)) {
             continue;
         }
         const EditPiece& shown = shownMesh->pieces[piece];
@@ -1192,7 +1184,7 @@ void MeshEditor::makeOverlay() {
         if (mode == SelectionMode::Vertex) {
             const std::vector<bool> isUsed = findUsedVertices(shown);
             for (usize vertex = 0; vertex < shown.vertices.size(); ++vertex) {
-                if (target == EditTarget::Collision && !isUsed[vertex]) {
+                if (!isUsed[vertex]) {
                     continue;
                 }
                 const bool isSelected = selection.contains({.piece = piece, .index = vertex});

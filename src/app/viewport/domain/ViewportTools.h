@@ -6,7 +6,7 @@ namespace toki::viewport {
 
 /// What a click in the viewport selects: the nodes of the scene's tree, such
 /// as rooms and placed actors, or the faces, edges or vertices of what is
-/// edited, where the content's owner offers some (`ViewportChoices::editTargets`).
+/// edited, where the content's owner offers some (`ViewportChoices::canEdit`).
 enum class SelectionMode : u8 {
     Node,
     Face,

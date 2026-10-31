@@ -68,7 +68,7 @@ constexpr f32 ParallelLimit = 1.0e-7F;
 } // namespace
 
 EditMesh makeMeshEdit(const SceneMesh& mesh, const usize roomCount) {
-    EditMesh edit{.target = EditTarget::Mesh, .pieces = std::vector<EditPiece>(roomCount)};
+    EditMesh edit{.pieces = std::vector<EditPiece>(roomCount)};
     for (const RoomMesh& room : mesh.rooms) {
         if (room.room >= roomCount) {
             continue;
@@ -90,7 +90,6 @@ EditMesh makeCollisionEdit(const Collision& collision) {
     for (const std::array<s16, 3>& vertex : collision.vertices) {
         piece.vertices.emplace_back(vertex[0], vertex[1], vertex[2]);
     }
-    std::set<MeshEdge> edges;
     for (const CollisionPolygon& polygon : collision.polygons) {
         std::array<usize, 3> face{};
         bool isWhole = true;
@@ -98,38 +97,17 @@ EditMesh makeCollisionEdit(const Collision& collision) {
             face[corner] = getVertexIndex(polygon, corner);
             isWhole &= face[corner] < piece.vertices.size();
         }
-        if (!isWhole) {
-            continue;
-        }
-        piece.faces.push_back(face);
-        for (usize corner = 0; corner < 3; ++corner) {
-            const usize from = face[corner];
-            const usize to = face[(corner + 1) % 3];
-            if (from != to) {
-                edges.insert(MeshEdge{.vertices = {std::min(from, to), std::max(from, to)}});
-            }
+        if (isWhole) {
+            piece.faces.push_back(face);
         }
     }
-    piece.edges.assign(edges.begin(), edges.end());
-    return EditMesh{.target = EditTarget::Collision, .pieces = {std::move(piece)}};
+    piece.edges = makeEdges(piece.faces);
+    return EditMesh{.pieces = {std::move(piece)}};
 }
 
 EditMesh makeSurfaceEdit(const SceneMesh& mesh, const usize roomCount, const SceneSurface& surface,
                          const Collision& collision) {
     EditMesh edit = makeMeshEdit(mesh, roomCount);
-    edit.target = EditTarget::Collision;
-    for (usize room = 0; room < edit.pieces.size(); ++room) {
-        EditPiece& piece = edit.pieces[room];
-        std::vector<std::array<usize, 3>> solid;
-        for (usize face = 0; face < piece.faces.size(); ++face) {
-            if (findFacePolygon(surface, {.room = room, .face = face})) {
-                solid.push_back(piece.faces[face]);
-                piece.faceSources.push_back(face);
-            }
-        }
-        piece.faces = std::move(solid);
-        piece.edges = makeEdges(piece.faces);
-    }
     Collision solidOnly = collision;
     solidOnly.polygons.clear();
     std::vector<usize> sources;

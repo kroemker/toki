@@ -15,13 +15,6 @@ namespace toki::scene {
 struct Collision;
 struct SceneSurface;
 
-/// What faces, edges and vertices are picked of: the rooms' meshes, or the
-/// layer's collision.
-enum class EditTarget : u8 {
-    Mesh,
-    Collision,
-};
-
 /// One piece of what is edited by faces, edges and vertices: a room's mesh,
 /// or the collision, its vertices where they stand in the world.
 struct EditPiece {
@@ -36,7 +29,6 @@ struct EditPiece {
 /// What is edited by faces, edges and vertices, a piece per room of a mesh
 /// and one of a collision.
 struct EditMesh {
-    EditTarget target = EditTarget::Mesh;
     std::vector<EditPiece> pieces;
 };
 
@@ -55,10 +47,9 @@ struct ComponentRef {
 /// not hold is left out.
 [[nodiscard]] EditMesh makeCollisionEdit(const Collision& collision);
 
-/// The solid faces of the rooms of `mesh` as pieces, piece `i` room `i`, for
-/// `roomCount` rooms, each with every vertex of its room; and after them,
-/// piece `roomCount`, the polygons of `collision` no face has, with every
-/// vertex of the collision.
+/// The rooms of `mesh` as `makeMeshEdit` makes them, and after them, piece
+/// `roomCount`, the polygons of `collision` no face has, with every vertex of
+/// the collision.
 [[nodiscard]] EditMesh makeSurfaceEdit(const SceneMesh& mesh, usize roomCount,
                                        const SceneSurface& surface, const Collision& collision);
 

@@ -1,6 +1,7 @@
 #include "app/scene/domain/SceneSurface.h"
 
 #include "app/scene/domain/Collision.h"
+#include "app/scene/domain/EditMesh.h"
 #include "app/scene/domain/RoomMesh.h"
 #include "base/Types.h"
 
@@ -109,4 +110,25 @@ TEST_CASE("a polygon naming a vertex the collision does not hold is solid only",
     const toki::scene::SceneSurface surface = toki::scene::pairSurface(mesh, collision);
 
     CHECK_FALSE(surface.polygonFaces[0]);
+}
+
+TEST_CASE("the surface is edited as every face of its rooms, and the polygons no face has",
+          "[scene][surface]") {
+    SceneMesh mesh;
+    mesh.rooms.push_back(makeRoom(
+        0, {{0.0F, 0.0F, 0.0F}, {100.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 100.0F}, {100.0F, 0.0F, 100.0F}},
+        {{0, 1, 2}, {1, 3, 2}}));
+    Collision collision;
+    collision.vertices = {{100, 0, 100}, {0, 0, 100}, {100, 0, 0}, {0, 50, 0}};
+    collision.polygons = {makePolygon(0, 1, 2), makePolygon(1, 2, 3)};
+
+    const toki::scene::EditMesh edit = toki::scene::makeSurfaceEdit(
+        mesh, 1, toki::scene::pairSurface(mesh, collision), collision);
+
+    REQUIRE(edit.pieces.size() == 2);
+    CHECK(edit.pieces[0].faces.size() == 2);
+    CHECK(toki::scene::findFaceSource(edit.pieces[0], 1) == 1);
+    REQUIRE(edit.pieces[1].faces.size() == 1);
+    CHECK(toki::scene::findFaceSource(edit.pieces[1], 0) == 1);
+    CHECK(edit.pieces[1].edges.size() == 3);
 }
