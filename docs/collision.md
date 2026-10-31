@@ -65,9 +65,11 @@ depth buffer on), then each polygon is a list of its own, three vertices and a t
 each is a draw of its own the viewport can pick. Each polygon's colour is written into its
 vertices, shaded by how its normal faces a fixed light, so that faces apart show apart.
 
-Whether collision and waterboxes are drawn is the eye on their groups in the Scene panel,
-each on its own, as paths are; collision starts hidden and waterboxes shown, since the
-common view while editing is the rooms with their water. What the rooms are is the rooms'
+Whether collision is drawn is the Collision switch in the viewport bar's Overlays, beside
+what it is coloured by: it is a view of the surface, not a thing of its own. Whether
+waterboxes are drawn is the eye on their group in the Scene panel, as paths are. Collision
+starts hidden and waterboxes shown, since the common view while editing is the rooms with
+their water. What the rooms are is the rooms'
 own eyes, never the collision's: while any room is shown, collision is drawn after
 everything else, see-through and as a decal (`G_RM_ZB_XLU_DECAL`), so it shows on the room
 surface it lies on and is not written to the depth buffer; with every room hidden, it is
@@ -94,32 +96,34 @@ scene's own images are shared and untouched.
 
 ## Picking and Properties
 
-Each polygon's draw is owned by its node (`CollisionPolygonRef`) and each waterbox's by its
-own (`WaterBoxRef`), so a click selects the one under the mouse. While collision is shown, the
-rooms' draws are owned by nothing: the collision lies on the room's surfaces, and a click on
-it would otherwise pick the room drawn first. Rooms stay selectable in the Scene panel.
-Waterboxes leave the rooms their owners, and so a click through water picks the waterbox,
-the nearer of the two. A polygon or waterbox selected has no selection box around it
+A polygon is not a node of the scene: it is picked as a face of the surface, selecting by
+faces, edges or vertices ([geometry.md](geometry.md#one-surface)), and its draw is owned by
+nothing, so a click on it in node mode picks the room under it. Each waterbox's draw is
+owned by its node (`WaterBoxRef`), and so a click through water picks the waterbox, the
+nearer of the two. A waterbox selected has no selection box around it
 (`ViewportDraw::isBoxed`): its highlight already shows all of it.
 
-A polygon selected shows in the Properties panel (`CollisionForm`): its kind, its vertices,
-what it lets through, its normal and distance, and its surface type: each setting decoded
-and named, the camera with its setting, and the exit with the entrance it leads to. Every polygon of the same surface type is tinted
-(`findTintedSurfaceType`). A waterbox selected shows its bounds, surface, room, light
+The polygons of the faces picked show in the Properties panel below the faces
+(`CollisionForm`): their kind, their vertices, what they let through, their normal and
+distance, and their surface type: each setting decoded and named, the camera with its
+setting, and the exit with the entrance it leads to. Every polygon of the surface type the
+picked faces share is tinted. A waterbox selected shows its bounds, surface, room, light
 setting, camera and flag (`WaterBoxForm`). Each of these is edited in place; see below.
 
 ## The Scene panel
 
-The layer's tree has a Collision group (`SceneOutliner`): its vertex count and bounds, its
-collision materials, and its cameras by setting. A **collision material** is a surface type
+The layer's tree lists the collision materials under Materials, beside the render
+materials (`SceneOutliner`), and the cameras by setting in a group of their own; the
+scene's Properties count the polygons and vertices and give the bounds. A **collision
+material** is a surface type
 and the flags of what passes through a polygon (`CollisionMaterial`), which is what fast64
 sets on a material and what a face of the mesh is made of
 ([geometry.md](geometry.md#one-surface)). Each is named by both (`makeCollisionMaterialName`:
 a summary of what its surface type sets, then "· Ignored by Camera" and the like), beside a
 square of the colour Surface Type colours its polygons, with how many polygons it has, a
-click selecting all of them, and that of the polygon selected highlighted and scrolled to.
-A surface type no polygon has is listed alone. Waterboxes are a
-group of their own beside it, a click selecting one.
+click showing the collision and picking its faces and the polygons no face has that are made
+of it, and that of the faces picked highlighted and scrolled to. A surface type no polygon
+has is listed alone. Waterboxes are a group of their own, a click selecting one.
 
 ## Editing
 
@@ -137,7 +141,7 @@ Each edit is one undo step.
   the game reads them with (`makeSurfaceType`); bits no field covers are kept. An edit
   changes the polygons of the collision material edited alone: a surface type it shares
   with polygons of other flags is copied for it first (`setMaterialSurface`), and material
-  bindings to it follow. The Collision Materials group's menu adds a surface type and
+  bindings to it follow. The Collision group's menu under Materials adds a surface type and
   removes those no polygon has, renumbering the polygons after them; the last is kept.
 - **Where polygons stand** is edited through the mesh they lie on, or as faces of their own
   where none does ([geometry.md](geometry.md#one-surface)).

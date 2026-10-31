@@ -24,9 +24,12 @@ struct ViewportChoices {
     /// Index into `lightSettings`.
     usize lightSetting = 0;
     std::optional<ActorDisplay> actors;
-    /// Whether the content's collision and waterboxes are drawn, which the
-    /// game never draws. Shown or hidden by the content's owner, not the bar.
+    /// Whether the content has collision, and whether it is drawn, which the
+    /// game never does; the bar's Overlays show and hide it.
+    bool hasCollision = false;
     bool showsCollision = false;
+    /// Whether the content's waterboxes are drawn, shown or hidden by the
+    /// content's owner, not the bar.
     bool showsWaterBoxes = false;
     /// What shown collision can be coloured by, and which it is, an index into
     /// them.

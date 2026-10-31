@@ -2,6 +2,7 @@
 
 #include "app/actor/domain/ActorDatabase.h"
 #include "app/scene/Types.h"
+#include "app/scene/domain/CollisionMaterials.h"
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/SceneEditor.h"
 #include "app/scene/domain/SceneHeader.h"
@@ -66,8 +67,7 @@ public:
         std::function<void()> showScene;
         /// Selects a light setting, a path or a point when its row is clicked.
         std::function<void(const SceneNode&)> pickNode;
-        /// Selects a waterbox, or the polygons of a surface type, when its row
-        /// is clicked.
+        /// Selects a waterbox when its row is clicked.
         std::function<void(std::span<const SceneNode>)> pickNodes;
         /// Draws the items of a light setting's, a path's or a point's
         /// context menu.
@@ -78,6 +78,11 @@ public:
         /// Selects a material's faces when its row is clicked.
         std::function<void(usize material)> pickMaterial;
         std::function<void(usize material)> drawMaterialMenu;
+        /// Selects the faces and polygons made of a collision material when its
+        /// row is clicked.
+        std::function<void(const CollisionMaterial&)> pickCollisionMaterial;
+        /// What a material is bound to, named, if it is.
+        std::function<std::optional<std::string>(usize material)> findBindingName;
     };
 
     explicit SceneOutliner(Hooks hooks) : hooks(std::move(hooks)) {}
@@ -99,14 +104,14 @@ private:
     void drawLightSettings(const SceneLayer& layer, SceneView& view);
     void drawPaths(const SceneLayer& layer, SceneView& view);
     void drawPathPoints(const ScenePath& path, const SceneNode& pathNode);
-    void drawCollision(const Scene& scene, SceneView& view);
-    void drawSurfaceTypes(const Collision& collision, const SceneView& view);
     void drawWaterBoxes(const Scene& scene, SceneView& view);
-    void drawMaterials();
+    void drawMaterials(const Scene& scene, const SceneView& view);
+    void drawRenderMaterials();
+    void drawCollisionMaterials(const Collision& collision, const SceneView& view);
     /// The eye at the end of a group's row that shows or hides `what` in the
     /// viewport.
     void drawShownSwitch(bool& isShown, std::string_view what) const;
-    void drawCameras(const Scene& scene, const Collision& collision) const;
+    void drawCameras(const Scene& scene, const SceneView& view) const;
     void drawGroupMenu(OutlinerGroup group) const;
     void drawNodeMenu(const SceneNode& node) const;
     void drawPlacement(const PlacementRow& row);
@@ -120,7 +125,7 @@ private:
     /// elsewhere opens it once and leaves it closable.
     std::optional<PlacementRef> revealed;
     std::optional<PlacementRef> revealing;
-    /// The same for the surface type of the polygon selected.
+    /// The same for the surface type of the faces picked.
     std::optional<u16> revealedSurface;
     std::optional<u16> revealingSurface;
 };

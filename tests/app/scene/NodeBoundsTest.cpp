@@ -43,18 +43,13 @@ TEST_CASE("a placement's bounds are its position", "[scene][bounds]") {
             NodeBounds{.min = {10.0F, 20.0F, 30.0F}, .max = {10.0F, 20.0F, 30.0F}});
 }
 
-TEST_CASE("a path, polygons and waterboxes span what they hold", "[scene][bounds]") {
+TEST_CASE("a path and waterboxes span what they hold", "[scene][bounds]") {
     const toki::scene::Scene scene = makeScene();
     const std::vector<SceneNode> path{toki::scene::PathRef{}};
     REQUIRE(toki::scene::findNodeBounds(scene, path) ==
             NodeBounds{.min = {0.0F, -50.0F, 0.0F}, .max = {100.0F, 0.0F, 200.0F}});
-    const std::vector<SceneNode> polygon{toki::scene::CollisionPolygonRef{}};
-    REQUIRE(toki::scene::findNodeBounds(scene, polygon) ==
-            NodeBounds{.min = {-10.0F, 0.0F, -10.0F}, .max = {10.0F, 5.0F, 40.0F}});
-    const std::vector<SceneNode> both{toki::scene::CollisionPolygonRef{},
-                                      toki::scene::WaterBoxRef{}};
-    REQUIRE(toki::scene::findNodeBounds(scene, both) ==
-            NodeBounds{.min = {-100.0F, 0.0F, -10.0F}, .max = {100.0F, 15.0F, 70.0F}});
+    const std::vector<SceneNode> box{toki::scene::WaterBoxRef{}};
+    REQUIRE(toki::scene::findNodeBounds(scene, box).has_value());
 }
 
 TEST_CASE("what stands nowhere has no bounds", "[scene][bounds]") {

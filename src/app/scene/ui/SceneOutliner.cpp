@@ -149,9 +149,9 @@ void SceneOutliner::draw(const Scene& scene, SceneView& view, const hackeroot::T
         drawEntrances(scene, layer, view);
         drawLightSettings(layer, view);
         drawPaths(layer, view);
-        drawCollision(scene, view);
+        drawCameras(scene, view);
         drawWaterBoxes(scene, view);
-        drawMaterials();
+        drawMaterials(scene, view);
         drawUnread(core::icons::FilmSlate, "Cutscenes",
                    "Toki does not read cutscenes yet. A save writes them back as raw words.");
         drawUnread(core::icons::SignOut, "Exits",
@@ -434,51 +434,42 @@ void SceneOutliner::drawShownSwitch(bool& isShown, const std::string_view what) 
                               .c_str());
 }
 
-void SceneOutliner::drawCollision(const Scene& scene, SceneView& view) {
-    const Collision* collision = findLayerCollision(scene, view.layer);
-    if (!filter.empty() || collision == nullptr) {
+void SceneOutliner::drawMaterials(const Scene& scene, const SceneView& view) {
+    if (!filter.empty()) {
         return;
     }
     if (revealingSurface) {
         ImGui::SetNextItemOpen(true);
     }
-    const bool isOpen = beginNode("##collision", GroupFlags);
-    ImGui::SetItemTooltip("The layer's collision. Shown, it is drawn see-through over the rooms "
-                          "shown, or opaque with every room hidden; the viewport bar's Overlays "
-                          "choose its colours.");
-    drawLabel(core::icons::Polygon, CollisionColor, "Collision");
-    drawInfo(std::format("{} polys", collision->polygons.size()));
-    drawShownSwitch(view.showsCollision, "the collision");
+    const bool isOpen = beginNode("##materials", GroupFlags);
+    ImGui::SetItemTooltip("What the rooms' faces are drawn under, and what they and the polygons "
+                          "no face has are made of.");
+    drawLabel(core::icons::Palette, MaterialColor, "Materials");
+    drawInfo("");
     if (!isOpen) {
         return;
     }
-    beginNode("##vertices", LeafFlags);
-    ImGui::SetItemTooltip("Bounds from %d, %d, %d to %d, %d, %d.", collision->minBounds[0],
-                          collision->minBounds[1], collision->minBounds[2], collision->maxBounds[0],
-                          collision->maxBounds[1], collision->maxBounds[2]);
-    drawLabel(core::icons::DotsNine, core::palette::TextMuted, "Vertices");
-    drawInfo(std::format("{}", collision->vertices.size()));
-    drawSurfaceTypes(*collision, view);
-    drawCameras(scene, *collision);
+    drawRenderMaterials();
+    if (const Collision* collision = findLayerCollision(scene, view.layer)) {
+        drawCollisionMaterials(*collision, view);
+    }
     ImGui::TreePop();
 }
 
-void SceneOutliner::drawMaterials() {
+void SceneOutliner::drawRenderMaterials() {
     const std::vector<SceneMaterial>* materials =
         hooks.findMaterials ? hooks.findMaterials() : nullptr;
-    if (!filter.empty()) {
-        return;
-    }
     if (materials == nullptr) {
-        drawUnread(core::icons::Palette, "Materials",
+        drawUnread(core::icons::Palette, "Render",
                    "The materials the rooms are drawn with are read with the rooms' faces.");
         return;
     }
-    const bool isOpen = beginNode("##materials", GroupFlags);
+    const bool isOpen = beginNode("##render", GroupFlags);
     ImGui::SetItemTooltip("What the rooms' faces are drawn under, one row for every room's copy "
-                          "of it. Click one to select its faces; right-click to assign, rename or "
-                          "duplicate it.");
-    drawLabel(core::icons::Palette, MaterialColor, "Materials");
+                          "of it, with the collision material it is bound to. Click one to "
+                          "select its faces; right-click to bind, assign, rename or duplicate "
+                          "it.");
+    drawLabel(core::icons::Palette, MaterialColor, "Render");
     drawInfo(std::format("{}", materials->size()));
     if (!isOpen) {
         return;
@@ -512,6 +503,12 @@ void SceneOutliner::drawMaterials() {
         }
         drawLabel(material.texture.empty() ? core::icons::Drop : core::icons::Checkerboard,
                   MaterialColor, material.name, material.countFaces() == 0);
+        if (const std::optional<std::string> bound =
+                hooks.findBindingName ? hooks.findBindingName(index) : std::nullopt) {
+            ImGui::SameLine();
+            ImGui::TextColored(core::palette::TextMuted, "%s %s", core::icons::LinkSimple,
+                               bound->c_str());
+        }
         drawInfo(
             material.rooms.size() == 1
                 ? std::format("{} faces", material.countFaces())
@@ -521,18 +518,19 @@ void SceneOutliner::drawMaterials() {
     ImGui::TreePop();
 }
 
-void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView& view) {
+void SceneOutliner::drawCollisionMaterials(const Collision& collision, const SceneView& view) {
     if (revealingSurface) {
         ImGui::SetNextItemOpen(true);
     }
     const std::vector<SceneCollisionMaterial> materials = listCollisionMaterials(collision);
     const bool isOpen = beginNode("##surfaces", GroupFlags);
-    ImGui::SetItemTooltip("What the polygons are made of: a surface type, the settings polygons "
-                          "share, and what passes through them. Click one to select its "
-                          "polygons. Right-click to add a surface type or remove those no "
-                          "polygon has.");
+    ImGui::SetItemTooltip("What the solid faces and the polygons no face has are made of: a "
+                          "surface type, the settings polygons share, and what passes through "
+                          "them; %zu polygons in all. Click one to select its faces. Right-click "
+                          "to add a surface type or remove those no polygon has.",
+                          collision.polygons.size());
     drawGroupMenu(OutlinerGroup::SurfaceTypes);
-    drawLabel(core::icons::Stack, CollisionColor, "Collision Materials");
+    drawLabel(core::icons::Stack, CollisionColor, "Collision");
     drawInfo(std::format("{}", materials.size()));
     if (!isOpen) {
         return;
@@ -546,12 +544,8 @@ void SceneOutliner::drawSurfaceTypes(const Collision& collision, const SceneView
         if (isSelected && revealingSurface) {
             ImGui::SetScrollHereY();
         }
-        if (ImGui::IsItemClicked() && hooks.pickNodes) {
-            std::vector<SceneNode> polygons;
-            for (const usize polygon : material.polygons) {
-                polygons.emplace_back(CollisionPolygonRef{.layer = view.layer, .polygon = polygon});
-            }
-            hooks.pickNodes(polygons);
+        if (ImGui::IsItemClicked() && hooks.pickCollisionMaterial) {
+            hooks.pickCollisionMaterial(material.material);
         }
         if (collisionNames != nullptr && type < collision.surfaceTypes.size()) {
             ImGui::SetItemTooltip(
@@ -606,7 +600,12 @@ void SceneOutliner::drawWaterBoxes(const Scene& scene, SceneView& view) {
     ImGui::TreePop();
 }
 
-void SceneOutliner::drawCameras(const Scene& scene, const Collision& collision) const {
+void SceneOutliner::drawCameras(const Scene& scene, const SceneView& view) const {
+    const Collision* found = findLayerCollision(scene, view.layer);
+    if (!filter.empty() || found == nullptr) {
+        return;
+    }
+    const Collision& collision = *found;
     const bool isOpen = beginNode("##cameras", GroupFlags);
     ImGui::SetItemTooltip("The camera settings surface types and waterboxes name by index.");
     drawLabel(core::icons::VideoCamera, core::palette::TextMuted, "Cameras");

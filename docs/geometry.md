@@ -63,7 +63,9 @@ out: about three in four of their polygons stand exactly on a face.
 - **Picking.** Faces, edges and vertices are picked of one surface: every face of the shown
   rooms, solid or not, and, while the collision is shown, the solid faces of hidden rooms
   too and the solid-only polygons as faces of their own, edited with the same tools: what
-  is drawn can be picked. The surface is read whenever the scene or its layer is, whatever
+  is drawn can be picked. Whether the collision is shown is a switch of the viewport's
+  Overlays. A click on a material under Materials in the Scene panel, render or collision,
+  selects by faces and picks its faces. The surface is read whenever the scene or its layer is, whatever
   the viewport selects by. Whether a face is solid is a property of it,
   shown and set in Properties, never a mode of the viewport.
 - **Properties.** The picked faces show whether they are **Drawn** and **Solid**, and their

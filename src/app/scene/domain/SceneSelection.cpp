@@ -19,7 +19,6 @@ constexpr usize SceneKind = 4;
 constexpr usize LightSettingKind = 5;
 constexpr usize PathKind = 6;
 constexpr usize PathPointKind = 7;
-constexpr usize CollisionPolygonKind = 8;
 constexpr usize WaterBoxKind = 9;
 
 [[nodiscard]] usize makeKey(const usize kind, const usize layer, const usize room,
@@ -39,9 +38,6 @@ usize makeNodeKey(const SceneNode& node) {
     }
     if (const auto* point = std::get_if<PathPointRef>(&node)) {
         return makeKey(PathPointKind, point->layer, point->path, point->point);
-    }
-    if (const auto* polygon = std::get_if<CollisionPolygonRef>(&node)) {
-        return makeKey(CollisionPolygonKind, polygon->layer, 0, polygon->polygon);
     }
     if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
         return makeKey(WaterBoxKind, box->layer, 0, box->box);
@@ -77,9 +73,6 @@ std::optional<SceneNode> findNode(const usize key) {
     }
     if (kind == PathPointKind) {
         return PathPointRef{.layer = layer, .path = room, .point = key & IndexMask};
-    }
-    if (kind == CollisionPolygonKind) {
-        return CollisionPolygonRef{.layer = layer, .polygon = key & IndexMask};
     }
     if (kind == WaterBoxKind) {
         return WaterBoxRef{.layer = layer, .box = key & IndexMask};

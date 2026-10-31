@@ -73,11 +73,6 @@ struct SceneView {
                                                          const SceneLayer* shownLayer = nullptr,
                                                          const Collision* shownCollision = nullptr);
 
-/// The surface type of the polygon `active` is, when it is one of the shown
-/// layer's, whose polygons are tinted with it.
-[[nodiscard]] std::optional<u16> findTintedSurfaceType(const Scene& scene, const SceneView& view,
-                                                       const SceneNode* active);
-
 /// The light and fog the game draws a scene under while `setting` is its
 /// current light setting.
 [[nodiscard]] viewport::ViewportLighting makeLighting(const LightSetting& setting);

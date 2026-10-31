@@ -125,9 +125,10 @@ scene's own eye shows every room when any is hidden, and hides them all otherwis
 by name from the checkout's actor table, with how each is drawn and its params, and the
 objects its object list loads; then the transition actors, the entrances, the light
 settings, a click on one selecting it and lighting the scene with it, and the paths, each
-with its points, and an eye that hides them all in the viewport; then the collision, its
-surface types and cameras, and the waterboxes, each group with an eye of its own
-([collision.md](collision.md)). Cutscenes are a row
+with its points, and an eye that hides them all in the viewport; then the collision's
+cameras, the waterboxes with an eye of their own ([collision.md](collision.md)), and the
+materials: the render materials each with what it is bound to, and the collision materials
+([geometry.md](geometry.md#materials)). Cutscenes are a row
 that says they are not read yet, and exits one that says their list is read only for
 collision. A filter keeps the placements whose name, enum name
 or database name holds it. A placement selected elsewhere, in the viewport, opens its group
@@ -149,7 +150,7 @@ room and an actor's models, its children's and its marker by its placement, as a
 the mouse, so it is what the game drew, not a bounding box.
 
 The scene or a room selected shows its header's settings in the Properties panel
-(`HeaderForm`), a section for each command that holds them: the scene's sound, skybox,
+(`HeaderForm`), the scene its collision's counts and bounds too, a section for each command that holds them: the scene's sound, skybox,
 special files and camera, and a room's behavior, time, sky, wind and echo, each setting a
 row. A setting the checkout names a value of is a dropdown of those names, read from the
 enumerations the scene headers declare (`SkyboxId`, `NA_BGM`, `RoomType`) and from the

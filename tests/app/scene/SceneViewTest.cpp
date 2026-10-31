@@ -300,8 +300,8 @@ TEST_CASE("waterboxes are shown without the collision, whichever rooms are hidde
     REQUIRE(std::ranges::count_if(hidden.draws, &toki::viewport::ViewportDraw::isEdged) == 3);
 }
 
-TEST_CASE("collision draws are owned by their polygons and waterboxes, and the rooms by nothing "
-          "while collision is shown",
+TEST_CASE("while collision is shown, the rooms and waterboxes own their draws, and the polygons "
+          "none",
           "[scene][view][collision]") {
     toki::scene::Scene scene = makeScene();
     toki::scene::Collision collision;
@@ -318,16 +318,19 @@ TEST_CASE("collision draws are owned by their polygons and waterboxes, and the r
 
     const toki::viewport::ViewportContent content =
         toki::scene::makeSceneContent(scene, view, toki::core::MarkerShape::Cube);
-    std::vector<toki::scene::SceneNode> owners;
-    for (const toki::viewport::ViewportDraw& draw : content.draws) {
-        if (draw.owner) {
-            owners.push_back(*toki::scene::findNode(*draw.owner));
-            REQUIRE_FALSE(draw.isBoxed);
-        }
-    }
-    REQUIRE(owners == std::vector<toki::scene::SceneNode>{
-                          toki::scene::CollisionPolygonRef{.layer = 0, .polygon = 0},
-                          toki::scene::WaterBoxRef{.layer = 0, .box = 0}});
+    REQUIRE(std::ranges::none_of(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+        return draw.isEdged && draw.owner &&
+               !std::holds_alternative<toki::scene::WaterBoxRef>(
+                   *toki::scene::findNode(*draw.owner));
+    }));
+    REQUIRE(std::ranges::any_of(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+        return draw.owner &&
+               std::holds_alternative<toki::scene::RoomRef>(*toki::scene::findNode(*draw.owner));
+    }));
+    REQUIRE(std::ranges::count_if(content.draws, [](const toki::viewport::ViewportDraw& draw) {
+                return draw.owner && std::holds_alternative<toki::scene::WaterBoxRef>(
+                                         *toki::scene::findNode(*draw.owner));
+            }) == 1);
 
     view.showsCollision = false;
     view.showsWaterBoxes = false;
@@ -338,11 +341,4 @@ TEST_CASE("collision draws are owned by their polygons and waterboxes, and the r
         return draw.owner &&
                std::holds_alternative<toki::scene::RoomRef>(*toki::scene::findNode(*draw.owner));
     }));
-
-    const toki::scene::SceneNode polygon = toki::scene::CollisionPolygonRef{.polygon = 0};
-    REQUIRE(toki::scene::findTintedSurfaceType(scene, view, &polygon) == 1);
-    const toki::scene::SceneNode room = toki::scene::RoomRef{};
-    REQUIRE_FALSE(toki::scene::findTintedSurfaceType(scene, view, &room));
-    view.layer = 1;
-    REQUIRE_FALSE(toki::scene::findTintedSurfaceType(scene, view, &polygon));
 }

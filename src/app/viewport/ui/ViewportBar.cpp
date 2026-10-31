@@ -186,17 +186,25 @@ drawNameCombo(const char* id, const std::vector<std::string>& names, const usize
             edit.choices = std::move(changed);
         }
     }
-    if (choices && choices->showsCollision && !choices->collisionColorings.empty()) {
-        core::drawPropertyLabel("Collision Color",
-                                "What the shown collision is coloured by: Kind colours floors, "
-                                "walls and ceilings apart; a setting colours each of its values, "
-                                "and leaves grey what is without it. The Scene panel's eye on "
-                                "Collision shows and hides it.");
-        if (const std::optional<usize> chosen = drawNameCombo(
-                "##collisionColoring", choices->collisionColorings, choices->collisionColoring)) {
-            ViewportChoices changed = edit.choices.value_or(*choices);
-            changed.collisionColoring = *chosen;
-            edit.choices = std::move(changed);
+    if (choices && choices->hasCollision) {
+        ViewportChoices changed = edit.choices.value_or(*choices);
+        if (drawSwitchRow("Collision",
+                          "The layer's collision, drawn see-through over the rooms shown, or "
+                          "opaque with every room hidden. While it is shown, its polygons no "
+                          "face has and the solid faces of hidden rooms can be picked.",
+                          changed.showsCollision)) {
+            edit.choices = changed;
+        }
+        if (changed.showsCollision && !changed.collisionColorings.empty()) {
+            core::drawPropertyLabel("Collision Color",
+                                    "What the shown collision is coloured by: Kind colours "
+                                    "floors, walls and ceilings apart; a setting colours each of "
+                                    "its values, and leaves grey what is without it.");
+            if (const std::optional<usize> chosen = drawNameCombo(
+                    "##collisionColoring", changed.collisionColorings, changed.collisionColoring)) {
+                changed.collisionColoring = *chosen;
+                edit.choices = std::move(changed);
+            }
         }
     }
     ViewportView changed = view;

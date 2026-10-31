@@ -101,10 +101,6 @@ void setValues(Placement& placement, const actor::PlacementValues& values) {
     if (const auto* path = std::get_if<PathRef>(&node)) {
         return findPath(scene, path->layer, path->path).has_value();
     }
-    if (const auto* polygon = std::get_if<CollisionPolygonRef>(&node)) {
-        const Collision* collision = findLayerCollision(scene, polygon->layer);
-        return collision != nullptr && polygon->polygon < collision->polygons.size();
-    }
     if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
         const Collision* collision = findLayerCollision(scene, box->layer);
         return collision != nullptr && box->box < collision->waterBoxes.size();
@@ -267,18 +263,6 @@ void PlacementEditor::drawInspector(Scene& scene) {
     if (node != nullptr &&
         (std::holds_alternative<PathRef>(*node) || std::holds_alternative<PathPointRef>(*node))) {
         pathForm.draw(scene, *node, selection.getNodes().size());
-        return;
-    }
-    if (const auto* polygon = node != nullptr ? std::get_if<CollisionPolygonRef>(node) : nullptr) {
-        std::vector<CollisionPolygonRef> polygons;
-        for (const SceneNode& selected : selection.getNodes()) {
-            const auto* other = std::get_if<CollisionPolygonRef>(&selected);
-            if (other != nullptr && other->layer == polygon->layer && *other != *polygon) {
-                polygons.push_back(*other);
-            }
-        }
-        polygons.push_back(*polygon);
-        collisionForm.drawPolygons(scene, polygons, selection.getNodes().size());
         return;
     }
     if (const auto* box = node != nullptr ? std::get_if<WaterBoxRef>(node) : nullptr) {

@@ -81,8 +81,21 @@ public:
         return sceneMesh ? &materials : nullptr;
     }
 
-    /// Selects the faces drawn under the material numbered `material`.
+    /// Selects by faces, and selects the faces drawn under the material
+    /// numbered `material`.
     void pickMaterial(usize material);
+
+    /// Selects by faces, and selects the faces made of `material`, and the
+    /// polygons no face has that are.
+    void pickCollisionMaterial(const CollisionMaterial& material);
+
+    /// What the material numbered `material` is bound to, named, if it is.
+    [[nodiscard]] std::optional<std::string> findBindingName(usize material) const;
+
+    /// The surface type every face picked is made of, where they share one.
+    [[nodiscard]] std::optional<u16> findPickedSurfaceType() const {
+        return pickedSurfaceType;
+    }
 
     /// Draws the items of a material's context menu.
     void drawMaterialMenu(usize material);
@@ -143,6 +156,9 @@ private:
     /// the collision is shown, the solid faces of hidden rooms and the
     /// polygons no face has.
     void makeShown();
+    /// Selects by faces, and selects `faces`.
+    void selectFaces(const std::vector<ComponentRef>& faces);
+    [[nodiscard]] std::optional<u16> makePickedSurfaceType() const;
     void makeOffer();
     void makeOverlay();
     void applyHotkeys();
@@ -195,6 +211,7 @@ private:
     std::optional<SceneSurface> surface;
     std::optional<EditMesh> editMesh;
     EditShown editShown;
+    std::optional<u16> pickedSurfaceType;
     /// `editMesh` as a transform being previewed moves it.
     std::optional<EditMesh> shownMesh;
     /// The vertices the transform offered moves, in the order of its points.

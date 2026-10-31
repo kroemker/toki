@@ -441,8 +441,64 @@ void MeshEditor::pickMaterial(const usize material) {
             }
         }
     }
+    selectFaces(faces);
+}
+
+void MeshEditor::pickCollisionMaterial(const CollisionMaterial& material) {
+    if (!sceneMesh || !editMesh || !collision) {
+        return;
+    }
+    std::vector<ComponentRef> faces;
+    for (const RoomMesh& room : sceneMesh->rooms) {
+        for (usize face = 0; face < room.faces.size(); ++face) {
+            if (room.faces[face].collision == material) {
+                faces.push_back({.piece = room.room, .index = face});
+            }
+        }
+    }
+    if (roomCount < editMesh->pieces.size()) {
+        const EditPiece& solidOnly = editMesh->pieces[roomCount];
+        for (usize face = 0; face < solidOnly.faces.size(); ++face) {
+            const usize polygon = findFaceSource(solidOnly, face);
+            if (polygon < collision->polygons.size() &&
+                getPolygonMaterial(collision->polygons[polygon]) == material) {
+                faces.push_back({.piece = roomCount, .index = face});
+            }
+        }
+    }
+    selectFaces(faces);
+}
+
+void MeshEditor::selectFaces(const std::vector<ComponentRef>& faces) {
+    viewportPanel.setSelectionMode(SelectionMode::Face);
+    selection.setMode(SelectionMode::Face, *editMesh);
     selection.selectFaces(faces, *editMesh);
     isOfferStale = true;
+}
+
+std::optional<std::string> MeshEditor::findBindingName(const usize material) const {
+    if (material >= resolvedBindings.size() || !resolvedBindings[material] || !collision) {
+        return std::nullopt;
+    }
+    const std::expected<std::optional<CollisionMaterial>, std::string>& bound =
+        resolvedBindings[material]->collision;
+    if (!bound) {
+        return "Missing Collision";
+    }
+    return *bound ? makeCollisionMaterialName(collisionNames, *collision, **bound)
+                  : std::string("Not Solid");
+}
+
+std::optional<u16> MeshEditor::makePickedSurfaceType() const {
+    std::optional<u16> found;
+    for (const CollisionPolygonRef& polygon : listPickedPolygons()) {
+        const u16 type = collision->polygons[polygon.polygon].type;
+        if (found && *found != type) {
+            return std::nullopt;
+        }
+        found = type;
+    }
+    return found;
 }
 
 void MeshEditor::assignPicked(const usize material) {
@@ -957,6 +1013,7 @@ void MeshEditor::offer(viewport::ViewportOverlay& overlay) {
     }
     if (isOfferStale) {
         makeShown();
+        pickedSurfaceType = makePickedSurfaceType();
         makeOffer();
         makeOverlay();
         isOfferStale = false;

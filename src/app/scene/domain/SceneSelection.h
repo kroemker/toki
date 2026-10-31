@@ -52,7 +52,7 @@ struct PathPointRef {
     friend bool operator==(const PathPointRef&, const PathPointRef&) = default;
 };
 
-/// One polygon of a layer's collision.
+/// One polygon of a layer's collision, as faces picked hold it.
 struct CollisionPolygonRef {
     usize layer = 0;
     usize polygon = 0;
@@ -69,10 +69,10 @@ struct WaterBoxRef {
 };
 
 /// Something of the scene that can be selected: a placement, a room, the
-/// scene, a light setting, a path or one of its points, or a polygon or
-/// waterbox of its collision.
+/// scene, a light setting, a path or one of its points, or a waterbox of its
+/// collision. A polygon is picked as a face of the surface, not as a node.
 using SceneNode = std::variant<PlacementRef, RoomRef, SceneRef, LightSettingRef, PathRef,
-                               PathPointRef, CollisionPolygonRef, WaterBoxRef>;
+                               PathPointRef, WaterBoxRef>;
 
 using viewport::PickMode;
 

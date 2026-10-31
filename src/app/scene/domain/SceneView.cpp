@@ -219,9 +219,6 @@ struct PassSource {
     usize imageCount = 0;
     usize standInImage = 0;
     u32 standIn = 0;
-    /// Whether a click on a room picks it, which it does not while collision
-    /// drawn over it is what is picked.
-    bool ownsRooms = true;
 };
 
 [[nodiscard]] viewport::ViewportDraw makeRuntimeSegmentsDraw(const PassSource& source) {
@@ -253,11 +250,10 @@ struct PassSource {
         for (const RoomDisplayLists& lists : rooms[room].displayLists) {
             const u32 displayList = opaque ? lists.opaque : lists.translucent;
             if (displayList != 0) {
-                viewport::ViewportDraw& draw = draws.emplace_back(viewport::ViewportDraw{
-                    .image = FirstRoomImage + room, .displayList = displayList});
-                if (source.ownsRooms) {
-                    draw.owner = makeNodeKey(RoomRef{.layer = source.view.layer, .room = room});
-                }
+                draws.push_back(viewport::ViewportDraw{
+                    .image = FirstRoomImage + room,
+                    .displayList = displayList,
+                    .owner = makeNodeKey(RoomRef{.layer = source.view.layer, .room = room})});
             }
         }
     }
@@ -282,19 +278,14 @@ struct AddedCollision {
     return added;
 }
 
-void addPolygons(viewport::ViewportContent& content, const AddedCollision& added,
-                 const SceneView& view) {
+void addPolygons(viewport::ViewportContent& content, const AddedCollision& added) {
     content.draws.push_back(
         viewport::ViewportDraw{.image = added.image, .displayList = added.drawing.setup});
     const std::vector<u32>& polygons = added.drawing.polygons;
     for (usize i = 0; i < polygons.size(); ++i) {
         if (polygons[i] != 0) {
             content.draws.push_back(viewport::ViewportDraw{
-                .image = added.image,
-                .displayList = polygons[i],
-                .owner = makeNodeKey(CollisionPolygonRef{.layer = view.layer, .polygon = i}),
-                .isEdged = true,
-                .isBoxed = false});
+                .image = added.image, .displayList = polygons[i], .isEdged = true});
         }
     }
 }
@@ -413,8 +404,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
                             .setup = setup,
                             .imageCount = scene.images.size(),
                             .standInImage = content.images.size(),
-                            .standIn = runtime.standIn,
-                            .ownsRooms = !showsCollision};
+                            .standIn = runtime.standIn};
     content.images.push_back(std::make_shared<const z64::MemoryImage>(runtime.image));
     labelImages(content, "Draw config stand-in", viewport::ImageKind::Generated);
 
@@ -424,7 +414,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         added = addCollisionImage(content, *collision, view);
     }
     if (isCollisionOnly) {
-        addPolygons(content, *added, view);
+        addPolygons(content, *added);
     }
     std::vector<viewport::ViewportDraw> translucentActors;
     if (view.showsActors) {
@@ -446,7 +436,7 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
     std::ranges::move(makePass(source, false), std::back_inserter(content.draws));
     std::ranges::move(translucentActors, std::back_inserter(content.draws));
     if (showsCollision && !isCollisionOnly) {
-        addPolygons(content, *added, view);
+        addPolygons(content, *added);
     }
     if (showsWaterBoxes) {
         addWaterBoxes(content, *added, *collision, view);
@@ -456,19 +446,6 @@ viewport::ViewportContent makeSceneContent(const Scene& scene, const SceneView& 
         content.lighting = makeLighting(layer.header.lightSettings[view.lightSetting]);
     }
     return content;
-}
-
-std::optional<u16> findTintedSurfaceType(const Scene& scene, const SceneView& view,
-                                         const SceneNode* active) {
-    const auto* polygon = active != nullptr ? std::get_if<CollisionPolygonRef>(active) : nullptr;
-    if (polygon == nullptr || polygon->layer != view.layer) {
-        return std::nullopt;
-    }
-    const Collision* collision = findLayerCollision(scene, polygon->layer);
-    if (collision == nullptr || polygon->polygon >= collision->polygons.size()) {
-        return std::nullopt;
-    }
-    return collision->polygons[polygon->polygon].type;
 }
 
 viewport::ViewportLighting makeLighting(const LightSetting& setting) {

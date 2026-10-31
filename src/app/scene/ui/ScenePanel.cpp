@@ -157,6 +157,16 @@ ScenePanel::ScenePanel(const workspace::WorkspaceService& workspaceService,
           .pickMaterial = [this](const usize material) { meshEditor.pickMaterial(material); },
           .drawMaterialMenu =
               [this](const usize material) { meshEditor.drawMaterialMenu(material); },
+          .pickCollisionMaterial =
+              [this](const CollisionMaterial& material) {
+                  if (!sceneView.showsCollision) {
+                      sceneView.showsCollision = true;
+                      showScene();
+                  }
+                  meshEditor.pickCollisionMaterial(material);
+              },
+          .findBindingName =
+              [this](const usize material) { return meshEditor.findBindingName(material); },
       }) {}
 
 void ScenePanel::setScene(Scene read) {
@@ -229,6 +239,7 @@ void ScenePanel::offerChoices() {
         choices.lightSettings.push_back(makeLightSettingName(header, i));
     }
     if (const Collision* collision = findLayerCollision(*scene, sceneView.layer)) {
+        choices.hasCollision = true;
         choices.showsCollision = sceneView.showsCollision;
         choices.showsWaterBoxes = sceneView.showsWaterBoxes && !collision->waterBoxes.empty();
         for (usize i = 0; i < CollisionColoringCount; ++i) {
@@ -245,6 +256,9 @@ void ScenePanel::offerChoices() {
         sceneView.showsActors = actors != viewport::ActorDisplay::Hidden;
         if (sceneView.showsActors) {
             sceneView.drawsModels = actors == viewport::ActorDisplay::Models;
+        }
+        if (chosen.hasCollision) {
+            sceneView.showsCollision = chosen.showsCollision;
         }
         if (chosen.collisionColoring < CollisionColoringCount) {
             sceneView.collisionColoring = static_cast<CollisionColoring>(chosen.collisionColoring);
@@ -436,7 +450,9 @@ void ScenePanel::update() {
     }
     placementEditor.applyPicked(*scene);
     if (const std::optional<u16> tinted =
-            findTintedSurfaceType(*scene, sceneView, placementEditor.getSelection().findActive());
+            viewportPanel.getSelectionMode() != viewport::SelectionMode::Node
+                ? meshEditor.findPickedSurfaceType()
+                : std::nullopt;
         tinted != sceneView.tintedSurfaceType) {
         sceneView.tintedSurfaceType = tinted;
         showScene();

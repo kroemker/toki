@@ -36,16 +36,6 @@ namespace {
         if (found && point->point < found->points.size()) {
             points.push_back(makePoint(found->points[point->point]));
         }
-    } else if (const auto* polygon = std::get_if<CollisionPolygonRef>(&node)) {
-        const Collision* collision = findLayerCollision(scene, polygon->layer);
-        if (collision != nullptr && polygon->polygon < collision->polygons.size()) {
-            for (usize corner = 0; corner < 3; ++corner) {
-                const u16 index = getVertexIndex(collision->polygons[polygon->polygon], corner);
-                if (index < collision->vertices.size()) {
-                    points.push_back(makePoint(collision->vertices[index]));
-                }
-            }
-        }
     } else if (const auto* box = std::get_if<WaterBoxRef>(&node)) {
         const Collision* collision = findLayerCollision(scene, box->layer);
         if (collision != nullptr && box->box < collision->waterBoxes.size()) {

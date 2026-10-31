@@ -205,6 +205,10 @@ public:
         return viewportTools.mode;
     }
 
+    void setSelectionMode(const SelectionMode mode) {
+        viewportTools.mode = mode;
+    }
+
     /// The owners of the draws selected, shown as the overlays say: what
     /// their draws drew tinted and outlined, and boxed.
     void setSelectedOwners(std::vector<usize> owners) {

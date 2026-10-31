@@ -5,6 +5,7 @@
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/PropertyTable.h"
 #include "app/core/ui/Theme.h"
+#include "app/scene/domain/Collision.h"
 #include "app/scene/domain/HeaderNames.h"
 #include "app/scene/domain/HeaderSettings.h"
 #include "app/scene/domain/PlacementEdits.h"
@@ -166,6 +167,21 @@ void HeaderForm::drawScene(Scene& scene, const SceneRef& where, const usize sele
     const HeaderRef header{.layer = layer.index};
     for (const SettingSection& section : SceneSections) {
         drawSection(section, layer.header.commands, scene.headerNames, header);
+    }
+    if (const Collision* collision = findLayerCollision(scene, where.layer);
+        collision != nullptr && ImGui::CollapsingHeader("Collision") &&
+        core::beginProperties("##collision", LabelWidth)) {
+        core::drawPropertyLabel("Polygons", "The polygons of the layer's collision, of its solid "
+                                            "faces and of none.");
+        ImGui::Text("%zu", collision->polygons.size());
+        core::drawPropertyLabel("Vertices", "The vertices its polygons have.");
+        ImGui::Text("%zu", collision->vertices.size());
+        core::drawPropertyLabel("Bounds", "The box the game culls the collision by, as it "
+                                          "stores it.");
+        ImGui::Text("%d, %d, %d to %d, %d, %d", collision->minBounds[0], collision->minBounds[1],
+                    collision->minBounds[2], collision->maxBounds[0], collision->maxBounds[1],
+                    collision->maxBounds[2]);
+        core::endProperties();
     }
     applyPending(scene);
 }
