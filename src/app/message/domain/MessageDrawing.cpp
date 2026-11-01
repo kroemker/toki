@@ -34,6 +34,7 @@ constexpr u8 MessageStaticSegment = 0x07;
 constexpr u8 IconItemSegment = 0x08;
 constexpr u8 QuestIconSegment = 0x09;
 constexpr u8 FontSegment = 0x0A;
+constexpr u8 KanjiSegment = 0x0B;
 constexpr u8 FrameSegment = 0x0E;
 constexpr u32 FirstImageAddress = 0x0010'0000;
 
@@ -56,6 +57,8 @@ constexpr s32 TextureWidth = 512;
 constexpr s32 TextureHeight = 512;
 constexpr s32 CharacterSize = 12;
 constexpr s32 CharacterScale = 1365;
+constexpr s32 WideCharacterSize = 14;
+constexpr s32 WideCharacterScale = 1163;
 constexpr s32 ShadowOffset = 1;
 constexpr u8 TextAlpha = 255;
 
@@ -162,25 +165,27 @@ void ListWriter::writeText(const LaidBox& box) {
     if (box.icon) {
         writeIcon(*box.icon);
     }
-    for (const LaidCharacter& character : box.characters) {
+    const bool hasFont = !box.isWide || art.hasKanji;
+    const u8 font = box.isWide ? KanjiSegment : FontSegment;
+    const s32 size = box.isWide ? WideCharacterSize : CharacterSize;
+    const s32 scale = box.isWide ? WideCharacterScale : CharacterScale;
+    for (const LaidCharacter& character : hasFont ? box.characters : std::vector<LaidCharacter>()) {
         add("gsDPPipeSync()");
-        add(std::format(
-            "gsDPLoadTextureBlock_4b({}, G_IM_FMT_I, 16, 16, 0, G_TX_NOMIRROR | "
-            "G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, "
-            "G_TX_NOLOD, G_TX_NOLOD)",
-            makeAddress(FontSegment, (character.character - u32{' '}) * FontCharacterSize)));
+        add(std::format("gsDPLoadTextureBlock_4b({}, G_IM_FMT_I, 16, 16, 0, G_TX_NOMIRROR | "
+                        "G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, "
+                        "G_TX_NOLOD, G_TX_NOLOD)",
+                        makeAddress(font, character.fontOffset)));
         if (box.boxType != BoxTypeNoneNoShadow) {
             add(std::format("gsDPSetPrimColor(0, 0, 0, 0, 0, {})", TextAlpha));
             writeRectangle(character.x + ShadowOffset, character.y + ShadowOffset,
-                           character.x + ShadowOffset + CharacterSize,
-                           character.y + ShadowOffset + CharacterSize, CharacterScale,
-                           CharacterScale);
+                           character.x + ShadowOffset + size, character.y + ShadowOffset + size,
+                           scale, scale);
         }
         add("gsDPPipeSync()");
         add(std::format("gsDPSetPrimColor(0, 0, {}, {}, {}, {})", character.color.red,
                         character.color.green, character.color.blue, TextAlpha));
-        writeRectangle(character.x, character.y, character.x + CharacterSize,
-                       character.y + CharacterSize, CharacterScale, CharacterScale);
+        writeRectangle(character.x, character.y, character.x + size, character.y + size, scale,
+                       scale);
     }
     writeEndIcon(box);
 }
@@ -218,8 +223,10 @@ void ListWriter::writeEndIcon(const LaidBox& box) {
                     "G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, "
                     "G_TX_NOLOD, G_TX_NOLOD)",
                     makeAddress(MessageStaticSegment, EndIconTextures + icon * FontCharacterSize)));
-    writeRectangle(box.endIconX, box.endIconY, box.endIconX + CharacterSize,
-                   box.endIconY + CharacterSize, CharacterScale, CharacterScale);
+    const s32 size = box.isWide ? WideCharacterSize : CharacterSize;
+    const s32 scale = box.isWide ? WideCharacterScale : CharacterScale;
+    writeRectangle(box.endIconX, box.endIconY, box.endIconX + size, box.endIconY + size, scale,
+                   scale);
 }
 
 [[nodiscard]] std::vector<cparser::Token> scanList(const cparser::SourceFile& file) {
@@ -232,17 +239,22 @@ void ListWriter::writeEndIcon(const LaidBox& box) {
 
 } // namespace
 
-MessageArt readMessageArt(const hackeroot::Workspace& workspace) {
+MessageArt readMessageArt(const hackeroot::Workspace& workspace, const bool readsKanji) {
     MessageArt art;
     std::vector<hackeroot::SegmentFiles> segments = {
         hackeroot::findGameCodeFiles(workspace.getRoot())};
-    for (const ArtSegment& segment : ArtSegments) {
+    std::vector<ArtSegment> read(ArtSegments.begin(), ArtSegments.end());
+    if (readsKanji) {
+        read.push_back(ArtSegment{"kanji", KanjiSegment});
+    }
+    for (const ArtSegment& segment : read) {
         std::expected<std::vector<std::filesystem::path>, base::Diagnostic> sources =
             hackeroot::findSegmentSources(workspace, segment.name);
         if (!sources) {
             art.diagnostics.push_back(std::move(sources.error()));
             continue;
         }
+        art.hasKanji = art.hasKanji || segment.segment == KanjiSegment;
         art.files.insert(art.files.end(), sources->begin(), sources->end());
         segments.push_back(
             hackeroot::SegmentFiles{.segment = segment.segment, .files = std::move(*sources)});

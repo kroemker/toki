@@ -36,20 +36,16 @@ MessageLayout MessageCatalog::layOut(const Message& message, const Language lang
         return failed;
     }
     EncodedText text = encode(message, language);
-    if (language == Language::Japanese) {
-        MessageLayout unlaid;
-        unlaid.diagnostics.push_back(base::makeWarning(
-            message.location, "Japanese is encoded and edited, but not laid out yet"));
-        std::ranges::move(text.diagnostics, std::back_inserter(unlaid.diagnostics));
-        return unlaid;
-    }
-    MessageLayout layout = layoutMessage(text.bytes, geometry, *request);
+    MessageLayout layout = language == Language::Japanese
+                               ? layoutWideMessage(text.bytes, geometry, *request)
+                               : layoutMessage(text.bytes, geometry, *request);
     std::ranges::move(text.diagnostics, std::back_inserter(layout.diagnostics));
     return layout;
 }
 
 MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace,
-                                  const std::filesystem::path& shiftJisTable) {
+                                  const std::filesystem::path& shiftJisTable,
+                                  const bool readsKanji) {
     MessageCatalog catalog{.workspace = workspace};
     const MessageFiles files =
         findMessageFiles(workspace->getRoot(), workspace->getBuildDefines().version);
@@ -81,7 +77,7 @@ MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspa
     std::ranges::copy(catalog.geometry.diagnostics, std::back_inserter(catalog.diagnostics));
     catalog.files.insert(catalog.files.end(), catalog.geometry.files.begin(),
                          catalog.geometry.files.end());
-    catalog.art = readMessageArt(*workspace);
+    catalog.art = readMessageArt(*workspace, readsKanji);
     std::ranges::copy(catalog.art.diagnostics, std::back_inserter(catalog.diagnostics));
     catalog.files.insert(catalog.files.end(), catalog.art.files.begin(), catalog.art.files.end());
     catalog.isFontMessageEnglish = isFontMessageEnglish(workspace->getMacros());

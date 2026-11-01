@@ -50,9 +50,9 @@ struct MessageCatalog {
 };
 
 /// Reads the catalog of `workspace`, Japanese encoded with the Shift-JIS table
-/// at `shiftJisTable`.
+/// at `shiftJisTable`, and with the `kanji` font it is drawn with if `readsKanji`.
 [[nodiscard]] MessageCatalog
 readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace,
-                   const std::filesystem::path& shiftJisTable);
+                   const std::filesystem::path& shiftJisTable, bool readsKanji);
 
 } // namespace toki::message

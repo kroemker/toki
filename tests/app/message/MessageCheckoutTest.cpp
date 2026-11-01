@@ -1,4 +1,5 @@
 #include "app/message/domain/Message.h"
+#include "app/message/domain/MessageCatalog.h"
 #include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageEncoder.h"
 #include "app/message/domain/MessageGeometry.h"
@@ -18,6 +19,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -223,7 +225,7 @@ TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's ow
         hackeroot::Workspace::load(repository, {});
     REQUIRE(workspace.has_value());
 
-    const toki::message::MessageArt art = toki::message::readMessageArt(*workspace);
+    const toki::message::MessageArt art = toki::message::readMessageArt(*workspace, false);
     std::string described;
     for (const base::Diagnostic& diagnostic : art.diagnostics) {
         if (diagnostic.severity == base::Severity::Error) {
@@ -263,4 +265,57 @@ TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's ow
             CHECK(frame.rdpResult.draws.size() == expected);
         }
     }
+}
+
+TEST_CASE("every Japanese message lays out and draws from the kanji font", "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::shared_ptr<const hackeroot::Workspace> workspace = [&] {
+        std::expected<hackeroot::Workspace, base::Diagnostic> loaded =
+            hackeroot::Workspace::load(repository, {});
+        REQUIRE(loaded.has_value());
+        return std::make_shared<const hackeroot::Workspace>(std::move(*loaded));
+    }();
+    const toki::message::MessageCatalog catalog =
+        toki::message::readMessageCatalog(workspace, TOKI_SHIPPED_SHIFT_JIS, true);
+    REQUIRE(catalog.art.hasKanji);
+    CHECK(catalog.geometry.nonKanjiIndices.size() == 0xBC * 7);
+
+    usize boxes = 0;
+    std::string problems;
+    for (const toki::message::Message& message : catalog.table.messages) {
+        if (!toki::message::isInLanguage(message, toki::message::Language::Japanese,
+                                         catalog.isFontMessageEnglish) ||
+            message.macro == toki::message::MessageMacro::FontMessage) {
+            continue;
+        }
+        const toki::message::MessageLayout layout =
+            catalog.layOut(message, toki::message::Language::Japanese);
+        boxes += layout.boxes.size();
+        for (const base::Diagnostic& diagnostic : layout.diagnostics) {
+            problems += std::format("0x{:04X}: {}\n", message.id, diagnostic.message);
+        }
+    }
+    WARN(boxes << " boxes");
+    INFO(problems.substr(0, 2000));
+    CHECK(problems.empty());
+
+    const auto message =
+        std::ranges::find(catalog.table.messages, base::u16{0x0001}, &toki::message::Message::id);
+    REQUIRE(message != catalog.table.messages.end());
+    const toki::message::MessageLayout layout =
+        catalog.layOut(*message, toki::message::Language::Japanese);
+    REQUIRE_FALSE(layout.boxes.empty());
+    const toki::message::LaidBox& box = layout.boxes.front();
+    CHECK(box.isWide);
+    const toki::message::BoxFrame frame = toki::message::runBoxFrame(box, catalog.art);
+    std::string drawn;
+    for (const base::Diagnostic& diagnostic : frame.diagnostics) {
+        drawn += diagnostic.message + "\n";
+    }
+    INFO(drawn);
+    CHECK(frame.diagnostics.empty());
+    CHECK(frame.rdpResult.draws.size() >= 2 * box.characters.size());
 }

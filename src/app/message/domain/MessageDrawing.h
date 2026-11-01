@@ -35,11 +35,15 @@ struct MessageArt {
     /// the GameCube's green.
     bool hasN64ButtonColors = true;
 
+    /// Whether the `kanji` font Japanese is drawn with was read. It is read
+    /// only when asked for: it is some four thousand textures.
+    bool hasKanji = false;
+
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
 };
 
-[[nodiscard]] MessageArt readMessageArt(const hackeroot::Workspace& workspace);
+[[nodiscard]] MessageArt readMessageArt(const hackeroot::Workspace& workspace, bool readsKanji);
 
 /// The display list one box is drawn with, as `Message_DrawTextBox`,
 /// `Message_DrawText` and `Message_DrawTextboxIcon` build it once the box's

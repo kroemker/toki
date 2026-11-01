@@ -23,7 +23,12 @@ struct TextColor {
 /// sample stands for what the game fills in when it opens the message, the
 /// player's name or a timer.
 struct LaidCharacter {
-    u8 character = 0;
+    /// The byte, or for Japanese the Shift-JIS code, the character was laid
+    /// out from.
+    u16 character = 0;
+    /// Where its glyph starts in the font: `nes_font_static`, or for Japanese
+    /// `kanji`.
+    u32 fontOffset = 0;
     s32 x = 0;
     s32 y = 0;
     TextColor color;
@@ -75,6 +80,8 @@ inline constexpr s32 BoxWidth = 256;
 inline constexpr s32 BoxHeight = 64;
 /// Where every line of every box starts on screen, before an indent.
 inline constexpr s32 TextStartX = 65;
+/// The same for Japanese (`R_TEXT_INIT_XPOS` of an NTSC build).
+inline constexpr s32 WideTextStartX = 50;
 
 /// One box of a message as the game draws it once all its text is shown.
 /// `begin` and `end` are the bytes it was laid out from, its closing code
@@ -85,6 +92,10 @@ struct LaidBox {
     u8 boxType = 0;
     s32 x = 0;
     s32 y = 0;
+
+    /// Whether it is laid out as Japanese, two bytes a character, and drawn
+    /// with the `kanji` font.
+    bool isWide = false;
 
     /// Whether the message lets the game put the box above or below, by where
     /// the player and the actor spoken to stand. It is laid out below.
@@ -109,6 +120,9 @@ struct LaidBox {
 /// stops nowhere; past this, text runs over the border or off the box.
 [[nodiscard]] s32 findLineLimit(const LaidBox& box);
 
+/// Where the lines of `box` start before an indent.
+[[nodiscard]] s32 findLineStart(const LaidBox& box);
+
 struct MessageLayout {
     std::vector<LaidBox> boxes;
     std::vector<base::Diagnostic> diagnostics;
@@ -131,5 +145,13 @@ struct LayoutRequest {
 [[nodiscard]] MessageLayout layoutMessage(std::span<const u8> bytes,
                                           const MessageGeometry& geometry,
                                           const LayoutRequest& request);
+
+/// Lays out one Japanese message as `Message_Decode` and `Message_DrawTextWide`
+/// do on an NTSC build: two bytes a code or character, characters from the
+/// `kanji` font found through `geometry.nonKanjiIndices`, and the spacing
+/// those functions give some signs.
+[[nodiscard]] MessageLayout layoutWideMessage(std::span<const u8> bytes,
+                                              const MessageGeometry& geometry,
+                                              const LayoutRequest& request);
 
 } // namespace toki::message

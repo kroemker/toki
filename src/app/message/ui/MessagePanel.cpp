@@ -74,8 +74,8 @@ constexpr float NearLimit = 0.9F;
 
 void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
     const s32 limit = findLineLimit(box);
-    const s32 room = limit - TextStartX;
-    const s32 used = line.endX - TextStartX;
+    const s32 room = limit - findLineStart(box);
+    const s32 used = line.endX - findLineStart(box);
     const float fraction = room > 0 ? static_cast<float>(used) / static_cast<float>(room) : 0.0F;
     ImVec4 color = core::palette::Success;
     if (line.endX > limit) {

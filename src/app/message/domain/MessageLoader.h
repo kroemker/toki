@@ -16,6 +16,8 @@ struct MessageRequest {
     std::shared_ptr<const hackeroot::Workspace> workspace;
     /// Toki's own `shift_jis.txt`.
     std::filesystem::path shiftJisTable;
+    /// Whether the `kanji` font is read too, once Japanese is shown.
+    bool readsKanji = false;
 };
 
 // Shared between the Assets panel's Messages tab and the Message panel, which

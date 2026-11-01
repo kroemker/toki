@@ -183,6 +183,7 @@ target_link_libraries(toki_gpu_tests PRIVATE toki_core toki_gfx Catch2::Catch2Wi
 target_compile_definitions(toki_gpu_tests PRIVATE
         TOKI_GPU_OUTPUT="${CMAKE_CURRENT_BINARY_DIR}"
         TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
+        TOKI_SHIPPED_SHIFT_JIS="${CMAKE_SOURCE_DIR}/assets/shift_jis.txt"
         TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 add_custom_command(TARGET toki_gpu_tests POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:toki_gpu_tests>

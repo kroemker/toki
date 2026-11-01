@@ -77,6 +77,7 @@ private:
     void updateSceneActors();
     void updateObject();
     void updateMessages();
+    void openMessages(const std::shared_ptr<const hackeroot::Workspace>& workspace);
     void updateActorDatabase();
     void offerNewActors(bool isRead);
     void drawNewActorsPrompt();
@@ -129,6 +130,7 @@ private:
     PropertiesPanel* propertiesPanel = nullptr;
     message::MessageLoader messageLoader;
     const hackeroot::Workspace* messageWorkspace = nullptr;
+    bool messageReadsKanji = false;
     message::MessageFocus messageFocus;
     std::unique_ptr<message::BoxRenderer> browserBoxes;
     std::unique_ptr<message::MessageBrowser> messageBrowser;

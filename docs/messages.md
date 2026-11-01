@@ -39,6 +39,14 @@ a character it does not map as its UTF-8 bytes; each control code through the ma
 system headers; `END` after the last. Every message of a vanilla checkout encodes byte for
 byte as the build's `.rodata` (the checkout tests check all 2126 rows of `ntsc-1.2`).
 
+Japanese goes into `jpn_message_data_static` as `msgenc.py --encoding SHIFT-JIS --wchar`
+writes it: through `charmap.jpn.txt`, every code it maps two bytes, every other character
+its Shift-JIS bytes, and the control macros under `MESSAGE_WCHAR` as well, which makes
+each code and each of its arguments a 16-bit word. Shift-JIS is a table Toki ships
+(`assets/shift_jis.txt`, made from Python's `shift_jis` codec, which `msgenc.py` uses),
+since no dependency converts to it on every platform. It too matches the build byte for
+byte.
+
 ## Layout
 
 `layoutMessage` lays the bytes out box by box as `Message_Decode` and `Message_DrawText` of
@@ -59,8 +67,25 @@ widths (`sFontWidths`) and where each box type stands (the position tables of
   and what closes the box decides its end icon;
 - the player's name is drawn as `Link`, times as `00"00"`, scores as `0`.
 
-A change to that code in the checkout is not seen. Japanese, laid out two bytes a character,
-is not laid out yet.
+`layoutWideMessage` lays out Japanese as `Message_Decode` and `Message_DrawTextWide` do on
+an NTSC build. Its codes are read as words and do what the narrow codes do, with these
+differences:
+
+- text starts at x 50, lines are 18 apart, and a character advances 14
+  (`(s32)(16 * 0.88f)`); `（` and `「` move back 6 first, `・` 3, `？`, `！`, `＾` and `１` 2;
+  after it, `．` advances 3, `）` and `」` 5, `、`, `。` and `”` 7, `＾`, `＃` and `＊` 9,
+  `・` 10;
+- the first line's y is the box's plus 6, or 22 or 14 for one or two lines;
+- a line after a new line is indented by 32 for an item icon or two choices; three choices
+  indent every line;
+- the item icon stands 54 left of the text, a quest item's 50; the choices are 7, 25 and 43
+  below the box's top;
+- characters come from the `kanji` font, at the offset `Kanji_OffsetFromShiftJIS` finds:
+  kanji by arithmetic, everything below them through `sNonKanjiIndices`, read from the
+  checkout's `src/code/kanread.s`;
+- the player's name is drawn as `リンク`, times as `００分００秒`.
+
+A change to that code in the checkout is not seen.
 
 ## Drawing
 
@@ -70,6 +95,10 @@ is encoded, run on the RSP and RDP of `n64/` and drawn by `gfx/`, with the setup
 `sSetupDL[39]` and the art read from the checkout's `message_static`, `nes_font_static`,
 `icon_item_static` and `icon_item_24_static`. The ocarina's staff and the pictures of
 `BACKGROUND` are not drawn.
+
+Japanese is drawn from `kanji`, 14 pixels a character. The font is some four thousand
+textures, so it is read only once Japanese is first picked; until it is, a Japanese box is
+drawn without its text.
 
 ## Showing them
 

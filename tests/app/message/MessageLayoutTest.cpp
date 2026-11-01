@@ -215,3 +215,88 @@ TEST_CASE("a byte the game has no code or character for is a diagnostic", "[mess
     CHECK(layout.diagnostics.size() == 1);
     CHECK(layout.boxes[0].characters.size() == 1);
 }
+
+namespace {
+
+[[nodiscard]] std::vector<u8> makeWide(const std::vector<base::u16>& words) {
+    std::vector<u8> bytes;
+    for (const base::u16 word : words) {
+        bytes.push_back(static_cast<u8>(word >> 8U));
+        bytes.push_back(static_cast<u8>(word & 0xFFU));
+    }
+    return bytes;
+}
+
+[[nodiscard]] MessageGeometry makeWideGeometry() {
+    MessageGeometry geometry = makeGeometry();
+    geometry.nonKanjiIndices.assign(0xBC * 7, 0);
+    for (base::usize index = 0; index < geometry.nonKanjiIndices.size(); ++index) {
+        geometry.nonKanjiIndices[index] = static_cast<base::u16>(index);
+    }
+    return geometry;
+}
+
+} // namespace
+
+TEST_CASE("the kanji index table is read from kanread.s", "[message]") {
+    constexpr std::string_view Assembly = "DATA(sNonKanjiIndices)\n"
+                                          "/* 0x814_ */ .half 0x0000, 0x0001, 0x0002\n"
+                                          "/* 0x815_ */ .half 0x0010,0x0011\r\n"
+                                          "ENDDATA(sNonKanjiIndices)\n";
+    CHECK(toki::message::parseNonKanjiIndices(Assembly) ==
+          std::vector<base::u16>{0x0000, 0x0001, 0x0002, 0x0010, 0x0011});
+    CHECK(toki::message::parseNonKanjiIndices("no table").empty());
+}
+
+TEST_CASE("a kanji is found where Kanji_OffsetFromShiftJIS finds it", "[message]") {
+    const MessageGeometry geometry = makeWideGeometry();
+    CHECK(toki::message::findKanjiOffset(0x889F, geometry) == (0x30AU + 0x5EU) * 128);
+    CHECK(toki::message::findKanjiOffset(0x8980, geometry) == (0x30AU + 0x3FU + 0xBCU) * 128);
+    CHECK(toki::message::findKanjiOffset(0x8142, geometry) == 2U * 128);
+    CHECK(toki::message::findKanjiOffset(0x82A0, geometry) == (0x5FU + 0xBCU) * 128);
+    CHECK_FALSE(toki::message::findKanjiOffset(0x8742, MessageGeometry()).has_value());
+}
+
+TEST_CASE("Japanese is laid out two bytes a character, with the spacing of its signs",
+          "[message]") {
+    const MessageGeometry geometry = makeWideGeometry();
+    const std::vector<u8> bytes =
+        makeWide({0x82A0, 0x8142, 0x82A0, 0x000A, 0x8175, 0x82A0, 0x8140, 0x82A0, 0x8170});
+    const MessageLayout layout = toki::message::layoutWideMessage(
+        bytes, geometry, LayoutRequest{.boxType = TypeBlack, .boxPosition = PositionBottom});
+
+    CHECK(layout.diagnostics.empty());
+    REQUIRE(layout.boxes.size() == 1);
+    const toki::message::LaidBox& box = layout.boxes[0];
+    CHECK(box.isWide);
+    REQUIRE(box.characters.size() == 6);
+    CHECK(box.characters[0].x == 50);
+    CHECK(box.characters[0].y == 142 + 14);
+    CHECK(box.characters[1].x == 64);
+    CHECK(box.characters[2].x == 71);
+    CHECK(box.characters[3].x == 44);
+    CHECK(box.characters[3].y == 142 + 14 + 18);
+    CHECK(box.characters[4].x == 58);
+    CHECK(box.characters[5].x == 78);
+    CHECK(box.endIcon == EndIcon::Square);
+    CHECK(toki::message::findLineLimit(box) == 34 + 256 - (50 - 34));
+}
+
+TEST_CASE("Japanese codes take their arguments in words and choices sit higher", "[message]") {
+    const MessageGeometry geometry = makeWideGeometry();
+    const std::vector<u8> bytes =
+        makeWide({0x000B, 0x0C01, 0x82A0, 0x000A, 0x82A0, 0x000A, 0x82A0, 0x81BC, 0x8170});
+    const MessageLayout layout = toki::message::layoutWideMessage(
+        bytes, geometry, LayoutRequest{.boxType = TypeBlack, .boxPosition = PositionBottom});
+
+    CHECK(layout.diagnostics.empty());
+    REQUIRE(layout.boxes.size() == 1);
+    const toki::message::LaidBox& box = layout.boxes[0];
+    REQUIRE(box.characters.size() == 3);
+    CHECK(box.characters[0].color == toki::message::TextColor{255, 60, 60});
+    CHECK(box.characters[0].x == 50);
+    CHECK(box.characters[1].x == 50 + 32);
+    CHECK(box.characters[0].y == 142 + 6);
+    CHECK(box.endIcon == EndIcon::Arrow);
+    CHECK(box.choiceYs == std::vector<s32>{142 + 25, 142 + 43});
+}

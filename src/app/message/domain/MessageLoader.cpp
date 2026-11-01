@@ -13,7 +13,7 @@ MessageLoader::MessageLoader()
     : WatchedReader(
           [](hackeroot::AssetImageReader&, const MessageRequest& request) {
               return std::make_shared<const MessageCatalog>(
-                  readMessageCatalog(request.workspace, request.shiftJisTable));
+                  readMessageCatalog(request.workspace, request.shiftJisTable, request.readsKanji));
           },
           [](const hackeroot::Workspace&, const MessageRequest&) {
               return std::vector<std::filesystem::path>();

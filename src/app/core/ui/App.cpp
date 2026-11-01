@@ -495,6 +495,16 @@ void App::updateScene() {
     }
 }
 
+void App::openMessages(const std::shared_ptr<const hackeroot::Workspace>& workspace) {
+    const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
+    messageLoader.open(workspace, message::MessageRequest{
+                                      .name = messageReadsKanji ? "the kanji font" : "the messages",
+                                      .workspace = workspace,
+                                      .shiftJisTable = assets ? *assets / "shift_jis.txt"
+                                                              : std::filesystem::path(),
+                                      .readsKanji = messageReadsKanji});
+}
+
 void App::updateMessages() {
     const std::shared_ptr<const hackeroot::Workspace> workspace =
         workspaceService.getSharedWorkspace();
@@ -504,16 +514,16 @@ void App::updateMessages() {
             logWarn("the edited messages belong to the checkout closed, and were dropped");
         }
         messageFocus = {};
+        messageReadsKanji = false;
         if (workspace) {
-            const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
-            messageLoader.open(workspace, message::MessageRequest{
-                                              .name = "the messages",
-                                              .workspace = workspace,
-                                              .shiftJisTable = assets ? *assets / "shift_jis.txt"
-                                                                      : std::filesystem::path()});
+            openMessages(workspace);
         } else {
             messageLoader.close();
         }
+    }
+    if (workspace && !messageReadsKanji && messageFocus.language == message::Language::Japanese) {
+        messageReadsKanji = true;
+        openMessages(workspace);
     }
     std::optional<message::SharedCatalog> loaded = messageLoader.update();
     if (!loaded) {
