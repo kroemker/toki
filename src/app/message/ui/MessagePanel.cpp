@@ -119,10 +119,10 @@ void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
 
 } // namespace
 
-MessagePanel::MessagePanel(const gfx::Device& device, MessageFocus& focus,
+MessagePanel::MessagePanel(const gfx::Device& device, const core::Fonts& fonts, MessageFocus& focus,
                            std::function<void()> save)
-    : Panel("message", "Message", core::icons::Chat, core::DockSlot::Centre), focus(focus),
-      save(std::move(save)), boxRenderer(device) {}
+    : Panel("message", "Message", core::icons::Chat, core::DockSlot::Centre), fonts(fonts),
+      focus(focus), save(std::move(save)), boxRenderer(device) {}
 
 void MessagePanel::showMessage() {
     setOpen(true);
@@ -234,9 +234,12 @@ void MessagePanel::drawEditor(const usize index) {
     std::string& markup = markups[index];
     const float lines = static_cast<float>(std::ranges::count(markup, '\n') + 2);
     const float width = std::min(ImGui::GetContentRegionAvail().x, MaxBoxWidth);
+    ImGui::PushFont(fonts.getMono(), core::Fonts::MonoSize);
     const float height =
         ImGui::GetTextLineHeight() * lines + ImGui::GetStyle().FramePadding.y * 2.0F;
-    if (ImGui::InputTextMultiline("##markup", &markup, ImVec2(width, height))) {
+    const bool isChanged = ImGui::InputTextMultiline("##markup", &markup, ImVec2(width, height));
+    ImGui::PopFont();
+    if (isChanged) {
         std::expected<std::vector<Piece>, MarkupError> pieces = parseMarkup(markup);
         if (pieces) {
             markupErrors[index].reset();

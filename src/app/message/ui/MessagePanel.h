@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/core/ui/Fonts.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/PropertySource.h"
 #include "app/message/Types.h"
@@ -24,7 +25,8 @@ namespace toki::message {
 /// panel says what the message is and where it is written.
 class MessagePanel : public core::Panel, public core::PropertySource {
 public:
-    MessagePanel(const gfx::Device& device, MessageFocus& focus, std::function<void()> save);
+    MessagePanel(const gfx::Device& device, const core::Fonts& fonts, MessageFocus& focus,
+                 std::function<void()> save);
 
     [[nodiscard]] bool isOpenByDefault() const override {
         return false;
@@ -57,6 +59,7 @@ private:
     void updateEditor(const Message& message);
     void applyBoxes();
 
+    const core::Fonts& fonts;
     MessageFocus& focus;
     std::function<void()> save;
     BoxRenderer boxRenderer;

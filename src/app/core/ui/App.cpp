@@ -226,7 +226,7 @@ void App::registerPanels() {
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     browserBoxes = std::make_unique<message::BoxRenderer>(*device);
-    auto messages = std::make_unique<message::MessagePanel>(*device, messageFocus,
+    auto messages = std::make_unique<message::MessagePanel>(*device, fonts, messageFocus,
                                                             [this] { saveMessagesDialog.open(); });
     messagePanel = messages.get();
     propertiesPanel->addSource(*messagePanel);
