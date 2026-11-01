@@ -3,6 +3,7 @@
 #include "app/assets/domain/AssetReader.h"
 #include "app/assets/domain/AssetRows.h"
 #include "app/core/ui/Panel.h"
+#include "app/message/ui/MessageBrowser.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Assets.h"
 #include "hackeroot/Workspace.h"
@@ -19,7 +20,8 @@ public:
     using OpenAsset = std::function<void(const hackeroot::AssetDirectory&)>;
 
     AssetBrowserPanel(const workspace::WorkspaceService& workspaceService, AssetReader& assetReader,
-                      OpenAsset openScene, OpenAsset openObject);
+                      OpenAsset openScene, OpenAsset openObject,
+                      message::MessageBrowser& messageBrowser);
 
     void draw() override;
 
@@ -27,6 +29,7 @@ private:
     enum class Kind : u8 {
         Scenes,
         Objects,
+        Messages,
     };
 
     void drawScenes(const hackeroot::Workspace& workspace, float height);
@@ -42,6 +45,7 @@ private:
     AssetReader& assetReader;
     OpenAsset openScene;
     OpenAsset openObject;
+    message::MessageBrowser& messageBrowser;
     std::array<char, 128> filter{};
     Kind kind = Kind::Scenes;
     std::filesystem::path selected;

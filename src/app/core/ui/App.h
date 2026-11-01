@@ -18,6 +18,10 @@
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
 #include "app/displayList/ui/DisplayListPanel.h"
+#include "app/message/domain/MessageLoader.h"
+#include "app/message/ui/BoxRenderer.h"
+#include "app/message/ui/MessageBrowser.h"
+#include "app/message/ui/MessageFocus.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneActorLoader.h"
@@ -70,6 +74,7 @@ private:
     void updateScene();
     void updateSceneActors();
     void updateObject();
+    void updateMessages();
     void updateActorDatabase();
     void offerNewActors(bool isRead);
     void drawNewActorsPrompt();
@@ -120,6 +125,11 @@ private:
     texture::TexturePanel* texturePanel = nullptr;
     displayList::DisplayListPanel* displayListPanel = nullptr;
     PropertiesPanel* propertiesPanel = nullptr;
+    message::MessageLoader messageLoader;
+    const hackeroot::Workspace* messageWorkspace = nullptr;
+    message::MessageFocus messageFocus;
+    std::unique_ptr<message::BoxRenderer> browserBoxes;
+    std::unique_ptr<message::MessageBrowser> messageBrowser;
 };
 
 } // namespace toki::core

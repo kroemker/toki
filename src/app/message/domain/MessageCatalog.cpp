@@ -1,0 +1,68 @@
+#include "MessageCatalog.h"
+
+#include "app/message/domain/MessageReader.h"
+#include "hackeroot/Workspace.h"
+
+#include <algorithm>
+#include <expected>
+#include <format>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <utility>
+
+namespace toki::message {
+
+EncodedText MessageCatalog::encode(const Message& message, const Language language) const {
+    if (!format) {
+        return {};
+    }
+    return format->makeEncoder().encode(message.texts[static_cast<usize>(language)]);
+}
+
+MessageLayout MessageCatalog::layOut(const Message& message, const Language language) const {
+    if (!format) {
+        MessageLayout failed;
+        failed.diagnostics.push_back(
+            base::makeError(message.location, "the message format could not be read"));
+        return failed;
+    }
+    const std::expected<LayoutRequest, std::string> request = format->makeLayoutRequest(message);
+    if (!request) {
+        MessageLayout failed;
+        failed.diagnostics.push_back(base::makeError(message.location, request.error()));
+        return failed;
+    }
+    EncodedText text = encode(message, language);
+    MessageLayout layout = layoutMessage(text.bytes, geometry, *request);
+    std::ranges::move(text.diagnostics, std::back_inserter(layout.diagnostics));
+    return layout;
+}
+
+MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace) {
+    MessageCatalog catalog{.workspace = workspace};
+    const MessageFiles files =
+        findMessageFiles(workspace->getRoot(), workspace->getBuildDefines().version);
+    catalog.files = {files.table, files.vanillaDirectory / "message_data.h",
+                     workspace->getRoot() / "assets" / "text" / "charmap.nes.txt"};
+    catalog.table = readMessages(*workspace);
+    std::ranges::copy(catalog.table.diagnostics, std::back_inserter(catalog.diagnostics));
+
+    std::expected<MessageFormat, base::Diagnostic> format = readMessageFormat(*workspace);
+    if (format) {
+        catalog.format = std::move(*format);
+    } else {
+        catalog.diagnostics.push_back(std::move(format.error()));
+    }
+    catalog.geometry = readMessageGeometry(*workspace);
+    std::ranges::copy(catalog.geometry.diagnostics, std::back_inserter(catalog.diagnostics));
+    catalog.files.insert(catalog.files.end(), catalog.geometry.files.begin(),
+                         catalog.geometry.files.end());
+    catalog.art = readMessageArt(*workspace);
+    std::ranges::copy(catalog.art.diagnostics, std::back_inserter(catalog.diagnostics));
+    catalog.files.insert(catalog.files.end(), catalog.art.files.begin(), catalog.art.files.end());
+    catalog.isFontMessageEnglish = isFontMessageEnglish(workspace->getMacros());
+    return catalog;
+}
+
+} // namespace toki::message

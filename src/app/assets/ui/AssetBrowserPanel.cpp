@@ -39,6 +39,7 @@ namespace {
 }
 
 constexpr float DetailsLines = 8.5F;
+constexpr float MessageDetailsLines = 7.0F;
 constexpr ImGuiTableFlags TableFlags = ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg |
                                        ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable |
                                        ImGuiTableFlags_BordersInnerV;
@@ -105,10 +106,10 @@ std::string findRelativePath(const hackeroot::Workspace& workspace,
 
 AssetBrowserPanel::AssetBrowserPanel(const workspace::WorkspaceService& workspaceService,
                                      AssetReader& assetReader, OpenAsset openScene,
-                                     OpenAsset openObject)
+                                     OpenAsset openObject, message::MessageBrowser& messageBrowser)
     : Panel("assets", "Assets", core::icons::FolderOpen, core::DockSlot::Left),
       workspaceService(workspaceService), assetReader(assetReader), openScene(std::move(openScene)),
-      openObject(std::move(openObject)) {}
+      openObject(std::move(openObject)), messageBrowser(messageBrowser) {}
 
 void AssetBrowserPanel::draw() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
@@ -120,8 +121,10 @@ void AssetBrowserPanel::draw() {
         return;
     }
     ImGui::SetNextItemWidth(-FLT_MIN);
-    ImGui::InputTextWithHint("##filter", "Filter by name, folder or enum…", filter.data(),
-                             filter.size());
+    ImGui::InputTextWithHint("##filter",
+                             kind == Kind::Messages ? "Filter by ID or text…"
+                                                    : "Filter by name, folder or enum…",
+                             filter.data(), filter.size());
     if (ImGui::BeginTabBar("##kinds")) {
         if (ImGui::BeginTabItem("Scenes")) {
             kind = Kind::Scenes;
@@ -131,19 +134,31 @@ void AssetBrowserPanel::draw() {
             kind = Kind::Objects;
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("Messages")) {
+            kind = Kind::Messages;
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
-    const float detailsHeight = ImGui::GetTextLineHeightWithSpacing() * DetailsLines;
+    if (kind == Kind::Messages) {
+        messageBrowser.drawChips();
+    }
+    const float detailsHeight = ImGui::GetTextLineHeightWithSpacing() *
+                                (kind == Kind::Messages ? MessageDetailsLines : DetailsLines);
     const float tableHeight = std::max(ImGui::GetContentRegionAvail().y - detailsHeight,
                                        ImGui::GetTextLineHeightWithSpacing() * 4.0F);
     if (kind == Kind::Scenes) {
         drawScenes(*workspace, tableHeight);
         ImGui::Separator();
         drawSceneDetails(*workspace);
-    } else {
+    } else if (kind == Kind::Objects) {
         drawObjects(*workspace, tableHeight);
         ImGui::Separator();
         drawObjectDetails(*workspace);
+    } else {
+        messageBrowser.drawTable(std::string(filter.data()), tableHeight);
+        ImGui::Separator();
+        messageBrowser.drawDetails();
     }
 }
 

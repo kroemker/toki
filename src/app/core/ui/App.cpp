@@ -225,6 +225,9 @@ void App::registerPanels() {
     scenePanel->setDisplayListInspector(inspect);
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
+    browserBoxes = std::make_unique<message::BoxRenderer>(*device);
+    messageBrowser =
+        std::make_unique<message::MessageBrowser>(messageFocus, *browserBoxes, [](usize) {});
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
         [this](const hackeroot::AssetDirectory& asset) {
@@ -237,7 +240,8 @@ void App::registerPanels() {
             sceneActorLoader.close();
             restoringScene.reset();
             objectLoader.open(workspaceService.getSharedWorkspace(), asset);
-        }));
+        },
+        *messageBrowser));
     panels.add(std::make_unique<workspace::WorkspacePanel>(workspaceService));
     panels.add(std::make_unique<build::BuildPanel>(
         buildRunner, fonts, [this](const build::BuildTarget target) { startBuild(target); },
@@ -302,6 +306,7 @@ void App::drawFrame() {
     updateScene();
     updateSceneActors();
     updateObject();
+    updateMessages();
     updateActorDatabase();
     if (viewportPanel != nullptr && displayListPanel != nullptr) {
         viewportPanel->setTracing(displayListPanel->isOpen());
@@ -481,6 +486,40 @@ void App::updateScene() {
                                               .layers = loaded->layers});
     if (scenePanel != nullptr) {
         scenePanel->setScene(std::move(*loaded));
+    }
+}
+
+void App::updateMessages() {
+    const std::shared_ptr<const hackeroot::Workspace> workspace =
+        workspaceService.getSharedWorkspace();
+    if (workspace.get() != messageWorkspace) {
+        messageWorkspace = workspace.get();
+        if (workspace) {
+            messageLoader.open(
+                workspace, message::MessageRequest{.name = "the messages", .workspace = workspace});
+        } else {
+            messageLoader.close();
+        }
+    }
+    std::optional<message::SharedCatalog> loaded = messageLoader.update();
+    if (!loaded) {
+        return;
+    }
+    const message::Message* shown = messageFocus.findShown();
+    const std::optional<std::pair<u16, message::MessageMacro>> wasShown =
+        shown != nullptr ? std::optional(std::pair(shown->id, shown->macro)) : std::nullopt;
+    logRead((*loaded)->diagnostics,
+            std::format("read {} messages", (*loaded)->table.messages.size()));
+    messageFocus.catalog = std::move(*loaded);
+    messageFocus.shown.reset();
+    if (wasShown) {
+        const std::vector<message::Message>& messages = messageFocus.catalog->table.messages;
+        const auto found = std::ranges::find_if(messages, [&](const message::Message& candidate) {
+            return candidate.id == wasShown->first && candidate.macro == wasShown->second;
+        });
+        if (found != messages.end()) {
+            messageFocus.shown = static_cast<usize>(found - messages.begin());
+        }
     }
 }
 
