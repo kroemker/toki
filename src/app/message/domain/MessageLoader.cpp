@@ -12,7 +12,8 @@ namespace toki::message {
 MessageLoader::MessageLoader()
     : WatchedReader(
           [](hackeroot::AssetImageReader&, const MessageRequest& request) {
-              return std::make_shared<const MessageCatalog>(readMessageCatalog(request.workspace));
+              return std::make_shared<const MessageCatalog>(
+                  readMessageCatalog(request.workspace, request.shiftJisTable));
           },
           [](const hackeroot::Workspace&, const MessageRequest&) {
               return std::vector<std::filesystem::path>();

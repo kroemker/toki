@@ -3,6 +3,7 @@
 #include "app/assets/domain/WatchedReader.h"
 #include "app/message/domain/MessageCatalog.h"
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -13,6 +14,8 @@ namespace toki::message {
 struct MessageRequest {
     std::string name;
     std::shared_ptr<const hackeroot::Workspace> workspace;
+    /// Toki's own `shift_jis.txt`.
+    std::filesystem::path shiftJisTable;
 };
 
 // Shared between the Assets panel's Messages tab and the Message panel, which

@@ -1,6 +1,7 @@
 #include "MessageCatalog.h"
 
 #include "app/message/domain/MessageReader.h"
+#include "app/message/domain/ShiftJis.h"
 #include "hackeroot/Workspace.h"
 
 #include <algorithm>
@@ -14,10 +15,11 @@
 namespace toki::message {
 
 EncodedText MessageCatalog::encode(const Message& message, const Language language) const {
-    if (!format) {
+    const std::optional<MessageFormat>& used = language == Language::Japanese ? wideFormat : format;
+    if (!used) {
         return {};
     }
-    return format->makeEncoder().encode(message.texts[static_cast<usize>(language)]);
+    return used->makeEncoder().encode(message.texts[static_cast<usize>(language)]);
 }
 
 MessageLayout MessageCatalog::layOut(const Message& message, const Language language) const {
@@ -34,12 +36,20 @@ MessageLayout MessageCatalog::layOut(const Message& message, const Language lang
         return failed;
     }
     EncodedText text = encode(message, language);
+    if (language == Language::Japanese) {
+        MessageLayout unlaid;
+        unlaid.diagnostics.push_back(base::makeWarning(
+            message.location, "Japanese is encoded and edited, but not laid out yet"));
+        std::ranges::move(text.diagnostics, std::back_inserter(unlaid.diagnostics));
+        return unlaid;
+    }
     MessageLayout layout = layoutMessage(text.bytes, geometry, *request);
     std::ranges::move(text.diagnostics, std::back_inserter(layout.diagnostics));
     return layout;
 }
 
-MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace) {
+MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace,
+                                  const std::filesystem::path& shiftJisTable) {
     MessageCatalog catalog{.workspace = workspace};
     const MessageFiles files =
         findMessageFiles(workspace->getRoot(), workspace->getBuildDefines().version);
@@ -54,6 +64,19 @@ MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspa
     } else {
         catalog.diagnostics.push_back(std::move(format.error()));
     }
+    std::expected<ShiftJis, std::string> shiftJis = ShiftJis::read(shiftJisTable);
+    if (shiftJis) {
+        std::expected<MessageFormat, base::Diagnostic> wide =
+            readWideMessageFormat(*workspace, std::move(*shiftJis));
+        if (wide) {
+            catalog.wideFormat = std::move(*wide);
+        } else {
+            catalog.diagnostics.push_back(std::move(wide.error()));
+        }
+    } else {
+        catalog.diagnostics.push_back(base::makeError({.file = shiftJisTable}, shiftJis.error()));
+    }
+    catalog.files.push_back(workspace->getRoot() / "assets" / "text" / "charmap.jpn.txt");
     catalog.geometry = readMessageGeometry(*workspace);
     std::ranges::copy(catalog.geometry.diagnostics, std::back_inserter(catalog.diagnostics));
     catalog.files.insert(catalog.files.end(), catalog.geometry.files.begin(),

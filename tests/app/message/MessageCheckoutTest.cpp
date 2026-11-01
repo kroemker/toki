@@ -4,6 +4,7 @@
 #include "app/message/domain/MessageGeometry.h"
 #include "app/message/domain/MessageLayout.h"
 #include "app/message/domain/MessageReader.h"
+#include "app/message/domain/ShiftJis.h"
 #include "base/Diagnostic.h"
 #include "base/Types.h"
 #include "hackeroot/Workspace.h"
@@ -19,6 +20,7 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -61,17 +63,11 @@ TEST_CASE("every message of a real checkout reads without a diagnostic", "[messa
     CHECK(table.messages.back().id == 0xFFFD);
 }
 
-TEST_CASE("every English message encodes to the bytes the build compiled", "[message][checkout]") {
-    const std::filesystem::path repository(TOKI_HACKEROOT);
-    if (repository.empty()) {
-        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
-    }
-    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
-        hackeroot::Workspace::load(repository, {});
-    REQUIRE(workspace.has_value());
-    const std::filesystem::path built = repository / "build" /
-                                        workspace->getBuildDefines().version /
-                                        "assets/text/nes_message_data_static.o.bin";
+namespace {
+
+void checkEncodedData(const hackeroot::Workspace& workspace, const std::filesystem::path& built,
+                      const toki::message::MessageFormat& format,
+                      const toki::message::Language language) {
     std::ifstream stream(built, std::ios::binary);
     if (!stream) {
         SKIP("build the checkout first: " << built.string() << " is missing");
@@ -79,13 +75,10 @@ TEST_CASE("every English message encodes to the bytes the build compiled", "[mes
     const std::vector<base::u8> expected((std::istreambuf_iterator<char>(stream)),
                                          std::istreambuf_iterator<char>());
 
-    const toki::message::MessageTable table = toki::message::readMessages(*workspace);
-    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
-        toki::message::readMessageFormat(*workspace);
-    REQUIRE(format.has_value());
+    const toki::message::MessageTable table = toki::message::readMessages(workspace);
     const toki::message::EncodedData data = toki::message::encodeMessageData(
-        table, format->makeEncoder(), toki::message::Language::English,
-        toki::message::isFontMessageEnglish(workspace->getMacros()));
+        table, format.makeEncoder(), language,
+        toki::message::isFontMessageEnglish(workspace.getMacros()));
 
     std::string described;
     for (usize index = 0; index < std::min<usize>(data.diagnostics.size(), 10); ++index) {
@@ -101,9 +94,13 @@ TEST_CASE("every English message encodes to the bytes the build compiled", "[mes
         if (!offset) {
             continue;
         }
-        const usize end = index + 1 < table.messages.size() && data.offsets[index + 1]
-                              ? *data.offsets[index + 1]
-                              : data.bytes.size();
+        usize end = data.bytes.size();
+        for (usize next = index + 1; next < table.messages.size(); ++next) {
+            if (data.offsets[next]) {
+                end = *data.offsets[next];
+                break;
+            }
+        }
         const bool isSame = end <= expected.size() &&
                             std::equal(data.bytes.begin() + static_cast<std::ptrdiff_t>(*offset),
                                        data.bytes.begin() + static_cast<std::ptrdiff_t>(end),
@@ -119,6 +116,45 @@ TEST_CASE("every English message encodes to the bytes the build compiled", "[mes
     CHECK(expected.size() - data.bytes.size() < 16);
     CHECK(std::all_of(expected.begin() + static_cast<std::ptrdiff_t>(data.bytes.size()),
                       expected.end(), [](const base::u8 byte) { return byte == 0; }));
+}
+
+} // namespace
+
+TEST_CASE("every English message encodes to the bytes the build compiled", "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
+        toki::message::readMessageFormat(*workspace);
+    REQUIRE(format.has_value());
+    checkEncodedData(*workspace,
+                     repository / "build" / workspace->getBuildDefines().version /
+                         "assets/text/nes_message_data_static.o.bin",
+                     *format, toki::message::Language::English);
+}
+
+TEST_CASE("every Japanese message encodes to the bytes the build compiled", "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+    std::expected<toki::message::ShiftJis, std::string> shiftJis =
+        toki::message::ShiftJis::read(TOKI_SHIPPED_SHIFT_JIS);
+    REQUIRE(shiftJis.has_value());
+    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
+        toki::message::readWideMessageFormat(*workspace, std::move(*shiftJis));
+    REQUIRE(format.has_value());
+    checkEncodedData(*workspace,
+                     repository / "build" / workspace->getBuildDefines().version /
+                         "assets/text/jpn_message_data_static.o.bin",
+                     *format, toki::message::Language::Japanese);
 }
 
 TEST_CASE("every English message of a real checkout lays out from its own tables",

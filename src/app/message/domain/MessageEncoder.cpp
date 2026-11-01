@@ -52,6 +52,39 @@ constexpr usize DataAlignment = 4;
     return call;
 }
 
+struct DecodedCharacter {
+    u32 codePoint = 0;
+    usize size = 1;
+};
+
+[[nodiscard]] DecodedCharacter decodeCharacter(const std::string_view text, const usize offset) {
+    const auto lead = static_cast<unsigned char>(text[offset]);
+    usize size = 1;
+    u32 codePoint = lead;
+    if (lead >= 0xF0) {
+        size = 4;
+        codePoint = lead & 0x07U;
+    } else if (lead >= 0xE0) {
+        size = 3;
+        codePoint = lead & 0x0FU;
+    } else if (lead >= 0xC0) {
+        size = 2;
+        codePoint = lead & 0x1FU;
+    }
+    if (offset + size > text.size()) {
+        return {.codePoint = lead, .size = 1};
+    }
+    for (usize index = 1; index < size; ++index) {
+        codePoint = (codePoint << 6U) | (static_cast<unsigned char>(text[offset + index]) & 0x3FU);
+    }
+    return {.codePoint = codePoint, .size = size};
+}
+
+void appendWide(std::vector<u8>& bytes, const u16 code) {
+    bytes.push_back(static_cast<u8>(code >> 8));
+    bytes.push_back(static_cast<u8>(code));
+}
+
 void appendCode(std::vector<u8>& bytes, const u16 code) {
     if (code > 0xFF) {
         bytes.push_back(static_cast<u8>(code >> 8));
@@ -88,8 +121,22 @@ void MessageEncoder::encodeText(const std::string_view text, EncodedText& encode
     usize offset = 0;
     while (offset < text.size()) {
         if (const CharmapEntry* entry = charmap.findMatch(text, offset)) {
-            appendCode(encoded.bytes, entry->code);
+            if (shiftJis != nullptr) {
+                appendWide(encoded.bytes, entry->code);
+            } else {
+                appendCode(encoded.bytes, entry->code);
+            }
             offset += entry->text.size();
+        } else if (shiftJis != nullptr) {
+            const DecodedCharacter character = decodeCharacter(text, offset);
+            if (const std::optional<u16> code = shiftJis->findCode(character.codePoint)) {
+                appendCode(encoded.bytes, *code);
+            } else {
+                encoded.diagnostics.push_back(
+                    base::makeWarning({}, std::format("`{}` has no Shift-JIS code",
+                                                      text.substr(offset, character.size))));
+            }
+            offset += character.size;
         } else {
             encoded.bytes.push_back(static_cast<u8>(text[offset]));
             ++offset;
@@ -170,12 +217,17 @@ MessageFormat::makeLayoutRequest(const Message& message) const {
 }
 
 MessageEncoder MessageFormat::makeEncoder() const {
-    return MessageEncoder(prelude->macros, prelude->types, charmap);
+    return MessageEncoder(prelude->macros, prelude->types, charmap,
+                          shiftJis ? &*shiftJis : nullptr);
 }
 
-std::expected<MessageFormat, base::Diagnostic>
-readMessageFormat(const hackeroot::Workspace& workspace) {
-    const std::filesystem::path charmapPath = workspace.getRoot() / "assets/text/charmap.nes.txt";
+namespace {
+
+[[nodiscard]] std::expected<MessageFormat, base::Diagnostic>
+readFormat(const hackeroot::Workspace& workspace, const std::string_view charmapName,
+           const std::span<const std::string> defines) {
+    const std::filesystem::path charmapPath =
+        workspace.getRoot() / "assets/text" / std::string(charmapName);
     const std::expected<std::string, std::string> contents = readFile(charmapPath);
     if (!contents) {
         return std::unexpected(base::makeError({.file = charmapPath}, contents.error()));
@@ -184,11 +236,29 @@ readMessageFormat(const hackeroot::Workspace& workspace) {
     if (!charmap) {
         return std::unexpected(base::makeError({.file = charmapPath}, charmap.error()));
     }
-    const std::array defines = {std::string("MESSAGE_DATA_STATIC")};
     const std::array includes = {std::string("message_data_static.h")};
     return MessageFormat{.prelude = std::make_unique<hackeroot::Prelude>(
                              hackeroot::readPreludeWithDefines(workspace, defines, includes)),
                          .charmap = std::move(*charmap)};
+}
+
+} // namespace
+
+std::expected<MessageFormat, base::Diagnostic>
+readMessageFormat(const hackeroot::Workspace& workspace) {
+    const std::array defines = {std::string("MESSAGE_DATA_STATIC")};
+    return readFormat(workspace, "charmap.nes.txt", defines);
+}
+
+std::expected<MessageFormat, base::Diagnostic>
+readWideMessageFormat(const hackeroot::Workspace& workspace, ShiftJis shiftJis) {
+    const std::array defines = {std::string("MESSAGE_DATA_STATIC"), std::string("MESSAGE_WCHAR")};
+    std::expected<MessageFormat, base::Diagnostic> format =
+        readFormat(workspace, "charmap.jpn.txt", defines);
+    if (format) {
+        format->shiftJis = std::move(shiftJis);
+    }
+    return format;
 }
 
 bool isConditionTrue(const cparser::MacroTable& macros, const std::string_view condition) {

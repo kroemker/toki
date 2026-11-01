@@ -505,8 +505,12 @@ void App::updateMessages() {
         }
         messageFocus = {};
         if (workspace) {
-            messageLoader.open(
-                workspace, message::MessageRequest{.name = "the messages", .workspace = workspace});
+            const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
+            messageLoader.open(workspace, message::MessageRequest{
+                                              .name = "the messages",
+                                              .workspace = workspace,
+                                              .shiftJisTable = assets ? *assets / "shift_jis.txt"
+                                                                      : std::filesystem::path()});
         } else {
             messageLoader.close();
         }

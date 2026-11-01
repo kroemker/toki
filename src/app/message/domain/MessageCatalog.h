@@ -8,6 +8,7 @@
 #include "app/message/domain/MessageLayout.h"
 #include "base/Diagnostic.h"
 
+#include <array>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -19,10 +20,9 @@ class Workspace;
 
 namespace toki::message {
 
-/// The languages a message can be shown and edited in. Japanese, which is
-/// encoded two bytes a character and laid out apart, is not one yet.
-inline constexpr std::array ShownLanguages = {Language::English, Language::German,
-                                              Language::French};
+/// The languages a message can be shown and edited in.
+inline constexpr std::array ShownLanguages = {Language::English, Language::German, Language::French,
+                                              Language::Japanese};
 
 /// Everything the checkout says about its messages that showing one needs:
 /// the messages, how they encode, the tables they are laid out with, and the
@@ -33,6 +33,8 @@ struct MessageCatalog {
     std::shared_ptr<const hackeroot::Workspace> workspace;
     MessageTable table;
     std::optional<MessageFormat> format;
+    /// Japanese's, encoded two bytes a character.
+    std::optional<MessageFormat> wideFormat;
     MessageGeometry geometry;
     MessageArt art;
     bool isFontMessageEnglish = false;
@@ -47,7 +49,10 @@ struct MessageCatalog {
     [[nodiscard]] MessageLayout layOut(const Message& message, Language language) const;
 };
 
+/// Reads the catalog of `workspace`, Japanese encoded with the Shift-JIS table
+/// at `shiftJisTable`.
 [[nodiscard]] MessageCatalog
-readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace);
+readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace,
+                   const std::filesystem::path& shiftJisTable);
 
 } // namespace toki::message

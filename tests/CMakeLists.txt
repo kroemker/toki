@@ -164,6 +164,7 @@ target_compile_definitions(toki_tests PRIVATE
         TOKI_TEST_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}"
         TOKI_SHIPPED_ACTORS="${CMAKE_SOURCE_DIR}/assets/actors.toml"
         TOKI_SHIPPED_COLLISION="${CMAKE_SOURCE_DIR}/assets/collision.toml"
+        TOKI_SHIPPED_SHIFT_JIS="${CMAKE_SOURCE_DIR}/assets/shift_jis.txt"
         TOKI_HACKEROOT="${TOKI_HACKEROOT_PATH}")
 
 include(Catch)

@@ -12,4 +12,5 @@ target_sources(toki_core PRIVATE
         MessageReader.cpp
         MessageRows.cpp
         MessageSave.cpp
-        MessageWriter.cpp)
+        MessageWriter.cpp
+        ShiftJis.cpp)

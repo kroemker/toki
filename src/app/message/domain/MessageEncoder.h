@@ -4,6 +4,7 @@
 #include "app/message/domain/Charmap.h"
 #include "app/message/domain/Message.h"
 #include "app/message/domain/MessageLayout.h"
+#include "app/message/domain/ShiftJis.h"
 #include "base/Diagnostic.h"
 
 #include <expected>
@@ -30,10 +31,11 @@ struct EncodedText {
     std::vector<base::Diagnostic> diagnostics;
 };
 
-/// Turns a message's text into the bytes the build compiles it to, for the
-/// languages encoded one byte per character (English, German, French). Text
-/// goes through the charmap and what no entry matches stays UTF-8, as
-/// `tools/msgenc.py` encodes it. A control code goes through the macro
+/// Turns a message's text into the bytes the build compiles it to. Text goes
+/// through the charmap, as `tools/msgenc.py` encodes it; for English, German
+/// and French what no entry matches stays UTF-8, and for Japanese, encoded
+/// with `shiftJis`, every charmap code is two bytes and what no entry matches
+/// is its Shift-JIS bytes. A control code goes through the macro
 /// `message_data_fmt.h` defines for it under `MESSAGE_DATA_STATIC`, and its
 /// arguments are evaluated against the enumerations of the headers that file
 /// includes, as the compiler evaluates them. `END` closes every text, as
@@ -41,8 +43,8 @@ struct EncodedText {
 class MessageEncoder {
 public:
     MessageEncoder(const cparser::MacroTable& macros, const cparser::TypeTable& types,
-                   const Charmap& charmap)
-        : macros(macros), types(types), charmap(charmap) {}
+                   const Charmap& charmap, const ShiftJis* shiftJis = nullptr)
+        : macros(macros), types(types), charmap(charmap), shiftJis(shiftJis) {}
 
     [[nodiscard]] EncodedText encode(const MessageText& text) const;
 
@@ -53,6 +55,7 @@ private:
     const cparser::MacroTable& macros;
     const cparser::TypeTable& types;
     const Charmap& charmap;
+    const ShiftJis* shiftJis;
 };
 
 /// What an encoder reads from a checkout: `message_data_static.h` and the
@@ -62,6 +65,8 @@ private:
 struct MessageFormat {
     std::unique_ptr<hackeroot::Prelude> prelude;
     Charmap charmap;
+    /// Set for the Japanese format, which encodes two bytes a character.
+    std::optional<ShiftJis> shiftJis;
 
     [[nodiscard]] MessageEncoder makeEncoder() const;
 
@@ -72,6 +77,11 @@ struct MessageFormat {
 
 [[nodiscard]] std::expected<MessageFormat, base::Diagnostic>
 readMessageFormat(const hackeroot::Workspace& workspace);
+
+/// The format Japanese is encoded in: `charmap.jpn.txt`, and the control codes
+/// as `MESSAGE_WCHAR` makes them, two bytes each.
+[[nodiscard]] std::expected<MessageFormat, base::Diagnostic>
+readWideMessageFormat(const hackeroot::Workspace& workspace, ShiftJis shiftJis);
 
 /// The `.rodata` the build compiles one language of the message table into:
 /// every message's encoded text in table order, each starting on a 4-byte
