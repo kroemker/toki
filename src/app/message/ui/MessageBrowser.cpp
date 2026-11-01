@@ -60,14 +60,6 @@ MessageBrowser::MessageBrowser(MessageFocus& focus, BoxRenderer& boxRenderer,
     : focus(focus), boxRenderer(boxRenderer), showMessage(std::move(showMessage)) {}
 
 void MessageBrowser::drawChips() {
-    if (drawChip("Vanilla", showsVanilla)) {
-        showsVanilla = !showsVanilla;
-    }
-    if (drawChip("Own", showsOwn)) {
-        showsOwn = !showsOwn;
-    }
-    ImGui::TextColored(core::palette::TextMuted, "·");
-    ImGui::SameLine();
     if (focus.catalog) {
         for (const std::string& type : listBoxTypes(focus.draft.getTable())) {
             const std::string label = makeBoxTypeLabel(type);
@@ -88,10 +80,7 @@ void MessageBrowser::updateRows(const RowsKey& key) {
     rowsKey = key;
     rows =
         makeMessageRows(focus.draft.getTable(), key.language, focus.catalog->isFontMessageEnglish,
-                        MessageFilter{.text = key.filter,
-                                      .showsVanilla = key.showsVanilla,
-                                      .showsOwn = key.showsOwn,
-                                      .boxType = key.boxType});
+                        MessageFilter{.text = key.filter, .boxType = key.boxType});
     sortMessageRows(rows, key.column, key.ascending);
 }
 
@@ -100,7 +89,7 @@ void MessageBrowser::drawTable(const std::string& filter, const float height) {
         ImGui::TextColored(core::palette::TextMuted, "Reading the messages…");
         return;
     }
-    if (!ImGui::BeginTable("##messages", 6, TableFlags, ImVec2(0.0F, height))) {
+    if (!ImGui::BeginTable("##messages", 5, TableFlags, ImVec2(0.0F, height))) {
         return;
     }
     ImGui::TableSetupScrollFreeze(0, 1);
@@ -111,15 +100,11 @@ void MessageBrowser::drawTable(const std::string& filter, const float height) {
     setupColumn("Position", MessageColumn::Position,
                 ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultHide);
     setupColumn("Boxes", MessageColumn::Boxes, ImGuiTableColumnFlags_WidthFixed);
-    setupColumn("Source", MessageColumn::Source,
-                ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultHide);
     ImGui::TableHeadersRow();
 
     RowsKey key{.revision = focus.draft.getRevision(),
                 .language = focus.language,
                 .filter = filter,
-                .showsVanilla = showsVanilla,
-                .showsOwn = showsOwn,
                 .boxType = boxType};
     if (const ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs();
         specs != nullptr && specs->SpecsCount > 0) {
@@ -164,12 +149,6 @@ void MessageBrowser::drawRow(const MessageRow& row) {
     ImGui::TextUnformatted(makePositionLabel(row.boxPosition).c_str());
     ImGui::TableNextColumn();
     ImGui::Text("%zu", row.boxCount);
-    ImGui::TableNextColumn();
-    if (row.isVanilla) {
-        ImGui::TextColored(core::palette::TextMuted, "vanilla");
-    } else {
-        ImGui::TextColored(core::palette::Accent, "own");
-    }
 }
 
 void MessageBrowser::drawDetails() {

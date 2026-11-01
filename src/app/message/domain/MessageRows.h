@@ -16,7 +16,6 @@ enum class MessageColumn : u8 {
     Type,
     Position,
     Boxes,
-    Source,
 };
 
 /// One message as the Messages tab lists it, in one language.
@@ -30,15 +29,12 @@ struct MessageRow {
     std::string boxType;
     std::string boxPosition;
     usize boxCount = 0;
-    bool isVanilla = false;
 };
 
 /// Which messages the Messages tab lists. `text` matches the ID as written
 /// (`0x0001`, `1`) or any part of the text, ignoring case.
 struct MessageFilter {
     std::string_view text;
-    bool showsVanilla = true;
-    bool showsOwn = true;
     /// Only messages with this box type (`TEXTBOX_TYPE_BLUE`), if set.
     std::optional<std::string> boxType;
 };

@@ -30,8 +30,6 @@ private:
         u64 revision = 0;
         Language language = Language::English;
         std::string filter;
-        bool showsVanilla = true;
-        bool showsOwn = true;
         std::optional<std::string> boxType;
         MessageColumn column = MessageColumn::Id;
         bool ascending = true;
@@ -45,8 +43,6 @@ private:
     MessageFocus& focus;
     BoxRenderer& boxRenderer;
     ShowMessage showMessage;
-    bool showsVanilla = true;
-    bool showsOwn = true;
     std::optional<std::string> boxType;
     std::optional<RowsKey> rowsKey;
     std::vector<MessageRow> rows;

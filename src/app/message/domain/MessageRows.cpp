@@ -78,7 +78,6 @@ std::vector<MessageRow> makeMessageRows(const MessageTable& table, const Languag
     for (usize index = 0; index < table.messages.size(); ++index) {
         const Message& message = table.messages[index];
         if (!isInLanguage(message, language, isFontMessageEnglish) ||
-            (message.isVanilla ? !filter.showsVanilla : !filter.showsOwn) ||
             (filter.boxType && message.boxType != *filter.boxType)) {
             continue;
         }
@@ -88,8 +87,7 @@ std::vector<MessageRow> makeMessageRows(const MessageTable& table, const Languag
                        .text = makeLineText(text),
                        .boxType = message.boxType,
                        .boxPosition = message.boxPosition,
-                       .boxCount = countBoxes(text),
-                       .isVanilla = message.isVanilla};
+                       .boxCount = countBoxes(text)};
         if (!needle.empty() && !matchesId(message.id, needle) &&
             !makeLower(row.text).contains(needle)) {
             continue;
@@ -111,8 +109,6 @@ void sortMessageRows(std::vector<MessageRow>& rows, const MessageColumn column,
             return std::tuple(row.boxPosition, usize{0}, row.index);
         case MessageColumn::Boxes:
             return std::tuple(std::string(), row.boxCount, row.index);
-        case MessageColumn::Source:
-            return std::tuple(std::string(row.isVanilla ? "vanilla" : "own"), usize{0}, row.index);
         case MessageColumn::Id:
             break;
         }
