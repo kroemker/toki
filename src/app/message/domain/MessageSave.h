@@ -16,6 +16,15 @@ class Workspace;
 
 namespace toki::message {
 
+/// A block under a feature switch that is off: never read, so written again as
+/// it stands, `#if` to `#endif`.
+struct KeptBlock {
+    std::string featureSwitch;
+    std::string text;
+    /// The line of its `#endif`, from the first.
+    usize endLine = 0;
+};
+
 /// What `assets/text/message_data.h` holds besides its rows, and so what a
 /// save writes again, loses, or cannot write at all.
 struct MessageSourceScan {
@@ -25,8 +34,10 @@ struct MessageSourceScan {
     /// What a save loses: `#if`s other than the feature switches, `#define`s,
     /// and includes whose rows it writes into the file in their place.
     std::vector<std::string> warnings;
-    /// Why the messages cannot be saved: rows under a feature switch that is
-    /// off, which were never read.
+    /// The blocks under a feature switch that is off.
+    std::vector<KeptBlock> keptBlocks;
+    /// Why the messages cannot be saved: a feature switch that is off with an
+    /// `#else` or `#elif`, whose rows cannot be kept as they stand.
     std::vector<std::string> refusals;
     bool isTokiFile = false;
 };

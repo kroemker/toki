@@ -27,7 +27,6 @@ namespace {
 
 constexpr std::string_view VanillaInclude = "\"text/message_data.h\"";
 constexpr std::string_view ConfigInclude = "\"config.h\"";
-constexpr std::string_view RowMacro = "DEFINE_MESSAGE";
 
 struct Directive {
     std::string_view keyword;
@@ -49,7 +48,6 @@ struct Directive {
 
 struct Conditional {
     std::string featureSwitch;
-    bool isOn = true;
 };
 
 class SourceScanner {
@@ -57,12 +55,24 @@ public:
     SourceScanner(const IsSwitchOn& isSwitchOn, MessageSourceScan& scan)
         : isSwitchOn(isSwitchOn), scan(scan) {}
 
+    void finish() {
+        if (kept) {
+            scan.refusals.push_back(std::format(
+                "#if {} is off and never closed, so a save cannot tell where its rows end",
+                kept->featureSwitch));
+        }
+    }
+
     void readLine(const std::string_view line, const usize number) {
-        if (const std::optional<Directive> directive = readDirective(line)) {
-            readDirectiveLine(*directive, number);
-        } else if (line.contains(RowMacro) && !open.empty() && !open.back().isOn &&
-                   !open.back().featureSwitch.empty()) {
-            refuse(open.back().featureSwitch, number);
+        const std::optional<Directive> directive = readDirective(line);
+        if (kept) {
+            kept->text += line;
+            kept->text += '\n';
+            if (directive) {
+                readKeptDirective(*directive, number);
+            }
+        } else if (directive) {
+            readDirectiveLine(*directive, line, number);
         }
         scan.switches.push_back(findSwitch());
     }
@@ -77,19 +87,28 @@ private:
         return {};
     }
 
-    void refuse(const std::string& name, const usize number) {
-        if (std::ranges::contains(refused, name)) {
-            return;
+    void readKeptDirective(const Directive& directive, const usize number) {
+        const std::string_view keyword = directive.keyword;
+        if (keyword == "if" || keyword == "ifdef" || keyword == "ifndef") {
+            ++keptDepth;
+        } else if ((keyword == "else" || keyword == "elif") && keptDepth == 0) {
+            scan.refusals.push_back(std::format(
+                "line {}: #if {} is off and has an #{}, whose rows a save cannot keep as they "
+                "stand; take the #{} out, or turn the switch on in Configure",
+                number, kept->featureSwitch, keyword, keyword));
+        } else if (keyword == "endif") {
+            if (keptDepth > 0) {
+                --keptDepth;
+                return;
+            }
+            kept->endLine = number;
+            scan.keptBlocks.push_back(std::move(*kept));
+            kept.reset();
         }
-        refused.push_back(name);
-        scan.refusals.push_back(std::format(
-            "assets/text/message_data.h has messages under #if {}, from line {}, which is off, "
-            "so they were never read and a save would lose them; turn the switch on in "
-            "Configure, or take them out",
-            name, number));
     }
 
-    void readDirectiveLine(const Directive& directive, const usize number) {
+    void readDirectiveLine(const Directive& directive, const std::string_view line,
+                           const usize number) {
         const std::string_view keyword = directive.keyword;
         if (keyword == "endif") {
             if (!open.empty()) {
@@ -99,8 +118,13 @@ private:
         }
         if (keyword == "if" &&
             std::ranges::contains(hackeroot::FeatureSwitches, directive.argument)) {
-            open.push_back(Conditional{.featureSwitch = std::string(directive.argument),
-                                       .isOn = isSwitchOn(directive.argument)});
+            if (!isSwitchOn(directive.argument)) {
+                kept = KeptBlock{.featureSwitch = std::string(directive.argument),
+                                 .text = std::string(line) + '\n'};
+                keptDepth = 0;
+                return;
+            }
+            open.push_back(Conditional{.featureSwitch = std::string(directive.argument)});
             return;
         }
         if (keyword == "if" || keyword == "ifdef" || keyword == "ifndef") {
@@ -130,7 +154,8 @@ private:
     const IsSwitchOn& isSwitchOn;
     MessageSourceScan& scan;
     std::vector<Conditional> open;
-    std::vector<std::string> refused;
+    std::optional<KeptBlock> kept;
+    usize keptDepth = 0;
 };
 
 class SwitchFinder {
@@ -139,12 +164,21 @@ public:
         : table(cparser::canonicalize(table)), scan(scan) {}
 
     [[nodiscard]] std::optional<std::string> find(const Message& message) {
+        const std::optional<usize> line = findLine(message);
+        if (!line) {
+            return std::nullopt;
+        }
+        const std::string& name = scan.switches[*line - 1];
+        return name.empty() ? std::nullopt : std::optional(name);
+    }
+
+    /// The line of the table file `message` was read from, if it was.
+    [[nodiscard]] std::optional<usize> findLine(const Message& message) {
         if (!isInTable(message.location.file) || message.location.line == 0 ||
             message.location.line > scan.switches.size()) {
             return std::nullopt;
         }
-        const std::string& name = scan.switches[message.location.line - 1];
-        return name.empty() ? std::nullopt : std::optional(name);
+        return message.location.line;
     }
 
 private:
@@ -190,6 +224,7 @@ MessageSourceScan scanMessageSource(const std::string_view text, const IsSwitchO
     for (usize index = 0; index < lines.size(); ++index) {
         scanner.readLine(lines[index], index + 1);
     }
+    scanner.finish();
     return scan;
 }
 
@@ -214,8 +249,20 @@ planMessageSave(const hackeroot::Workspace& workspace, const MessageTable& table
     }
 
     SwitchFinder switchFinder(files.table, scan);
-    const std::string after =
-        writeMessageFile(table, [&](const Message& message) { return switchFinder.find(message); });
+    std::vector<KeptText> kept;
+    for (const KeptBlock& block : scan.keptBlocks) {
+        usize anchor = table.messages.size();
+        for (usize index = 0; index < table.messages.size(); ++index) {
+            const std::optional<usize> line = switchFinder.findLine(table.messages[index]);
+            if (line && *line > block.endLine) {
+                anchor = index;
+                break;
+            }
+        }
+        kept.push_back(KeptText{.beforeIndex = anchor, .text = block.text});
+    }
+    const std::string after = writeMessageFile(
+        table, [&](const Message& message) { return switchFinder.find(message); }, kept);
 
     const cparser::PendingFiles pending{{cparser::canonicalize(files.table), after}};
     const MessageTable readBack = readMessageTable(workspace.getMacros(), files, &pending);
@@ -236,6 +283,12 @@ planMessageSave(const hackeroot::Workspace& workspace, const MessageTable& table
                                  (files.vanillaDirectory / "message_data.h")
                                      .lexically_relative(root)
                                      .generic_string())});
+    }
+    for (const KeptBlock& block : scan.keptBlocks) {
+        edit.items.push_back(hackeroot::EditItem{
+            .status = hackeroot::EditStatus::Present,
+            .label = std::format("the block under #if {}, which is off, kept as it stands",
+                                 block.featureSwitch)});
     }
     hackeroot::EditPlan plan;
     plan.files.push_back(std::move(edit));

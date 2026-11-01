@@ -149,11 +149,28 @@ std::string writeMessageRow(const Message& message) {
     return row;
 }
 
-std::string writeMessageFile(const MessageTable& table, const FindSwitch& findSwitch) {
+std::string writeMessageFile(const MessageTable& table, const FindSwitch& findSwitch,
+                             const std::span<const KeptText> kept) {
     std::string file =
         std::format("{}\n#include \"config.h\"\n", hackeroot::makeTokiMarker("messages"));
     std::optional<std::string> open;
-    for (const Message& message : table.messages) {
+    const auto writeKept = [&](const usize index) {
+        for (const KeptText& text : kept) {
+            if (text.beforeIndex != index &&
+                !(index == table.messages.size() && text.beforeIndex > index)) {
+                continue;
+            }
+            if (open) {
+                file += "\n#endif\n";
+                open.reset();
+            }
+            file += '\n';
+            file += text.text;
+        }
+    };
+    for (usize index = 0; index < table.messages.size(); ++index) {
+        writeKept(index);
+        const Message& message = table.messages[index];
         const std::optional<std::string> under = findSwitch ? findSwitch(message) : std::nullopt;
         if (under != open) {
             if (open) {
@@ -172,7 +189,9 @@ std::string writeMessageFile(const MessageTable& table, const FindSwitch& findSw
     }
     if (open) {
         file += "\n#endif\n";
+        open.reset();
     }
+    writeKept(table.messages.size());
     return file;
 }
 

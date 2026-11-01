@@ -90,7 +90,39 @@ TEST_CASE("a message file is scanned for the switches its rows stand under", "[m
 
     const toki::message::MessageSourceScan off =
         toki::message::scanMessageSource(Text, [](std::string_view) { return false; });
+    CHECK(off.refusals.empty());
+    REQUIRE(off.keptBlocks.size() == 1);
+    CHECK(off.keptBlocks[0].featureSwitch == "ENABLE_MM_TITLE_CARDS");
+    CHECK(off.keptBlocks[0].text == "#if ENABLE_MM_TITLE_CARDS\n"
+                                    "DEFINE_MESSAGE(0x8000, A, B, MSG(), MSG(), MSG(), MSG())\n"
+                                    "#endif\n");
+    CHECK(off.keptBlocks[0].endLine == 5);
+}
+
+TEST_CASE("a switch that is off with an #else cannot be kept as it stands", "[message]") {
+    constexpr std::string_view Text = "#if ENABLE_MM_TITLE_CARDS\n"
+                                      "#if 1\n#else\n#endif\n"
+                                      "#else\n"
+                                      "#endif\n";
+    const toki::message::MessageSourceScan off =
+        toki::message::scanMessageSource(Text, [](std::string_view) { return false; });
     CHECK(off.refusals.size() == 1);
+    CHECK(off.keptBlocks.size() == 1);
+}
+
+TEST_CASE("text kept as it stands is written before the row it stood before", "[message]") {
+    const cparser::MacroTable macros;
+    const toki::message::MessageFiles files = findFixtureFiles();
+    const MessageTable table = toki::message::readMessageTable(macros, files);
+    REQUIRE(table.messages.size() > 1);
+    const std::vector<toki::message::KeptText> kept = {{.beforeIndex = 1, .text = "// one\n"},
+                                                       {.beforeIndex = 99, .text = "// end\n"}};
+    const std::string written = toki::message::writeMessageFile(table, {}, kept);
+    const usize one = written.find("// one");
+    REQUIRE(one != std::string::npos);
+    CHECK(written.find(toki::message::writeMessageRow(table.messages[0])) < one);
+    CHECK(written.find(toki::message::writeMessageRow(table.messages[1])) > one);
+    CHECK(written.ends_with("// end\n"));
 }
 
 TEST_CASE("a message file written whole reads back as the rows it was written from", "[message]") {
@@ -126,20 +158,15 @@ TEST_CASE("saving a real checkout's messages plans its message file written whol
     const std::expected<hackeroot::EditPlan, std::string> plan =
         toki::message::planMessageSave(*workspace, table);
 
-    const bool hasTitleCards = std::ranges::any_of(
-        table.messages, [](const Message& message) { return message.id == 0x8000; });
-    if (!hasTitleCards) {
-        REQUIRE_FALSE(plan.has_value());
-        CHECK(plan.error().contains("#if ENABLE_MM_TITLE_CARDS"));
-        return;
-    }
     INFO((plan ? std::string() : plan.error()));
     REQUIRE(plan.has_value());
     REQUIRE(plan->files.size() == 1);
     const std::string& after = plan->files[0].after;
     CHECK(after.starts_with("// toki: messages\n"));
     CHECK_FALSE(after.contains("#include \"text/message_data.h\""));
-    CHECK(after.contains("#if ENABLE_MM_TITLE_CARDS\n\nDEFINE_MESSAGE(0x8000"));
+    CHECK(after.contains("#if ENABLE_MM_TITLE_CARDS\n"));
+    CHECK(after.contains("DEFINE_MESSAGE(0x8000"));
+    CHECK(after.find("DEFINE_MESSAGE(0x8000") < after.find("DEFINE_MESSAGE(0xFFFC"));
 }
 
 TEST_CASE("every message of a real checkout written whole reads back as it was",
