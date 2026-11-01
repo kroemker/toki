@@ -4,10 +4,13 @@
 #include "app/core/ui/PropertySource.h"
 #include "app/message/Types.h"
 #include "app/message/domain/MessageLayout.h"
+#include "app/message/domain/MessageMarkup.h"
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageFocus.h"
 
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace gfx {
 class Device;
@@ -35,22 +38,32 @@ public:
     void drawProperties() override;
 
 private:
-    struct LayoutKey {
+    struct ShownKey {
         const MessageCatalog* catalog = nullptr;
+        u64 revision = 0;
         usize index = 0;
         Language language = Language::English;
 
-        friend bool operator==(const LayoutKey&, const LayoutKey&) = default;
+        friend bool operator==(const ShownKey&, const ShownKey&) = default;
     };
 
+    [[nodiscard]] ShownKey makeShownKey() const;
     void drawHeader(const Message& message);
-    void drawBox(usize index, const LaidBox& box);
+    void drawEditState();
+    void drawBox(usize index, const LaidBox* box);
+    void drawEditor(usize index);
     [[nodiscard]] const MessageLayout& updateLayout(const Message& message);
+    void updateEditor(const Message& message);
+    void applyBoxes();
 
     MessageFocus& focus;
     BoxRenderer boxRenderer;
-    std::optional<LayoutKey> layoutKey;
+    std::optional<ShownKey> layoutKey;
     MessageLayout layout;
+    std::optional<ShownKey> editorKey;
+    std::vector<BoxText> boxes;
+    std::vector<std::string> markups;
+    std::vector<std::optional<MarkupError>> markupErrors;
 };
 
 } // namespace toki::message

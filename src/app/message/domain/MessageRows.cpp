@@ -123,15 +123,28 @@ void sortMessageRows(std::vector<MessageRow>& rows, const MessageColumn column,
     });
 }
 
-std::vector<std::string> listBoxTypes(const MessageTable& table) {
-    std::vector<std::string> types;
+namespace {
+
+[[nodiscard]] std::vector<std::string> listUsed(const MessageTable& table,
+                                                std::string Message::*member) {
+    std::vector<std::string> used;
     for (const Message& message : table.messages) {
-        if (!std::ranges::contains(types, message.boxType)) {
-            types.push_back(message.boxType);
+        if (!std::ranges::contains(used, message.*member)) {
+            used.push_back(message.*member);
         }
     }
-    std::ranges::sort(types);
-    return types;
+    std::ranges::sort(used);
+    return used;
+}
+
+} // namespace
+
+std::vector<std::string> listBoxTypes(const MessageTable& table) {
+    return listUsed(table, &Message::boxType);
+}
+
+std::vector<std::string> listBoxPositions(const MessageTable& table) {
+    return listUsed(table, &Message::boxPosition);
 }
 
 } // namespace toki::message

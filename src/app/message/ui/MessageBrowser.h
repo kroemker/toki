@@ -27,7 +27,7 @@ public:
 
 private:
     struct RowsKey {
-        const MessageCatalog* catalog = nullptr;
+        u64 revision = 0;
         Language language = Language::English;
         std::string filter;
         bool showsVanilla = true;

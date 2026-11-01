@@ -44,10 +44,13 @@ void setupColumn(const char* label, const MessageColumn column, const ImGuiTable
     return core::makeConstantLabel(name, "TEXTBOX_POS_");
 }
 
-[[nodiscard]] u64 makePreviewKey(const MessageCatalog* catalog, const usize index,
-                                 const Language language) {
-    return std::bit_cast<std::uintptr_t>(catalog) ^ (index << 4U) ^
-           (static_cast<u64>(language) << 1U);
+[[nodiscard]] u64 makePreviewKey(const MessageCatalog* catalog, const u64 revision,
+                                 const usize index, const Language language) {
+    u64 key = std::bit_cast<std::uintptr_t>(catalog);
+    for (const u64 part : {revision, u64{index}, u64{static_cast<u8>(language)}}) {
+        key = (key ^ part) * 0x100000001B3ULL;
+    }
+    return key;
 }
 
 } // namespace
@@ -66,7 +69,7 @@ void MessageBrowser::drawChips() {
     ImGui::TextColored(core::palette::TextMuted, "·");
     ImGui::SameLine();
     if (focus.catalog) {
-        for (const std::string& type : listBoxTypes(focus.catalog->table)) {
+        for (const std::string& type : listBoxTypes(focus.draft.getTable())) {
             const std::string label = makeBoxTypeLabel(type);
             ImGui::PushID(type.c_str());
             if (drawChip(label.c_str(), boxType == type)) {
@@ -83,11 +86,12 @@ void MessageBrowser::updateRows(const RowsKey& key) {
         return;
     }
     rowsKey = key;
-    rows = makeMessageRows(focus.catalog->table, key.language, focus.catalog->isFontMessageEnglish,
-                           MessageFilter{.text = key.filter,
-                                         .showsVanilla = key.showsVanilla,
-                                         .showsOwn = key.showsOwn,
-                                         .boxType = key.boxType});
+    rows =
+        makeMessageRows(focus.draft.getTable(), key.language, focus.catalog->isFontMessageEnglish,
+                        MessageFilter{.text = key.filter,
+                                      .showsVanilla = key.showsVanilla,
+                                      .showsOwn = key.showsOwn,
+                                      .boxType = key.boxType});
     sortMessageRows(rows, key.column, key.ascending);
 }
 
@@ -111,7 +115,7 @@ void MessageBrowser::drawTable(const std::string& filter, const float height) {
                 ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultHide);
     ImGui::TableHeadersRow();
 
-    RowsKey key{.catalog = focus.catalog.get(),
+    RowsKey key{.revision = focus.draft.getRevision(),
                 .language = focus.language,
                 .filter = filter,
                 .showsVanilla = showsVanilla,
@@ -186,7 +190,9 @@ void MessageBrowser::drawDetails() {
     }
     const float width = std::min(ImGui::GetContentRegionAvail().x,
                                  ImGui::GetContentRegionAvail().y * BoxRenderer::AspectRatio);
-    boxRenderer.draw(0, makePreviewKey(focus.catalog.get(), *focus.shown, focus.language),
+    boxRenderer.draw(0,
+                     makePreviewKey(focus.catalog.get(), focus.draft.getRevision(), *focus.shown,
+                                    focus.language),
                      layout.boxes.front(), focus.catalog->art, std::max(width, 1.0F));
 }
 

@@ -60,4 +60,7 @@ void sortMessageRows(std::vector<MessageRow>& rows, MessageColumn column, bool a
 /// Every box type the table's messages use, as written, sorted.
 [[nodiscard]] std::vector<std::string> listBoxTypes(const MessageTable& table);
 
+/// Every box position the table's messages use, as written, sorted.
+[[nodiscard]] std::vector<std::string> listBoxPositions(const MessageTable& table);
+
 } // namespace toki::message

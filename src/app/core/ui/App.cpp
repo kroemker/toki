@@ -498,6 +498,10 @@ void App::updateMessages() {
         workspaceService.getSharedWorkspace();
     if (workspace.get() != messageWorkspace) {
         messageWorkspace = workspace.get();
+        if (messageFocus.draft.isEdited()) {
+            logWarn("the edited messages belong to the checkout closed, and were dropped");
+        }
+        messageFocus = {};
         if (workspace) {
             messageLoader.open(
                 workspace, message::MessageRequest{.name = "the messages", .workspace = workspace});
@@ -509,15 +513,19 @@ void App::updateMessages() {
     if (!loaded) {
         return;
     }
+    logRead((*loaded)->diagnostics,
+            std::format("read {} messages", (*loaded)->table.messages.size()));
     const message::Message* shown = messageFocus.findShown();
     const std::optional<std::pair<u16, message::MessageMacro>> wasShown =
         shown != nullptr ? std::optional(std::pair(shown->id, shown->macro)) : std::nullopt;
-    logRead((*loaded)->diagnostics,
-            std::format("read {} messages", (*loaded)->table.messages.size()));
     messageFocus.catalog = std::move(*loaded);
+    if (!messageFocus.draft.setRead(messageFocus.catalog->table)) {
+        logWarn("the checkout's messages changed while some are edited; the edits are kept");
+        return;
+    }
     messageFocus.shown.reset();
     if (wasShown) {
-        const std::vector<message::Message>& messages = messageFocus.catalog->table.messages;
+        const std::vector<message::Message>& messages = messageFocus.draft.getTable().messages;
         const auto found = std::ranges::find_if(messages, [&](const message::Message& candidate) {
             return candidate.id == wasShown->first && candidate.macro == wasShown->second;
         });
