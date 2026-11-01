@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -45,6 +46,14 @@ public:
     findImageSize(const std::filesystem::path& path) const;
 
 private:
+    /// The bytes of the PNG at `path`. The first image read from a directory
+    /// reads all of the directory's PNGs at once, on several threads: a
+    /// checkout on `\\wsl.localhost` pays for every file opened, and opening
+    /// them one after another makes a folder of thousands, such as the kanji
+    /// font, take half a minute.
+    [[nodiscard]] std::expected<std::vector<u8>, std::string>
+    readImage(const std::filesystem::path& path);
+    void prefetchImages(const std::filesystem::path& directory);
     [[nodiscard]] std::expected<std::vector<u8>, std::string>
     encodeImage(const std::filesystem::path& path, const TextureName& name);
     [[nodiscard]] std::expected<std::vector<u8>, std::string>
@@ -58,6 +67,8 @@ private:
     std::vector<std::filesystem::path> assetRoots;
     std::map<std::pair<std::filesystem::path, std::string>, std::vector<n64::Color>> palettes;
     std::map<std::filesystem::path, std::pair<u32, u32>> imageSizes;
+    std::set<std::filesystem::path> prefetchedDirectories;
+    std::map<std::filesystem::path, std::vector<u8>> prefetched;
 };
 
 } // namespace z64

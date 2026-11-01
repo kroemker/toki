@@ -38,6 +38,9 @@ struct MessageCatalog {
     MessageGeometry geometry;
     MessageArt art;
     bool isFontMessageEnglish = false;
+    /// The languages of `ShownLanguages` some message has text in: an NTSC
+    /// checkout has no German or French, a PAL one no Japanese.
+    std::vector<Language> languages;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
 

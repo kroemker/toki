@@ -10,6 +10,7 @@
 #include "z64/Types.h"
 
 #include <algorithm>
+#include <atomic>
 #include <expected>
 #include <filesystem>
 #include <format>
@@ -20,6 +21,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -29,6 +31,8 @@ namespace {
 
 constexpr usize SplitPaletteColors = 128;
 constexpr usize JpegBufferSize = usize{320} * 240 * 2;
+constexpr usize MinPrefetchedImages = 8;
+constexpr usize PrefetchWorkers = 16;
 
 usize findMaxColors(const TextureName& name) {
     if (name.size == n64::TexelSize::Bits4) {
@@ -136,8 +140,55 @@ TextureEncoder::encode(const std::filesystem::path& path, const std::string_view
 }
 
 std::expected<std::vector<u8>, std::string>
+TextureEncoder::readImage(const std::filesystem::path& path) {
+    const std::filesystem::path directory = path.parent_path();
+    if (prefetchedDirectories.insert(directory).second) {
+        prefetchImages(directory);
+    }
+    const auto found = prefetched.find(path);
+    if (found == prefetched.end()) {
+        return readFile(path);
+    }
+    std::vector<u8> bytes = std::move(found->second);
+    prefetched.erase(found);
+    return bytes;
+}
+
+void TextureEncoder::prefetchImages(const std::filesystem::path& directory) {
+    std::vector<std::filesystem::path> files;
+    for (const std::string& name : directories.getListing(directory)) {
+        if (name.ends_with(".png")) {
+            files.push_back(directory / name);
+        }
+    }
+    if (files.size() < MinPrefetchedImages) {
+        return;
+    }
+    std::vector<std::optional<std::vector<u8>>> read(files.size());
+    std::atomic<usize> next{0};
+    {
+        std::vector<std::jthread> workers;
+        for (usize worker = 0; worker < std::min(PrefetchWorkers, files.size()); ++worker) {
+            workers.emplace_back([&] {
+                for (usize index = next++; index < files.size(); index = next++) {
+                    std::expected<std::vector<u8>, std::string> bytes = readFile(files[index]);
+                    if (bytes) {
+                        read[index] = std::move(*bytes);
+                    }
+                }
+            });
+        }
+    }
+    for (usize index = 0; index < files.size(); ++index) {
+        if (read[index]) {
+            prefetched.insert_or_assign(files[index], std::move(*read[index]));
+        }
+    }
+}
+
+std::expected<std::vector<u8>, std::string>
 TextureEncoder::encodeImage(const std::filesystem::path& path, const TextureName& name) {
-    const std::expected<std::vector<u8>, std::string> bytes = readFile(path);
+    const std::expected<std::vector<u8>, std::string> bytes = readImage(path);
     if (!bytes) {
         return std::unexpected(bytes.error());
     }

@@ -81,6 +81,13 @@ MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspa
     std::ranges::copy(catalog.art.diagnostics, std::back_inserter(catalog.diagnostics));
     catalog.files.insert(catalog.files.end(), catalog.art.files.begin(), catalog.art.files.end());
     catalog.isFontMessageEnglish = isFontMessageEnglish(workspace->getMacros());
+    for (const Language language : ShownLanguages) {
+        if (std::ranges::any_of(catalog.table.messages, [&](const Message& message) {
+                return message.texts[static_cast<usize>(language)].isPresent;
+            })) {
+            catalog.languages.push_back(language);
+        }
+    }
     return catalog;
 }
 

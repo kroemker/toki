@@ -176,13 +176,25 @@ void MessagePanel::drawHeader(const Message& message) {
     const float comboWidth = ImGui::GetFontSize() * 8.0F;
     ImGui::SameLine(std::max(ImGui::GetContentRegionMax().x - comboWidth, 0.0F));
     ImGui::SetNextItemWidth(comboWidth);
+    const std::vector<Language>& languages = focus.catalog->languages;
+    if (!languages.empty() && !std::ranges::contains(languages, focus.language)) {
+        focus.language = languages.front();
+    }
     if (ImGui::BeginCombo("##language", getLanguageName(focus.language))) {
-        for (const Language language : ShownLanguages) {
+        for (const Language language : languages) {
             if (ImGui::Selectable(getLanguageName(language), language == focus.language)) {
                 focus.language = language;
             }
         }
         ImGui::EndCombo();
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+        ImGui::SetTooltip("The languages the checkout has text in: an NTSC version has English "
+                          "and Japanese, a PAL one English, German and French.");
+    }
+    if (focus.language == Language::Japanese && !focus.catalog->art.hasKanji) {
+        ImGui::TextColored(core::palette::TextMuted,
+                           "Reading the kanji font; the text is drawn once it is read.");
     }
 }
 
