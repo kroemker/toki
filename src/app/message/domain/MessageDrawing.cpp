@@ -101,21 +101,21 @@ public:
     void writeIcon(const LaidIcon& icon);
     void writeEndIcon(const LaidBox& box);
 
-    [[nodiscard]] std::string takeText() {
-        return std::move(text);
+    [[nodiscard]] std::vector<std::string> takeCommands() {
+        commands.emplace_back("gsSPEndDisplayList()");
+        return std::move(commands);
     }
 
 private:
-    void add(std::string_view command) {
-        text += command;
-        text += ",\n";
+    void add(std::string command) {
+        commands.push_back(std::move(command));
     }
 
     void writeSetup();
     void writeRectangle(s32 left, s32 top, s32 right, s32 bottom, s32 scaleS, s32 scaleT);
 
     const MessageArt& art;
-    std::string text;
+    std::vector<std::string> commands;
 };
 
 void ListWriter::writeSetup() {
@@ -282,29 +282,55 @@ std::string writeBoxDisplayList(const LaidBox& box, const MessageArt& art) {
     ListWriter writer(art);
     writer.writeBox(box);
     writer.writeText(box);
-    return writer.takeText() + "gsSPEndDisplayList(),\n";
+    std::string text;
+    for (const std::string& command : writer.takeCommands()) {
+        text += command + ",\n";
+    }
+    return text;
 }
 
-z64::DisplayList encodeBoxDisplayList(const LaidBox& box, const MessageArt& art) {
+z64::DisplayList encodeBoxDisplayList(const LaidBox& box, const MessageArt& art,
+                                      GbiCommandCache& cache) {
+    z64::DisplayList list;
     if (!art.gbi) {
-        z64::DisplayList failed;
-        failed.diagnostics.push_back(
+        list.diagnostics.push_back(
             base::makeError({}, "the checkout's gbi.h could not be read, so no box is drawn"));
-        return failed;
+        return list;
     }
-    const cparser::SourceFile file{.path = "<message box>",
-                                   .contents = writeBoxDisplayList(box, art)};
-    const std::vector<cparser::Token> tokens = scanList(file);
+    if (cache.gbi != art.gbi.get()) {
+        cache = GbiCommandCache{.gbi = art.gbi.get()};
+    }
+    ListWriter writer(art);
+    writer.writeBox(box);
+    writer.writeText(box);
     z64::DisplayListEncoder encoder(z64::DisplayListContext{
         .macros = &art.gbi->macros,
         .findSymbol = [](std::string_view) { return std::optional<cparser::SymbolAddress>(); },
         .findArrayLength = [](std::string_view) { return std::optional<usize>(); }});
-    return encoder.encode(tokens);
+    for (std::string& command : writer.takeCommands()) {
+        auto found = cache.commands.find(command);
+        if (found == cache.commands.end()) {
+            const cparser::SourceFile file{.path = "<message box>", .contents = command + ",\n"};
+            z64::DisplayList encoded = encoder.encode(scanList(file));
+            if (!encoded.diagnostics.empty()) {
+                std::ranges::move(encoded.diagnostics, std::back_inserter(list.diagnostics));
+                continue;
+            }
+            found = cache.commands.emplace(std::move(command), std::move(encoded.bytes)).first;
+        }
+        list.bytes.insert(list.bytes.end(), found->second.begin(), found->second.end());
+    }
+    return list;
 }
 
 BoxFrame runBoxFrame(const LaidBox& box, const MessageArt& art) {
+    GbiCommandCache cache;
+    return runBoxFrame(box, art, cache);
+}
+
+BoxFrame runBoxFrame(const LaidBox& box, const MessageArt& art, GbiCommandCache& cache) {
     BoxFrame frame;
-    z64::DisplayList list = encodeBoxDisplayList(box, art);
+    z64::DisplayList list = encodeBoxDisplayList(box, art, cache);
     std::ranges::move(list.diagnostics, std::back_inserter(frame.diagnostics));
     if (list.bytes.empty()) {
         return frame;

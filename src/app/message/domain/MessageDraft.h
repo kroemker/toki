@@ -3,6 +3,7 @@
 #include "app/message/Types.h"
 #include "app/message/domain/Message.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -42,18 +43,25 @@ public:
         return revision;
     }
 
+    /// The one message every change since revision `since` was an edit of, if
+    /// they all were, so what shows the table can update only its row.
+    [[nodiscard]] std::optional<usize> findOnlyEdited(u64 since) const;
+
     void setText(usize message, Language language, std::vector<Piece> pieces);
     void setBoxType(usize message, std::string boxType);
     void setBoxPosition(usize message, std::string boxPosition);
 
 private:
-    void markEdited();
+    void markEdited(usize message);
+    void markReplaced();
 
     MessageTable table;
     MessageTable read;
     bool edited = false;
     bool readChanged = false;
     u64 revision = 0;
+    std::optional<usize> editedAlone;
+    u64 editedAloneSince = 0;
 };
 
 } // namespace toki::message

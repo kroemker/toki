@@ -44,15 +44,6 @@ void setupColumn(const char* label, const MessageColumn column, const ImGuiTable
     return core::makeConstantLabel(name, "TEXTBOX_POS_");
 }
 
-[[nodiscard]] u64 makePreviewKey(const MessageCatalog* catalog, const u64 revision,
-                                 const usize index, const Language language) {
-    u64 key = std::bit_cast<std::uintptr_t>(catalog);
-    for (const u64 part : {revision, u64{index}, u64{static_cast<u8>(language)}}) {
-        key = (key ^ part) * 0x100000001B3ULL;
-    }
-    return key;
-}
-
 } // namespace
 
 MessageBrowser::MessageBrowser(MessageFocus& focus, BoxRenderer& boxRenderer,
@@ -76,6 +67,20 @@ void MessageBrowser::drawChips() {
 void MessageBrowser::updateRows(const RowsKey& key) {
     if (rowsKey == key) {
         return;
+    }
+    if (rowsKey) {
+        RowsKey edited = *rowsKey;
+        edited.revision = key.revision;
+        const std::optional<usize> message = focus.draft.findOnlyEdited(rowsKey->revision);
+        if (edited == key && message) {
+            rowsKey = key;
+            const auto row = std::ranges::find(rows, *message, &MessageRow::index);
+            if (row != rows.end()) {
+                *row = makeMessageRow(focus.draft.getTable().messages[*message], *message,
+                                      key.language);
+            }
+            return;
+        }
     }
     rowsKey = key;
     rows =
@@ -162,17 +167,21 @@ void MessageBrowser::drawDetails() {
     ImGui::TextColored(core::palette::TextMuted, "· %s · %s",
                        makeBoxTypeLabel(message->boxType).c_str(),
                        makePositionLabel(message->boxPosition).c_str());
-    const MessageLayout layout = focus.catalog->layOut(*message, focus.language);
+    const LayoutKey key{.catalog = focus.catalog.get(),
+                        .revision = focus.draft.getRevision(),
+                        .index = *focus.shown,
+                        .language = focus.language};
+    if (layoutKey != key) {
+        layoutKey = key;
+        layout = focus.catalog->layOut(*message, focus.language);
+    }
     if (layout.boxes.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "No text in this language.");
         return;
     }
     const float width = std::min(ImGui::GetContentRegionAvail().x,
                                  ImGui::GetContentRegionAvail().y * BoxRenderer::AspectRatio);
-    boxRenderer.draw(0,
-                     makePreviewKey(focus.catalog.get(), focus.draft.getRevision(), *focus.shown,
-                                    focus.language),
-                     layout.boxes.front(), focus.catalog->art, std::max(width, 1.0F));
+    boxRenderer.draw(0, layout.boxes.front(), focus.catalog->art, std::max(width, 1.0F));
 }
 
 } // namespace toki::message

@@ -45,6 +45,9 @@ struct MessageFilter {
 /// How many boxes the text shows: one, and one more for each `BOX_BREAK`.
 [[nodiscard]] usize countBoxes(const MessageText& text);
 
+/// The row of `message`, the one at `index` of its table, in `language`.
+[[nodiscard]] MessageRow makeMessageRow(const Message& message, usize index, Language language);
+
 /// The rows of every message of `table` the build puts into `language`'s
 /// table that `filter` lets through, in table order.
 [[nodiscard]] std::vector<MessageRow> makeMessageRows(const MessageTable& table, Language language,

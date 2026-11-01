@@ -25,9 +25,9 @@ public:
     /// The width of a box's image over its height.
     static constexpr float AspectRatio = 272.0F / 84.0F;
 
-    /// Draws `box` into slot `slot`, unless the slot already holds `key`, and
-    /// shows it `width` wide at the cursor.
-    void draw(usize slot, u64 key, const LaidBox& box, const MessageArt& art, float width);
+    /// Draws `box` into slot `slot`, unless the slot already holds what it
+    /// draws, and shows it `width` wide at the cursor.
+    void draw(usize slot, const LaidBox& box, const MessageArt& art, float width);
 
 private:
     struct Slot {
@@ -43,6 +43,7 @@ private:
     std::optional<gfx::Renderer> renderer;
     std::string failure;
     std::vector<Slot> slots;
+    GbiCommandCache gbiCommandCache;
 };
 
 } // namespace toki::message

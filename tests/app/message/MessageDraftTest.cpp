@@ -69,3 +69,25 @@ TEST_CASE("a saved draft takes the table read back from what it wrote", "[messag
     CHECK(draft.setRead(makeTable("edited")));
     CHECK(readEnglish(draft) == "edited");
 }
+
+TEST_CASE("a draft says which one message every change since a revision edited", "[message]") {
+    MessageDraft draft;
+    MessageTable table = makeTable("first");
+    table.messages.push_back(table.messages[0]);
+    static_cast<void>(draft.setRead(table));
+    const base::u64 read = draft.getRevision();
+    CHECK_FALSE(draft.findOnlyEdited(read).has_value());
+
+    draft.setText(1, Language::English, {TextPiece{.text = "a"}});
+    const base::u64 typed = draft.getRevision();
+    draft.setText(1, Language::English, {TextPiece{.text = "ab"}});
+    CHECK(draft.findOnlyEdited(read) == base::usize{1});
+    CHECK(draft.findOnlyEdited(typed) == base::usize{1});
+
+    draft.setBoxType(0, "TEXTBOX_TYPE_BLUE");
+    CHECK_FALSE(draft.findOnlyEdited(typed).has_value());
+    CHECK(draft.findOnlyEdited(draft.getRevision() - 1) == base::usize{0});
+
+    draft.discard();
+    CHECK_FALSE(draft.findOnlyEdited(read).has_value());
+}

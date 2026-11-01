@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/message/Types.h"
+#include "app/message/domain/MessageLayout.h"
 #include "app/message/domain/MessageRows.h"
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageFocus.h"
@@ -37,6 +38,15 @@ private:
         friend bool operator==(const RowsKey&, const RowsKey&) = default;
     };
 
+    struct LayoutKey {
+        const MessageCatalog* catalog = nullptr;
+        u64 revision = 0;
+        usize index = 0;
+        Language language = Language::English;
+
+        friend bool operator==(const LayoutKey&, const LayoutKey&) = default;
+    };
+
     void updateRows(const RowsKey& key);
     void drawRow(const MessageRow& row);
 
@@ -46,6 +56,8 @@ private:
     std::optional<std::string> boxType;
     std::optional<RowsKey> rowsKey;
     std::vector<MessageRow> rows;
+    std::optional<LayoutKey> layoutKey;
+    MessageLayout layout;
 };
 
 } // namespace toki::message

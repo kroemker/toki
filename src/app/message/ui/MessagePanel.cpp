@@ -271,10 +271,7 @@ void MessagePanel::drawBox(const usize index, const LaidBox* box) {
         ImGui::TextColored(core::palette::TextMuted, "Box %zu · %zu %s · %s", index + 1,
                            box->lines.size(), box->lines.size() == 1 ? "line" : "lines",
                            describeEndIcon(box->endIcon));
-        boxRenderer.draw(index,
-                         mixKey(focus.catalog.get(), focus.draft.getRevision(), *focus.shown,
-                                focus.language, index),
-                         *box, focus.catalog->art, std::max(width, 1.0F));
+        boxRenderer.draw(index, *box, focus.catalog->art, std::max(width, 1.0F));
         for (usize line = 0; line < box->lines.size(); ++line) {
             ImGui::PushID(static_cast<int>(line));
             drawMeter(*box, box->lines[line], width);

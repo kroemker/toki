@@ -4,6 +4,7 @@
 #include "base/Diagnostic.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -23,6 +24,46 @@ constexpr float CropHeight = 84.0F;
 constexpr u8 BoxTypeNoneNoShadow = 5;
 constexpr ImVec4 DarkBackdrop{0.16F, 0.18F, 0.22F, 1.0F};
 constexpr ImVec4 LightBackdrop{0.78F, 0.78F, 0.74F, 1.0F};
+
+class KeyMixer {
+public:
+    void add(const u64 part) {
+        key = (key ^ part) * 0x100000001B3ULL;
+    }
+
+    [[nodiscard]] u64 getKey() const {
+        return key;
+    }
+
+private:
+    u64 key = 0xCBF29CE484222325ULL;
+};
+
+/// What the box draws, so a box whose content is the same is not drawn again
+/// when another box of its message is typed in.
+[[nodiscard]] u64 makeBoxKey(const LaidBox& box, const MessageArt& art) {
+    KeyMixer mixer;
+    mixer.add(std::bit_cast<std::uintptr_t>(&art));
+    for (const s64 part :
+         {s64{box.boxType}, s64{box.x}, s64{box.y}, s64{box.isWide},
+          s64{static_cast<u8>(box.endIcon)}, s64{box.endIconX}, s64{box.endIconY}}) {
+        mixer.add(static_cast<u64>(part));
+    }
+    if (box.icon) {
+        for (const s64 part : {s64{box.icon->textureIndex}, s64{box.icon->isQuest},
+                               s64{box.icon->x}, s64{box.icon->y}, s64{box.icon->size}}) {
+            mixer.add(static_cast<u64>(part));
+        }
+    }
+    for (const LaidCharacter& character : box.characters) {
+        for (const s64 part :
+             {s64{character.fontOffset}, s64{character.x}, s64{character.y},
+              s64{character.color.red}, s64{character.color.green}, s64{character.color.blue}}) {
+            mixer.add(static_cast<u64>(part));
+        }
+    }
+    return mixer.getKey();
+}
 
 } // namespace
 
@@ -45,15 +86,16 @@ bool BoxRenderer::render(Slot& slot, const LaidBox& box, const MessageArt& art) 
         }
         slot.target.emplace(std::move(*created));
     }
-    const BoxFrame frame = runBoxFrame(box, art);
+    const BoxFrame frame = runBoxFrame(box, art, gbiCommandCache);
     static_cast<void>(renderer->render(frame.rspResult, frame.rdpResult, *slot.target));
     slot.boxType = box.boxType;
     slot.boxY = box.y;
     return true;
 }
 
-void BoxRenderer::draw(const usize slotIndex, const u64 key, const LaidBox& box,
-                       const MessageArt& art, const float width) {
+void BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const MessageArt& art,
+                       const float width) {
+    const u64 key = makeBoxKey(box, art);
     const ImVec2 size{width, width / AspectRatio};
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     ImGui::Dummy(size);

@@ -70,6 +70,16 @@ usize countBoxes(const MessageText& text) {
            }));
 }
 
+MessageRow makeMessageRow(const Message& message, const usize index, const Language language) {
+    const MessageText& text = message.texts[static_cast<usize>(language)];
+    return MessageRow{.index = index,
+                      .id = message.id,
+                      .text = makeLineText(text),
+                      .boxType = message.boxType,
+                      .boxPosition = message.boxPosition,
+                      .boxCount = countBoxes(text)};
+}
+
 std::vector<MessageRow> makeMessageRows(const MessageTable& table, const Language language,
                                         const bool isFontMessageEnglish,
                                         const MessageFilter& filter) {
@@ -81,13 +91,7 @@ std::vector<MessageRow> makeMessageRows(const MessageTable& table, const Languag
             (filter.boxType && message.boxType != *filter.boxType)) {
             continue;
         }
-        const MessageText& text = message.texts[static_cast<usize>(language)];
-        MessageRow row{.index = index,
-                       .id = message.id,
-                       .text = makeLineText(text),
-                       .boxType = message.boxType,
-                       .boxPosition = message.boxPosition,
-                       .boxCount = countBoxes(text)};
+        MessageRow row = makeMessageRow(message, index, language);
         if (!needle.empty() && !matchesId(message.id, needle) &&
             !makeLower(row.text).contains(needle)) {
             continue;

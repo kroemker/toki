@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace hackeroot {
@@ -51,7 +52,19 @@ struct MessageArt {
 /// positions and the art's addresses, and encoded with the checkout's gbi.
 [[nodiscard]] std::string writeBoxDisplayList(const LaidBox& box, const MessageArt& art);
 
-[[nodiscard]] z64::DisplayList encodeBoxDisplayList(const LaidBox& box, const MessageArt& art);
+/// The words of gbi commands already encoded, by the command as written.
+/// Expanding a command through the gbi's macros is most of what drawing a box
+/// costs, and a box drawn again, as it is typed, is mostly commands drawn
+/// before. Kept for one gbi, and used from one thread.
+struct GbiCommandCache {
+    const hackeroot::Prelude* gbi = nullptr;
+    std::unordered_map<std::string, std::vector<u8>> commands;
+};
+
+/// The bytes of `writeBoxDisplayList`, each command encoded once into `cache`
+/// and taken from it after.
+[[nodiscard]] z64::DisplayList encodeBoxDisplayList(const LaidBox& box, const MessageArt& art,
+                                                    GbiCommandCache& cache);
 
 /// What the RSP and RDP made of one box's display list, ready for the GPU,
 /// on a screen of 320 by 240.
@@ -60,6 +73,9 @@ struct BoxFrame {
     n64::RdpResult rdpResult;
     std::vector<base::Diagnostic> diagnostics;
 };
+
+[[nodiscard]] BoxFrame runBoxFrame(const LaidBox& box, const MessageArt& art,
+                                   GbiCommandCache& cache);
 
 [[nodiscard]] BoxFrame runBoxFrame(const LaidBox& box, const MessageArt& art);
 
