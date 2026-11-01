@@ -73,6 +73,8 @@ enum class EndIcon : u8 {
 
 inline constexpr s32 BoxWidth = 256;
 inline constexpr s32 BoxHeight = 64;
+/// Where every line of every box starts on screen, before an indent.
+inline constexpr s32 TextStartX = 65;
 
 /// One box of a message as the game draws it once all its text is shown.
 /// `begin` and `end` are the bytes it was laid out from, its closing code
@@ -101,6 +103,11 @@ struct LaidBox {
     /// first; the arrow is drawn at the first.
     std::vector<s32> choiceYs;
 };
+
+/// How far a line of `box` may reach before it runs into the box's right
+/// margin: as far from its right edge as text starts from its left. The game
+/// stops nowhere; past this, text runs over the border or off the box.
+[[nodiscard]] s32 findLineLimit(const LaidBox& box);
 
 struct MessageLayout {
     std::vector<LaidBox> boxes;

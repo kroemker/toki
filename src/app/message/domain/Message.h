@@ -78,6 +78,9 @@ struct Message {
     base::SourceLocation location;
 };
 
+/// The language's name in English, as a menu shows it.
+[[nodiscard]] const char* getLanguageName(Language language);
+
 /// Whether the build puts `message`'s text for `language` into that language's
 /// table. `isFontMessageEnglish` says where the font message goes.
 [[nodiscard]] bool isInLanguage(const Message& message, Language language,

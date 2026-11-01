@@ -50,7 +50,6 @@ constexpr u8 PositionVariable = 0;
 constexpr u8 PositionTop = 1;
 constexpr u8 PositionMiddle = 2;
 
-constexpr s32 TextStartX = 65;
 constexpr s32 LineSpacing = 12;
 constexpr f32 CharacterScale = 75 / 100.0F;
 constexpr s32 SpaceWidth = 6;
@@ -427,6 +426,10 @@ void BoxLayouter::finish(const Decoded& closing, const EndType endType, LaidBox&
 }
 
 } // namespace
+
+s32 findLineLimit(const LaidBox& box) {
+    return box.x + BoxWidth - (TextStartX - box.x);
+}
 
 MessageLayout layoutMessage(const std::span<const u8> bytes, const MessageGeometry& geometry,
                             const LayoutRequest& request) {

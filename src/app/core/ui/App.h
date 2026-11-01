@@ -22,6 +22,7 @@
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageBrowser.h"
 #include "app/message/ui/MessageFocus.h"
+#include "app/message/ui/MessagePanel.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneActorLoader.h"
@@ -130,6 +131,7 @@ private:
     message::MessageFocus messageFocus;
     std::unique_ptr<message::BoxRenderer> browserBoxes;
     std::unique_ptr<message::MessageBrowser> messageBrowser;
+    message::MessagePanel* messagePanel = nullptr;
 };
 
 } // namespace toki::core

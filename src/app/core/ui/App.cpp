@@ -226,8 +226,12 @@ void App::registerPanels() {
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     browserBoxes = std::make_unique<message::BoxRenderer>(*device);
-    messageBrowser =
-        std::make_unique<message::MessageBrowser>(messageFocus, *browserBoxes, [](usize) {});
+    auto messages = std::make_unique<message::MessagePanel>(*device, messageFocus);
+    messagePanel = messages.get();
+    propertiesPanel->addSource(*messagePanel);
+    panels.add(std::move(messages));
+    messageBrowser = std::make_unique<message::MessageBrowser>(
+        messageFocus, *browserBoxes, [this](usize) { messagePanel->showMessage(); });
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
         [this](const hackeroot::AssetDirectory& asset) {

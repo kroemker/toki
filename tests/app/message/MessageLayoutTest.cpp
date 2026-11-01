@@ -97,6 +97,14 @@ TEST_CASE("one line stands in the middle of its box, each character advancing by
     CHECK(box.endIconY == 142 + 59);
 }
 
+TEST_CASE("a line may reach as far from the box's right edge as text starts from its left",
+          "[message]") {
+    const MessageLayout layout = layOut(Bytes().add("A").add(End));
+
+    REQUIRE(layout.boxes.size() == 1);
+    CHECK(toki::message::findLineLimit(layout.boxes[0]) == 34 + 256 - (65 - 34));
+}
+
 TEST_CASE("more lines start higher, and four fill the box from its top", "[message]") {
     const MessageLayout two = layOut(Bytes().add("A").add(Newline).add("B").add(End));
     REQUIRE(two.boxes.size() == 1);
