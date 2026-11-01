@@ -62,8 +62,9 @@ readTable(const MacroTable& base, const std::filesystem::path& file,
 
     TableResult result;
     result.diagnostics = std::move(unit->diagnostics);
+    result.tokens = std::move(unit->tokens);
 
-    const std::span<const Token> tokens(unit->tokens);
+    const std::span<const Token> tokens(result.tokens);
     for (usize cursor = 0; cursor + 1 < tokens.size(); ++cursor) {
         const Token& token = tokens[cursor];
         if (token.kind != TokenKind::Identifier ||
@@ -86,6 +87,7 @@ readTable(const MacroTable& base, const std::filesystem::path& file,
         for (const std::span<const Token> argument :
              splitElements(tokens.subspan(cursor + 2, close - cursor - 2))) {
             row.arguments.push_back(getSpelling(argument));
+            row.argumentTokens.push_back(argument);
         }
         result.rows.push_back(std::move(row));
         cursor = close;

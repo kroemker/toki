@@ -34,15 +34,14 @@ void hideOtherArms(cparser::MacroTable& layer, const cparser::MacroTable& read,
     }
 }
 
-} // namespace
-
-Prelude readPrelude(const Workspace& workspace, const std::span<const std::string> includes) {
-    return readPrelude(workspace, includes, {});
-}
-
-Prelude readPrelude(const Workspace& workspace, const std::span<const std::string> includes,
-                    const std::span<const std::string_view> alsoHidden) {
+[[nodiscard]] Prelude readPreludeSource(const Workspace& workspace,
+                                        const std::span<const std::string> defines,
+                                        const std::span<const std::string> includes,
+                                        const std::span<const std::string_view> alsoHidden) {
     std::string source;
+    for (const std::string& define : defines) {
+        source += std::format("#define {}\n", define);
+    }
     for (const std::string& include : includes) {
         source += std::format("#include \"{}\"\n", include);
     }
@@ -76,6 +75,23 @@ Prelude readPrelude(const Workspace& workspace, const std::span<const std::strin
                                types.diagnostics.end());
     prelude.sources = std::move(unit.sources);
     return prelude;
+}
+
+} // namespace
+
+Prelude readPrelude(const Workspace& workspace, const std::span<const std::string> includes) {
+    return readPrelude(workspace, includes, {});
+}
+
+Prelude readPrelude(const Workspace& workspace, const std::span<const std::string> includes,
+                    const std::span<const std::string_view> alsoHidden) {
+    return readPreludeSource(workspace, {}, includes, alsoHidden);
+}
+
+Prelude readPreludeWithDefines(const Workspace& workspace,
+                               const std::span<const std::string> defines,
+                               const std::span<const std::string> includes) {
+    return readPreludeSource(workspace, defines, includes, {});
 }
 
 } // namespace hackeroot

@@ -1,0 +1,21 @@
+#include "Message.h"
+
+namespace toki::message {
+
+bool isInLanguage(const Message& message, const Language language,
+                  const bool isFontMessageEnglish) {
+    const bool isJapanese = language == Language::Japanese;
+    switch (message.macro) {
+    case MessageMacro::Message:
+        return true;
+    case MessageMacro::JapaneseOnly:
+        return isJapanese;
+    case MessageMacro::NesOnly:
+        return !isJapanese;
+    case MessageMacro::FontMessage:
+        return isJapanese != isFontMessageEnglish;
+    }
+    return true;
+}
+
+} // namespace toki::message

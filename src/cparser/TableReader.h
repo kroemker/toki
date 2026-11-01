@@ -3,6 +3,7 @@
 #include "base/Diagnostic.h"
 #include "cparser/Preprocessor.h"
 #include "cparser/SourceSet.h"
+#include "cparser/Token.h"
 #include "cparser/Types.h"
 
 #include <expected>
@@ -19,13 +20,20 @@ struct TableRow {
     usize ordinal = 0;
     std::string_view macro;
     std::vector<std::string_view> arguments;
+
+    /// Each argument's tokens, for a reader that needs more of an argument
+    /// than its spelling, as a message's text is read piece by piece.
+    std::vector<std::span<const Token>> argumentTokens;
+
     base::SourceLocation location;
 };
 
-/// The rows' spellings view into `sources`, which the result owns, so moving a
-/// result is safe and the rows live exactly as long as it does.
+/// The rows' spellings view into `sources` and their tokens into `tokens`,
+/// both of which the result owns, so moving a result is safe and the rows live
+/// exactly as long as it does.
 struct TableResult {
     SourceSet sources;
+    std::vector<Token> tokens;
     std::vector<TableRow> rows;
     std::vector<base::Diagnostic> diagnostics;
 };

@@ -44,4 +44,11 @@ struct Prelude {
 [[nodiscard]] Prelude readPrelude(const Workspace& workspace, std::span<const std::string> includes,
                                   std::span<const std::string_view> alsoHidden);
 
+/// The same, with each of `defines` defined before the includes, as a file
+/// that defines `MESSAGE_DATA_STATIC` before it includes `message_data_fmt.h`
+/// reads it.
+[[nodiscard]] Prelude readPreludeWithDefines(const Workspace& workspace,
+                                             std::span<const std::string> defines,
+                                             std::span<const std::string> includes);
+
 } // namespace hackeroot

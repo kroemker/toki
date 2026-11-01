@@ -83,6 +83,21 @@ TEST_CASE("an argument keeps the spelling it was written with", "[cparser][table
     REQUIRE(table.rows[2].arguments[5] == "(1 << 2)");
 }
 
+TEST_CASE("an argument's tokens outlive the reader and match its spelling", "[cparser][table]") {
+    cparser::TableResult table;
+    {
+        const Harness harness;
+        table = harness.read(getFixtures() / "table/scene_table.h", SceneMacros);
+    }
+
+    REQUIRE(table.rows[2].argumentTokens.size() == 6);
+    const std::span<const cparser::Token> shifted = table.rows[2].argumentTokens[5];
+    REQUIRE(shifted.size() == 5);
+    REQUIRE(shifted.front().text == "(");
+    REQUIRE(shifted[2].text == "<<");
+    REQUIRE(table.rows[0].argumentTokens[0].front().text == "ydan_scene");
+}
+
 TEST_CASE("a conditional entry still takes its ordinal", "[cparser][table]") {
     const Harness harness;
     const cparser::TableResult table =

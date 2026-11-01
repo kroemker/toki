@@ -1,0 +1,56 @@
+#include "text/message_data.h"
+#include "config.h"
+
+#define TOKI_TEST_SWITCH 1
+
+#if TOKI_TEST_SWITCH
+DEFINE_MESSAGE(0x8000, TEXTBOX_TYPE_BLACK, TEXTBOX_POS_VARIABLE,
+MSG(/* MISSING */)
+,
+MSG("Custom " SHIFT(12) "text")
+,
+MSG(/* MISSING */)
+,
+MSG(/* MISSING */)
+)
+#endif
+
+#if !TOKI_TEST_SWITCH
+DEFINE_MESSAGE(0x9000, TEXTBOX_TYPE_BLACK, TEXTBOX_POS_VARIABLE,
+MSG(/* MISSING */)
+,
+MSG("Left out")
+,
+MSG(/* MISSING */)
+,
+MSG(/* MISSING */)
+)
+#endif
+
+DEFINE_MESSAGE_FFFC(0xFFFC, TEXTBOX_TYPE_BLACK, TEXTBOX_POS_VARIABLE,
+MSG(
+"０１"
+)
+,
+MSG(
+"0123\n"
+)
+,
+MSG(/* UNUSED */)
+,
+MSG(/* UNUSED */)
+)
+
+DEFINE_MESSAGE(0xFFFD, TEXTBOX_TYPE_BLACK, TEXTBOX_POS_VARIABLE,
+MSG(
+""
+)
+,
+MSG(
+""
+)
+,
+MSG(/* MISSING */)
+,
+MSG(/* MISSING */)
+)
