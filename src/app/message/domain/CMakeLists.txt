@@ -10,4 +10,6 @@ target_sources(toki_core PRIVATE
         MessageLoader.cpp
         MessageMarkup.cpp
         MessageReader.cpp
-        MessageRows.cpp)
+        MessageRows.cpp
+        MessageSave.cpp
+        MessageWriter.cpp)

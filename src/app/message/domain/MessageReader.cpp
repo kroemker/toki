@@ -320,12 +320,14 @@ MessageFiles findMessageFiles(const std::filesystem::path& repository,
                         .searchPaths = {repository, extracted, repository / "include"}};
 }
 
-MessageTable readMessageTable(const cparser::MacroTable& macros, const MessageFiles& files) {
+MessageTable readMessageTable(const cparser::MacroTable& macros, const MessageFiles& files,
+                              const cparser::PendingFiles* pendingFiles) {
     MessageTable table;
-    const cparser::PreprocessOptions options{
+    cparser::PreprocessOptions options{
         .searchPaths = files.searchPaths,
         .allowedRoots = {files.table.parent_path(), files.vanillaDirectory},
         .dialect = &z64::getDecompDialect()};
+    options.pendingFiles = pendingFiles;
     std::expected<cparser::TableResult, base::Diagnostic> rows =
         cparser::readTable(macros, files.table, EntryMacros, options);
     if (!rows) {

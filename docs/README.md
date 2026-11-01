@@ -18,6 +18,7 @@ why it is shaped that way, and what was measured.
 | [textures.md](textures.md) | Where a texture's format and palette come from, how it is decoded as the RDP reads it, and how the Textures panel shows it. |
 | [actor-rendering.md](actor-rendering.md) | Drawing placed actors as their objects, by reading the literal calls in their overlay's `Init` and `Draw`; what is built and what is planned. |
 | [actor-database.md](actor-database.md) | The actor database that says how each actor is shown by its params, one per checkout in `.toki/`, seeded from Toki's own and derived from the C for the rest; what is built and its plan. |
+| [messages.md](messages.md) | How messages are read, encoded byte for byte as the build does, laid out and drawn as the game draws a text box, edited as markup, and saved into a message file Toki owns. |
 | [workspace.md](workspace.md) | How one checkout is read, kept current off the UI thread, and watched for changes. |
 | [tools.md](tools.md) | How the tools change the checkout: planned and shown before they are written, never over a change they did not see, into blocks of their own; and how the configuration headers are read as settings. |
 | [display-list-viewer.md](display-list-viewer.md) | How the Display List panel reads the viewport's traced frame into commands, names and sentences, the RDP state and texture memory behind each draw, and how it is opened from other panels. |

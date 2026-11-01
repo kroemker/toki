@@ -57,3 +57,15 @@ TEST_CASE("a draft keeps its edits over a table read again until they are discar
     CHECK_FALSE(draft.isEdited());
     CHECK_FALSE(draft.hasReadChanged());
 }
+
+TEST_CASE("a saved draft takes the table read back from what it wrote", "[message]") {
+    MessageDraft draft;
+    static_cast<void>(draft.setRead(makeTable("read")));
+    draft.setText(0, Language::English, {TextPiece{.text = "edited"}});
+
+    draft.markSaved();
+
+    CHECK_FALSE(draft.isEdited());
+    CHECK(draft.setRead(makeTable("edited")));
+    CHECK(readEnglish(draft) == "edited");
+}

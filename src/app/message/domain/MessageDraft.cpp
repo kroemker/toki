@@ -22,6 +22,13 @@ void MessageDraft::discard() {
     ++revision;
 }
 
+void MessageDraft::markSaved() {
+    read = table;
+    edited = false;
+    readChanged = false;
+    ++revision;
+}
+
 void MessageDraft::markEdited() {
     edited = true;
     ++revision;

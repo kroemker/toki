@@ -226,7 +226,8 @@ void App::registerPanels() {
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     browserBoxes = std::make_unique<message::BoxRenderer>(*device);
-    auto messages = std::make_unique<message::MessagePanel>(*device, messageFocus);
+    auto messages = std::make_unique<message::MessagePanel>(*device, messageFocus,
+                                                            [this] { saveMessagesDialog.open(); });
     messagePanel = messages.get();
     propertiesPanel->addSource(*messagePanel);
     panels.add(std::move(messages));
@@ -355,6 +356,7 @@ void App::drawFrame() {
     }
     saveSceneDialog.update();
     saveSceneDialog.drawWindow();
+    saveMessagesDialog.drawWindow();
     drawNewActorsPrompt();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {

@@ -8,6 +8,7 @@
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageFocus.h"
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -23,7 +24,7 @@ namespace toki::message {
 /// panel says what the message is and where it is written.
 class MessagePanel : public core::Panel, public core::PropertySource {
 public:
-    MessagePanel(const gfx::Device& device, MessageFocus& focus);
+    MessagePanel(const gfx::Device& device, MessageFocus& focus, std::function<void()> save);
 
     [[nodiscard]] bool isOpenByDefault() const override {
         return false;
@@ -57,6 +58,7 @@ private:
     void applyBoxes();
 
     MessageFocus& focus;
+    std::function<void()> save;
     BoxRenderer boxRenderer;
     std::optional<ShownKey> layoutKey;
     MessageLayout layout;

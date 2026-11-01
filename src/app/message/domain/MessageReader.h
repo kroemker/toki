@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/message/domain/Message.h"
+#include "cparser/SourceSet.h"
 
 #include <filesystem>
 #include <string_view>
@@ -31,9 +32,11 @@ struct MessageFiles {
 /// Reads every `DEFINE_MESSAGE` of `files.table` and what it includes,
 /// answering its conditionals against `macros`, the build configuration's
 /// layer. A message that cannot be read is a diagnostic naming it and is left
-/// out; the rest are read.
+/// out; the rest are read. `pendingFiles` are read in place of what is on
+/// disk, so a file about to be written is read back as it will be.
 [[nodiscard]] MessageTable readMessageTable(const cparser::MacroTable& macros,
-                                            const MessageFiles& files);
+                                            const MessageFiles& files,
+                                            const cparser::PendingFiles* pendingFiles = nullptr);
 
 /// The messages of the checkout `workspace` read, for its `VERSION`.
 [[nodiscard]] MessageTable readMessages(const hackeroot::Workspace& workspace);

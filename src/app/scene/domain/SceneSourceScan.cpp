@@ -2,6 +2,7 @@
 
 #include "app/scene/Types.h"
 #include "hackeroot/CheckoutEdits.h"
+#include "hackeroot/FeatureSwitches.h"
 #include "hackeroot/TextLines.h"
 
 #include <algorithm>
@@ -16,9 +17,6 @@ namespace toki::scene {
 
 namespace {
 
-constexpr std::array<std::string_view, 4> FeatureSwitches{"ENABLE_ANIMATED_MATERIALS",
-                                                          "ENABLE_CUTSCENE_IMPROVEMENTS",
-                                                          "ENABLE_MM_TITLE_CARDS", "ENABLE_F3DEX3"};
 constexpr std::string_view LengthPrefix = "LENGTH_";
 constexpr usize NamedLimit = 3;
 
@@ -115,7 +113,7 @@ void FileScanner::readConditional(const Directive& directive) {
         return;
     }
     if (directive.keyword == "if" && name == directive.argument &&
-        std::ranges::contains(FeatureSwitches, name)) {
+        std::ranges::contains(hackeroot::FeatureSwitches, name)) {
         open.push_back(Conditional{.isSwitch = true});
         if (!isSwitchOn(name)) {
             scan.refusals.push_back(std::format(

@@ -20,6 +20,10 @@ public:
     /// Throws every edit away and goes back to the table last read.
     void discard();
 
+    /// Takes the draft as what was read, once it is written to the checkout,
+    /// so that the table read back from it replaces it.
+    void markSaved();
+
     [[nodiscard]] const MessageTable& getTable() const {
         return table;
     }

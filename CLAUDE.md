@@ -252,6 +252,13 @@ listed below is only what no change may break.
     laid out, and arithmetic an address cannot survive is a diagnostic.
   - Files that must match the build read their system headers as a prelude, under the
     configuration alone and expanded as read, not against the scrape.
+- **[Messages](docs/messages.md)** — how the dialogue text is read, encoded, laid out and
+  drawn as the game draws a text box, edited as markup and saved.
+  - A message is encoded byte for byte as the build encodes it; "close" is a bug.
+  - What is data in `z_message.c` is read from the checkout; what is code is mirrored, and
+    the document names it.
+  - A save writes `assets/text/message_data.h` whole, vanilla rows included, and reads it back
+    before the plan is shown.
 - **[The workspace](docs/workspace.md)** — how one checkout is read, kept current off the
   UI thread, and watched for changes.
   - Nothing on the UI thread reads the checkout. A read takes seconds over

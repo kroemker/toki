@@ -119,9 +119,10 @@ void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
 
 } // namespace
 
-MessagePanel::MessagePanel(const gfx::Device& device, MessageFocus& focus)
+MessagePanel::MessagePanel(const gfx::Device& device, MessageFocus& focus,
+                           std::function<void()> save)
     : Panel("message", "Message", core::icons::Chat, core::DockSlot::Centre), focus(focus),
-      boxRenderer(device) {}
+      save(std::move(save)), boxRenderer(device) {}
 
 void MessagePanel::showMessage() {
     setOpen(true);
@@ -194,6 +195,10 @@ void MessagePanel::drawEditState() {
                            "The checkout's messages changed since they were edited here.");
     } else {
         ImGui::TextColored(core::palette::Accent, "Edited, not saved.");
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Save") && save) {
+        save();
     }
     ImGui::SameLine();
     if (ImGui::SmallButton("Discard Edits")) {

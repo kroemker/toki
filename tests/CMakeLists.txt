@@ -31,6 +31,7 @@ add_executable(toki_tests
         app/message/MessageMarkupTest.cpp
         app/message/MessageReaderTest.cpp
         app/message/MessageRowsTest.cpp
+        app/message/MessageSaveTest.cpp
         app/core/SettingsSearchTest.cpp
         app/core/SettingsTest.cpp
         app/object/ObjectCheckoutTest.cpp
