@@ -103,8 +103,9 @@ drawn without its text.
 ## Showing them
 
 The Assets panel's Messages tab lists the messages of the language picked, filtered by ID or
-text and by chips for vanilla, own and box type, with the first box of the one selected drawn
-under the table. A single click shows a message in the Message panel, every box of it drawn
+text and by chips for box type, with the first box of the one selected drawn under the table.
+The languages offered are those the checkout has text in: English and Japanese on NTSC,
+English, German and French on PAL. A single click shows a message in the Message panel, every box of it drawn
 in turn with a meter for each line: how far it reaches towards the box's right margin, as
 far from its right edge as text starts from its left. The game stops nowhere; past the
 margin, text runs over the frame.
@@ -124,6 +125,10 @@ its markup as it was.
 Edits live in a draft (`MessageDraft`). A table read again replaces the draft only while
 nothing is edited; otherwise the edits are kept and the panel says the checkout changed.
 
+Typing redraws only what changed. Each gbi command of a box is expanded through the gbi's
+macros once and its words kept (`GbiCommandCache`); a box is drawn again only when what it
+shows changes; and the Messages tab rebuilds only the row of the message edited.
+
 ## Saving
 
 A save writes `assets/text/message_data.h` whole from the draft, and Toki owns it from then
@@ -133,8 +138,11 @@ on, as it owns a scene it saved ([scene-writing.md](scene-writing.md)):
   edit of a vanilla message replaces it where the game searches for it;
 - it is marked `// toki: messages`, includes `config.h`, and writes each row as the
   extracted files do, a line of C for each line of the box;
-- rows under one of HackerOoT's feature switches are written under its `#if` again; a file
-  with rows under a switch that is off is not saved, since those rows were never read;
+- rows under one of HackerOoT's feature switches are written under its `#if` again; a block
+  under a switch that is off was never read, so it is written again as it stands, `#if` to
+  `#endif`, before the row it stood before. HackerOoT's own file has one: the two scene
+  names `ENABLE_MM_TITLE_CARDS` shows as title cards, off by default. A switch that is off
+  with an `#else` or `#elif` cannot be kept as it stands, and the save is refused;
 - other `#if`s, `#define`s and includes are not written again, and the plan says so;
 - what is written is read back, under the checkout's configuration, before the plan is
   shown, and every row must read as it was written.
