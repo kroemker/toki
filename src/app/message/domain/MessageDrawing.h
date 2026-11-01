@@ -1,0 +1,62 @@
+#pragma once
+
+#include "app/message/Types.h"
+#include "app/message/domain/MessageLayout.h"
+#include "base/Diagnostic.h"
+#include "n64/Rdp.h"
+#include "n64/RspResult.h"
+#include "z64/DisplayList.h"
+#include "z64/MemoryImage.h"
+
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace hackeroot {
+class Workspace;
+struct Prelude;
+} // namespace hackeroot
+
+namespace toki::message {
+
+/// What a message box is drawn with, read from the checkout as the build
+/// links it: the box, icon and end mark textures of `message_static`, the
+/// font of `nes_font_static`, the item icons of `icon_item_static` and
+/// `icon_item_24_static`, and the game code's `sSetupDL`, all in one image,
+/// with the gbi the box's display list is written against.
+struct MessageArt {
+    z64::MemoryImage image;
+    std::optional<u32> setupList;
+    std::unique_ptr<hackeroot::Prelude> gbi;
+
+    /// Whether `N64_BTN_COLORS` gives the end mark the N64's blue rather than
+    /// the GameCube's green.
+    bool hasN64ButtonColors = true;
+
+    std::vector<std::filesystem::path> files;
+    std::vector<base::Diagnostic> diagnostics;
+};
+
+[[nodiscard]] MessageArt readMessageArt(const hackeroot::Workspace& workspace);
+
+/// The display list one box is drawn with, as `Message_DrawTextBox`,
+/// `Message_DrawText` and `Message_DrawTextboxIcon` build it once the box's
+/// text is all shown: the gbi macros they call, written with the box's
+/// positions and the art's addresses, and encoded with the checkout's gbi.
+[[nodiscard]] std::string writeBoxDisplayList(const LaidBox& box, const MessageArt& art);
+
+[[nodiscard]] z64::DisplayList encodeBoxDisplayList(const LaidBox& box, const MessageArt& art);
+
+/// What the RSP and RDP made of one box's display list, ready for the GPU,
+/// on a screen of 320 by 240.
+struct BoxFrame {
+    n64::RspResult rspResult;
+    n64::RdpResult rdpResult;
+    std::vector<base::Diagnostic> diagnostics;
+};
+
+[[nodiscard]] BoxFrame runBoxFrame(const LaidBox& box, const MessageArt& art);
+
+} // namespace toki::message

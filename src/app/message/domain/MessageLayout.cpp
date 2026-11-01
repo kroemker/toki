@@ -306,11 +306,14 @@ void BoxLayouter::draw(const DecodedBox& decoded, LaidBox& box) {
         case ItemIcon: {
             const bool isQuest = entry.arguments[0] >= request.firstQuestItem;
             const s32 size = isQuest ? QuestIconSize : ItemIconSize;
-            box.icon =
-                LaidIcon{.item = entry.arguments[0],
-                         .x = x + TextStartX - (isQuest ? QuestIconXOffset : ItemIconXOffset),
-                         .y = box.y + IconTop + (IconAreaHeight - size) / 2,
-                         .size = size};
+            box.icon = LaidIcon{
+                .item = entry.arguments[0],
+                .isQuest = isQuest,
+                .textureIndex = static_cast<u32>(
+                    isQuest ? entry.arguments[0] - request.firstQuestItem : entry.arguments[0]),
+                .x = x + TextStartX - (isQuest ? QuestIconXOffset : ItemIconXOffset),
+                .y = box.y + IconTop + (IconAreaHeight - size) / 2,
+                .size = size};
             x += IconIndent;
             box.lines.back().endX = x;
             break;

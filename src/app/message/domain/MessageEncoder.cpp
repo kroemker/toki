@@ -191,9 +191,9 @@ readMessageFormat(const hackeroot::Workspace& workspace) {
                          .charmap = std::move(*charmap)};
 }
 
-bool isFontMessageEnglish(const cparser::MacroTable& macros) {
-    const cparser::SourceFile condition{.path = "<condition>", .contents = "OOT_NTSC"};
-    std::vector<cparser::Token> tokens = cparser::scan(condition).tokens;
+bool isConditionTrue(const cparser::MacroTable& macros, const std::string_view condition) {
+    const cparser::SourceFile file{.path = "<condition>", .contents = std::string(condition)};
+    std::vector<cparser::Token> tokens = cparser::scan(file).tokens;
     std::erase_if(tokens, [](const cparser::Token& token) {
         return token.kind == cparser::TokenKind::EndOfFile;
     });
@@ -201,7 +201,11 @@ bool isFontMessageEnglish(const cparser::MacroTable& macros) {
     const std::expected<cparser::Value, base::Diagnostic> value = cparser::evaluate(
         tokens, cparser::EvalContext{.macros = &macros, .dialect = &z64::getDecompDialect()},
         diagnostics);
-    return value && cparser::getInteger(*value) == 0;
+    return value && cparser::getInteger(*value) != 0;
+}
+
+bool isFontMessageEnglish(const cparser::MacroTable& macros) {
+    return !isConditionTrue(macros, "OOT_NTSC");
 }
 
 EncodedData encodeMessageData(const MessageTable& table, const MessageEncoder& encoder,

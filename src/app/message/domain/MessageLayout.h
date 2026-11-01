@@ -31,8 +31,12 @@ struct LaidCharacter {
 };
 
 /// `ITEM_ICON`: an item's icon, 32 pixels square, or a quest item's, 24.
+/// `textureIndex` is the icon's place in `icon_item_static`, or for a quest
+/// item in `icon_item_24_static`, counted from `ITEM_MEDALLION_FOREST`.
 struct LaidIcon {
     u8 item = 0;
+    bool isQuest = false;
+    u32 textureIndex = 0;
     s32 x = 0;
     s32 y = 0;
     s32 size = 0;

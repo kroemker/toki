@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace cparser {
@@ -85,6 +86,10 @@ struct EncodedData {
 
     std::vector<base::Diagnostic> diagnostics;
 };
+
+/// Whether `condition`, an `#if` expression, is true under `macros`; one that
+/// cannot be evaluated is false.
+[[nodiscard]] bool isConditionTrue(const cparser::MacroTable& macros, std::string_view condition);
 
 /// Whether the build puts the font message among the English texts, as PAL
 /// builds do, by `OOT_NTSC` as `macros` answer it.

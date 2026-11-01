@@ -1,4 +1,5 @@
 #include "app/message/domain/Message.h"
+#include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageEncoder.h"
 #include "app/message/domain/MessageGeometry.h"
 #include "app/message/domain/MessageLayout.h"
@@ -174,4 +175,56 @@ TEST_CASE("every English message of a real checkout lays out from its own tables
     WARN(boxes << " boxes");
     INFO(problems.substr(0, 2000));
     CHECK(problems.empty());
+}
+
+TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's own art",
+          "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+
+    const toki::message::MessageArt art = toki::message::readMessageArt(*workspace);
+    std::string described;
+    for (const base::Diagnostic& diagnostic : art.diagnostics) {
+        if (diagnostic.severity == base::Severity::Error) {
+            described += diagnostic.message + "\n";
+        }
+    }
+    INFO(described.substr(0, 2000));
+    CHECK(described.empty());
+    REQUIRE(art.setupList.has_value());
+
+    const toki::message::MessageGeometry geometry = toki::message::readMessageGeometry(*workspace);
+    const toki::message::MessageTable table = toki::message::readMessages(*workspace);
+    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
+        toki::message::readMessageFormat(*workspace);
+    REQUIRE(format.has_value());
+    const toki::message::MessageEncoder encoder = format->makeEncoder();
+
+    for (const base::u16 id : {base::u16{0x0001}, base::u16{0x0006}, base::u16{0x1035}}) {
+        const auto message = std::ranges::find(table.messages, id, &toki::message::Message::id);
+        REQUIRE(message != table.messages.end());
+        const toki::message::EncodedText text =
+            encoder.encode(message->texts[static_cast<usize>(toki::message::Language::English)]);
+        const toki::message::MessageLayout layout = toki::message::layoutMessage(
+            text.bytes, geometry, *format->makeLayoutRequest(*message));
+        for (const toki::message::LaidBox& box : layout.boxes) {
+            const toki::message::BoxFrame frame = toki::message::runBoxFrame(box, art);
+            std::string problems;
+            for (const base::Diagnostic& diagnostic : frame.diagnostics) {
+                problems += diagnostic.message + "\n";
+            }
+            INFO(std::format("0x{:04X}:\n{}", id, problems));
+            CHECK(frame.diagnostics.empty());
+            const usize shadows = box.boxType == 5 ? 0 : box.characters.size();
+            const usize expected = (box.boxType < 4 ? 1 : 0) + (box.icon ? 1 : 0) +
+                                   box.characters.size() + shadows +
+                                   (box.endIcon == toki::message::EndIcon::None ? 0 : 1);
+            CHECK(frame.rdpResult.draws.size() == expected);
+        }
+    }
 }

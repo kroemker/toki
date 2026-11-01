@@ -115,6 +115,31 @@ ObjectFiles findObjectFiles(const Workspace& workspace, const AssetDirectory& as
     return found;
 }
 
+std::expected<std::vector<std::filesystem::path>, base::Diagnostic>
+findSegmentSources(const Workspace& workspace, const std::string_view name) {
+    const std::filesystem::path spec = workspace.getRoot() / "spec" / "spec";
+    const SpecSegment* segment = workspace.getSpec().findSegment(name);
+    if (segment == nullptr) {
+        return std::unexpected(
+            base::makeError({.file = spec}, std::format("the spec has no segment {}", name)));
+    }
+    std::vector<std::filesystem::path> sources;
+    for (const std::string& include : segment->includes) {
+        if (!include.starts_with("assets/") || !include.ends_with(".o")) {
+            continue;
+        }
+        const std::optional<std::filesystem::path> source = findSource(workspace, include);
+        if (!source) {
+            return std::unexpected(base::makeError(
+                {.file = spec},
+                std::format("the spec links {} into {}, but no C file of it was found", include,
+                            name)));
+        }
+        sources.push_back(*source);
+    }
+    return sources;
+}
+
 std::optional<AssetDirectory> findObjectDirectory(const Assets& assets,
                                                   const std::string_view name) {
     const auto found = std::ranges::find(assets.objects, name, &AssetDirectory::name);

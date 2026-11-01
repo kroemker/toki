@@ -5,6 +5,7 @@
 #include "hackeroot/Assets.h"
 #include "hackeroot/Types.h"
 
+#include <expected>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -51,6 +52,13 @@ inline constexpr std::string_view OverlayPrefix = "ovl_";
 /// (`SegmentFiles::isOverlay`).
 [[nodiscard]] std::optional<AssetDirectory> findDrawnDirectory(const Workspace& workspace,
                                                                std::string_view name);
+
+/// The C files the spec links into the segment called `name`, as
+/// `message_static`, each found in the checkout's assets or the extracted ones.
+/// A segment the spec does not list, or a file in neither, is an error naming
+/// it.
+[[nodiscard]] std::expected<std::vector<std::filesystem::path>, base::Diagnostic>
+findSegmentSources(const Workspace& workspace, std::string_view name);
 
 /// The folder of the object called `name`, if the checkout has one.
 [[nodiscard]] std::optional<AssetDirectory> findObjectDirectory(const Assets& assets,

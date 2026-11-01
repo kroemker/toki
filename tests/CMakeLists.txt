@@ -170,6 +170,7 @@ catch_discover_tests(toki_tests)
 add_executable(toki_gpu_tests
         gpu/ActorRenderTest.cpp
         gpu/BlendSetupTest.cpp
+        gpu/MessageRenderTest.cpp
         gpu/RendererTest.cpp
         gpu/SceneRenderTest.cpp)
 target_include_directories(toki_gpu_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
