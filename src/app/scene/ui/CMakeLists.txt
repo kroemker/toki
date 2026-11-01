@@ -10,7 +10,6 @@ target_sources(toki PRIVATE
         MeshEditor.cpp
         PathForm.cpp
         PlacementEditor.cpp
-        PropertiesPanel.cpp
         SaveSceneDialog.cpp
         SceneOutliner.cpp
         WaterBoxForm.cpp

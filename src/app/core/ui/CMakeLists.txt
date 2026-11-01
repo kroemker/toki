@@ -11,6 +11,7 @@ target_sources(toki PRIVATE
         PanelManager.cpp
         PathDialog.cpp
         Paths.cpp
+        PropertiesPanel.cpp
         PropertyTable.cpp
         SettingsWindow.cpp
         SetupWizard.cpp

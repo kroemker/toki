@@ -24,6 +24,7 @@
 #include "app/core/ui/MenuBar.h"
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/Paths.h"
+#include "app/core/ui/PropertiesPanel.h"
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
@@ -34,7 +35,6 @@
 #include "app/scene/domain/CollisionNames.h"
 #include "app/scene/domain/Scene.h"
 #include "app/scene/domain/SceneLoader.h"
-#include "app/scene/ui/PropertiesPanel.h"
 #include "app/scene/ui/ScenePanel.h"
 #include "app/texture/ui/TexturePanel.h"
 #include "app/tools/configure/ui/ConfigureDialog.h"
@@ -208,7 +208,10 @@ void App::registerPanels() {
     });
     panels.add(std::move(viewport));
     panels.add(std::move(sceneView));
-    panels.add(std::make_unique<scene::PropertiesPanel>(*scenePanel));
+    auto properties = std::make_unique<PropertiesPanel>();
+    propertiesPanel = properties.get();
+    propertiesPanel->addSource(*scenePanel);
+    panels.add(std::move(properties));
     panels.add(std::move(objectView));
     panels.add(std::move(textures));
     panels.add(std::move(actors));

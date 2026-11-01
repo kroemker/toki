@@ -5,6 +5,7 @@
 #include "app/actor/domain/DatabaseStore.h"
 #include "app/core/domain/Settings.h"
 #include "app/core/ui/Panel.h"
+#include "app/core/ui/PropertySource.h"
 #include "app/scene/Types.h"
 #include "app/scene/domain/ActorDescription.h"
 #include "app/scene/domain/CollisionNames.h"
@@ -28,7 +29,7 @@ namespace toki::scene {
 
 /// The open scene: which of its layers and light settings the viewport shows,
 /// which rooms, what is placed in them, and the scene flags its actors share.
-class ScenePanel : public core::Panel {
+class ScenePanel : public core::Panel, public core::PropertySource {
 public:
     ScenePanel(const workspace::WorkspaceService& workspaceService,
                viewport::ViewportPanel& viewportPanel, actor::DatabaseStore& databaseStore,
@@ -136,8 +137,10 @@ public:
 
     void draw() override;
 
+    [[nodiscard]] std::optional<u64> findSelectionKey() const override;
+
     /// Draws the properties of what is selected, for the Properties panel.
-    void drawProperties();
+    void drawProperties() override;
 
     /// Makes the edits picked this frame, wherever they were picked, and shows
     /// the scene again once a preview of a transform ended. Called every frame

@@ -13,6 +13,7 @@
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/PanelManager.h"
+#include "app/core/ui/PropertiesPanel.h"
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/SetupWizard.h"
 #include "app/core/ui/Window.h"
@@ -118,6 +119,7 @@ private:
     object::ObjectPanel* objectPanel = nullptr;
     texture::TexturePanel* texturePanel = nullptr;
     displayList::DisplayListPanel* displayListPanel = nullptr;
+    PropertiesPanel* propertiesPanel = nullptr;
 };
 
 } // namespace toki::core

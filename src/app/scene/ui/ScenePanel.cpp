@@ -516,6 +516,23 @@ void ScenePanel::update() {
     offerViewport();
 }
 
+std::optional<u64> ScenePanel::findSelectionKey() const {
+    if (!scene) {
+        return std::nullopt;
+    }
+    constexpr u64 Prime = 0x100'0000'01B3;
+    u64 key = 0xCBF2'9CE4'8422'2325;
+    const auto mix = [&key](const u64 value) { key = (key ^ value) * Prime; };
+    for (const SceneNode& node : placementEditor.getSelection().getNodes()) {
+        mix(makeNodeKey(node));
+    }
+    mix(meshEditor.hasPicked() ? 1 : 0);
+    const std::optional<MaterialRef>& material = meshEditor.findSelectedMaterial();
+    mix(material ? material->index() + 1 : 0);
+    mix(static_cast<u64>(viewportPanel.getSelectionMode()));
+    return key;
+}
+
 void ScenePanel::drawProperties() {
     if (!scene || scene->layers.empty()) {
         ImGui::TextColored(core::palette::TextMuted, "Open a scene in the Assets panel.");
