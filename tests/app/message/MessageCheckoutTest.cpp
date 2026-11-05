@@ -1,9 +1,11 @@
+#include "app/message/domain/EditableBox.h"
 #include "app/message/domain/Message.h"
 #include "app/message/domain/MessageCatalog.h"
 #include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageEncoder.h"
 #include "app/message/domain/MessageGeometry.h"
 #include "app/message/domain/MessageLayout.h"
+#include "app/message/domain/MessageMarkup.h"
 #include "app/message/domain/MessageReader.h"
 #include "app/message/domain/ShiftJis.h"
 #include "base/Diagnostic.h"
@@ -21,6 +23,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <variant>
@@ -211,6 +214,71 @@ TEST_CASE("every English message of a real checkout lays out from its own tables
         }
     }
     WARN(boxes << " boxes");
+    INFO(problems.substr(0, 2000));
+    CHECK(problems.empty());
+}
+
+TEST_CASE("every unit of every English box of a real checkout has a stop to put the caret at",
+          "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+
+    const toki::message::MessageGeometry geometry = toki::message::readMessageGeometry(*workspace);
+    const toki::message::MessageTable table = toki::message::readMessages(*workspace);
+    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
+        toki::message::readMessageFormat(*workspace);
+    REQUIRE(format.has_value());
+    const toki::message::MessageEncoder encoder = format->makeEncoder();
+    const bool isFontEnglish = toki::message::isFontMessageEnglish(workspace->getMacros());
+
+    usize units = 0;
+    std::string problems;
+    for (const toki::message::Message& message : table.messages) {
+        if (!toki::message::isInLanguage(message, toki::message::Language::English,
+                                         isFontEnglish) ||
+            message.macro == toki::message::MessageMacro::FontMessage) {
+            continue;
+        }
+        const std::expected<toki::message::LayoutRequest, std::string> request =
+            format->makeLayoutRequest(message);
+        REQUIRE(request.has_value());
+        const toki::message::MessageText& english =
+            message.texts[static_cast<usize>(toki::message::Language::English)];
+        const toki::message::EncodedText text = encoder.encode(english);
+        REQUIRE(text.sources.size() == text.bytes.size());
+        const toki::message::MessageLayout layout =
+            toki::message::layoutMessage(text.bytes, geometry, *request);
+        const std::vector<toki::message::TextPosition> sources =
+            toki::message::localizeSources(english, text.sources);
+        const std::vector<toki::message::BoxText> boxes = toki::message::splitBoxes(english);
+        for (usize box = 0; box < std::min(boxes.size(), layout.boxes.size()); ++box) {
+            const toki::message::EditableBox editable(boxes[box].pieces, &format->charmap);
+            std::vector<bool> isStopped(editable.getUnits().size() + 1, false);
+            for (const toki::message::LaidStop& stop : layout.boxes[box].stops) {
+                if (const std::optional<usize> unit = editable.findUnit(sources[stop.byte])) {
+                    isStopped[*unit] = true;
+                }
+            }
+            const auto lastStopped = std::ranges::find(std::views::reverse(isStopped), true);
+            const usize stoppedUntil =
+                static_cast<usize>(std::ranges::distance(lastStopped, isStopped.rend()));
+            units += editable.getUnits().size();
+            for (usize unit = 0; unit < stoppedUntil; ++unit) {
+                if (!isStopped[unit]) {
+                    problems += std::format("0x{:04X} box {} unit {}\n", message.id, box + 1, unit);
+                }
+            }
+            if (!isStopped.back() && stoppedUntil == isStopped.size()) {
+                problems += std::format("0x{:04X} box {}: no stop at its end\n", message.id, box);
+            }
+        }
+    }
+    WARN(units << " units");
     INFO(problems.substr(0, 2000));
     CHECK(problems.empty());
 }

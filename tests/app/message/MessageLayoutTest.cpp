@@ -201,6 +201,33 @@ TEST_CASE("the player's name is a sample, and a variable box is laid out below",
     CHECK_FALSE(box.characters[4].isSample);
 }
 
+TEST_CASE("every code and character has a stop where the pen stood, a sample one where it "
+          "starts",
+          "[message]") {
+    const MessageLayout layout =
+        layOut(Bytes().add("A").add(Color).add(0x41).add(Name).add(Newline).add("B").add(End));
+
+    REQUIRE(layout.boxes.size() == 1);
+    const toki::message::LaidBox& box = layout.boxes[0];
+    REQUIRE(box.stops.size() == 6);
+    CHECK(box.stops[0].byte == 0);
+    CHECK(box.stops[0].x == 65);
+    CHECK(box.stops[1].byte == 1);
+    CHECK(box.stops[1].x == 65 + 6);
+    CHECK(box.stops[1].color == toki::message::TextColor{255, 60, 60});
+    CHECK(box.stops[2].byte == 3);
+    CHECK(box.stops[2].x == 65 + 6);
+    CHECK(box.stops[3].byte == 4);
+    CHECK(box.stops[3].x == 65 + 6 + 4 * 6);
+    CHECK(box.stops[4].byte == 5);
+    CHECK(box.stops[4].x == 65);
+    CHECK(box.stops[4].y == box.stops[3].y + 12);
+    CHECK(box.stops[5].byte == 6);
+    CHECK(box.characters[1].byte == 3);
+    CHECK(box.characters[4].byte == 3);
+    CHECK(box.characters[5].byte == 5);
+}
+
 TEST_CASE("text after a fade is never drawn and the box shows no icon", "[message]") {
     const MessageLayout layout = layOut(Bytes().add("A").add(Fade).add(0x20).add("B").add(End));
 

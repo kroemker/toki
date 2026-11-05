@@ -4,6 +4,7 @@
 #include "app/core/ui/Panel.h"
 #include "app/core/ui/PropertySource.h"
 #include "app/message/Types.h"
+#include "app/message/domain/EditableBox.h"
 #include "app/message/domain/MessageLayout.h"
 #include "app/message/domain/MessageMarkup.h"
 #include "app/message/ui/BoxRenderer.h"
@@ -21,8 +22,10 @@ class Device;
 namespace toki::message {
 
 /// The message shown, every box of it in turn as the game draws it, each
-/// with how far its lines reach into the box. Its form in the Properties
-/// panel says what the message is and where it is written.
+/// with how far its lines reach into the box. A box is typed in where it is
+/// drawn, with a caret where the game's pen stands, or edited as markup under
+/// it. Its form in the Properties panel says what the message is and where it
+/// is written.
 class MessagePanel : public core::Panel, public core::PropertySource {
 public:
     MessagePanel(const gfx::Device& device, const core::Fonts& fonts, MessageFocus& focus,
@@ -55,8 +58,11 @@ private:
     void drawEditState();
     void drawBox(usize index, const LaidBox* box);
     void drawEditor(usize index);
+    void drawSigns(usize index);
+    void editInBox(usize index, const LaidBox& box, const BoxImage& image);
     [[nodiscard]] const MessageLayout& updateLayout(const Message& message);
     void updateEditor(const Message& message);
+    void applyEditable(usize index);
     void applyBoxes();
 
     const core::Fonts& fonts;
@@ -65,10 +71,14 @@ private:
     BoxRenderer boxRenderer;
     std::optional<ShownKey> layoutKey;
     MessageLayout layout;
+    std::vector<TextPosition> boxSources;
     std::optional<ShownKey> editorKey;
     std::vector<BoxText> boxes;
     std::vector<std::string> markups;
     std::vector<std::optional<MarkupError>> markupErrors;
+    std::vector<EditableBox> editables;
+    std::optional<usize> typedBox;
+    bool isDragging = false;
 };
 
 } // namespace toki::message

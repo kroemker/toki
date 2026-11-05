@@ -104,20 +104,22 @@ void appendCode(std::vector<u8>& bytes, const u16 code) {
 
 EncodedText MessageEncoder::encode(const MessageText& text) const {
     EncodedText encoded;
-    for (const Piece& piece : text.pieces) {
+    for (usize index = 0; index < text.pieces.size(); ++index) {
+        const Piece& piece = text.pieces[index];
         if (const auto* run = std::get_if<TextPiece>(&piece)) {
-            encodeText(run->text, encoded);
+            encodeText(run->text, index, encoded);
         } else if (std::holds_alternative<NewlinePiece>(piece)) {
-            encodeText("\n", encoded);
+            encodeText("\n", index, encoded);
         } else {
-            encodeCode(std::get<CodePiece>(piece), encoded);
+            encodeCode(std::get<CodePiece>(piece), index, encoded);
         }
     }
-    encodeCode(CodePiece{.name = "END"}, encoded);
+    encodeCode(CodePiece{.name = "END"}, text.pieces.size(), encoded);
     return encoded;
 }
 
-void MessageEncoder::encodeText(const std::string_view text, EncodedText& encoded) const {
+void MessageEncoder::encodeText(const std::string_view text, const usize piece,
+                                EncodedText& encoded) const {
     usize offset = 0;
     while (offset < text.size()) {
         if (const CharmapEntry* entry = charmap.findMatch(text, offset)) {
@@ -126,6 +128,8 @@ void MessageEncoder::encodeText(const std::string_view text, EncodedText& encode
             } else {
                 appendCode(encoded.bytes, entry->code);
             }
+            encoded.sources.resize(encoded.bytes.size(),
+                                   TextPosition{.piece = piece, .offset = offset});
             offset += entry->text.size();
         } else if (shiftJis != nullptr) {
             const DecodedCharacter character = decodeCharacter(text, offset);
@@ -136,15 +140,20 @@ void MessageEncoder::encodeText(const std::string_view text, EncodedText& encode
                     base::makeWarning({}, std::format("`{}` has no Shift-JIS code",
                                                       text.substr(offset, character.size))));
             }
+            encoded.sources.resize(encoded.bytes.size(),
+                                   TextPosition{.piece = piece, .offset = offset});
             offset += character.size;
         } else {
             encoded.bytes.push_back(static_cast<u8>(text[offset]));
+            encoded.sources.resize(encoded.bytes.size(),
+                                   TextPosition{.piece = piece, .offset = offset});
             ++offset;
         }
     }
 }
 
-void MessageEncoder::encodeCode(const CodePiece& code, EncodedText& encoded) const {
+void MessageEncoder::encodeCode(const CodePiece& code, const usize piece,
+                                EncodedText& encoded) const {
     const cparser::Macro* macro = macros.find(code.name);
     if (macro == nullptr) {
         encoded.diagnostics.push_back(base::makeWarning(
@@ -189,6 +198,7 @@ void MessageEncoder::encodeCode(const CodePiece& code, EncodedText& encoded) con
         }
         encoded.bytes.push_back(static_cast<u8>(cparser::getInteger(*value)));
     }
+    encoded.sources.resize(encoded.bytes.size(), TextPosition{.piece = piece});
     for (base::Diagnostic& diagnostic : diagnostics) {
         diagnostic.location = code.location;
         diagnostic.message = std::format("{}: {}", makeCall(code), diagnostic.message);

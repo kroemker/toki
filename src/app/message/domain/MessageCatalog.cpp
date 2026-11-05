@@ -2,6 +2,8 @@
 
 #include "app/message/domain/MessageReader.h"
 #include "app/message/domain/ShiftJis.h"
+#include "cparser/TypeTable.h"
+#include "hackeroot/Prelude.h"
 #include "hackeroot/Workspace.h"
 
 #include <algorithm>
@@ -10,6 +12,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace toki::message {
@@ -40,7 +43,13 @@ MessageLayout MessageCatalog::layOut(const Message& message, const Language lang
                                ? layoutWideMessage(text.bytes, geometry, *request)
                                : layoutMessage(text.bytes, geometry, *request);
     std::ranges::move(text.diagnostics, std::back_inserter(layout.diagnostics));
+    layout.sources = std::move(text.sources);
     return layout;
+}
+
+const Charmap* MessageCatalog::findCharmap(const Language language) const {
+    const std::optional<MessageFormat>& used = language == Language::Japanese ? wideFormat : format;
+    return used ? &used->charmap : nullptr;
 }
 
 MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspace>& workspace,
@@ -57,6 +66,15 @@ MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspa
     std::expected<MessageFormat, base::Diagnostic> format = readMessageFormat(*workspace);
     if (format) {
         catalog.format = std::move(*format);
+        constexpr std::string_view ColorPrefix = "TEXT_COLOR_";
+        if (const cparser::Enumeration* colors =
+                catalog.format->prelude->types.findEnumeration("TextColor")) {
+            for (const cparser::Enumerator& color : colors->constants) {
+                if (color.name.starts_with(ColorPrefix)) {
+                    catalog.colors.push_back(color.name.substr(ColorPrefix.size()));
+                }
+            }
+        }
     } else {
         catalog.diagnostics.push_back(std::move(format.error()));
     }

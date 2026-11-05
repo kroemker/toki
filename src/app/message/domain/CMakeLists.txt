@@ -1,5 +1,6 @@
 target_sources(toki_core PRIVATE
         Charmap.cpp
+        EditableBox.cpp
         Message.cpp
         MessageCatalog.cpp
         MessageDraft.cpp

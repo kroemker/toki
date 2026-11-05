@@ -28,6 +28,8 @@ namespace toki::message {
 
 struct EncodedText {
     std::vector<u8> bytes;
+    /// Where in the text each byte was encoded from, byte by byte.
+    std::vector<TextPosition> sources;
     std::vector<base::Diagnostic> diagnostics;
 };
 
@@ -49,8 +51,8 @@ public:
     [[nodiscard]] EncodedText encode(const MessageText& text) const;
 
 private:
-    void encodeText(std::string_view text, EncodedText& encoded) const;
-    void encodeCode(const CodePiece& code, EncodedText& encoded) const;
+    void encodeText(std::string_view text, usize piece, EncodedText& encoded) const;
+    void encodeCode(const CodePiece& code, usize piece, EncodedText& encoded) const;
 
     const cparser::MacroTable& macros;
     const cparser::TypeTable& types;

@@ -316,6 +316,7 @@ struct Decoded {
     u16 character = 0;
     std::array<u8, 3> arguments{};
     bool isSample = false;
+    usize byte = 0;
 };
 
 struct DecodedBox {
@@ -339,7 +340,7 @@ private:
     [[nodiscard]] DecodedBox decodeWide(usize begin) const;
     void count(const Decoded& entry, DecodedBox& decoded) const;
     void draw(const DecodedBox& decoded, LaidBox& box);
-    void drawCharacter(u16 character, bool isSample, LaidBox& box);
+    void drawCharacter(const Decoded& entry, LaidBox& box);
     void finish(const Decoded& closing, EndType endType, LaidBox& box) const;
     [[nodiscard]] u8 readByte(usize at) const;
     [[nodiscard]] u16 readWord(usize at) const;
@@ -394,7 +395,7 @@ DecodedBox BoxLayouter::decode(const usize begin) const {
     DecodedBox decoded;
     usize at = begin;
     for (;;) {
-        Decoded entry{.code = readByte(at)};
+        Decoded entry{.code = readByte(at), .byte = at};
         const usize argumentCount = getArgumentCount(entry.code);
         for (usize index = 0; index < argumentCount; ++index) {
             entry.arguments[index] = readByte(at + 1 + index);
@@ -406,11 +407,14 @@ DecodedBox BoxLayouter::decode(const usize begin) const {
         }
         if (const std::optional<std::string_view> sample = findSample(entry.code)) {
             for (const char character : *sample) {
-                decoded.entries.push_back(Decoded{
-                    .code = Character, .character = static_cast<u8>(character), .isSample = true});
+                decoded.entries.push_back(Decoded{.code = Character,
+                                                  .character = static_cast<u8>(character),
+                                                  .isSample = true,
+                                                  .byte = at});
             }
         } else if (entry.code > Space) {
-            decoded.entries.push_back(Decoded{.code = Character, .character = entry.code});
+            decoded.entries.push_back(
+                Decoded{.code = Character, .character = entry.code, .byte = at});
         } else {
             count(entry, decoded);
             decoded.entries.push_back(entry);
@@ -426,11 +430,11 @@ DecodedBox BoxLayouter::decodeWide(const usize begin) const {
         const u16 word = readWord(at);
         const auto found = std::ranges::find(WideCodes, word, &WideCode::wide);
         if (found == WideCodes.end()) {
-            decoded.entries.push_back(Decoded{.code = Character, .character = word});
+            decoded.entries.push_back(Decoded{.code = Character, .character = word, .byte = at});
             at += 2;
             continue;
         }
-        Decoded entry{.code = found->code};
+        Decoded entry{.code = found->code, .byte = at};
         const u16 first = readWord(at + 2);
         if (found->wordCount == 2) {
             const u16 second = readWord(at + 4);
@@ -450,8 +454,8 @@ DecodedBox BoxLayouter::decodeWide(const usize begin) const {
         const std::span<const u16> sample = findWideSample(entry.code);
         if (!sample.empty()) {
             for (const u16 character : sample) {
-                decoded.entries.push_back(
-                    Decoded{.code = Character, .character = character, .isSample = true});
+                decoded.entries.push_back(Decoded{
+                    .code = Character, .character = character, .isSample = true, .byte = at});
             }
         } else {
             count(entry, decoded);
@@ -498,9 +502,12 @@ void BoxLayouter::draw(const DecodedBox& decoded, LaidBox& box) {
     EndType endType = EndType::Default;
 
     for (const Decoded& entry : decoded.entries) {
+        if (box.stops.empty() || box.stops.back().byte != entry.byte) {
+            box.stops.push_back(LaidStop{.byte = entry.byte, .x = x, .y = y, .color = color});
+        }
         switch (entry.code) {
         case Character:
-            drawCharacter(entry.character, entry.isSample, box);
+            drawCharacter(entry, box);
             break;
         case Newline:
             x = startX;
@@ -514,6 +521,7 @@ void BoxLayouter::draw(const DecodedBox& decoded, LaidBox& box) {
             break;
         case Color:
             color = findTextColor(box.boxType, entry.arguments[0] & 0xF);
+            box.stops.back().color = color;
             break;
         case Space:
             x += SpaceWidth;
@@ -587,8 +595,9 @@ void BoxLayouter::draw(const DecodedBox& decoded, LaidBox& box) {
     }
 }
 
-void BoxLayouter::drawCharacter(const u16 character, const bool isSample, LaidBox& box) {
+void BoxLayouter::drawCharacter(const Decoded& entry, LaidBox& box) {
     constexpr u32 GlyphSize = 128;
+    const u16 character = entry.character;
     if (script.isWide) {
         const std::optional<u32> offset = findKanjiOffset(character, geometry);
         if (!offset) {
@@ -601,7 +610,8 @@ void BoxLayouter::drawCharacter(const u16 character, const bool isSample, LaidBo
                                                .x = x,
                                                .y = y,
                                                .color = color,
-                                               .isSample = isSample});
+                                               .isSample = entry.isSample,
+                                               .byte = entry.byte});
         x += findWideAdvance(character);
         box.lines.back().endX = x;
         return;
@@ -616,7 +626,8 @@ void BoxLayouter::drawCharacter(const u16 character, const bool isSample, LaidBo
                                            .x = x,
                                            .y = y,
                                            .color = color,
-                                           .isSample = isSample});
+                                           .isSample = entry.isSample,
+                                           .byte = entry.byte});
     x += static_cast<s32>(geometry.fontWidths[index] * CharacterScale);
     box.lines.back().endX = x;
 }
@@ -680,6 +691,14 @@ void BoxLayouter::finish(const Decoded& closing, const EndType endType, LaidBox&
 
 s32 findLineStart(const LaidBox& box) {
     return box.isWide ? WideTextStartX : TextStartX;
+}
+
+s32 findLineSpacing(const LaidBox& box) {
+    return box.isWide ? WideScript.lineSpacing : NarrowScript.lineSpacing;
+}
+
+s32 findCharacterHeight(const LaidBox& box) {
+    return box.isWide ? WideAdvance : NarrowScript.lineSpacing;
 }
 
 s32 findLineLimit(const LaidBox& box) {

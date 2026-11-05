@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 namespace toki::message {
 
@@ -205,6 +206,20 @@ std::optional<u16> Charmap::findCode(const std::string_view text) const {
         }
     }
     return std::nullopt;
+}
+
+std::vector<const CharmapEntry*> Charmap::listSigns() const {
+    constexpr unsigned char FirstPastLatin = 0xE2;
+    std::vector<const CharmapEntry*> signs;
+    for (const CharmapEntry& entry : entries) {
+        const bool isButton = entry.text.size() > 2 && entry.text.front() == '[';
+        const bool isPastLatin =
+            !entry.text.empty() && static_cast<unsigned char>(entry.text.front()) >= FirstPastLatin;
+        if (isButton || isPastLatin) {
+            signs.push_back(&entry);
+        }
+    }
+    return signs;
 }
 
 std::expected<Charmap, std::string> parseCharmap(const std::string_view contents) {

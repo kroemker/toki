@@ -27,6 +27,10 @@ struct Charmap {
     [[nodiscard]] const CharmapEntry* findMatch(std::string_view text, usize offset) const;
 
     [[nodiscard]] std::optional<u16> findCode(std::string_view text) const;
+
+    /// The entries that stand for a sign rather than a letter: a button,
+    /// `[A]`, or a character past the Latin ones, `▼`.
+    [[nodiscard]] std::vector<const CharmapEntry*> listSigns() const;
 };
 
 /// Reads a charmap file, a Python dictionary of strings to integers with `#`

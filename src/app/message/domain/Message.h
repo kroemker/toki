@@ -41,6 +41,15 @@ struct CodePiece {
 
 using Piece = std::variant<TextPiece, NewlinePiece, CodePiece>;
 
+/// A place in a message's text: a piece, and in a text piece the byte its
+/// character starts at. The piece after the last is the `END` closing it.
+struct TextPosition {
+    usize piece = 0;
+    usize offset = 0;
+
+    friend bool operator==(const TextPosition&, const TextPosition&) = default;
+};
+
 /// One language's `MSG(...)`. A language the message has no text in is written
 /// `MSG(/* MISSING */)`; `placeholder` keeps that comment's word.
 struct MessageText {

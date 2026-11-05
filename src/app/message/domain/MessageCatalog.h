@@ -41,6 +41,9 @@ struct MessageCatalog {
     /// The languages of `ShownLanguages` some message has text in: an NTSC
     /// checkout has no German or French, a PAL one no Japanese.
     std::vector<Language> languages;
+    /// The colors `COLOR` takes, as `TextColor` of `message_data_fmt.h` names
+    /// them without its prefix: `RED`.
+    std::vector<std::string> colors;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
 
@@ -50,6 +53,9 @@ struct MessageCatalog {
     /// `message` in `language` laid out box by box; a message whose box the
     /// format cannot name is a layout with a diagnostic saying so.
     [[nodiscard]] MessageLayout layOut(const Message& message, Language language) const;
+
+    /// The charmap `language` is encoded with, if it was read.
+    [[nodiscard]] const Charmap* findCharmap(Language language) const;
 };
 
 /// Reads the catalog of `workspace`, Japanese encoded with the Shift-JIS table

@@ -115,7 +115,39 @@ read off the UI thread and again when one of the files it was read from changes.
 
 ## Editing
 
-Each box is edited as markup (`MessageMarkup`): text as it reads, a new line as a new line,
+A box is typed in where it is drawn. A click puts a caret where the game's pen stood, and
+from there it is a text field: arrows, Home and End, Shift to select, a drag, Backspace,
+Delete, Enter for a new line, and Ctrl+A, C, X and V. The window is told it takes text, so an
+input method for Japanese composes at the caret. Escape, or a click beside the boxes, ends
+typing.
+
+The caret is placed from three records that line up byte for byte:
+
+- the encoder records where in the text each byte was encoded from (`TextPosition`: a piece,
+  and in a text piece the byte its character starts at), the closing `END` past the last
+  piece;
+- the layout records a stop (`LaidStop`) for each code and character it reaches: the byte, and
+  where the pen stood before it, so a code that draws nothing has one too, and a sample such
+  as `{Name}` one where it starts;
+- the box is a list of units (`EditableBox`): a character as the charmap reads it, so `[A]`
+  is one, a new line, or a code. `localizeSources` turns positions in the message into
+  positions in its box.
+
+A unit's caret place is its stop; one the game drew nothing for stands where the next does
+(`findCaretPlaces`). Every unit of every English box of a vanilla checkout has a stop.
+
+A key changes the units, and the box makes its pieces again and reads them back, so a sign
+typed key by key, `[`, `A`, `]`, becomes one unit when complete. The pieces go into the draft
+as a markup edit does, and the box is laid out and drawn again from there.
+
+A code that draws nothing, a color or a pause, is marked over the image where it stands, a
+color in its own color; hovering one names it in markup, and a click selects it, so Delete
+removes it. Under the box being typed in, a row of buttons puts in the charmap's signs (the
+buttons and what lies past the Latin letters, as the charmap lists them), a color (as
+`TextColor` lists them), or a code without arguments. A code with arguments is written as
+markup.
+
+Under each box its markup can be edited too (`MessageMarkup`): text as it reads, a new line as a new line,
 and each control code in braces, named in words. A color is its name (`{Red}`), an item icon
 its item (`{Icon Pocket Egg}`), the player's name `{Name}`, any other code its name and
 arguments (`{Shift 4}`, `{Box Break Delayed 20}`), a brace doubled. `{Box Break}` typed into

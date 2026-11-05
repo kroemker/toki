@@ -22,6 +22,12 @@ struct BoxText {
 /// The text split box by box at its box breaks.
 [[nodiscard]] std::vector<BoxText> splitBoxes(const MessageText& text);
 
+/// `sources`, places in all of `text`, as places in the pieces of the box each
+/// falls in, as `splitBoxes` splits it. A box's break, and the `END` after the
+/// last box, fall one past the box's last piece.
+[[nodiscard]] std::vector<TextPosition> localizeSources(const MessageText& text,
+                                                        std::span<const TextPosition> sources);
+
 /// The pieces of `boxes` in order, each box's break after it.
 [[nodiscard]] std::vector<Piece> joinBoxes(std::span<const BoxText> boxes);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/message/Types.h"
+#include "app/message/domain/Message.h"
 #include "app/message/domain/MessageGeometry.h"
 #include "base/Diagnostic.h"
 
@@ -33,6 +34,18 @@ struct LaidCharacter {
     s32 y = 0;
     TextColor color;
     bool isSample = false;
+    /// The first byte of the code or character it was laid out from.
+    usize byte = 0;
+};
+
+/// Where the game's pen stood when it reached a code or character of the box,
+/// before it drew it or did what it says, and the color it writes in after.
+/// A code that draws nothing, a color or a pause, has its stop all the same.
+struct LaidStop {
+    usize byte = 0;
+    s32 x = 0;
+    s32 y = 0;
+    TextColor color;
 };
 
 /// `ITEM_ICON`: an item's icon, 32 pixels square, or a quest item's, 24.
@@ -102,6 +115,9 @@ struct LaidBox {
     bool isPositionVariable = false;
 
     std::vector<LaidCharacter> characters;
+    /// One stop for each code and character of the box in order, its closing
+    /// code last; a sample has one, where it starts.
+    std::vector<LaidStop> stops;
     std::vector<LaidLine> lines;
     std::optional<LaidIcon> icon;
     std::optional<LaidBackground> background;
@@ -123,8 +139,17 @@ struct LaidBox {
 /// Where the lines of `box` start before an indent.
 [[nodiscard]] s32 findLineStart(const LaidBox& box);
 
+/// How far one line of `box` stands below the one before.
+[[nodiscard]] s32 findLineSpacing(const LaidBox& box);
+
+/// How tall a character of `box` is drawn.
+[[nodiscard]] s32 findCharacterHeight(const LaidBox& box);
+
 struct MessageLayout {
     std::vector<LaidBox> boxes;
+    /// Where in the text each byte laid out was encoded from, when the layout
+    /// was made from a text rather than from bytes alone.
+    std::vector<TextPosition> sources;
     std::vector<base::Diagnostic> diagnostics;
 };
 

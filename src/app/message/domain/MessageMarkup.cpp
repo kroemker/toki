@@ -217,6 +217,30 @@ std::vector<BoxText> splitBoxes(const MessageText& text) {
     return boxes;
 }
 
+std::vector<TextPosition> localizeSources(const MessageText& text,
+                                          const std::span<const TextPosition> sources) {
+    std::vector<usize> local;
+    local.reserve(text.pieces.size() + 1);
+    usize inBox = 0;
+    for (const Piece& piece : text.pieces) {
+        const auto* code = std::get_if<CodePiece>(&piece);
+        if (code != nullptr && isBoxBreak(*code)) {
+            local.push_back(inBox);
+            inBox = 0;
+            continue;
+        }
+        local.push_back(inBox++);
+    }
+    local.push_back(inBox);
+    std::vector<TextPosition> localized;
+    localized.reserve(sources.size());
+    for (const TextPosition& source : sources) {
+        const usize piece = std::min(source.piece, local.size() - 1);
+        localized.push_back(TextPosition{.piece = local[piece], .offset = source.offset});
+    }
+    return localized;
+}
+
 std::vector<Piece> joinBoxes(const std::span<const BoxText> boxes) {
     std::vector<Piece> pieces;
     for (const BoxText& box : boxes) {
