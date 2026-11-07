@@ -165,12 +165,16 @@ std::vector<std::string> AssetTabHost::listEditedTitles() const {
 bool AssetTabHost::isHoveringTab() {
     const ImGuiContext& context = *ImGui::GetCurrentContext();
     const ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (context.HoveredWindow == nullptr ||
+        context.HoveredWindow->RootWindowDockTree != window->RootWindowDockTree) {
+        return false;
+    }
     if (!window->DockIsActive) {
         const ImRect title = window->TitleBarRect();
-        return context.HoveredWindow == window && ImGui::IsMouseHoveringRect(title.Min, title.Max);
+        return ImGui::IsMouseHoveringRect(title.Min, title.Max, false);
     }
     ImGuiTabBar* tabBar = window->DockNode->TabBar;
-    if (tabBar == nullptr || context.HoveredWindow != window->DockNode->HostWindow) {
+    if (tabBar == nullptr) {
         return false;
     }
     const ImGuiTabItem* tabItem = ImGui::TabBarFindTabByID(tabBar, window->TabId);
@@ -179,7 +183,7 @@ bool AssetTabHost::isHoveringTab() {
     }
     const f32 left = tabBar->BarRect.Min.x + tabItem->Offset - tabBar->ScrollingAnim;
     return ImGui::IsMouseHoveringRect(ImVec2(left, tabBar->BarRect.Min.y),
-                                      ImVec2(left + tabItem->Width, tabBar->BarRect.Max.y));
+                                      ImVec2(left + tabItem->Width, tabBar->BarRect.Max.y), false);
 }
 
 void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode) {
