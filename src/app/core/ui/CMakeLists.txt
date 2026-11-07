@@ -1,6 +1,6 @@
 target_sources(toki PRIVATE
         App.cpp
-        AssetTabPanel.cpp
+        AssetTabHost.cpp
         ConstantSelectable.cpp
         Dialog.cpp
         Fonts.cpp

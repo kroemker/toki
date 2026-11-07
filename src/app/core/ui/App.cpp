@@ -74,6 +74,7 @@ namespace {
 constexpr const char* WindowTitle = "Toki";
 constexpr const char* SettingsFile = "config.toml";
 constexpr const char* ImGuiIniFile = "imgui.ini";
+constexpr const char* AssetTabFocusId = "assetTabs";
 
 [[nodiscard]] bool isFile(const std::filesystem::path& path) {
     std::error_code status;
@@ -230,12 +231,7 @@ void App::registerPanels() {
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     browserBoxes = std::make_unique<message::BoxRenderer>(*device);
     signGlyphs = std::make_unique<message::SignGlyphs>(*device);
-    auto messages = std::make_unique<AssetTabPanel>(
-        "message", "Message", icons::Chat, DockSlot::Centre,
-        "Pick a message in the Assets panel's Messages tab.", unsavedEditsDialog);
-    messageTabs = messages.get();
-    propertiesPanel->addSource(*messageTabs);
-    panels.add(std::move(messages));
+    propertiesPanel->addSource(assetTabHost);
     messageBrowser = std::make_unique<message::MessageBrowser>(
         messageFocus, *browserBoxes,
         [this](const usize index, const bool isPinned) { openMessage(index, isPinned); });
@@ -311,11 +307,11 @@ void App::run() {
 
 void App::openMessage(const usize index, const bool isPinned) {
     const message::MessageTable& table = messageFocus.draft.getTable();
-    if (messageTabs == nullptr || index >= table.messages.size()) {
+    if (index >= table.messages.size()) {
         return;
     }
     const message::MessageKey key = message::makeMessageKey(table, index);
-    messageTabs->open(message::formatMessageKey(key),
+    assetTabHost.open(message::formatMessageKey(key),
                       isPinned ? TabOpening::Pinned : TabOpening::Preview, [this, key] {
                           return std::make_unique<message::MessageTab>(
                               *device, fonts, messageFocus, *signGlyphs, key,
@@ -334,8 +330,7 @@ bool App::isSceneEdited() const {
 }
 
 std::vector<std::string> App::listUnsaved() const {
-    std::vector<std::string> titles =
-        messageTabs != nullptr ? messageTabs->listEditedTitles() : std::vector<std::string>();
+    std::vector<std::string> titles = assetTabHost.listEditedTitles();
     if (isSceneEdited()) {
         if (const scene::Scene* scene = scenePanel->findScene()) {
             titles.push_back(std::format("Scene {}", scene->name));
@@ -354,11 +349,7 @@ void App::saveEverything(std::function<void(bool)> saved) {
             saved(isAllWritten);
         }
     };
-    if (messageTabs != nullptr) {
-        messageTabs->saveAll(saveScene);
-    } else {
-        saveScene(true);
-    }
+    assetTabHost.saveAll(saveScene);
 }
 
 void App::askBeforeLosingEdits(const std::string& doing, std::function<void()> proceed) {
@@ -396,13 +387,13 @@ void App::closeWindowWhenAsked() {
 }
 
 bool App::isTabFocused(const scene::Scene* openScene) const {
-    return messageTabs != nullptr && messageTabs->findActive() != nullptr &&
-           (panels.getLastFocusedId() == messageTabs->getId() || openScene == nullptr);
+    return assetTabHost.findActive() != nullptr &&
+           (panels.getLastFocusedId() == AssetTabFocusId || openScene == nullptr);
 }
 
 std::string App::makeSaveLabel(const scene::Scene* openScene) const {
     if (isTabFocused(openScene)) {
-        return std::format("Save {}", messageTabs->findActive()->getTitle());
+        return std::format("Save {}", assetTabHost.findActive()->getTitle());
     }
     return openScene != nullptr ? std::string("Save Scene…") : std::string();
 }
@@ -411,7 +402,7 @@ void App::handleSaves(const MenuActions& actions, const scene::Scene* openScene)
     const bool savesTab = isTabFocused(openScene);
     if (actions.save || isActionPressed(Action::Save)) {
         if (savesTab) {
-            messageTabs->saveActive();
+            assetTabHost.saveActive();
         } else if (openScene != nullptr && !saveSceneDialog.isSaving()) {
             saveSceneDialog.open(*openScene, scenePanel->findEditedModel(),
                                  settings.reviewsSceneSaves);
@@ -421,7 +412,7 @@ void App::handleSaves(const MenuActions& actions, const scene::Scene* openScene)
         saveEverything(nullptr);
     }
     if ((actions.closeTab || isActionPressed(Action::CloseTab)) && savesTab) {
-        messageTabs->closeActive();
+        assetTabHost.closeActive();
     }
 }
 
@@ -453,14 +444,14 @@ void App::drawFrame() {
         scenePanel->setSaving(saveSceneDialog.isSaving());
     }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
-    const MenuActions actions = drawMenuBar(
-        panels, dialogs, settings,
-        MenuState{.buildRunning = buildRunner.isRunning(),
-                  .saveLabel = makeSaveLabel(openScene),
-                  .canSaveAll = !listUnsaved().empty(),
-                  .canCloseTab = messageTabs != nullptr && messageTabs->findActive() != nullptr,
-                  .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
-                  .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
+    const MenuActions actions =
+        drawMenuBar(panels, dialogs, settings,
+                    MenuState{.buildRunning = buildRunner.isRunning(),
+                              .saveLabel = makeSaveLabel(openScene),
+                              .canSaveAll = !listUnsaved().empty(),
+                              .canCloseTab = assetTabHost.findActive() != nullptr,
+                              .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
+                              .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
     if (scenePanel != nullptr && (actions.undo || isActionPressed(Action::Undo))) {
         scenePanel->undo();
     }
@@ -468,6 +459,10 @@ void App::drawFrame() {
         scenePanel->redo();
     }
     panels.draw();
+    assetTabHost.draw(panels.findCentralNodeId());
+    if (assetTabHost.isFocused()) {
+        panels.setLastFocusedId(AssetTabFocusId);
+    }
     if (scenePanel != nullptr) {
         scenePanel->update();
     }
@@ -639,9 +634,7 @@ void App::updateMessages() {
             workspace ? workspace->getRoot() : std::filesystem::path();
         if (root != messageRoot) {
             messageRoot = root;
-            if (messageTabs != nullptr) {
-                messageTabs->closeAllUnasked();
-            }
+            assetTabHost.closeAllUnasked();
             const f32 zoom = messageFocus.zoom;
             messageFocus = {};
             messageFocus.zoom = zoom;

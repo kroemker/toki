@@ -10,7 +10,7 @@
 #include "app/build/domain/BuildTarget.h"
 #include "app/core/domain/BuildChoices.h"
 #include "app/core/domain/Settings.h"
-#include "app/core/ui/AssetTabPanel.h"
+#include "app/core/ui/AssetTabHost.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
 #include "app/core/ui/MenuBar.h"
@@ -160,7 +160,7 @@ private:
     std::unique_ptr<message::MessageBrowser> messageBrowser;
     std::unique_ptr<message::SignGlyphs> signGlyphs;
     UnsavedEditsDialog unsavedEditsDialog;
-    AssetTabPanel* messageTabs = nullptr;
+    AssetTabHost assetTabHost{"No asset is open in a tab.", unsavedEditsDialog};
     /// What waits for the saves asked for before it: quitting, or opening
     /// another checkout.
     std::function<void()> pendingAfterSave;

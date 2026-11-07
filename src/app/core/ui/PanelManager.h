@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace toki::core {
@@ -44,14 +45,24 @@ public:
         return lastFocusedId;
     }
 
+    /// Records a window that is not a panel, an asset tab's, as focused last.
+    void setLastFocusedId(std::string id) {
+        lastFocusedId = std::move(id);
+    }
+
+    /// The dock node in the middle of the panels, where the viewport is by
+    /// default; valid once `draw` ran.
+    [[nodiscard]] ImGuiID findCentralNodeId() const;
+
 private:
-    void buildDefaultLayout(ImGuiID dockspaceId) const;
+    void buildDefaultLayout() const;
     [[nodiscard]] bool hasUnplacedPanel() const;
 
     std::vector<std::unique_ptr<Panel>> panels;
     bool rebuildLayout = false;
     bool checkedSavedLayout = false;
     std::string lastFocusedId;
+    ImGuiID dockspaceId = 0;
 };
 
 } // namespace toki::core

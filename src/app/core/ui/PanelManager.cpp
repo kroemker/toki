@@ -72,7 +72,7 @@ void PanelManager::openDefaults() {
 }
 
 void PanelManager::draw() {
-    const ImGuiID dockspaceId =
+    dockspaceId =
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_None);
 
     if (!checkedSavedLayout) {
@@ -80,7 +80,7 @@ void PanelManager::draw() {
         rebuildLayout = rebuildLayout || hasUnplacedPanel();
     }
     if (rebuildLayout) {
-        buildDefaultLayout(dockspaceId);
+        buildDefaultLayout();
         rebuildLayout = false;
     }
 
@@ -101,13 +101,18 @@ void PanelManager::draw() {
     }
 }
 
+ImGuiID PanelManager::findCentralNodeId() const {
+    const ImGuiDockNode* central = ImGui::DockBuilderGetCentralNode(dockspaceId);
+    return central != nullptr ? central->ID : dockspaceId;
+}
+
 bool PanelManager::hasUnplacedPanel() const {
     return std::ranges::any_of(panels, [](const std::unique_ptr<Panel>& panel) {
         return ImGui::FindWindowSettingsByID(ImHashStr(panel->getWindowTitle().c_str())) == nullptr;
     });
 }
 
-void PanelManager::buildDefaultLayout(ImGuiID dockspaceId) const {
+void PanelManager::buildDefaultLayout() const {
     const auto wants = [this](DockSlot slot) {
         return std::ranges::any_of(panels, [slot](const std::unique_ptr<Panel>& panel) {
             return panel->getDockSlot() == slot;

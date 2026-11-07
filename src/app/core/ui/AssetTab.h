@@ -8,7 +8,7 @@
 
 namespace toki::core {
 
-/// One asset open for editing in a tab of an `AssetTabPanel`: what it is
+/// One asset open for editing in a tab of an `AssetTabHost`: what it is
 /// called, whether it has edits no save wrote, and how it is saved, thrown
 /// back to what was read, and drawn. Every editor of an asset kind is one.
 class AssetTab {
