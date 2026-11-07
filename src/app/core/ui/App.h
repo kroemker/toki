@@ -82,8 +82,8 @@ private:
     void updateObject();
     void updateMessages();
     void openMessages(const std::shared_ptr<const hackeroot::Workspace>& workspace);
-    /// Opens the message at `index` in a tab, previewed unless `isPinned`.
-    void openMessage(usize index, bool isPinned);
+    /// Previews the message at `index` in a tab.
+    void openMessage(usize index);
     void saveMessages(std::vector<usize> messages, AssetTab::Saved saved);
     /// Saves, saves everything, or closes a tab, as the menu or a key asked.
     void handleSaves(const MenuActions& actions, const scene::Scene* openScene);

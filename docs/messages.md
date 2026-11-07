@@ -105,8 +105,8 @@ drawn without its text.
 The Assets panel's Messages tab lists the messages of the language picked, filtered by ID or
 text and by chips for box type, with the first box of the one selected drawn under the table.
 The languages offered are those the checkout has text in: English and Japanese on NTSC,
-English, German and French on PAL. A single click previews a message in a tab of the
-central dock node, the tab the next one previewed takes; a double click opens it in a tab of its own
+English, German and French on PAL. A click previews a message in a tab of the central dock
+node, the tab the next one previewed takes, until it is edited or its tab double-clicked
 ([asset-tabs.md](asset-tabs.md)). A tab draws every box of its message in turn with a meter
 for each line: how far it reaches towards the box's right margin, as far from its right edge
 as text starts from its left. The game stops nowhere; past the margin, text runs over the

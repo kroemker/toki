@@ -233,8 +233,7 @@ void App::registerPanels() {
     signGlyphs = std::make_unique<message::SignGlyphs>(*device);
     propertiesPanel->addSource(assetTabHost);
     messageBrowser = std::make_unique<message::MessageBrowser>(
-        messageFocus, *browserBoxes,
-        [this](const usize index, const bool isPinned) { openMessage(index, isPinned); });
+        messageFocus, *browserBoxes, [this](const usize index) { openMessage(index); });
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
         [this](const hackeroot::AssetDirectory& asset) {
@@ -305,20 +304,19 @@ void App::run() {
     saveState();
 }
 
-void App::openMessage(const usize index, const bool isPinned) {
+void App::openMessage(const usize index) {
     const message::MessageTable& table = messageFocus.draft.getTable();
     if (index >= table.messages.size()) {
         return;
     }
     const message::MessageKey key = message::makeMessageKey(table, index);
-    assetTabHost.open(message::formatMessageKey(key),
-                      isPinned ? TabOpening::Pinned : TabOpening::Preview, [this, key] {
-                          return std::make_unique<message::MessageTab>(
-                              *device, fonts, messageFocus, *signGlyphs, key,
-                              [this](std::vector<usize> messages, AssetTab::Saved saved) {
-                                  saveMessages(std::move(messages), std::move(saved));
-                              });
-                      });
+    assetTabHost.open(message::formatMessageKey(key), TabOpening::Preview, [this, key] {
+        return std::make_unique<message::MessageTab>(
+            *device, fonts, messageFocus, *signGlyphs, key,
+            [this](std::vector<usize> messages, AssetTab::Saved saved) {
+                saveMessages(std::move(messages), std::move(saved));
+            });
+    });
 }
 
 void App::saveMessages(std::vector<usize> messages, AssetTab::Saved saved) {

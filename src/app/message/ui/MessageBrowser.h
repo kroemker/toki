@@ -15,12 +15,11 @@ namespace toki::message {
 
 /// The Assets panel's Messages tab: the checkout's messages in a table, the
 /// chips that filter it, and the first box of the one selected, drawn as the
-/// game draws it. A click on a row previews the message in the preview tab,
-/// and a double click opens it in a tab of its own.
+/// game draws it. A click on a row previews the message in the preview tab.
 class MessageBrowser {
 public:
-    /// Shows the message at an index, pinned when `isPinned`.
-    using ShowMessage = std::function<void(usize, bool isPinned)>;
+    /// Shows the message at an index.
+    using ShowMessage = std::function<void(usize)>;
 
     MessageBrowser(MessageFocus& focus, BoxRenderer& boxRenderer, ShowMessage showMessage);
 
@@ -60,9 +59,6 @@ private:
     std::vector<MessageRow> rows;
     std::optional<LayoutKey> layoutKey;
     MessageLayout layout;
-    /// The message of the row clicked last, so that a double click counts only
-    /// when both clicks were on the same row.
-    std::optional<usize> clickedRow;
 };
 
 } // namespace toki::message

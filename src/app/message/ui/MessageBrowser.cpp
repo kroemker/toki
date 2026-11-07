@@ -142,17 +142,8 @@ void MessageBrowser::drawRow(const MessageRow& row) {
                           ImGuiSelectableFlags_SpanAllColumns)) {
         focus.shown = row.index;
         if (showMessage) {
-            showMessage(row.index, false);
+            showMessage(row.index);
         }
-    }
-    const bool isDoubleClicked = ImGui::IsItemHovered() &&
-                                 ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
-                                 clickedRow == row.index;
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-        clickedRow = row.index;
-    }
-    if (isDoubleClicked && showMessage) {
-        showMessage(row.index, true);
     }
     ImGui::PopID();
     ImGui::TableNextColumn();
