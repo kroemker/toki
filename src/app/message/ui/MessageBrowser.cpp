@@ -145,8 +145,13 @@ void MessageBrowser::drawRow(const MessageRow& row) {
             showMessage(row.index, false);
         }
     }
-    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
-        showMessage) {
+    const bool isDoubleClicked = ImGui::IsItemHovered() &&
+                                 ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
+                                 clickedRow == row.index;
+    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+        clickedRow = row.index;
+    }
+    if (isDoubleClicked && showMessage) {
         showMessage(row.index, true);
     }
     ImGui::PopID();
