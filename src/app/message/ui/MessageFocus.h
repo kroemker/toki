@@ -9,7 +9,7 @@
 
 namespace toki::message {
 
-/// What the Assets panel's Messages tab and the Message panel's tabs share:
+/// What the Assets panel's Messages tab and the message tabs share:
 /// the catalog last read, the messages as edited, the language they are shown
 /// in, the message shown, by its index in the draft's table, and how large
 /// the boxes are drawn.

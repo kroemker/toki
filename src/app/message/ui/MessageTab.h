@@ -23,7 +23,7 @@ class Device;
 
 namespace toki::message {
 
-/// One message open in the Message panel: every box of it in turn as the game
+/// One message open in a tab: every box of it in turn as the game
 /// draws it, each with how far its lines reach into the box. A box is typed in
 /// where it is drawn, with a caret where the game's pen stands, or edited as
 /// markup beside or under it; the rail at the left puts signs, colors and

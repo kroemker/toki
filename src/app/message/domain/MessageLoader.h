@@ -20,8 +20,8 @@ struct MessageRequest {
     bool readsKanji = false;
 };
 
-// Shared between the Assets panel's Messages tab and the Message panel, which
-// both read it; a catalog is replaced whole, never changed.
+// Shared between the Assets panel's Messages tab and the message tabs, which
+// all read it; a catalog is replaced whole, never changed.
 using SharedCatalog = std::shared_ptr<const MessageCatalog>;
 
 /// Reads the checkout's message catalog on a worker of its own, and again

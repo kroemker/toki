@@ -98,8 +98,8 @@ private:
     /// written.
     void saveEverything(std::function<void(bool)> saved);
     void closeWindowWhenAsked();
-    /// Whether File > Save and the keys of tabs go to the Message panel's
-    /// active tab rather than to the open scene.
+    /// Whether File > Save and the keys of tabs go to the active asset tab
+    /// rather than to the open scene.
     [[nodiscard]] bool isTabFocused(const scene::Scene* openScene) const;
     [[nodiscard]] std::string makeSaveLabel(const scene::Scene* openScene) const;
     void updateActorDatabase();

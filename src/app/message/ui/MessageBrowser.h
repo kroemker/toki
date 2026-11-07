@@ -15,7 +15,7 @@ namespace toki::message {
 
 /// The Assets panel's Messages tab: the checkout's messages in a table, the
 /// chips that filter it, and the first box of the one selected, drawn as the
-/// game draws it. A click on a row previews the message in the Message panel,
+/// game draws it. A click on a row previews the message in the preview tab,
 /// and a double click opens it in a tab of its own.
 class MessageBrowser {
 public:
