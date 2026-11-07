@@ -90,6 +90,9 @@ private:
     void saveTab(const std::string& key, AssetTab::Saved saved);
     void saveNext(std::vector<std::string> keys, bool isAllWritten, AssetTab::Saved saved);
     void drawTab(const AssetTabEntry& entry, ImGuiID centralNode);
+    /// Whether the mouse is over the tab of the window being drawn, or over
+    /// its title bar while it floats on its own.
+    [[nodiscard]] static bool isHoveringTab();
     [[nodiscard]] ImGuiID findDockId(const std::optional<std::string>& key) const;
 
     std::string emptyText;

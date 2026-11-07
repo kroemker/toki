@@ -1,8 +1,10 @@
 #include "AssetTabHost.h"
 
+#include "app/core/ui/Icons.h"
 #include "app/core/ui/Theme.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <format>
 #include <memory>
@@ -160,6 +162,26 @@ std::vector<std::string> AssetTabHost::listEditedTitles() const {
     return titles;
 }
 
+bool AssetTabHost::isHoveringTab() {
+    const ImGuiContext& context = *ImGui::GetCurrentContext();
+    const ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (!window->DockIsActive) {
+        const ImRect title = window->TitleBarRect();
+        return context.HoveredWindow == window && ImGui::IsMouseHoveringRect(title.Min, title.Max);
+    }
+    ImGuiTabBar* tabBar = window->DockNode->TabBar;
+    if (tabBar == nullptr || context.HoveredWindow != window->DockNode->HostWindow) {
+        return false;
+    }
+    const ImGuiTabItem* tabItem = ImGui::TabBarFindTabByID(tabBar, window->TabId);
+    if (tabItem == nullptr) {
+        return false;
+    }
+    const f32 left = tabBar->BarRect.Min.x + tabItem->Offset - tabBar->ScrollingAnim;
+    return ImGui::IsMouseHoveringRect(ImVec2(left, tabBar->BarRect.Min.y),
+                                      ImVec2(left + tabItem->Width, tabBar->BarRect.Max.y));
+}
+
 void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode) {
     Slot& slot = slots.at(entry.key);
     AssetTab& tab = *slot.tab;
@@ -172,9 +194,12 @@ void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode
         ImGui::SetNextWindowFocus();
         focusing.reset();
     }
-    const std::string label = std::format("{}###asset:{}", tab.getTitle(), entry.key);
+    const bool isEdited = tab.isEdited();
+    const std::string label =
+        entry.isPreview ? std::format("{} {}###asset:{}", icons::Eye, tab.getTitle(), entry.key)
+                        : std::format("{}###asset:{}", tab.getTitle(), entry.key);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse;
-    if (tab.isEdited()) {
+    if (isEdited) {
         flags |= ImGuiWindowFlags_UnsavedDocument;
     }
     bool isOpen = true;
@@ -183,6 +208,17 @@ void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
         assetTabs.activate(entry.key);
         hasFocus = true;
+    }
+    if (isHoveringTab()) {
+        if (entry.isPreview && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            assetTabs.pin(entry.key);
+        }
+        if (entry.isPreview) {
+            ImGui::SetTooltip("Previewed: the next one picked takes this tab. Double-click it, "
+                              "or edit it, to keep it open.");
+        } else if (isEdited) {
+            ImGui::SetTooltip("Edited, not saved.");
+        }
     }
     if (isVisible) {
         tab.draw();
