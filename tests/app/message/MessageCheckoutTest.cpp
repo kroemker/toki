@@ -283,6 +283,45 @@ TEST_CASE("every unit of every English box of a real checkout has a stop to put 
     CHECK(problems.empty());
 }
 
+TEST_CASE("every box of a real checkout reads back as it was from its boxes and its typed text",
+          "[message][checkout]") {
+    const std::filesystem::path repository(TOKI_HACKEROOT);
+    if (repository.empty()) {
+        SKIP("configure with -DTOKI_HACKEROOT=<path to a HackerOoT checkout> to run this");
+    }
+    const std::expected<hackeroot::Workspace, base::Diagnostic> workspace =
+        hackeroot::Workspace::load(repository, {});
+    REQUIRE(workspace.has_value());
+    const toki::message::MessageTable table = toki::message::readMessages(*workspace);
+    const std::expected<toki::message::MessageFormat, base::Diagnostic> format =
+        toki::message::readMessageFormat(*workspace);
+    REQUIRE(format.has_value());
+
+    std::string problems;
+    for (const toki::message::Message& message : table.messages) {
+        for (usize language = 0; language < toki::message::LanguageCount; ++language) {
+            const toki::message::MessageText& text = message.texts[language];
+            const std::string read = toki::message::formatMarkup(text.pieces);
+            std::vector<toki::message::BoxText> boxes = toki::message::splitBoxes(text);
+            if (toki::message::formatMarkup(toki::message::joinBoxes(boxes)) != read) {
+                problems += std::format("0x{:04X} language {}: boxes\n", message.id, language);
+            }
+            for (toki::message::BoxText& box : boxes) {
+                const std::string boxRead = toki::message::formatMarkup(box.pieces);
+                box.pieces =
+                    toki::message::EditableBox(box.pieces, &format->charmap).makePieces();
+                const std::string typed = toki::message::formatMarkup(box.pieces);
+                if (typed != boxRead) {
+                    problems += std::format("0x{:04X} language {}: {:?} typed as {:?}\n",
+                                            message.id, language, boxRead, typed);
+                }
+            }
+        }
+    }
+    INFO(problems.substr(0, 3000));
+    CHECK(problems.empty());
+}
+
 TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's own art",
           "[message][checkout]") {
     const std::filesystem::path repository(TOKI_HACKEROOT);
