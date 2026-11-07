@@ -30,28 +30,33 @@ struct OpenedTab {
     bool isNew = false;
     /// The asset whose preview tab the opened one took.
     std::optional<std::string> replaced;
+    /// The tab that was active when a new one was opened beside it, not in a
+    /// preview's place: the new tab joins the group that one is in.
+    std::optional<std::string> beside;
 };
 
 /// The assets open in tabs, as an IDE keeps the files it has open: in the
-/// order they were opened, one of them active, and at most one previewed.
-/// A preview is taken over by the next asset previewed, so looking through
-/// assets one after another leaves one tab; pinning it, as an edit does,
-/// keeps it.
+/// order they were opened, the one focused last active, and at most one
+/// previewed. A preview is taken over by the next asset previewed, so looking
+/// through assets one after another leaves one tab; pinning it, as an edit
+/// does, keeps it. Where a tab is drawn, and next to which, is the docking's
+/// business, not this list's.
 class AssetTabs {
 public:
     /// Opens the asset `key` and makes it active. One already open is only
     /// made active, and pinned when it is opened pinned. A new one takes the
     /// place of the preview, when it is previewed and there is one, and is
-    /// put after the active tab otherwise.
+    /// put last otherwise.
     OpenedTab open(std::string_view key, TabOpening opening);
 
     /// Keeps the tab of `key` open when another asset is previewed.
     void pin(std::string_view key);
 
+    /// Makes the tab of `key` active, as when it is focused.
     void activate(std::string_view key);
 
-    /// Closes the tab of `key`. The tab after it becomes active when it was,
-    /// or the one before it when it was the last. Returns whether it was open.
+    /// Closes the tab of `key`. When it was active, the tab active before it
+    /// becomes active again. Returns whether it was open.
     bool close(std::string_view key);
 
     [[nodiscard]] const std::vector<AssetTabEntry>& getTabs() const {
@@ -66,8 +71,11 @@ public:
 
 private:
     [[nodiscard]] std::optional<usize> findIndex(std::string_view key) const;
+    void makeActive(std::string_view key);
 
     std::vector<AssetTabEntry> tabs;
+    /// The open keys by when they were last active, the active one last.
+    std::vector<std::string> recent;
     std::optional<std::string> active;
 };
 

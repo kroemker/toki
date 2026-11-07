@@ -22,27 +22,31 @@ const AssetTabEntry* AssetTabs::findTab(const std::string_view key) const {
     return index ? &tabs[*index] : nullptr;
 }
 
+void AssetTabs::makeActive(const std::string_view key) {
+    std::erase(recent, key);
+    recent.emplace_back(key);
+    active = std::string(key);
+}
+
 OpenedTab AssetTabs::open(const std::string_view key, const TabOpening opening) {
     const bool isPreview = opening == TabOpening::Preview;
     if (const std::optional<usize> index = findIndex(key)) {
         if (!isPreview) {
             tabs[*index].isPreview = false;
         }
-        active = std::string(key);
+        makeActive(key);
         return OpenedTab{};
     }
     OpenedTab opened{.isNew = true};
     const auto preview = std::ranges::find_if(tabs, &AssetTabEntry::isPreview);
     if (isPreview && preview != tabs.end()) {
-        opened.replaced = std::move(preview->key);
-        preview->key = std::string(key);
+        std::erase(recent, preview->key);
+        opened.replaced = std::exchange(preview->key, std::string(key));
     } else {
-        const std::optional<usize> after = active ? findIndex(*active) : std::nullopt;
-        const usize at = after ? *after + 1 : tabs.size();
-        tabs.insert(tabs.begin() + static_cast<std::ptrdiff_t>(at),
-                    AssetTabEntry{.key = std::string(key), .isPreview = isPreview});
+        opened.beside = active;
+        tabs.push_back(AssetTabEntry{.key = std::string(key), .isPreview = isPreview});
     }
-    active = std::string(key);
+    makeActive(key);
     return opened;
 }
 
@@ -53,8 +57,8 @@ void AssetTabs::pin(const std::string_view key) {
 }
 
 void AssetTabs::activate(const std::string_view key) {
-    if (findIndex(key)) {
-        active = std::string(key);
+    if (findIndex(key) && active != key) {
+        makeActive(key);
     }
 }
 
@@ -64,13 +68,9 @@ bool AssetTabs::close(const std::string_view key) {
         return false;
     }
     tabs.erase(tabs.begin() + static_cast<std::ptrdiff_t>(*index));
-    if (active != key) {
-        return true;
-    }
-    if (tabs.empty()) {
-        active.reset();
-    } else {
-        active = tabs[std::min(*index, tabs.size() - 1)].key;
+    std::erase(recent, key);
+    if (active == key) {
+        active = recent.empty() ? std::nullopt : std::optional<std::string>(recent.back());
     }
     return true;
 }

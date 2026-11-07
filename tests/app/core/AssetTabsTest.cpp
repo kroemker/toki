@@ -50,28 +50,48 @@ TEST_CASE("an asset already open is made active, and pinned when opened pinned",
     REQUIRE(listKeys(tabs) == std::vector<std::string>{"a", "b"});
 }
 
-TEST_CASE("a new tab is put after the active one", "[core][tabs]") {
+TEST_CASE("a new tab is put last, beside the active one", "[core][tabs]") {
     AssetTabs tabs;
-    tabs.open("a", TabOpening::Pinned);
+    REQUIRE_FALSE(tabs.open("a", TabOpening::Pinned).beside);
     tabs.open("b", TabOpening::Pinned);
     tabs.activate("a");
-    tabs.open("c", TabOpening::Pinned);
-    REQUIRE(listKeys(tabs) == std::vector<std::string>{"a", "c", "b"});
+    const toki::core::OpenedTab opened = tabs.open("c", TabOpening::Pinned);
+    REQUIRE(opened.beside == "a");
+    REQUIRE(listKeys(tabs) == std::vector<std::string>{"a", "b", "c"});
 }
 
-TEST_CASE("closing the active tab activates the one after it, or before the last", "[core][tabs]") {
+TEST_CASE("a preview taking another's place is not opened beside a tab", "[core][tabs]") {
+    AssetTabs tabs;
+    tabs.open("a", TabOpening::Pinned);
+    tabs.open("b", TabOpening::Preview);
+    const toki::core::OpenedTab opened = tabs.open("c", TabOpening::Preview);
+    REQUIRE(opened.replaced == "b");
+    REQUIRE_FALSE(opened.beside);
+}
+
+TEST_CASE("closing the active tab activates the one active before it", "[core][tabs]") {
     AssetTabs tabs;
     tabs.open("a", TabOpening::Pinned);
     tabs.open("b", TabOpening::Pinned);
     tabs.open("c", TabOpening::Pinned);
+    tabs.activate("a");
     tabs.activate("b");
     REQUIRE(tabs.close("b"));
-    REQUIRE(tabs.getActive() == "c");
-    REQUIRE(tabs.close("c"));
     REQUIRE(tabs.getActive() == "a");
     REQUIRE(tabs.close("a"));
+    REQUIRE(tabs.getActive() == "c");
+    REQUIRE(tabs.close("c"));
     REQUIRE_FALSE(tabs.getActive());
     REQUIRE_FALSE(tabs.close("a"));
+}
+
+TEST_CASE("a replaced preview is never activated again", "[core][tabs]") {
+    AssetTabs tabs;
+    tabs.open("a", TabOpening::Pinned);
+    tabs.open("b", TabOpening::Preview);
+    tabs.open("c", TabOpening::Preview);
+    REQUIRE(tabs.close("c"));
+    REQUIRE(tabs.getActive() == "a");
 }
 
 TEST_CASE("closing another tab keeps the active one", "[core][tabs]") {
