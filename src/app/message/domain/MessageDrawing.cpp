@@ -239,6 +239,29 @@ void ListWriter::writeEndIcon(const LaidBox& box) {
 
 } // namespace
 
+std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, const u16 character) {
+    constexpr u16 FirstCharacter = 0x20;
+    constexpr usize GlyphPixels = 16 * 16;
+    constexpr u8 IntensityScale = 0x11;
+    const z64::ImageSegment* font = art.image.findSegment(FontSegment);
+    if (font == nullptr || character < FirstCharacter) {
+        return std::nullopt;
+    }
+    const usize offset = static_cast<usize>(character - FirstCharacter) * FontCharacterSize;
+    if (offset + FontCharacterSize > font->bytes.size()) {
+        return std::nullopt;
+    }
+    std::vector<u8> pixels;
+    pixels.reserve(GlyphPixels * 4);
+    for (usize pixel = 0; pixel < GlyphPixels; ++pixel) {
+        const u8 packed = font->bytes[offset + (pixel / 2)];
+        const u8 intensity = pixel % 2 == 0 ? static_cast<u8>(packed >> 4U) : packed & 0xFU;
+        pixels.insert(pixels.end(),
+                      {0xFF, 0xFF, 0xFF, static_cast<u8>(intensity * IntensityScale)});
+    }
+    return pixels;
+}
+
 MessageArt readMessageArt(const hackeroot::Workspace& workspace, const bool readsKanji) {
     MessageArt art;
     std::vector<hackeroot::SegmentFiles> segments = {

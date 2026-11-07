@@ -185,6 +185,17 @@ SettingsWindow::SettingsWindow() {
         .reset = [this, defaults] { draft.angleFormat = defaults.angleFormat; },
     });
     entries.push_back(Entry{
+        .category = "Messages",
+        .label = "Review Saves",
+        .help = "Shows what saving a message writes, and waits for Write Files. Off, a save is "
+                "written at once, and what it warns of goes to the log; a save that warns, as "
+                "the first one of the checkout's messages does, is shown either way.",
+        .drawControl = [this] { drawMessageSaveReview(); },
+        .isChanged =
+            [this, defaults] { return draft.reviewsMessageSaves != defaults.reviewsMessageSaves; },
+        .reset = [this, defaults] { draft.reviewsMessageSaves = defaults.reviewsMessageSaves; },
+    });
+    entries.push_back(Entry{
         .category = "Log",
         .label = "Min. Log Level",
         .help = "The least important level the Log panel shows.",
@@ -498,6 +509,10 @@ void SettingsWindow::drawAngleFormat() {
 
 void SettingsWindow::drawSceneSaveReview() {
     ImGui::Checkbox("##reviewsSceneSaves", &draft.reviewsSceneSaves);
+}
+
+void SettingsWindow::drawMessageSaveReview() {
+    ImGui::Checkbox("##reviewsMessageSaves", &draft.reviewsMessageSaves);
 }
 
 Settings SettingsWindow::makeApplied() const {

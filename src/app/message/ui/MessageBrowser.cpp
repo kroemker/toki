@@ -142,8 +142,12 @@ void MessageBrowser::drawRow(const MessageRow& row) {
                           ImGuiSelectableFlags_SpanAllColumns)) {
         focus.shown = row.index;
         if (showMessage) {
-            showMessage(row.index);
+            showMessage(row.index, false);
         }
+    }
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) &&
+        showMessage) {
+        showMessage(row.index, true);
     }
     ImGui::PopID();
     ImGui::TableNextColumn();

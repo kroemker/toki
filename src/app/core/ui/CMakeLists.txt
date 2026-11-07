@@ -1,5 +1,6 @@
 target_sources(toki PRIVATE
         App.cpp
+        AssetTabPanel.cpp
         ConstantSelectable.cpp
         Dialog.cpp
         Fonts.cpp
@@ -16,4 +17,5 @@ target_sources(toki PRIVATE
         SettingsWindow.cpp
         SetupWizard.cpp
         Theme.cpp
+        UnsavedEditsDialog.cpp
         Window.cpp)

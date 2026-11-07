@@ -237,36 +237,6 @@ enum class EndType : u8 {
     }
 }
 
-[[nodiscard]] TextColor findDefaultColor(const u8 boxType) {
-    return boxType == BoxTypeNoneNoShadow ? TextColor{0, 0, 0} : TextColor{255, 255, 255};
-}
-
-/// `Message_SetTextColor`.
-[[nodiscard]] TextColor findTextColor(const u8 boxType, const u8 color) {
-    const bool isWooden = boxType == BoxTypeWooden;
-    switch (color) {
-    case 1:
-        return isWooden ? TextColor{255, 120, 0} : TextColor{255, 60, 60};
-    case 2:
-        return TextColor{70, 255, 80};
-    case 3:
-        return isWooden ? TextColor{80, 110, 255} : TextColor{80, 90, 255};
-    case 4:
-        if (isWooden) {
-            return TextColor{90, 180, 255};
-        }
-        return boxType == BoxTypeNoneNoShadow ? TextColor{80, 150, 180} : TextColor{100, 180, 255};
-    case 5:
-        return isWooden ? TextColor{210, 100, 255} : TextColor{255, 150, 180};
-    case 6:
-        return isWooden ? TextColor{255, 255, 30} : TextColor{225, 255, 50};
-    case 7:
-        return TextColor{0, 0, 0};
-    default:
-        return findDefaultColor(boxType);
-    }
-}
-
 /// How far `Message_DrawTextWide` moves left before drawing `character`.
 [[nodiscard]] s32 findWideKerning(const u16 character) {
     switch (character) {
@@ -688,6 +658,35 @@ void BoxLayouter::finish(const Decoded& closing, const EndType endType, LaidBox&
 }
 
 } // namespace
+
+TextColor findDefaultColor(const u8 boxType) {
+    return boxType == BoxTypeNoneNoShadow ? TextColor{0, 0, 0} : TextColor{255, 255, 255};
+}
+
+TextColor findTextColor(const u8 boxType, const u8 color) {
+    const bool isWooden = boxType == BoxTypeWooden;
+    switch (color) {
+    case 1:
+        return isWooden ? TextColor{255, 120, 0} : TextColor{255, 60, 60};
+    case 2:
+        return TextColor{70, 255, 80};
+    case 3:
+        return isWooden ? TextColor{80, 110, 255} : TextColor{80, 90, 255};
+    case 4:
+        if (isWooden) {
+            return TextColor{90, 180, 255};
+        }
+        return boxType == BoxTypeNoneNoShadow ? TextColor{80, 150, 180} : TextColor{100, 180, 255};
+    case 5:
+        return isWooden ? TextColor{210, 100, 255} : TextColor{255, 150, 180};
+    case 6:
+        return isWooden ? TextColor{255, 255, 30} : TextColor{225, 255, 50};
+    case 7:
+        return TextColor{0, 0, 0};
+    default:
+        return findDefaultColor(boxType);
+    }
+}
 
 s32 findLineStart(const LaidBox& box) {
     return box.isWide ? WideTextStartX : TextStartX;

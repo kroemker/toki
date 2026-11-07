@@ -20,6 +20,13 @@ struct TextColor {
     friend bool operator==(const TextColor&, const TextColor&) = default;
 };
 
+/// The color text starts in, in a box of type `boxType`.
+[[nodiscard]] TextColor findDefaultColor(u8 boxType);
+
+/// The color `COLOR` sets with its argument `color` in a box of type
+/// `boxType`, as `Message_SetTextColor` picks it.
+[[nodiscard]] TextColor findTextColor(u8 boxType, u8 color);
+
 /// One character drawn, at the screen position of its top left corner. A
 /// sample stands for what the game fills in when it opens the message, the
 /// player's name or a timer.

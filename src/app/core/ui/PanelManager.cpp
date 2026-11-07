@@ -91,6 +91,9 @@ void PanelManager::draw() {
 
         bool open = true;
         if (ImGui::Begin(panel->getWindowTitle().c_str(), &open, panel->getWindowFlags())) {
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+                lastFocusedId = panel->getId();
+            }
             panel->draw();
         }
         ImGui::End();

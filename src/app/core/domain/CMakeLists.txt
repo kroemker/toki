@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        AssetTabs.cpp
         KeyBindings.cpp
         Log.cpp
         MakeVariables.cpp
@@ -6,4 +7,5 @@ target_sources(toki_core PRIVATE
         Settings.cpp
         SettingsSearch.cpp
         TextCase.cpp
-        TextSearch.cpp)
+        TextSearch.cpp
+        UnsavedEditsQuestion.cpp)

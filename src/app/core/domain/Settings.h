@@ -118,6 +118,11 @@ struct Settings {
     /// Whether a save of a scene is shown for review before it is written.
     bool reviewsSceneSaves = true;
 
+    /// Whether a save of messages is shown for review before it is written.
+    /// One that warns, as the first save of the checkout's messages does, is
+    /// shown either way.
+    bool reviewsMessageSaves = true;
+
     AngleFormat angleFormat = AngleFormat::Binary;
 
     KeyBindings keyBindings;

@@ -304,6 +304,13 @@ TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's ow
     CHECK(described.empty());
     REQUIRE(art.setupList.has_value());
 
+    const std::optional<std::vector<base::u8>> glyph = toki::message::decodeFontGlyph(art, 'A');
+    REQUIRE(glyph.has_value());
+    CHECK(glyph->size() == std::size_t{16 * 16 * 4});
+    CHECK(
+        std::ranges::any_of(*glyph, [](const base::u8 byte) { return byte != 0xFF && byte != 0; }));
+    CHECK_FALSE(toki::message::decodeFontGlyph(art, 0x10).has_value());
+
     const toki::message::MessageGeometry geometry = toki::message::readMessageGeometry(*workspace);
     const toki::message::MessageTable table = toki::message::readMessages(*workspace);
     const std::expected<toki::message::MessageFormat, base::Diagnostic> format =

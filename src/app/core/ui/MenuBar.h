@@ -5,6 +5,7 @@
 #include "app/core/ui/PanelManager.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace toki::core {
@@ -12,7 +13,9 @@ namespace toki::core {
 struct MenuActions {
     bool changeHackerootPath = false;
     bool openSettings = false;
-    bool saveScene = false;
+    bool save = false;
+    bool saveAll = false;
+    bool closeTab = false;
     bool build = false;
     bool run = false;
     bool stopBuild = false;
@@ -24,7 +27,11 @@ struct MenuActions {
 /// What the menus can do now.
 struct MenuState {
     bool buildRunning = false;
-    bool sceneOpen = false;
+    /// What File > Save saves, `Save Message 0x1234`; empty when nothing is
+    /// open to save.
+    std::string saveLabel;
+    bool canSaveAll = false;
+    bool canCloseTab = false;
     bool canUndo = false;
     bool canRedo = false;
 };

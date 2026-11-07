@@ -10,20 +10,23 @@
 #include "app/build/domain/BuildTarget.h"
 #include "app/core/domain/BuildChoices.h"
 #include "app/core/domain/Settings.h"
+#include "app/core/ui/AssetTabPanel.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Fonts.h"
+#include "app/core/ui/MenuBar.h"
 #include "app/core/ui/PanelManager.h"
 #include "app/core/ui/PropertiesPanel.h"
 #include "app/core/ui/SettingsWindow.h"
 #include "app/core/ui/SetupWizard.h"
+#include "app/core/ui/UnsavedEditsDialog.h"
 #include "app/core/ui/Window.h"
 #include "app/displayList/ui/DisplayListPanel.h"
 #include "app/message/domain/MessageLoader.h"
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageBrowser.h"
 #include "app/message/ui/MessageFocus.h"
-#include "app/message/ui/MessagePanel.h"
 #include "app/message/ui/SaveMessagesDialog.h"
+#include "app/message/ui/SignGlyphs.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
 #include "app/scene/domain/SceneActorLoader.h"
@@ -37,6 +40,7 @@
 
 #include <expected>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -78,6 +82,26 @@ private:
     void updateObject();
     void updateMessages();
     void openMessages(const std::shared_ptr<const hackeroot::Workspace>& workspace);
+    /// Opens the message at `index` in a tab, previewed unless `isPinned`.
+    void openMessage(usize index, bool isPinned);
+    void saveMessages(std::vector<usize> messages, AssetTab::Saved saved);
+    /// Saves, saves everything, or closes a tab, as the menu or a key asked.
+    void handleSaves(const MenuActions& actions, const scene::Scene* openScene);
+    [[nodiscard]] bool isSceneEdited() const;
+    /// The titles of every asset with edits no save wrote, the open scene's
+    /// among them.
+    [[nodiscard]] std::vector<std::string> listUnsaved() const;
+    /// Asks about edits no save wrote before `doing`, unless there are none,
+    /// and then does `proceed`, after the edits are saved if the person asks.
+    void askBeforeLosingEdits(const std::string& doing, std::function<void()> proceed);
+    /// Saves every asset with edits, and calls `saved` with whether all were
+    /// written.
+    void saveEverything(std::function<void(bool)> saved);
+    void closeWindowWhenAsked();
+    /// Whether File > Save and the keys of tabs go to the Message panel's
+    /// active tab rather than to the open scene.
+    [[nodiscard]] bool isTabFocused(const scene::Scene* openScene) const;
+    [[nodiscard]] std::string makeSaveLabel(const scene::Scene* openScene) const;
     void updateActorDatabase();
     void offerNewActors(bool isRead);
     void drawNewActorsPrompt();
@@ -134,8 +158,19 @@ private:
     message::MessageFocus messageFocus;
     std::unique_ptr<message::BoxRenderer> browserBoxes;
     std::unique_ptr<message::MessageBrowser> messageBrowser;
-    message::MessagePanel* messagePanel = nullptr;
-    message::SaveMessagesDialog saveMessagesDialog{workspaceService, messageFocus};
+    std::unique_ptr<message::SignGlyphs> signGlyphs;
+    UnsavedEditsDialog unsavedEditsDialog;
+    AssetTabPanel* messageTabs = nullptr;
+    /// What waits for the saves asked for before it: quitting, or opening
+    /// another checkout.
+    std::function<void()> pendingAfterSave;
+    /// The root of the checkout the messages were read from, so that one read
+    /// again under the same root keeps its edits.
+    std::filesystem::path messageRoot;
+    message::SaveMessagesDialog saveMessagesDialog{workspaceService, messageFocus, [this] {
+                                                       settings.reviewsMessageSaves = false;
+                                                       saveState();
+                                                   }};
 };
 
 } // namespace toki::core

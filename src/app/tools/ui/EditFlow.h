@@ -17,9 +17,10 @@ public:
     /// Makes the plan `makePlan` reads of the checkout at `repository`, to be
     /// reviewed and written there.
     /// Unless `isReviewed`, a plan is written as soon as it is made, and what
-    /// it warns of goes to the log.
+    /// it warns of goes to the log; with `isReviewedWhenWarned`, one that warns
+    /// is reviewed all the same.
     void requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan,
-                     bool isReviewed = true);
+                     bool isReviewed = true, bool isReviewedWhenWarned = false);
 
     /// Takes what the worker finished, without drawing it. True on the frame
     /// the plan's files were written.
@@ -36,6 +37,12 @@ public:
 
     [[nodiscard]] bool isReviewing() const {
         return reviewed.has_value();
+    }
+
+    /// Whether the last plan found the checkout to have it all already, so
+    /// that nothing was to be written.
+    [[nodiscard]] bool isUpToDate() const {
+        return isNothingToChange;
     }
 
     /// Whether the last plan or write failed.
@@ -58,6 +65,8 @@ private:
     std::string status;
     bool isFailure = false;
     bool isReviewedPlan = true;
+    bool isReviewedWhenWarned = false;
+    bool isNothingToChange = false;
 };
 
 } // namespace toki::tools

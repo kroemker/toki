@@ -51,9 +51,11 @@ namespace {
 } // namespace
 
 void EditFlow::requestPlan(std::filesystem::path repository, EditWorker::MakePlan makePlan,
-                           const bool isReviewed) {
+                           const bool isReviewed, const bool isWarningReviewed) {
     plannedRepository = std::move(repository);
     isReviewedPlan = isReviewed;
+    isReviewedWhenWarned = isWarningReviewed;
+    isNothingToChange = false;
     reviewed.reset();
     status = "Looking at the checkout…";
     isFailure = false;
@@ -72,7 +74,9 @@ bool EditFlow::takeResult() {
         } else if (!(*result->plan)->hasWork()) {
             status = "Nothing to change: the checkout has it all already.";
             isFailure = false;
-        } else if (!isReviewedPlan) {
+            isNothingToChange = true;
+        } else if (!isReviewedPlan &&
+                   !(isReviewedWhenWarned && !(*result->plan)->warnings.empty())) {
             for (const std::string& warning : (*result->plan)->warnings) {
                 core::logWarn("{}", warning);
             }

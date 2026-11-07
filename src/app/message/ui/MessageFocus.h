@@ -9,14 +9,18 @@
 
 namespace toki::message {
 
-/// What the Assets panel's Messages tab and the Message panel share: the
-/// catalog last read, the messages as edited, the language they are shown in,
-/// and the message shown, by its index in the draft's table.
+/// What the Assets panel's Messages tab and the Message panel's tabs share:
+/// the catalog last read, the messages as edited, the language they are shown
+/// in, the message shown, by its index in the draft's table, and how large
+/// the boxes are drawn.
 struct MessageFocus {
     SharedCatalog catalog;
     MessageDraft draft;
     Language language = Language::English;
     std::optional<usize> shown;
+    /// Window pixels a game pixel; none to draw the boxes as large as the
+    /// panel holds.
+    f32 zoom = 0.0F;
 
     /// The message shown, if it is still in the draft.
     [[nodiscard]] const Message* findShown() const {

@@ -7,6 +7,7 @@ target_sources(toki_core PRIVATE
         MessageDrawing.cpp
         MessageEncoder.cpp
         MessageGeometry.cpp
+        MessageKey.cpp
         MessageLayout.cpp
         MessageLoader.cpp
         MessageMarkup.cpp

@@ -83,6 +83,7 @@ private:
     void drawLogEntries();
     void drawMarkerShape();
     void drawSceneSaveReview();
+    void drawMessageSaveReview();
     void drawAngleFormat();
     [[nodiscard]] Settings makeApplied() const;
 

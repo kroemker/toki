@@ -18,6 +18,7 @@ add_executable(toki_tests
         app/build/BuildRunnerTest.cpp
         app/build/BuildTextTest.cpp
         app/build/EmulatorCommandTest.cpp
+        app/core/AssetTabsTest.cpp
         app/core/KeyBindingsTest.cpp
         app/core/LogTest.cpp
         app/core/MakeVariablesTest.cpp
@@ -35,6 +36,7 @@ add_executable(toki_tests
         app/message/MessageSaveTest.cpp
         app/core/SettingsSearchTest.cpp
         app/core/SettingsTest.cpp
+        app/core/UnsavedEditsQuestionTest.cpp
         app/object/ObjectCheckoutTest.cpp
         app/object/ObjectTest.cpp
         app/texture/TextureCatalogCheckoutTest.cpp

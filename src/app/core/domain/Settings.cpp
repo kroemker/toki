@@ -194,6 +194,16 @@ void writeScenes(toml::table& root, const Settings& settings) {
     scenes.insert_or_assign("angles", std::string{getAngleFormatName(settings.angleFormat)});
 }
 
+void readMessages(const toml::table& root, Settings& settings) {
+    if (const std::optional<bool> reviews = root["messages"]["review_saves"].value<bool>()) {
+        settings.reviewsMessageSaves = *reviews;
+    }
+}
+
+void writeMessages(toml::table& root, const Settings& settings) {
+    ensureSection(root, "messages").insert_or_assign("review_saves", settings.reviewsMessageSaves);
+}
+
 void readKeys(const toml::table& root, const std::filesystem::path& path, Settings& settings) {
     const toml::table* keys = root["keys"].as_table();
     if (keys == nullptr) {
@@ -543,6 +553,7 @@ std::expected<Settings, std::string> loadSettings(const std::filesystem::path& p
     readActors(*root, settings);
     readMarkers(*root, path, settings);
     readScenes(*root, path, settings);
+    readMessages(*root, settings);
     readKeys(*root, path, settings);
     readViewport(*root, settings);
 
@@ -582,6 +593,7 @@ std::expected<void, std::string> saveSettings(const Settings& settings,
     writeActors(root, settings);
     writeMarkers(root, settings);
     writeScenes(root, settings);
+    writeMessages(root, settings);
     writeKeys(root, settings);
 
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);

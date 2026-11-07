@@ -101,7 +101,7 @@ src/
   n64/         The hardware: F3DEX2 on the RSP, RDP state, texture memory. CPU only.
   gfx/         The GPU side of the renderer: device, upload, ubershader, overlay, render targets.
   app/
-    core/      ui/ = window, docking, theme, log panel   domain/ = settings
+    core/      ui/ = window, docking, theme, log panel, asset tabs   domain/ = settings, open tabs
     assets/    ui/ = asset browser   domain/ = asset reports, scene and object names, background reads
     build/     ui/ = build panel   domain/ = process, output decoding, build runner
     viewport/  ui/ = viewport panel   domain/ = orbit camera, frame display list, reference grid
@@ -259,6 +259,12 @@ listed below is only what no change may break.
     the document names it.
   - A save writes `assets/text/message_data.h` whole, vanilla rows included, and reads it back
     before the plan is shown.
+- **[Asset tabs](docs/asset-tabs.md)** — how an asset opened for editing is a tab, previewed
+  or pinned, saved on its own, and asked about before its edits would be lost.
+  - Nothing with edits is closed, quit or replaced by another checkout without asking, and one
+    question serves every kind of asset, naming each by its tab's title.
+  - A tab with edits is never replaced by a preview.
+  - Tab logic is generic and lives in `app/core/`; an asset kind supplies only its `AssetTab`.
 - **[The workspace](docs/workspace.md)** — how one checkout is read, kept current off the
   UI thread, and watched for changes.
   - Nothing on the UI thread reads the checkout. A read takes seconds over

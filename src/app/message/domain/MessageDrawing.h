@@ -46,6 +46,11 @@ struct MessageArt {
 
 [[nodiscard]] MessageArt readMessageArt(const hackeroot::Workspace& workspace, bool readsKanji);
 
+/// The glyph `nes_font_static` draws `character` with: 16 by 16 pixels, row
+/// by row from the top, each white with the font's intensity as its alpha,
+/// four bytes a pixel. Nothing when the font has no such glyph.
+[[nodiscard]] std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, u16 character);
+
 /// The display list one box is drawn with, as `Message_DrawTextBox`,
 /// `Message_DrawText` and `Message_DrawTextboxIcon` build it once the box's
 /// text is all shown: the gbi macros they call, written with the box's

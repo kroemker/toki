@@ -14,7 +14,9 @@ namespace toki::core {
 namespace {
 
 constexpr auto Actions = std::to_array<ActionInfo>({
-    {Action::SaveScene, "save_scene", "Save Scene", ActionScope::Global, "Ctrl+S"},
+    {Action::Save, "save", "Save", ActionScope::Global, "Ctrl+S"},
+    {Action::SaveAll, "save_all", "Save All", ActionScope::Global, "Ctrl+Shift+S"},
+    {Action::CloseTab, "close_tab", "Close Tab", ActionScope::Global, "Ctrl+W"},
     {Action::OpenSettings, "open_settings", "Open Settings", ActionScope::Global, "Ctrl+Comma"},
     {Action::Build, "build", "Build", ActionScope::Global, "Ctrl+B"},
     {Action::Run, "run", "Build and Run", ActionScope::Global, "F5"},
@@ -97,6 +99,9 @@ const ActionInfo& getActionInfo(const Action action) {
 }
 
 std::optional<Action> findAction(const std::string_view id) {
+    if (id == "save_scene") {
+        return Action::Save;
+    }
     const auto found = std::ranges::find(Actions, id, &ActionInfo::id);
     return found == Actions.end() ? std::nullopt : std::optional(found->action);
 }

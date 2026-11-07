@@ -5,6 +5,7 @@
 #include <expected>
 #include <optional>
 #include <string>
+#include <utility>
 
 struct SDL_Window;
 
@@ -33,8 +34,16 @@ public:
 
     void endFrame();
 
+    /// Ends the frames: the window closes once the frame drawn now is done.
     void requestClose() {
         running = false;
+    }
+
+    /// Whether the person asked to close the window since the last call, as
+    /// its close button or Alt+F4 does; the window stays open until
+    /// `requestClose`, so that what would be lost can be asked about first.
+    [[nodiscard]] bool takeCloseRequest() {
+        return std::exchange(closeRequested, false);
     }
 
     [[nodiscard]] SDL_Window* getHandle() const {
@@ -51,6 +60,7 @@ private:
     SDL_Window* window = nullptr;
     const gfx::Device* device = nullptr;
     bool running = true;
+    bool closeRequested = false;
     WindowGeometry restored{
         .x = 0, .y = 0, .width = DefaultWidth, .height = DefaultHeight, .maximized = false};
 };

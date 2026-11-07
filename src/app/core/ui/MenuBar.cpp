@@ -18,7 +18,7 @@ namespace toki::core {
 
 namespace {
 
-void drawFileMenu(const Settings& settings, const bool sceneOpen, MenuActions& actions) {
+void drawFileMenu(const Settings& settings, const MenuState& state, MenuActions& actions) {
     if (!ImGui::BeginMenu("File")) {
         return;
     }
@@ -33,9 +33,17 @@ void drawFileMenu(const Settings& settings, const bool sceneOpen, MenuActions& a
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    if (ImGui::MenuItem("Save Scene…", getShortcutLabel(Action::SaveScene).c_str(), false,
-                        sceneOpen)) {
-        actions.saveScene = true;
+    if (ImGui::MenuItem(state.saveLabel.empty() ? "Save" : state.saveLabel.c_str(),
+                        getShortcutLabel(Action::Save).c_str(), false, !state.saveLabel.empty())) {
+        actions.save = true;
+    }
+    if (ImGui::MenuItem("Save All", getShortcutLabel(Action::SaveAll).c_str(), false,
+                        state.canSaveAll)) {
+        actions.saveAll = true;
+    }
+    if (ImGui::MenuItem("Close Tab", getShortcutLabel(Action::CloseTab).c_str(), false,
+                        state.canCloseTab)) {
+        actions.closeTab = true;
     }
 
     ImGui::Separator();
@@ -125,7 +133,7 @@ MenuActions drawMenuBar(PanelManager& panels, const std::vector<std::unique_ptr<
         return actions;
     }
 
-    drawFileMenu(settings, state.sceneOpen, actions);
+    drawFileMenu(settings, state, actions);
     drawEditMenu(state, actions);
     drawBuildMenu(state.buildRunning, actions);
     drawToolsMenu(dialogs);

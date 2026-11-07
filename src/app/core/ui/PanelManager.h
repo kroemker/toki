@@ -38,6 +38,12 @@ public:
 
     void openDefaults();
 
+    /// The panel whose window had the focus last, a menu or popup not
+    /// counted; empty before any had.
+    [[nodiscard]] const std::string& getLastFocusedId() const {
+        return lastFocusedId;
+    }
+
 private:
     void buildDefaultLayout(ImGuiID dockspaceId) const;
     [[nodiscard]] bool hasUnplacedPanel() const;
@@ -45,6 +51,7 @@ private:
     std::vector<std::unique_ptr<Panel>> panels;
     bool rebuildLayout = false;
     bool checkedSavedLayout = false;
+    std::string lastFocusedId;
 };
 
 } // namespace toki::core

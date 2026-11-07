@@ -20,6 +20,7 @@
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Dialog.h"
 #include "app/core/ui/Hotkeys.h"
+#include "app/core/ui/Icons.h"
 #include "app/core/ui/LogPanel.h"
 #include "app/core/ui/MenuBar.h"
 #include "app/core/ui/Panel.h"
@@ -29,6 +30,8 @@
 #include "app/core/ui/Theme.h"
 #include "app/core/ui/Window.h"
 #include "app/displayList/ui/DisplayListPanel.h"
+#include "app/message/domain/MessageKey.h"
+#include "app/message/ui/MessageTab.h"
 #include "app/object/domain/Object.h"
 #include "app/object/domain/ObjectLoader.h"
 #include "app/object/ui/ObjectPanel.h"
@@ -226,13 +229,16 @@ void App::registerPanels() {
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
     browserBoxes = std::make_unique<message::BoxRenderer>(*device);
-    auto messages = std::make_unique<message::MessagePanel>(*device, fonts, messageFocus,
-                                                            [this] { saveMessagesDialog.open(); });
-    messagePanel = messages.get();
-    propertiesPanel->addSource(*messagePanel);
+    signGlyphs = std::make_unique<message::SignGlyphs>(*device);
+    auto messages = std::make_unique<AssetTabPanel>(
+        "message", "Message", icons::Chat, DockSlot::Centre,
+        "Pick a message in the Assets panel's Messages tab.", unsavedEditsDialog);
+    messageTabs = messages.get();
+    propertiesPanel->addSource(*messageTabs);
     panels.add(std::move(messages));
     messageBrowser = std::make_unique<message::MessageBrowser>(
-        messageFocus, *browserBoxes, [this](usize) { messagePanel->showMessage(); });
+        messageFocus, *browserBoxes,
+        [this](const usize index, const bool isPinned) { openMessage(index, isPinned); });
     panels.add(std::make_unique<assets::AssetBrowserPanel>(
         workspaceService, assetReader,
         [this](const hackeroot::AssetDirectory& asset) {
@@ -303,6 +309,122 @@ void App::run() {
     saveState();
 }
 
+void App::openMessage(const usize index, const bool isPinned) {
+    const message::MessageTable& table = messageFocus.draft.getTable();
+    if (messageTabs == nullptr || index >= table.messages.size()) {
+        return;
+    }
+    const message::MessageKey key = message::makeMessageKey(table, index);
+    messageTabs->open(message::formatMessageKey(key),
+                      isPinned ? TabOpening::Pinned : TabOpening::Preview, [this, key] {
+                          return std::make_unique<message::MessageTab>(
+                              *device, fonts, messageFocus, *signGlyphs, key,
+                              [this](std::vector<usize> messages, AssetTab::Saved saved) {
+                                  saveMessages(std::move(messages), std::move(saved));
+                              });
+                      });
+}
+
+void App::saveMessages(std::vector<usize> messages, AssetTab::Saved saved) {
+    saveMessagesDialog.open(std::move(messages), settings.reviewsMessageSaves, std::move(saved));
+}
+
+bool App::isSceneEdited() const {
+    return scenePanel != nullptr && scenePanel->findEditedModel() != nullptr;
+}
+
+std::vector<std::string> App::listUnsaved() const {
+    std::vector<std::string> titles =
+        messageTabs != nullptr ? messageTabs->listEditedTitles() : std::vector<std::string>();
+    if (isSceneEdited()) {
+        if (const scene::Scene* scene = scenePanel->findScene()) {
+            titles.push_back(std::format("Scene {}", scene->name));
+        }
+    }
+    return titles;
+}
+
+void App::saveEverything(std::function<void(bool)> saved) {
+    const auto saveScene = [this, saved = std::move(saved)](const bool isAllWritten) {
+        const scene::Scene* scene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
+        if (isAllWritten && scene != nullptr && isSceneEdited() && !saveSceneDialog.isSaving()) {
+            saveSceneDialog.open(*scene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
+        }
+        if (saved) {
+            saved(isAllWritten);
+        }
+    };
+    if (messageTabs != nullptr) {
+        messageTabs->saveAll(saveScene);
+    } else {
+        saveScene(true);
+    }
+}
+
+void App::askBeforeLosingEdits(const std::string& doing, std::function<void()> proceed) {
+    std::vector<std::string> titles = listUnsaved();
+    if (titles.empty()) {
+        proceed();
+        return;
+    }
+    unsavedEditsDialog.ask(std::move(titles), doing,
+                           [this, proceed = std::move(proceed)](const UnsavedChoice choice) {
+                               if (choice == UnsavedChoice::DontSave) {
+                                   proceed();
+                               } else if (choice == UnsavedChoice::Save) {
+                                   saveEverything([this, proceed](const bool isAllWritten) {
+                                       if (isAllWritten) {
+                                           pendingAfterSave = proceed;
+                                       }
+                                   });
+                               }
+                           });
+}
+
+void App::closeWindowWhenAsked() {
+    if (window->takeCloseRequest() && !unsavedEditsDialog.isAsking()) {
+        askBeforeLosingEdits("quitting", [this] { window->requestClose(); });
+    }
+    if (pendingAfterSave && !saveSceneDialog.isSaving() && !saveSceneDialog.isShown() &&
+        !saveMessagesDialog.isSaving()) {
+        std::function<void()> proceed = std::move(pendingAfterSave);
+        pendingAfterSave = nullptr;
+        if (listUnsaved().empty()) {
+            proceed();
+        }
+    }
+}
+
+bool App::isTabFocused(const scene::Scene* openScene) const {
+    return messageTabs != nullptr && messageTabs->findActive() != nullptr &&
+           (panels.getLastFocusedId() == messageTabs->getId() || openScene == nullptr);
+}
+
+std::string App::makeSaveLabel(const scene::Scene* openScene) const {
+    if (isTabFocused(openScene)) {
+        return std::format("Save {}", messageTabs->findActive()->getTitle());
+    }
+    return openScene != nullptr ? std::string("Save Scene…") : std::string();
+}
+
+void App::handleSaves(const MenuActions& actions, const scene::Scene* openScene) {
+    const bool savesTab = isTabFocused(openScene);
+    if (actions.save || isActionPressed(Action::Save)) {
+        if (savesTab) {
+            messageTabs->saveActive();
+        } else if (openScene != nullptr && !saveSceneDialog.isSaving()) {
+            saveSceneDialog.open(*openScene, scenePanel->findEditedModel(),
+                                 settings.reviewsSceneSaves);
+        }
+    }
+    if (actions.saveAll || isActionPressed(Action::SaveAll)) {
+        saveEverything(nullptr);
+    }
+    if ((actions.closeTab || isActionPressed(Action::CloseTab)) && savesTab) {
+        messageTabs->closeActive();
+    }
+}
+
 void App::drawFrame() {
     workspaceService.update();
     openRestoredScene();
@@ -331,12 +453,14 @@ void App::drawFrame() {
         scenePanel->setSaving(saveSceneDialog.isSaving());
     }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
-    const MenuActions actions =
-        drawMenuBar(panels, dialogs, settings,
-                    MenuState{.buildRunning = buildRunner.isRunning(),
-                              .sceneOpen = openScene != nullptr,
-                              .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
-                              .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
+    const MenuActions actions = drawMenuBar(
+        panels, dialogs, settings,
+        MenuState{.buildRunning = buildRunner.isRunning(),
+                  .saveLabel = makeSaveLabel(openScene),
+                  .canSaveAll = !listUnsaved().empty(),
+                  .canCloseTab = messageTabs != nullptr && messageTabs->findActive() != nullptr,
+                  .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
+                  .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
     if (scenePanel != nullptr && (actions.undo || isActionPressed(Action::Undo))) {
         scenePanel->undo();
     }
@@ -350,17 +474,18 @@ void App::drawFrame() {
     for (const std::unique_ptr<Dialog>& dialog : dialogs) {
         dialog->drawWindow();
     }
-    if (openScene != nullptr && !saveSceneDialog.isSaving() &&
-        (actions.saveScene || isActionPressed(Action::SaveScene))) {
-        saveSceneDialog.open(*openScene, scenePanel->findEditedModel(), settings.reviewsSceneSaves);
-    }
+    handleSaves(actions, openScene);
     saveSceneDialog.update();
     saveSceneDialog.drawWindow();
+    saveMessagesDialog.update();
     saveMessagesDialog.drawWindow();
+    unsavedEditsDialog.draw();
+    closeWindowWhenAsked();
     drawNewActorsPrompt();
 
     if (const std::optional<std::filesystem::path> chosen = setupWizard.draw(window->getHandle())) {
-        setHackerootPath(*chosen);
+        askBeforeLosingEdits("opening another checkout",
+                             [this, path = *chosen] { setHackerootPath(path); });
     }
 
     if (actions.openSettings || isActionPressed(Action::OpenSettings)) {
@@ -383,8 +508,8 @@ void App::drawFrame() {
     if (actions.stopBuild) {
         buildRunner.stop();
     }
-    if (actions.quit) {
-        window->requestClose();
+    if (actions.quit && !unsavedEditsDialog.isAsking()) {
+        askBeforeLosingEdits("quitting", [this] { window->requestClose(); });
     }
 }
 
@@ -510,11 +635,18 @@ void App::updateMessages() {
         workspaceService.getSharedWorkspace();
     if (workspace.get() != messageWorkspace) {
         messageWorkspace = workspace.get();
-        if (messageFocus.draft.isEdited()) {
-            logWarn("the edited messages belong to the checkout closed, and were dropped");
+        const std::filesystem::path root =
+            workspace ? workspace->getRoot() : std::filesystem::path();
+        if (root != messageRoot) {
+            messageRoot = root;
+            if (messageTabs != nullptr) {
+                messageTabs->closeAllUnasked();
+            }
+            const f32 zoom = messageFocus.zoom;
+            messageFocus = {};
+            messageFocus.zoom = zoom;
+            messageReadsKanji = false;
         }
-        messageFocus = {};
-        messageReadsKanji = false;
         if (workspace) {
             openMessages(workspace);
         } else {
@@ -531,24 +663,19 @@ void App::updateMessages() {
     }
     logRead((*loaded)->diagnostics,
             std::format("read {} messages", (*loaded)->table.messages.size()));
-    const message::Message* shown = messageFocus.findShown();
-    const std::optional<std::pair<u16, message::MessageMacro>> wasShown =
-        shown != nullptr ? std::optional(std::pair(shown->id, shown->macro)) : std::nullopt;
+    const std::optional<message::MessageKey> wasShown =
+        messageFocus.findShown() != nullptr
+            ? std::optional(
+                  message::makeMessageKey(messageFocus.draft.getTable(), *messageFocus.shown))
+            : std::nullopt;
     messageFocus.catalog = std::move(*loaded);
-    if (!messageFocus.draft.setRead(messageFocus.catalog->table)) {
-        logWarn("the checkout's messages changed while some are edited; the edits are kept");
-        return;
+    for (const message::MessageKey& dropped :
+         messageFocus.draft.setRead(messageFocus.catalog->table)) {
+        logWarn("the edits of message 0x{:04X} were dropped: the checkout has it no more",
+                dropped.id);
     }
-    messageFocus.shown.reset();
-    if (wasShown) {
-        const std::vector<message::Message>& messages = messageFocus.draft.getTable().messages;
-        const auto found = std::ranges::find_if(messages, [&](const message::Message& candidate) {
-            return candidate.id == wasShown->first && candidate.macro == wasShown->second;
-        });
-        if (found != messages.end()) {
-            messageFocus.shown = static_cast<usize>(found - messages.begin());
-        }
-    }
+    messageFocus.shown =
+        wasShown ? message::findMessage(messageFocus.draft.getTable(), *wasShown) : std::nullopt;
 }
 
 void App::updateActorDatabase() {
@@ -698,6 +825,7 @@ void App::applySettings(const Settings& applied) {
     settings.log = applied.log;
     settings.markerShape = applied.markerShape;
     settings.reviewsSceneSaves = applied.reviewsSceneSaves;
+    settings.reviewsMessageSaves = applied.reviewsMessageSaves;
     settings.angleFormat = applied.angleFormat;
     settings.keyBindings = applied.keyBindings;
     setKeyBindings(settings.keyBindings);

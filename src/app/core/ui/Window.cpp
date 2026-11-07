@@ -111,7 +111,7 @@ bool Window::beginFrame() {
         const bool closedThisWindow = event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
                                       event.window.windowID == SDL_GetWindowID(window);
         if (event.type == SDL_EVENT_QUIT || closedThisWindow) {
-            running = false;
+            closeRequested = true;
         }
     }
 

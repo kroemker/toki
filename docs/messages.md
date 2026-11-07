@@ -105,10 +105,17 @@ drawn without its text.
 The Assets panel's Messages tab lists the messages of the language picked, filtered by ID or
 text and by chips for box type, with the first box of the one selected drawn under the table.
 The languages offered are those the checkout has text in: English and Japanese on NTSC,
-English, German and French on PAL. A single click shows a message in the Message panel, every box of it drawn
-in turn with a meter for each line: how far it reaches towards the box's right margin, as
-far from its right edge as text starts from its left. The game stops nowhere; past the
-margin, text runs over the frame.
+English, German and French on PAL. A single click previews a message in the Message panel,
+in the tab the next one previewed takes; a double click opens it in a tab of its own
+([asset-tabs.md](asset-tabs.md)). A tab draws every box of its message in turn with a meter
+for each line: how far it reaches towards the box's right margin, as far from its right edge
+as text starts from its left. The game stops nowhere; past the margin, text runs over the
+frame.
+
+The boxes are drawn as large as the panel holds, in steps of half a game pixel that keep the
+game's pixels whole, with each box's markup beside it when there is room and under it when
+there is not. The zoom menu in the tab's header, or Ctrl+Scroll over the boxes, sets the step
+instead; it is shared by every tab.
 
 The catalog (`MessageCatalog`: the messages, the format, the layout tables and the art) is
 read off the UI thread and again when one of the files it was read from changes.
@@ -142,20 +149,26 @@ as a markup edit does, and the box is laid out and drawn again from there.
 
 A code that draws nothing, a color or a pause, is marked over the image where it stands, a
 color in its own color; hovering one names it in markup, and a click selects it, so Delete
-removes it. Under the box being typed in, a row of buttons puts in the charmap's signs (the
-buttons and what lies past the Latin letters, as the charmap lists them), a color (as
-`TextColor` lists them), or a code without arguments. A code with arguments is written as
-markup.
+removes it. The rail at the tab's left puts in, where the caret is, the charmap's signs (the
+buttons and what lies past the Latin letters, as the charmap lists them), each shown as the
+glyph the checkout's font draws it with (`decodeFontGlyph`); a color (as `TextColor` lists
+them), each a swatch of the color `Message_SetTextColor` gives it in the box typed in; the
+player's name; or a code without arguments. A code with arguments is written as markup. The
+rail stands still, greyed out while no box is typed in, so nothing moves when a box is
+clicked. It also adds a box after the last and removes the one typed in.
 
-Under each box its markup can be edited too (`MessageMarkup`): text as it reads, a new line as a new line,
+Beside or under each box its markup can be edited too (`MessageMarkup`): text as it reads, a new line as a new line,
 and each control code in braces, named in words. A color is its name (`{Red}`), an item icon
 its item (`{Icon Pocket Egg}`), the player's name `{Name}`, any other code its name and
 arguments (`{Shift 4}`, `{Box Break Delayed 20}`), a brace doubled. `{Box Break}` typed into
 a box splits it once the field is left. Every message of a vanilla checkout reads back from
 its markup as it was.
 
-Edits live in a draft (`MessageDraft`). A table read again replaces the draft only while
-nothing is edited; otherwise the edits are kept and the panel says the checkout changed.
+Edits live in a draft (`MessageDraft`), kept apart message by message, so that one is saved or
+thrown away without the others. A table read again keeps every edit, moved onto the same
+message found again in it by its `MessageKey`; the edits of a message the table has no more
+are dropped and the log names it. A message whose row the checkout changed under its edits
+says so. A message edited back to what was read has no edits.
 
 Typing redraws only what changed. Each gbi command of a box is expanded through the gbi's
 macros once and its words kept (`GbiCommandCache`); a box is drawn again only when what it
@@ -163,8 +176,11 @@ shows changes; and the Messages tab rebuilds only the row of the message edited.
 
 ## Saving
 
-A save writes `assets/text/message_data.h` whole from the draft, and Toki owns it from then
-on, as it owns a scene it saved ([scene-writing.md](scene-writing.md)):
+A save is of one tab's message, or of every message with edits for Save All
+([asset-tabs.md](asset-tabs.md)). It writes `assets/text/message_data.h` whole: the messages
+saved as edited, every other one as it was last read, its edits kept in the draft for a save
+of its own (`MessageDraft::makeSavedTable`). Toki owns the file from then on, as it owns a
+scene it saved ([scene-writing.md](scene-writing.md)):
 
 - every row is written into it, the vanilla ones it included from `extracted/` too, so an
   edit of a vanilla message replaces it where the game searches for it;
@@ -180,4 +196,7 @@ on, as it owns a scene it saved ([scene-writing.md](scene-writing.md)):
   shown, and every row must read as it was written.
 
 The plan is shown before it is written, as every edit of the checkout is
-([tools.md](tools.md)).
+([tools.md](tools.md)), unless Settings > Messages > Review Saves is off. A plan that warns is
+shown either way, and the first save of a checkout's messages warns of the include it writes
+the vanilla rows in place of. What a message was edited to while its save was planned still
+counts as edits once it is written.

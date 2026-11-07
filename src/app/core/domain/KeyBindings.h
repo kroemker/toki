@@ -14,7 +14,9 @@ namespace toki::core {
 
 /// Something a key can be bound to.
 enum class Action : u8 {
-    SaveScene,
+    Save,
+    SaveAll,
+    CloseTab,
     OpenSettings,
     Build,
     Run,
@@ -79,7 +81,7 @@ enum class ActionScope : u8 {
 /// An action as the config and the settings name it, and the key it has
 /// until the person binds another.
 struct ActionInfo {
-    Action action = Action::SaveScene;
+    Action action = Action::Save;
     std::string_view id;
     std::string_view label;
     ActionScope scope = ActionScope::Global;
