@@ -10,6 +10,7 @@
 
 using base::s32;
 using base::u8;
+using base::usize;
 using toki::message::EndIcon;
 using toki::message::LayoutRequest;
 using toki::message::MessageGeometry;
@@ -103,6 +104,35 @@ TEST_CASE("a line may reach as far from the box's right edge as text starts from
 
     REQUIRE(layout.boxes.size() == 1);
     CHECK(toki::message::findLineLimit(layout.boxes[0]) == 34 + 256 - (65 - 34));
+}
+
+TEST_CASE("a box moved down takes everything it draws with it", "[message]") {
+    const MessageLayout top =
+        layOut(Bytes().add("A").add(Newline).add(ItemIcon).add(u8{0x00}).add("B").add(End),
+               TypeBlack, PositionTop);
+    const MessageLayout bottom =
+        layOut(Bytes().add("A").add(Newline).add(ItemIcon).add(u8{0x00}).add("B").add(End),
+               TypeBlack, PositionBottom);
+    REQUIRE(top.boxes.size() == 1);
+    REQUIRE(bottom.boxes.size() == 1);
+    const s32 down = bottom.boxes[0].y - top.boxes[0].y;
+
+    const toki::message::LaidBox moved = toki::message::makeMovedBox(top.boxes[0], down);
+
+    const toki::message::LaidBox& expected = bottom.boxes[0];
+    CHECK(moved.y == expected.y);
+    CHECK(moved.endIconY == expected.endIconY);
+    REQUIRE(moved.characters.size() == expected.characters.size());
+    for (usize index = 0; index < moved.characters.size(); ++index) {
+        CHECK(moved.characters[index].y == expected.characters[index].y);
+    }
+    REQUIRE(moved.stops.size() == expected.stops.size());
+    for (usize index = 0; index < moved.stops.size(); ++index) {
+        CHECK(moved.stops[index].y == expected.stops[index].y);
+    }
+    REQUIRE(moved.icon.has_value());
+    CHECK(moved.icon->y == expected.icon->y);
+    CHECK(moved.lines.back().y == expected.lines.back().y);
 }
 
 TEST_CASE("more lines start higher, and four fill the box from its top", "[message]") {

@@ -158,6 +158,20 @@ TEST_CASE("coloring a selection draws it in the color and the text after it as i
     CHECK(format(box) == "{Blue}One{Default} {Blue}two{Default} three");
 }
 
+TEST_CASE("a code is set in place, the caret and selection kept", "[message]") {
+    EditableBox box(parse("a{Shift 8}bc"), nullptr);
+    box.setCaret(2, false);
+    box.setCaret(4, true);
+
+    box.setCode(1, CodePiece{.name = "SHIFT", .arguments = {"24"}});
+    CHECK(format(box) == "a{Shift 24}bc");
+    CHECK(box.getSelection().begin == 2);
+    CHECK(box.getSelection().end == 4);
+
+    box.setCode(0, CodePiece{.name = "NAME"});
+    CHECK(format(box) == "a{Shift 24}bc");
+}
+
 TEST_CASE("coloring a selection in colored text goes back to that color after it", "[message]") {
     const CodePiece blue{.name = "COLOR", .arguments = {"BLUE"}};
     const CodePiece red{.name = "COLOR", .arguments = {"RED"}};

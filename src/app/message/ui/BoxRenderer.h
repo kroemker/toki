@@ -35,7 +35,10 @@ struct BoxImage {
 
 /// Draws message boxes as the game draws them into images an ImGui window
 /// shows, each in a slot of its own that is drawn again only when what it
-/// shows changes.
+/// shows changes. A box is drawn moved to the top of the screen: the image is
+/// cut out around it, so where it stands changes nothing of it, and a box
+/// moved draws the gbi commands drawn before, which are cached, rather than
+/// new ones for each position.
 class BoxRenderer {
 public:
     explicit BoxRenderer(const gfx::Device& device);

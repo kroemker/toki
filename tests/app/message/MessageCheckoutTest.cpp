@@ -186,6 +186,10 @@ TEST_CASE("every English message of a real checkout lays out from its own tables
     const bool isFontEnglish = toki::message::isFontMessageEnglish(workspace->getMacros());
 
     usize boxes = 0;
+    usize lines = 0;
+    usize pastMargin = 0;
+    base::s32 longestEnd = 0;
+    std::vector<base::s32> ends;
     std::string problems;
     for (const toki::message::Message& message : table.messages) {
         if (!toki::message::isInLanguage(message, toki::message::Language::English,
@@ -204,6 +208,14 @@ TEST_CASE("every English message of a real checkout lays out from its own tables
         const toki::message::MessageLayout layout =
             toki::message::layoutMessage(text.bytes, geometry, *request);
         boxes += layout.boxes.size();
+        for (const toki::message::LaidBox& box : layout.boxes) {
+            for (const toki::message::LaidLine& line : box.lines) {
+                lines += 1;
+                ends.push_back(line.endX - box.x);
+                longestEnd = std::max(longestEnd, line.endX - box.x);
+                pastMargin += line.endX > toki::message::findLineLimit(box) ? 1 : 0;
+            }
+        }
         for (const base::Diagnostic& diagnostic : layout.diagnostics) {
             problems += std::format("0x{:04X}: {}\n", message.id, diagnostic.message);
         }
@@ -213,7 +225,13 @@ TEST_CASE("every English message of a real checkout lays out from its own tables
             CHECK(layout.boxes[0].characters.front().y == layout.boxes[0].y + 8);
         }
     }
-    WARN(boxes << " boxes");
+    WARN(boxes << " boxes, " << lines << " lines, " << pastMargin
+               << " past the margin, the longest ending " << longestEnd << " from the box's left");
+    std::ranges::sort(ends);
+    if (!ends.empty()) {
+        WARN("lines end by the box's left at " << ends[ends.size() * 99 / 100] << " (99%), "
+                                               << ends[ends.size() * 999 / 1000] << " (99.9%)");
+    }
     INFO(problems.substr(0, 2000));
     CHECK(problems.empty());
 }
@@ -397,6 +415,9 @@ TEST_CASE("every Japanese message lays out and draws from the kanji font", "[mes
         toki::message::readMessageCatalog(workspace, TOKI_SHIPPED_SHIFT_JIS, true);
     REQUIRE(catalog.art.hasKanji);
     CHECK(catalog.geometry.nonKanjiIndices.size() == 0xBC * 7);
+    CHECK(std::ranges::contains(catalog.items, "ITEM_POCKET_EGG"));
+    CHECK(std::ranges::contains(catalog.highScores, "HS_HORSE_RACE"));
+    CHECK(std::ranges::contains(catalog.sounds, "NA_SE_SY_DECIDE"));
 
     usize boxes = 0;
     std::string problems;

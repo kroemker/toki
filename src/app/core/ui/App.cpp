@@ -615,12 +615,12 @@ void App::updateScene() {
 
 void App::openMessages(const std::shared_ptr<const hackeroot::Workspace>& workspace) {
     const std::expected<std::filesystem::path, std::string> assets = findAssetDirectory();
-    messageLoader.open(workspace, message::MessageRequest{
-                                      .name = messageReadsKanji ? "the kanji font" : "the messages",
-                                      .workspace = workspace,
-                                      .shiftJisTable = assets ? *assets / "shift_jis.txt"
-                                                              : std::filesystem::path(),
-                                      .readsKanji = messageReadsKanji});
+    messageLoader.open(
+        workspace, message::MessageRequest{.name = messageReadsKanji ? "kanji font" : "messages",
+                                           .workspace = workspace,
+                                           .shiftJisTable = assets ? *assets / "shift_jis.txt"
+                                                                   : std::filesystem::path(),
+                                           .readsKanji = messageReadsKanji});
 }
 
 void App::updateMessages() {
@@ -634,8 +634,12 @@ void App::updateMessages() {
             messageRoot = root;
             assetTabHost.closeAllUnasked();
             const f32 zoom = messageFocus.zoom;
+            const bool showsMeters = messageFocus.showsMeters;
+            const bool showsCodes = messageFocus.showsCodes;
             messageFocus = {};
             messageFocus.zoom = zoom;
+            messageFocus.showsMeters = showsMeters;
+            messageFocus.showsCodes = showsCodes;
             messageReadsKanji = false;
         }
         if (workspace) {
@@ -648,6 +652,8 @@ void App::updateMessages() {
         messageReadsKanji = true;
         openMessages(workspace);
     }
+    messageFocus.isReading = messageLoader.findReadingName().has_value();
+    messageFocus.isSaving = saveMessagesDialog.isWriting();
     std::optional<message::SharedCatalog> loaded = messageLoader.update();
     if (!loaded) {
         return;

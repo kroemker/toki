@@ -15,7 +15,8 @@ void setKeyBindings(const KeyBindings& bindings);
 /// Whether the key `action` is bound to was pressed this frame. A global
 /// action is heard anywhere unless an item has taken the key; a viewport
 /// action is heard only when asked, so the caller checks the cursor is over
-/// the viewport, and never while text is typed.
+/// the viewport, and never while text is typed. A message action is heard
+/// only when asked too, while text is typed as well.
 [[nodiscard]] bool isActionPressed(Action action);
 
 /// The key `action` is bound to as menus and tooltips show it, `Ctrl+,`;

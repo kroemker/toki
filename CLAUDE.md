@@ -209,9 +209,14 @@ consistent spacing scale are a budgeted requirement, not polish.
 Every form is two columns: the label on the left, its input filling the right
 (`core::beginProperties`, `core::drawPropertyLabel`). Never ImGui's default of the input
 with its label after it. A toggle is a row like any other, its label and then the checkbox
-alone. A setting is one row; what explains it is the tooltip of its label, never text under
-it. Labels are in title case and say exactly what is set ("Min. Log Level", not "Shown
+alone. A setting is one row, never with text under it. Labels are in title case and say exactly what is set ("Min. Log Level", not "Shown
 from").
+
+No tooltips by default. A tooltip is written only where the user asks for one; none is made
+up to explain a button, a field or a view. Two exceptions: a button that is only an icon, a
+swatch or a glyph is named in its tooltip by a noun ("Meters"), and whatever has a hotkey
+names it in its tooltip (`core::makeShortcutText`), "Red Text (Ctrl+2)". Neither tooltip says
+more than that.
 
 Dropdown options that are words are capitalized ("Cube", not "cube"), whatever the config
 file stores. Options that are constants of the checkout (`ACTORCAT_BG`) are shown as words,

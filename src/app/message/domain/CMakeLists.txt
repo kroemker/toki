@@ -3,6 +3,7 @@ target_sources(toki_core PRIVATE
         EditableBox.cpp
         Message.cpp
         MessageCatalog.cpp
+        MessageCodes.cpp
         MessageDraft.cpp
         MessageDrawing.cpp
         MessageEncoder.cpp

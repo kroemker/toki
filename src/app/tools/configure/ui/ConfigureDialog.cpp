@@ -120,7 +120,7 @@ void ConfigureDialog::draw() {
         return;
     }
     if (groups.empty()) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the configuration…");
+        ImGui::TextColored(core::palette::TextMuted, "Loading configuration…");
         return;
     }
     ImGui::TextColored(core::palette::TextMuted,

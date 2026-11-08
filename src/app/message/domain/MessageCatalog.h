@@ -44,6 +44,11 @@ struct MessageCatalog {
     /// The colors `COLOR` takes, as `TextColor` of `message_data_fmt.h` names
     /// them without its prefix: `RED`.
     std::vector<std::string> colors;
+    /// The constants `ITEM_ICON`, `HIGHSCORE` and `SFX` take, as the
+    /// checkout's `ItemID`, `HighScores` and `SfxId` declare them.
+    std::vector<std::string> items;
+    std::vector<std::string> highScores;
+    std::vector<std::string> sounds;
     std::vector<std::filesystem::path> files;
     std::vector<base::Diagnostic> diagnostics;
 

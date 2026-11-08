@@ -1,6 +1,7 @@
 #include "MessageBrowser.h"
 
 #include "app/core/domain/ReadableName.h"
+#include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 #include "app/message/domain/MessageCatalog.h"
 
@@ -90,8 +91,10 @@ void MessageBrowser::updateRows(const RowsKey& key) {
 }
 
 void MessageBrowser::drawTable(const std::string& filter, const float height) {
+    const ImVec2 start = ImGui::GetCursorPos();
     if (!focus.catalog) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the messages…");
+        ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, height));
+        core::drawBusyCover(start, ImVec2(0.0F, height), "Loading messages");
         return;
     }
     if (!ImGui::BeginTable("##messages", 5, TableFlags, ImVec2(0.0F, height))) {
@@ -131,6 +134,9 @@ void MessageBrowser::drawTable(const std::string& filter, const float height) {
         }
     }
     ImGui::EndTable();
+    if (focus.isReading) {
+        core::drawBusyCover(start, ImVec2(0.0F, height), "Loading messages");
+    }
 }
 
 void MessageBrowser::drawRow(const MessageRow& row) {

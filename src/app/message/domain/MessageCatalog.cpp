@@ -30,6 +30,20 @@ EncodedText MessageCatalog::encode(const Message& message, const Language langua
 
 namespace {
 
+[[nodiscard]] std::vector<std::string> listEnumerators(const cparser::TypeTable& types,
+                                                       const std::string_view enumeration,
+                                                       const std::string_view prefix) {
+    std::vector<std::string> names;
+    if (const cparser::Enumeration* found = types.findEnumeration(enumeration)) {
+        for (const cparser::Enumerator& constant : found->constants) {
+            if (constant.name.starts_with(prefix)) {
+                names.push_back(constant.name);
+            }
+        }
+    }
+    return names;
+}
+
 void reportMissingGlyphs(MessageLayout& layout, const Message& message, const MessageArt& art,
                          const Charmap& charmap) {
     std::vector<u16> reported;
@@ -101,14 +115,13 @@ MessageCatalog readMessageCatalog(const std::shared_ptr<const hackeroot::Workspa
     if (format) {
         catalog.format = std::move(*format);
         constexpr std::string_view ColorPrefix = "TEXT_COLOR_";
-        if (const cparser::Enumeration* colors =
-                catalog.format->prelude->types.findEnumeration("TextColor")) {
-            for (const cparser::Enumerator& color : colors->constants) {
-                if (color.name.starts_with(ColorPrefix)) {
-                    catalog.colors.push_back(color.name.substr(ColorPrefix.size()));
-                }
-            }
+        const cparser::TypeTable& types = catalog.format->prelude->types;
+        for (std::string& color : listEnumerators(types, "TextColor", ColorPrefix)) {
+            catalog.colors.push_back(color.substr(ColorPrefix.size()));
         }
+        catalog.items = listEnumerators(types, "ItemID", "ITEM_");
+        catalog.highScores = listEnumerators(types, "HighScores", "HS_");
+        catalog.sounds = listEnumerators(types, "SfxId", "NA_SE_");
     } else {
         catalog.diagnostics.push_back(std::move(format.error()));
     }

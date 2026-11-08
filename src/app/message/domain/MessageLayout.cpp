@@ -704,6 +704,35 @@ s32 findLineLimit(const LaidBox& box) {
     return box.x + BoxWidth - (findLineStart(box) - box.x);
 }
 
+s32 findBoxRightEdge(const LaidBox& box) {
+    return box.x + BoxWidth;
+}
+
+LaidBox makeMovedBox(const LaidBox& box, const s32 down) {
+    LaidBox moved = box;
+    moved.y += down;
+    for (LaidCharacter& character : moved.characters) {
+        character.y += down;
+    }
+    for (LaidStop& stop : moved.stops) {
+        stop.y += down;
+    }
+    for (LaidLine& line : moved.lines) {
+        line.y += down;
+    }
+    if (moved.icon) {
+        moved.icon->y += down;
+    }
+    if (moved.background) {
+        moved.background->y += down;
+    }
+    moved.endIconY += down;
+    for (s32& choice : moved.choiceYs) {
+        choice += down;
+    }
+    return moved;
+}
+
 MessageLayout layoutMessage(const std::span<const u8> bytes, const MessageGeometry& geometry,
                             const LayoutRequest& request) {
     return layOutBoxes(bytes, geometry, request, NarrowScript);

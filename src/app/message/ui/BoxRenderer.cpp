@@ -94,11 +94,11 @@ bool BoxRenderer::render(Slot& slot, const LaidBox& box, const MessageArt& art) 
 
 BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const MessageArt& art,
                            const float width) {
-    const u64 key = makeBoxKey(box, art);
+    const LaidBox drawn = makeMovedBox(box, static_cast<s32>(CropAbove) - box.y);
+    const u64 key = makeBoxKey(drawn, art);
     const ImVec2 size{width, width / AspectRatio};
     const ImVec2 origin = ImGui::GetCursorScreenPos();
-    const float top = std::clamp(static_cast<float>(box.y) - CropAbove, 0.0F,
-                                 static_cast<float>(ScreenHeight) - CropHeight);
+    const float top = static_cast<float>(box.y) - CropAbove;
     const BoxImage image{
         .origin = origin, .size = size, .scale = width / CropWidth, .left = CropLeft, .top = top};
     ImGui::InvisibleButton("##box", size);
@@ -112,7 +112,7 @@ BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const Mess
     }
     Slot& slot = slots[slotIndex];
     if (slot.key != key) {
-        if (!render(slot, box, art)) {
+        if (!render(slot, drawn, art)) {
             drawList->AddText(origin, ImGui::GetColorU32(core::palette::Danger), failure.c_str());
             return image;
         }
@@ -122,8 +122,8 @@ BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const Mess
     const ImVec2 end{origin.x + size.x, origin.y + size.y};
     const ImVec4 backdrop = slot.boxType == BoxTypeNoneNoShadow ? LightBackdrop : DarkBackdrop;
     drawList->AddRectFilled(origin, end, ImGui::GetColorU32(backdrop));
-    const ImVec2 uvStart{CropLeft / ScreenWidth, top / ScreenHeight};
-    const ImVec2 uvEnd{(CropLeft + CropWidth) / ScreenWidth, (top + CropHeight) / ScreenHeight};
+    const ImVec2 uvStart{CropLeft / ScreenWidth, 0.0F};
+    const ImVec2 uvEnd{(CropLeft + CropWidth) / ScreenWidth, CropHeight / ScreenHeight};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     const auto texture =
         static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(slot.target->getColor()));

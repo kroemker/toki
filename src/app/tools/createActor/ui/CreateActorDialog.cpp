@@ -80,7 +80,7 @@ void CreateActorDialog::draw() {
         return;
     }
     if (!choices) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the actor headers…");
+        ImGui::TextColored(core::palette::TextMuted, "Loading actor headers…");
         return;
     }
     if (!*choices) {

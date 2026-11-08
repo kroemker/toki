@@ -57,6 +57,8 @@ constexpr CodeName CodeNames[] = {
     {.macro = "TIME", .words = "Time"},
 };
 
+constexpr std::string_view NewLineWords = "New Line";
+
 [[nodiscard]] bool isBoxBreak(const CodePiece& code) {
     return code.name == "BOX_BREAK" || code.name == "BOX_BREAK_DELAYED";
 }
@@ -253,28 +255,103 @@ std::vector<Piece> joinBoxes(const std::span<const BoxText> boxes) {
 }
 
 std::string formatMarkup(const std::span<const Piece> pieces) {
+    const auto isBreakAt = [&](const usize index) {
+        const auto* code = index < pieces.size() ? std::get_if<CodePiece>(&pieces[index]) : nullptr;
+        return code != nullptr && isBoxBreak(*code);
+    };
     std::string markup;
-    for (const Piece& piece : pieces) {
+    for (usize index = 0; index < pieces.size(); ++index) {
+        const Piece& piece = pieces[index];
         if (const auto* text = std::get_if<TextPiece>(&piece)) {
             appendText(markup, text->text);
         } else if (std::holds_alternative<NewlinePiece>(piece)) {
-            markup += '\n';
+            const bool isBesideBreak = isBreakAt(index + 1) || (index > 0 && isBreakAt(index - 1));
+            markup += isBesideBreak ? std::format("{{{}}}", NewLineWords) : "\n";
         } else {
-            markup += formatCode(std::get<CodePiece>(piece));
+            const CodePiece& code = std::get<CodePiece>(piece);
+            const bool isBreak = isBoxBreak(code);
+            if (isBreak && index > 0) {
+                markup += '\n';
+            }
+            markup += formatCode(code);
+            if (isBreak && index + 1 < pieces.size()) {
+                markup += "\n\n";
+            }
         }
     }
     return markup;
 }
 
+std::vector<MarkupSpan> findMarkupSpans(const std::string_view markup) {
+    std::vector<MarkupSpan> spans;
+    const auto add = [&](const usize begin, const usize end, const MarkupSpanKind kind,
+                         std::string color = {}) {
+        if (kind == MarkupSpanKind::Text && !spans.empty() &&
+            spans.back().kind == MarkupSpanKind::Text && spans.back().end == begin) {
+            spans.back().end = end;
+            return;
+        }
+        spans.push_back(
+            MarkupSpan{.begin = begin, .end = end, .kind = kind, .color = std::move(color)});
+    };
+    usize index = 0;
+    while (index < markup.size()) {
+        const char character = markup[index];
+        if ((character == '{' || character == '}') && index + 1 < markup.size() &&
+            markup[index + 1] == character) {
+            add(index, index + 2, MarkupSpanKind::Brace);
+            index += 2;
+            continue;
+        }
+        if (character == '\n') {
+            add(index, index + 1, MarkupSpanKind::NewLine);
+            ++index;
+            continue;
+        }
+        if (character != '{') {
+            add(index, index + 1, MarkupSpanKind::Text);
+            ++index;
+            continue;
+        }
+        const usize close = markup.find('}', index);
+        const usize newline = markup.find('\n', index);
+        if (close == std::string_view::npos || newline < close) {
+            const usize end = std::min(newline, markup.size());
+            add(index, end, MarkupSpanKind::Open);
+            index = end;
+            continue;
+        }
+        const std::string_view tag = markup.substr(index + 1, close - index - 1);
+        MarkupSpanKind kind = MarkupSpanKind::Code;
+        std::string color;
+        if (!tag.empty() && tag != NewLineWords) {
+            const CodePiece code = parseTag(tag);
+            if (isBoxBreak(code)) {
+                kind = MarkupSpanKind::BoxBreak;
+            } else if (code.name == "COLOR" && code.arguments.size() == 1) {
+                kind = MarkupSpanKind::Color;
+                color = code.arguments[0];
+            }
+        }
+        add(index, close + 1, kind, std::move(color));
+        index = close + 1;
+    }
+    return spans;
+}
+
 std::expected<std::vector<Piece>, MarkupError> parseMarkup(const std::string_view markup) {
     std::vector<Piece> pieces;
     std::string text;
+    usize layoutNewlines = 0;
+    bool isAfterBreak = false;
     usize index = 0;
     while (index < markup.size()) {
         const char character = markup[index];
         if ((character == '{' || character == '}') && index + 1 < markup.size() &&
             markup[index + 1] == character) {
             text += character;
+            layoutNewlines = 0;
+            isAfterBreak = false;
             index += 2;
             continue;
         }
@@ -283,13 +360,19 @@ std::expected<std::vector<Piece>, MarkupError> parseMarkup(const std::string_vie
                 .offset = index, .message = "a '}' closes no code; write '}}' for one"});
         }
         if (character == '\n') {
+            ++index;
+            if (isAfterBreak) {
+                continue;
+            }
             appendPiece(pieces, std::exchange(text, {}));
             pieces.emplace_back(NewlinePiece{});
-            ++index;
+            ++layoutNewlines;
             continue;
         }
         if (character != '{') {
             text += character;
+            layoutNewlines = 0;
+            isAfterBreak = false;
             ++index;
             continue;
         }
@@ -305,8 +388,20 @@ std::expected<std::vector<Piece>, MarkupError> parseMarkup(const std::string_vie
                 MarkupError{.offset = index, .message = "a code names nothing between its braces"});
         }
         appendPiece(pieces, std::exchange(text, {}));
-        pieces.emplace_back(parseTag(tag));
         index = close + 1;
+        if (tag == NewLineWords) {
+            pieces.emplace_back(NewlinePiece{});
+            layoutNewlines = 0;
+            isAfterBreak = false;
+            continue;
+        }
+        CodePiece code = parseTag(tag);
+        isAfterBreak = isBoxBreak(code);
+        if (isAfterBreak) {
+            pieces.erase(pieces.end() - static_cast<std::ptrdiff_t>(layoutNewlines), pieces.end());
+        }
+        layoutNewlines = 0;
+        pieces.emplace_back(std::move(code));
     }
     appendPiece(pieces, text);
     return pieces;

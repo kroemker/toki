@@ -97,6 +97,42 @@ TEST_CASE("markup with a brace left open or closing nothing is a mistake at that
     CHECK_FALSE(toki::message::parseMarkup("{}").has_value());
 }
 
+TEST_CASE("a box break stands on a line of its own, and a new line beside it is written out",
+          "[message]") {
+    const std::vector<Piece> pieces = {TextPiece{.text = "One"},
+                                       CodePiece{.name = "BOX_BREAK"},
+                                       TextPiece{.text = "Two"},
+                                       NewlinePiece{},
+                                       CodePiece{.name = "BOX_BREAK_DELAYED", .arguments = {"20"}},
+                                       NewlinePiece{},
+                                       TextPiece{.text = "Three"}};
+
+    const std::string markup = toki::message::formatMarkup(pieces);
+
+    CHECK(markup == "One\n{Box Break}\n\nTwo{New Line}\n{Box Break Delayed 20}\n\n{New Line}Three");
+    CHECK(describe(parse(markup)) == describe(pieces));
+    CHECK(describe(parse("One{Box Break}Two")) == describe(parse("One\n\n{Box Break}\n\n\nTwo")));
+}
+
+TEST_CASE("markup is cut into runs of text, codes, colors and box breaks", "[message]") {
+    using toki::message::MarkupSpanKind;
+    const std::vector<toki::message::MarkupSpan> spans =
+        toki::message::findMarkupSpans("a {Red}b{{\n{Box Break}{Shift 4}{Op");
+
+    REQUIRE(spans.size() == 8);
+    CHECK(spans[0].kind == MarkupSpanKind::Text);
+    CHECK(spans[0].end == 2);
+    CHECK(spans[1].kind == MarkupSpanKind::Color);
+    CHECK(spans[1].color == "RED");
+    CHECK(spans[2].kind == MarkupSpanKind::Text);
+    CHECK(spans[3].kind == MarkupSpanKind::Brace);
+    CHECK(spans[4].kind == MarkupSpanKind::NewLine);
+    CHECK(spans[5].kind == MarkupSpanKind::BoxBreak);
+    CHECK(spans[6].kind == MarkupSpanKind::Code);
+    CHECK(spans[7].kind == MarkupSpanKind::Open);
+    CHECK(spans[7].end == 34);
+}
+
 TEST_CASE("a message splits into boxes at its box breaks and joins back as it was", "[message]") {
     toki::message::MessageText text;
     text.pieces = {

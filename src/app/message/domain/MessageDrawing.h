@@ -59,6 +59,10 @@ struct MessageArt {
 /// four bytes a pixel. Nothing when the font has no such glyph.
 [[nodiscard]] std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, u16 character);
 
+/// The glyph of the `kanji` font at `offset`, as `findKanjiOffset` finds it,
+/// in the same form. Nothing when the font was not read.
+[[nodiscard]] std::optional<std::vector<u8>> decodeKanjiGlyph(const MessageArt& art, u32 offset);
+
 /// The display list one box is drawn with, as `Message_DrawTextBox`,
 /// `Message_DrawText` and `Message_DrawTextboxIcon` build it once the box's
 /// text is all shown: the gbi macros they call, written with the box's

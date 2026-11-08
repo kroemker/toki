@@ -1,16 +1,22 @@
 #include "MessageTab.h"
 
+#include "app/core/domain/KeyBindings.h"
 #include "app/core/domain/ReadableName.h"
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/ConstantSelectable.h"
+#include "app/core/ui/Hotkeys.h"
 #include "app/core/ui/Icons.h"
+#include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 #include "app/message/domain/Charmap.h"
 #include "app/message/domain/EditableBox.h"
 #include "app/message/domain/MessageCatalog.h"
+#include "app/message/domain/MessageCodes.h"
 #include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageMarkup.h"
 #include "app/message/domain/MessageRows.h"
+#include "app/message/ui/CodeArguments.h"
+#include "app/message/ui/MarkupEditor.h"
 #include "base/Diagnostic.h"
 #include "hackeroot/Workspace.h"
 
@@ -49,22 +55,19 @@ constexpr f32 LanguageComboEms = 8.0F;
 constexpr f32 ZoomComboEms = 7.0F;
 constexpr std::array ZoomChoices = {1.0F, 1.5F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F};
 constexpr float MeterHeightLines = 0.35F;
-constexpr float NearLimit = 0.9F;
-constexpr f32 MarkerHalfWidth = 2.0F;
 constexpr f32 SelectedLineEndWidth = 3.0F;
+constexpr f32 TypedFrameThickness = 2.0F;
+constexpr f32 ScreenWidth = 320.0F;
+constexpr f32 ScreenHeight = 240.0F;
 constexpr double CaretBlinkPeriod = 1.2;
 constexpr double CaretBlinkShown = 0.8;
 constexpr ImWchar FirstTypedCharacter = 0x20;
 constexpr ImWchar DeleteCharacter = 0x7F;
 constexpr usize Utf8Capacity = 5;
-
-/// The codes without arguments the Code menu puts in; one with arguments is
-/// written as markup.
-constexpr std::array<std::string_view, 16> InsertedCodes = {
-    "NAME",          "TWO_CHOICE",         "THREE_CHOICE", "QUICKTEXT_ENABLE", "QUICKTEXT_DISABLE",
-    "UNSKIPPABLE",   "AWAIT_BUTTON_PRESS", "EVENT",        "PERSISTENT",       "OCARINA",
-    "MARATHON_TIME", "RACE_TIME",          "POINTS",       "TOKENS",           "FISH_INFO",
-    "TIME",
+constexpr std::array ColorActions = {
+    core::Action::TextColor1, core::Action::TextColor2, core::Action::TextColor3,
+    core::Action::TextColor4, core::Action::TextColor5, core::Action::TextColor6,
+    core::Action::TextColor7, core::Action::TextColor8,
 };
 
 [[nodiscard]] std::string makeSignLabel(const std::string_view sign) {
@@ -94,66 +97,6 @@ void moveVertically(EditableBox& editable, const std::vector<CaretPlace>& places
     const f32 y = static_cast<f32>(at.y + (direction * findLineSpacing(box))) +
                   (static_cast<f32>(height) / 2.0F);
     editable.setCaret(findPlaceAt(places, height, static_cast<f32>(at.x), y), extends);
-}
-
-/// A code that draws nothing, a color or a pause, marked where it stands.
-struct Marker {
-    usize unit = 0;
-    CaretPlace place;
-    TextColor color;
-    bool isColor = false;
-    std::string tag;
-};
-
-[[nodiscard]] std::vector<Marker> findMarkers(const EditableBox& editable, const LaidBox& box,
-                                              const std::span<const TextPosition> sources) {
-    std::vector<Marker> markers;
-    for (const LaidStop& stop : box.stops) {
-        if (stop.byte >= sources.size()) {
-            continue;
-        }
-        const std::optional<usize> unit = editable.findUnit(sources[stop.byte]);
-        if (!unit || *unit >= editable.getUnits().size()) {
-            continue;
-        }
-        const auto* code = std::get_if<CodePiece>(&editable.getUnits()[*unit].piece);
-        if (code == nullptr || code->name == "ITEM_ICON" ||
-            std::ranges::any_of(box.characters, [&](const LaidCharacter& character) {
-                return character.byte == stop.byte;
-            })) {
-            continue;
-        }
-        const std::array<Piece, 1> piece = {*code};
-        markers.push_back(Marker{.unit = *unit,
-                                 .place = CaretPlace{.x = stop.x, .y = stop.y},
-                                 .color = stop.color,
-                                 .isColor = code->name == "COLOR",
-                                 .tag = formatMarkup(piece)});
-    }
-    return markers;
-}
-
-void drawMarkers(const std::vector<Marker>& markers, const LaidBox& box, const BoxImage& image) {
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    const float height = static_cast<float>(findCharacterHeight(box)) * image.scale;
-    const float half = MarkerHalfWidth * image.scale;
-    const ImVec2 mouse = ImGui::GetIO().MousePos;
-    for (const Marker& marker : markers) {
-        const ImVec2 top = image.findScreenPosition(static_cast<f32>(marker.place.x),
-                                                    static_cast<f32>(marker.place.y));
-        const ImU32 color =
-            marker.isColor ? IM_COL32(marker.color.red, marker.color.green, marker.color.blue, 255)
-                           : ImGui::GetColorU32(core::palette::Accent);
-        drawList->AddLine(top, ImVec2(top.x, top.y + height), color,
-                          std::max(1.0F, image.scale * 0.5F));
-        drawList->AddTriangleFilled(ImVec2(top.x - half, top.y - half),
-                                    ImVec2(top.x + half, top.y - half), ImVec2(top.x, top.y + half),
-                                    color);
-        if (ImGui::IsItemHovered() && std::abs(mouse.x - top.x) <= half &&
-            mouse.y >= top.y - half && mouse.y <= top.y + height) {
-            ImGui::SetTooltip("%s draws nothing here. Click it to select it.", marker.tag.c_str());
-        }
-    }
 }
 
 void drawCaret(const EditableBox& editable, const std::vector<CaretPlace>& places,
@@ -270,7 +213,8 @@ void moveCaretByKeys(EditableBox& editable, const std::vector<CaretPlace>& place
         editable.eraseForward();
         isChanged = true;
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) {
+    if (!ImGui::GetIO().KeyCtrl &&
+        (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))) {
         const std::array<Piece, 1> newline = {NewlinePiece{}};
         editable.insert(newline);
         isChanged = true;
@@ -312,20 +256,6 @@ void moveCaretByKeys(EditableBox& editable, const std::vector<CaretPlace>& place
     return "";
 }
 
-[[nodiscard]] const char* explainEndIcon(const EndIcon icon) {
-    switch (icon) {
-    case EndIcon::None:
-        return "No mark: the box closes or goes on by itself.";
-    case EndIcon::Triangle:
-        return "A triangle: the player presses a button for the next box.";
-    case EndIcon::Square:
-        return "A square: the player presses a button to close the message.";
-    case EndIcon::Arrow:
-        return "An arrow: the player picks one of the choices.";
-    }
-    return "";
-}
-
 [[nodiscard]] bool hasTextSelected(const EditableBox& editable) {
     const UnitRange selection = editable.getSelection();
     const std::span<const BoxUnit> units = editable.getUnits();
@@ -338,25 +268,34 @@ void moveCaretByKeys(EditableBox& editable, const std::vector<CaretPlace>& place
     return false;
 }
 
-[[nodiscard]] bool drawViewButton(const char* icon, const bool isOn) {
+[[nodiscard]] bool drawToggleButton(const char* label, const bool isOn) {
     ImGui::PushStyleColor(ImGuiCol_Button,
                           isOn ? core::palette::AccentMuted : core::palette::SurfaceRaised);
     ImGui::PushStyleColor(ImGuiCol_Text, isOn ? core::palette::Text : core::palette::TextMuted);
-    const f32 size = ImGui::GetFrameHeight();
-    const bool clicked = ImGui::Button(icon, ImVec2(size, size));
+    const bool clicked = ImGui::Button(label);
     ImGui::PopStyleColor(2);
     return clicked;
 }
 
+[[nodiscard]] f32 measureToggleButton(const char* label) {
+    return ImGui::CalcTextSize(label).x + (ImGui::GetStyle().FramePadding.x * 2.0F);
+}
+
+void setShortcutTooltip(const std::string_view text, const core::Action action) {
+    ImGui::SetItemTooltip("%s", core::makeShortcutText(text, action).c_str());
+}
+
 void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
-    const s32 limit = findLineLimit(box);
-    const s32 room = limit - findLineStart(box);
-    const s32 used = line.endX - findLineStart(box);
+    const s32 start = findLineStart(box);
+    const s32 margin = findLineLimit(box);
+    const s32 edge = findBoxRightEdge(box);
+    const s32 room = edge - start;
+    const s32 used = line.endX - start;
     const float fraction = room > 0 ? static_cast<float>(used) / static_cast<float>(room) : 0.0F;
     ImVec4 color = core::palette::Success;
-    if (line.endX > limit) {
+    if (line.endX > edge) {
         color = core::palette::Danger;
-    } else if (fraction > NearLimit) {
+    } else if (line.endX > margin) {
         color = core::palette::Warning;
     }
     const float height = ImGui::GetTextLineHeight() * MeterHeightLines;
@@ -368,9 +307,12 @@ void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
     drawList->AddRectFilled(
         origin, ImVec2(origin.x + width * std::clamp(fraction, 0.0F, 1.0F), origin.y + height),
         ImGui::GetColorU32(color));
+    const float marginX =
+        origin.x + (width * static_cast<float>(margin - start) / static_cast<float>(room));
+    drawList->AddLine(ImVec2(marginX, origin.y), ImVec2(marginX, origin.y + height),
+                      ImGui::GetColorU32(core::palette::TextMuted));
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%d of %d pixels%s", used, room,
-                          line.endX > limit ? ", past the box's margin" : "");
+        ImGui::SetTooltip("%d of %d pixels", used, room);
     }
 }
 
@@ -393,13 +335,53 @@ void drawMeter(const LaidBox& box, const LaidLine& line, const float width) {
     return changed;
 }
 
-[[nodiscard]] std::vector<CodePiece> makeInsertedCodes() {
-    std::vector<CodePiece> codes;
-    codes.reserve(InsertedCodes.size());
-    for (const std::string_view name : InsertedCodes) {
-        codes.push_back(CodePiece{.name = std::string(name)});
+[[nodiscard]] CodePiece makeCodeToInsert(const InsertableCode& insertable,
+                                         const MessageCatalog& catalog) {
+    CodePiece code = makeInitialCode(insertable);
+    for (usize index = 0; index < insertable.arguments.size(); ++index) {
+        if (!code.arguments[index].empty()) {
+            continue;
+        }
+        const std::vector<std::string>* options = nullptr;
+        switch (insertable.arguments[index].kind) {
+        case ArgumentKind::Item:
+            options = &catalog.items;
+            break;
+        case ArgumentKind::HighScore:
+            options = &catalog.highScores;
+            break;
+        case ArgumentKind::Sound:
+            options = &catalog.sounds;
+            break;
+        case ArgumentKind::Number:
+        case ArgumentKind::MessageId:
+            break;
+        }
+        if (options != nullptr && !options->empty()) {
+            code.arguments[index] = options->front();
+        }
     }
-    return codes;
+    return code;
+}
+
+void drawScreenPlace(const LaidBox* box) {
+    const f32 height = ImGui::GetFrameHeight();
+    const f32 width = height * ScreenWidth / ScreenHeight;
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(width, height));
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    const ImVec2 end(origin.x + width, origin.y + height);
+    drawList->AddRectFilled(origin, end, ImGui::GetColorU32(core::palette::SurfaceRaised));
+    drawList->AddRect(origin, end, ImGui::GetColorU32(core::palette::TextMuted));
+    if (box == nullptr) {
+        return;
+    }
+    const f32 scale = height / ScreenHeight;
+    const ImVec2 boxMin(origin.x + (static_cast<f32>(box->x) * scale),
+                        origin.y + (static_cast<f32>(box->y) * scale));
+    const ImVec2 boxMax(boxMin.x + (static_cast<f32>(BoxWidth) * scale),
+                        boxMin.y + (static_cast<f32>(BoxHeight) * scale));
+    drawList->AddRectFilled(boxMin, boxMax, ImGui::GetColorU32(core::palette::Accent));
 }
 
 [[nodiscard]] f32 findStep(const f32 scale) {
@@ -558,25 +540,36 @@ void MessageTab::drawHeader(const usize shown, const Message& message) {
                           em * BoxComboEms)) {
         focus.draft.setBoxType(shown, std::move(type));
     }
-    ImGui::SetItemTooltip("Box Type: the box's frame and the colors its text is drawn in.");
     ImGui::SameLine();
     std::string position = message.boxPosition;
     if (drawConstantCombo("##boxPosition", position, listBoxPositions(focus.draft.getTable()),
                           "TEXTBOX_POS_", em * BoxComboEms)) {
         focus.draft.setBoxPosition(shown, std::move(position));
     }
-    ImGui::SetItemTooltip("Box Position: where on screen the box stands. Variable lets the game "
-                          "put it above or below, by where the player and the actor spoken to "
-                          "stand.");
+    ImGui::SameLine();
+    drawScreenPlace(layout.boxes.empty() ? nullptr : layout.boxes.data());
 
     const ImGuiStyle& style = ImGui::GetStyle();
     const f32 comboWidth = em * LanguageComboEms;
     const f32 zoomWidth = em * ZoomComboEms;
-    const f32 viewWidth = (ImGui::GetFrameHeight() * 2.0F) + style.ItemInnerSpacing.x;
-    const f32 rightWidth = comboWidth + viewWidth + style.ItemSpacing.x +
-                           (isMarkupShown ? 0.0F : zoomWidth + style.ItemSpacing.x);
+    const f32 viewWidth = measureToggleButton("Render") + measureToggleButton("Markup");
+    const f32 boxesWidth = zoomWidth + measureToggleButton(core::icons::Ruler) +
+                           measureToggleButton(core::icons::MapPin) + (style.ItemSpacing.x * 2.0F) +
+                           style.ItemInnerSpacing.x;
+    const f32 rightWidth =
+        viewWidth + comboWidth + style.ItemSpacing.x + (isMarkupShown ? 0.0F : boxesWidth);
     ImGui::SameLine();
     ImGui::SameLine(std::max(ImGui::GetContentRegionMax().x - rightWidth, ImGui::GetCursorPosX()));
+    if (drawToggleButton("Render", !isMarkupShown)) {
+        showMarkup(false);
+    }
+    setShortcutTooltip("Render", core::Action::ShowMessageRender);
+    ImGui::SameLine(0.0F, 0.0F);
+    if (drawToggleButton("Markup", isMarkupShown)) {
+        showMarkup(true);
+    }
+    setShortcutTooltip("Markup", core::Action::ShowMessageMarkup);
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(comboWidth);
     const std::vector<Language>& languages = focus.catalog->languages;
     if (!languages.empty() && !std::ranges::contains(languages, focus.language)) {
@@ -590,29 +583,20 @@ void MessageTab::drawHeader(const usize shown, const Message& message) {
         }
         ImGui::EndCombo();
     }
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
-        ImGui::SetTooltip("The languages the checkout has text in: an NTSC version has English "
-                          "and Japanese, a PAL one English, German and French.");
-    }
     if (!isMarkupShown) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(zoomWidth);
         drawZoomMenu();
-    }
-    ImGui::SameLine();
-    if (drawViewButton(core::icons::Image, !isMarkupShown)) {
-        isMarkupShown = false;
-    }
-    ImGui::SetItemTooltip("The boxes as the game draws them, typed in where they are drawn.");
-    ImGui::SameLine(0.0F, style.ItemInnerSpacing.x);
-    if (drawViewButton(core::icons::BracketsCurly, isMarkupShown)) {
-        isMarkupShown = true;
-        typedBox.reset();
-    }
-    ImGui::SetItemTooltip("The message as markup.");
-    if (focus.language == Language::Japanese && !focus.catalog->art.hasKanji) {
-        ImGui::TextColored(core::palette::TextMuted,
-                           "Reading the kanji font; the text is drawn once it is read.");
+        ImGui::SameLine();
+        if (drawToggleButton(core::icons::Ruler, focus.showsMeters)) {
+            focus.showsMeters = !focus.showsMeters;
+        }
+        setShortcutTooltip("Meters", core::Action::ToggleMeters);
+        ImGui::SameLine(0.0F, style.ItemInnerSpacing.x);
+        if (drawToggleButton(core::icons::MapPin, focus.showsCodes)) {
+            focus.showsCodes = !focus.showsCodes;
+        }
+        setShortcutTooltip("Control Codes", core::Action::ToggleControlCodes);
     }
 }
 
@@ -630,10 +614,12 @@ void MessageTab::drawZoomMenu() {
         }
         ImGui::EndCombo();
     }
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
-        ImGui::SetTooltip("How large the boxes are drawn, in steps that keep the game's pixels "
-                          "whole. Fit draws them as large as the panel holds. Ctrl+Scroll over "
-                          "the boxes zooms too.");
+}
+
+void MessageTab::showMarkup(const bool isShown) {
+    isMarkupShown = isShown;
+    if (isShown) {
+        typedBox.reset();
     }
 }
 
@@ -650,12 +636,31 @@ void MessageTab::drawRail() {
     const ImGuiStyle& style = ImGui::GetStyle();
     const f32 glyphSize = ImGui::GetFontSize() * GlyphEms;
     const f32 buttonSize = glyphSize + (style.FramePadding.y * 2.0F);
+    const f32 cellWidth = glyphSize + (style.FramePadding.x * 2.0F);
     const f32 railWidth = ImGui::GetContentRegionAvail().x;
+    const usize columns = std::max<usize>(1, static_cast<usize>((railWidth + style.ItemSpacing.x) /
+                                                                (cellWidth + style.ItemSpacing.x)));
     const bool canType = typedBox && *typedBox < editables.size();
     const Charmap* charmap = focus.catalog->findCharmap(focus.language);
     const ImVec4 tint = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     const MessageArt& art = focus.catalog->art;
     const bool checksGlyphs = focus.language != Language::Japanese && hasFont(art);
+
+    if (ImGui::Button(std::format("{} Add Box", core::icons::Plus).c_str(),
+                      ImVec2(railWidth, 0.0F))) {
+        addBox();
+    }
+    ImGui::BeginDisabled(!canType || boxes.size() <= 1);
+    if (ImGui::Button(std::format("{} Delete Box", core::icons::Trash).c_str(),
+                      ImVec2(railWidth, 0.0F))) {
+        deleteTypedBox();
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
+        ImGui::SetTooltip("%s",
+                          core::makeShortcutText("Delete Box", core::Action::DeleteBox).c_str());
+    }
+    ImGui::Separator();
 
     ImGui::BeginDisabled(!canType);
     if (charmap != nullptr) {
@@ -664,12 +669,13 @@ void MessageTab::drawRail() {
             if (checksGlyphs && !hasFontGlyph(art, sign->code)) {
                 continue;
             }
-            if (column % 2 == 1) {
+            if (column % columns != 0) {
                 ImGui::SameLine();
             }
             ++column;
             ImGui::PushID(sign->text.c_str());
-            const gfx::ImageTexture* glyph = signGlyphs.findGlyph(art, sign->code);
+            const gfx::ImageTexture* glyph = signGlyphs.findGlyph(
+                art, focus.catalog->geometry, focus.language == Language::Japanese, sign->code);
             bool isClicked = false;
             if (glyph != nullptr) {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -679,14 +685,17 @@ void MessageTab::drawRail() {
                     ImGui::ImageButton("##sign", texture, ImVec2(glyphSize, glyphSize),
                                        ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), tint);
             } else {
-                isClicked = ImGui::Button(makeSignLabel(sign->text).c_str(),
-                                          ImVec2(buttonSize, buttonSize));
+                isClicked =
+                    ImGui::Button(makeSignLabel(sign->text).c_str(), ImVec2(cellWidth, buttonSize));
+            }
+            if (glyph != nullptr && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled |
+                                                         ImGuiHoveredFlags_DelayNormal)) {
+                ImGui::SetTooltip("%s", makeSignLabel(sign->text).c_str());
             }
             if (isClicked && canType) {
                 editables[*typedBox].insertText(sign->text);
                 applyEditable(*typedBox);
             }
-            ImGui::SetItemTooltip("%s: puts it in where the caret is.", sign->text.c_str());
             ImGui::PopID();
         }
     }
@@ -695,71 +704,194 @@ void MessageTab::drawRail() {
         canType && *typedBox < layout.boxes.size() ? layout.boxes[*typedBox].boxType : u8{0};
     const std::vector<std::string>& colors = focus.catalog->colors;
     for (usize color = 0; color < colors.size(); ++color) {
-        if (color % 2 == 1) {
+        if (color % columns != 0) {
             ImGui::SameLine();
         }
-        const CodePiece code{.name = "COLOR", .arguments = {colors[color]}};
         ImGui::PushID(static_cast<int>(color));
         const TextColor shade =
             color == 0 ? findDefaultColor(boxType) : findTextColor(boxType, static_cast<u8>(color));
         if (ImGui::ColorButton("##color", makeColor(shade), ImGuiColorEditFlags_NoTooltip,
-                               ImVec2(glyphSize + (style.FramePadding.x * 2.0F), buttonSize)) &&
-            canType) {
-            EditableBox& editable = editables[*typedBox];
-            if (hasTextSelected(editable)) {
-                editable.colorSelection(code, CodePiece{.name = "COLOR", .arguments = {colors[0]}});
-                applyEditable(*typedBox);
-            } else {
-                const std::array<Piece, 1> pieces = {code};
-                insertIntoTyped(pieces);
-            }
+                               ImVec2(cellWidth, buttonSize))) {
+            applyColor(color);
         }
-        ImGui::SetItemTooltip("{%s}: the selected text in this color, or the text after the caret.",
-                              makeCodeLabel(code).c_str());
+        if (color < ColorActions.size() &&
+            ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled |
+                                 ImGuiHoveredFlags_DelayNormal)) {
+            const std::string name =
+                describeCode(CodePiece{.name = "COLOR", .arguments = {colors[color]}});
+            ImGui::SetTooltip("%s", core::makeShortcutText(name, ColorActions[color]).c_str());
+        }
         ImGui::PopID();
     }
     ImGui::Separator();
-    if (ImGui::Button("Name", ImVec2(railWidth, 0.0F))) {
-        const std::array<Piece, 1> pieces = {CodePiece{.name = "NAME"}};
-        insertIntoTyped(pieces);
-    }
-    ImGui::SetItemTooltip("{Name}: the player's name, drawn here as Link.");
-    ImGui::SetNextItemWidth(railWidth);
-    if (ImGui::BeginCombo("##code", "Code", ImGuiComboFlags_HeightLarge)) {
-        for (const CodePiece& code : makeInsertedCodes()) {
-            if (ImGui::Selectable(makeCodeLabel(code).c_str())) {
-                const std::array<Piece, 1> pieces = {code};
-                insertIntoTyped(pieces);
-            }
+    for (const InsertableCode& insertable : listInsertableCodes()) {
+        const std::string label = makeCodeLabel(CodePiece{.name = std::string(insertable.macro)});
+        if (ImGui::Button(label.c_str(), ImVec2(railWidth, 0.0F))) {
+            insertCode(insertable);
         }
-        ImGui::EndCombo();
     }
-    ImGui::SetItemTooltip("Puts a code in where the caret is; one with arguments is written as "
-                          "markup.");
     ImGui::EndDisabled();
-    ImGui::Separator();
-    if (ImGui::Button(std::format("{} Box", core::icons::Plus).c_str(), ImVec2(railWidth, 0.0F)) &&
-        !boxes.empty()) {
-        boxes.back().boxBreak = CodePiece{.name = "BOX_BREAK"};
-        boxes.emplace_back();
-        applyBoxes();
-        editorKey.reset();
+}
+
+f32 MessageTab::measureRail() const {
+    const ImGuiStyle& style = ImGui::GetStyle();
+    f32 width = measureToggleButton(std::format("{} Delete Box", core::icons::Trash).c_str());
+    for (const InsertableCode& insertable : listInsertableCodes()) {
+        const std::string label = makeCodeLabel(CodePiece{.name = std::string(insertable.macro)});
+        width = std::max(width, measureToggleButton(label.c_str()));
     }
-    ImGui::SetItemTooltip("Adds a box after the last one.");
-    ImGui::BeginDisabled(!canType || boxes.size() <= 1);
-    if (ImGui::Button(std::format("{} Box", core::icons::Trash).c_str(), ImVec2(railWidth, 0.0F)) &&
-        canType && boxes.size() > 1) {
-        const usize removed = *typedBox;
-        boxes.erase(boxes.begin() + static_cast<std::ptrdiff_t>(removed));
-        if (removed == boxes.size()) {
-            boxes.back().boxBreak.reset();
+    return width + (style.WindowPadding.x * 2.0F) + style.ScrollbarSize;
+}
+
+void MessageTab::rebuildEditables(const std::optional<usize> typed, const usize caret) {
+    applyBoxes();
+    const Charmap* charmap = focus.catalog->findCharmap(focus.language);
+    editables.clear();
+    for (const BoxText& box : boxes) {
+        editables.emplace_back(box.pieces, charmap);
+    }
+    markup = formatMarkup(joinBoxes(boxes));
+    markupError.reset();
+    typedBox = typed && *typed < editables.size() ? typed : std::nullopt;
+    if (typedBox) {
+        editables[*typedBox].setCaret(caret, false);
+    }
+    if (const std::optional<usize> found = findIndex()) {
+        editorKey = makeShownKey(*found);
+    }
+}
+
+void MessageTab::addBox() {
+    if (boxes.empty()) {
+        return;
+    }
+    const usize after = typedBox && *typedBox < boxes.size() ? *typedBox : boxes.size() - 1;
+    BoxText added{.boxBreak = boxes[after].boxBreak};
+    boxes[after].boxBreak = CodePiece{.name = "BOX_BREAK"};
+    boxes.insert(boxes.begin() + static_cast<std::ptrdiff_t>(after + 1), std::move(added));
+    rebuildEditables(after + 1, 0);
+}
+
+void MessageTab::splitTypedBox() {
+    if (!typedBox || *typedBox >= editables.size()) {
+        return;
+    }
+    const usize split = *typedBox;
+    const EditableBox& editable = editables[split];
+    const usize caret = editable.getCaret();
+    BoxText after{
+        .pieces = editable.makePieces(UnitRange{.begin = caret, .end = editable.getUnits().size()}),
+        .boxBreak = boxes[split].boxBreak};
+    boxes[split].pieces = editable.makePieces(UnitRange{.begin = 0, .end = caret});
+    boxes[split].boxBreak = CodePiece{.name = "BOX_BREAK"};
+    boxes.insert(boxes.begin() + static_cast<std::ptrdiff_t>(split + 1), std::move(after));
+    rebuildEditables(split + 1, 0);
+}
+
+void MessageTab::deleteTypedBox() {
+    if (!typedBox || *typedBox >= boxes.size() || boxes.size() <= 1) {
+        return;
+    }
+    const usize removed = *typedBox;
+    boxes.erase(boxes.begin() + static_cast<std::ptrdiff_t>(removed));
+    if (removed == boxes.size()) {
+        boxes.back().boxBreak.reset();
+    }
+    rebuildEditables(std::nullopt, 0);
+}
+
+void MessageTab::applyColor(const usize color) {
+    const std::vector<std::string>& colors = focus.catalog->colors;
+    if (!typedBox || *typedBox >= editables.size() || color >= colors.size()) {
+        return;
+    }
+    const CodePiece code{.name = "COLOR", .arguments = {colors[color]}};
+    EditableBox& editable = editables[*typedBox];
+    if (hasTextSelected(editable)) {
+        editable.colorSelection(code, CodePiece{.name = "COLOR", .arguments = {colors[0]}});
+        applyEditable(*typedBox);
+        return;
+    }
+    const std::array<Piece, 1> pieces = {code};
+    insertIntoTyped(pieces);
+}
+
+void MessageTab::insertCode(const InsertableCode& insertable) {
+    if (!typedBox || *typedBox >= editables.size()) {
+        return;
+    }
+    const std::array<Piece, 1> pieces = {makeCodeToInsert(insertable, *focus.catalog)};
+    insertIntoTyped(pieces);
+    const usize caret = editables[*typedBox].getCaret();
+    if (!insertable.arguments.empty() && caret > 0) {
+        openCodePopup(*typedBox, caret - 1);
+    }
+}
+
+void MessageTab::openCodePopup(const usize box, const usize unit) {
+    editedCode = EditedCode{.box = box, .unit = unit};
+    opensCodePopup = true;
+}
+
+void MessageTab::drawCodePopup() {
+    if (opensCodePopup) {
+        ImGui::OpenPopup("##codeArguments");
+        opensCodePopup = false;
+    }
+    if (!ImGui::BeginPopup("##codeArguments")) {
+        editedCode.reset();
+        return;
+    }
+    const auto* code =
+        editedCode && editedCode->box < editables.size() &&
+                editedCode->unit < editables[editedCode->box].getUnits().size()
+            ? std::get_if<CodePiece>(&editables[editedCode->box].getUnits()[editedCode->unit].piece)
+            : nullptr;
+    if (code == nullptr) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    CodePiece edited = *code;
+    ImGui::TextUnformatted(makeCodeLabel(CodePiece{.name = edited.name}).c_str());
+    if (drawCodeArguments(edited, *focus.catalog, focus.draft.getTable(), focus.language,
+                          argumentFilter)) {
+        editables[editedCode->box].setCode(editedCode->unit, edited);
+        applyEditable(editedCode->box);
+    }
+    ImGui::EndPopup();
+}
+
+void MessageTab::handleHotkeys() {
+    if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+        return;
+    }
+    if (core::isActionPressed(core::Action::ShowMessageRender)) {
+        showMarkup(false);
+    }
+    if (core::isActionPressed(core::Action::ShowMessageMarkup)) {
+        showMarkup(true);
+    }
+    if (isMarkupShown) {
+        return;
+    }
+    if (core::isActionPressed(core::Action::ToggleMeters)) {
+        focus.showsMeters = !focus.showsMeters;
+    }
+    if (core::isActionPressed(core::Action::ToggleControlCodes)) {
+        focus.showsCodes = !focus.showsCodes;
+    }
+    for (usize color = 0; color < ColorActions.size(); ++color) {
+        if (core::isActionPressed(ColorActions[color])) {
+            applyColor(color);
         }
-        typedBox.reset();
-        applyBoxes();
-        editorKey.reset();
     }
-    ImGui::SetItemTooltip("Removes the box the caret is in.");
-    ImGui::EndDisabled();
+    if (core::isActionPressed(core::Action::SplitBox)) {
+        splitTypedBox();
+    }
+    if (core::isActionPressed(core::Action::DeleteBox)) {
+        deleteTypedBox();
+    }
 }
 
 f32 MessageTab::findScale(const f32 width) const {
@@ -784,6 +916,17 @@ void MessageTab::drawBoxImage(const usize box, const LaidBox& laid, const f32 wi
     if (box < editables.size()) {
         editInBox(box, laid, image);
     }
+    if (typedBox == box) {
+        const ImVec2 inset(TypedFrameThickness, TypedFrameThickness);
+        ImGui::GetWindowDrawList()->AddRect(
+            ImVec2(image.origin.x - inset.x, image.origin.y - inset.y),
+            ImVec2(image.origin.x + image.size.x + inset.x,
+                   image.origin.y + image.size.y + inset.y),
+            ImGui::GetColorU32(core::palette::Accent), 0.0F, ImDrawFlags_None, TypedFrameThickness);
+    }
+    if (!focus.showsMeters) {
+        return;
+    }
     for (usize line = 0; line < laid.lines.size(); ++line) {
         ImGui::PushID(static_cast<int>(line));
         drawMeter(laid, laid.lines[line], width);
@@ -797,7 +940,6 @@ void MessageTab::drawBox(const usize box, const LaidBox* laid, const f32 scale) 
         ImGui::TextColored(core::palette::TextMuted, "Box %zu · %zu %s · %s", box + 1,
                            laid->lines.size(), laid->lines.size() == 1 ? "line" : "lines",
                            describeEndIcon(laid->endIcon));
-        ImGui::SetItemTooltip("%s", explainEndIcon(laid->endIcon));
         drawBoxImage(box, *laid, BoxImageWidth * scale);
     } else {
         ImGui::TextColored(core::palette::TextMuted,
@@ -815,61 +957,133 @@ void MessageTab::drawMarkup() {
                            markupError->message.c_str());
         ImGui::PopTextWrapPos();
     }
-    ImGui::PushFont(fonts.getMono(), core::Fonts::MonoSize);
-    const bool isChanged =
-        ImGui::InputTextMultiline("##markup", &markup, ImVec2(-FLT_MIN, -FLT_MIN));
-    ImGui::PopFont();
-    if (isChanged) {
-        std::expected<std::vector<Piece>, MarkupError> pieces = parseMarkup(markup);
-        if (pieces) {
-            markupError.reset();
-            if (const std::optional<usize> found = findIndex()) {
-                focus.draft.setText(*found, focus.language, std::move(*pieces));
-            }
-        } else {
-            markupError = std::move(pieces.error());
+    const u8 boxType = layout.boxes.empty() ? u8{0} : layout.boxes.front().boxType;
+    const std::vector<std::string>& colors = focus.catalog->colors;
+    const FindMarkupColor findColor = [&](const std::string_view constant) -> std::optional<u32> {
+        const auto found = std::ranges::find(colors, constant);
+        if (found == colors.end()) {
+            return std::nullopt;
         }
+        const auto color = static_cast<u8>(found - colors.begin());
+        const TextColor shade =
+            color == 0 ? findDefaultColor(boxType) : findTextColor(boxType, color);
+        return IM_COL32(shade.red, shade.green, shade.blue, 255);
+    };
+    if (!drawMarkupEditor("##markup", markup, fonts.getMono(), core::Fonts::MonoSize, findColor)) {
+        return;
     }
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
-        ImGui::SetTooltip("{Red} … {Default} colors, {Name} the player's name, {Icon Pocket Egg} "
-                          "an item's icon, {Box Break} starts the next box. {{ is a brace.");
+    std::expected<std::vector<Piece>, MarkupError> pieces = parseMarkup(markup);
+    if (!pieces) {
+        markupError = std::move(pieces.error());
+        return;
     }
+    markupError.reset();
+    if (const std::optional<usize> found = findIndex()) {
+        focus.draft.setText(*found, focus.language, std::move(*pieces));
+    }
+}
+
+bool MessageTab::selectMarker(const usize box, const std::span<const MarkerGroup> groups) {
+    if (!ImGui::IsWindowHovered()) {
+        return false;
+    }
+    const MarkerGroup* group = findGroupAt(groups, ImGui::GetIO().MousePos);
+    if (group == nullptr) {
+        return false;
+    }
+    if (group->markers.size() > 1) {
+        if (!markerList || markerList->box != box ||
+            markerList->markers.front().unit != group->markers.front().unit) {
+            opensMarkerList = true;
+        }
+        markerList = MarkerList{.box = box, .markers = group->markers, .shape = group->shape};
+    }
+    if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        return false;
+    }
+    wasMarkerClicked = true;
+    isDragging = false;
+    if (group->markers.size() == 1) {
+        selectCode(box, group->markers.front());
+    }
+    return true;
+}
+
+void MessageTab::selectCode(const usize box, const BoxMarker& marker) {
+    if (box >= editables.size()) {
+        return;
+    }
+    typedBox = box;
+    editables[box].setCaret(marker.unit, false);
+    editables[box].setCaret(marker.unit + 1, true);
+    const InsertableCode* insertable = findInsertableCode(marker.code.name);
+    if (insertable != nullptr && !insertable->arguments.empty()) {
+        openCodePopup(box, marker.unit);
+    }
+}
+
+void MessageTab::drawMarkerList() {
+    constexpr const char* Popup = "##markerList";
+    if (!markerList) {
+        return;
+    }
+    if (opensMarkerList) {
+        opensMarkerList = false;
+        ImGui::OpenPopup(Popup);
+    }
+    ImGui::SetNextWindowPos(ImVec2(markerList->shape.headMin.x, markerList->shape.headMax.y));
+    if (!ImGui::BeginPopup(Popup, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoFocusOnAppearing)) {
+        markerList.reset();
+        return;
+    }
+    std::optional<BoxMarker> picked;
+    for (usize row = 0; row < markerList->markers.size(); ++row) {
+        ImGui::PushID(static_cast<int>(row));
+        if (drawMarkerRow(markerList->markers[row])) {
+            picked = markerList->markers[row];
+        }
+        ImGui::PopID();
+    }
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    const ImVec2 windowMin = ImGui::GetWindowPos();
+    const ImVec2 windowMax(windowMin.x + ImGui::GetWindowWidth(),
+                           windowMin.y + ImGui::GetWindowHeight());
+    const bool isOverList = mouse.x >= windowMin.x && mouse.x <= windowMax.x &&
+                            mouse.y >= windowMin.y && mouse.y <= windowMax.y;
+    if (picked || (!isOverList && !markerList->shape.contains(mouse))) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        const usize box = markerList->box;
+        markerList.reset();
+        if (picked) {
+            selectCode(box, *picked);
+        }
+        return;
+    }
+    ImGui::EndPopup();
 }
 
 void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage& image) {
     EditableBox& editable = editables[box];
     const std::vector<CaretPlace> places = findCaretPlaces(editable, laid, boxSources);
-    const std::vector<Marker> markers = findMarkers(editable, laid, boxSources);
+    const std::vector<MarkerGroup> groups =
+        focus.showsCodes ? groupMarkers(findMarkers(editable, laid, boxSources), laid, image)
+                         : std::vector<MarkerGroup>();
     const s32 height = findCharacterHeight(laid);
     const ImGuiIO& io = ImGui::GetIO();
     const ImVec2 game = image.findGamePosition(io.MousePos);
-    const bool isHovered = ImGui::IsItemHovered();
 
-    if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-        const auto marker = std::ranges::find_if(markers, [&](const Marker& found) {
-            return std::abs(game.x - static_cast<f32>(found.place.x)) <= MarkerHalfWidth &&
-                   game.y >= static_cast<f32>(found.place.y) - MarkerHalfWidth &&
-                   game.y <= static_cast<f32>(found.place.y + height);
-        });
+    if (!selectMarker(box, groups) && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
         const bool extends = io.KeyShift && typedBox == box;
         typedBox = box;
-        if (marker != markers.end()) {
-            editable.setCaret(marker->unit, false);
-            editable.setCaret(marker->unit + 1, true);
-            isDragging = false;
-        } else {
-            editable.setCaret(findPlaceAt(places, height, game.x, game.y), extends);
-            isDragging = true;
-        }
+        editable.setCaret(findPlaceAt(places, height, game.x, game.y), extends);
+        isDragging = true;
     }
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         isDragging = false;
     }
-    drawMarkers(markers, laid, image);
+    drawMarkers(groups, image);
     if (typedBox != box) {
-        if (isHovered && markers.empty()) {
-            ImGui::SetItemTooltip("Click to type in the box.");
-        }
         return;
     }
     if (isDragging && ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
@@ -902,21 +1116,25 @@ void MessageTab::drawStoryboard(const MessageLayout& laidOut) {
         return;
     }
     zoomByWheel();
-    shownScale = findScale(ImGui::GetContentRegionAvail().x);
+    const f32 frameRoom = TypedFrameThickness * 2.0F;
+    ImGui::Indent(frameRoom);
+    shownScale = findScale(ImGui::GetContentRegionAvail().x - frameRoom);
+    wasMarkerClicked = false;
     const usize count = std::max(laidOut.boxes.size(), boxes.size());
     for (usize box = 0; box < count; ++box) {
         drawBox(box, box < laidOut.boxes.size() ? &laidOut.boxes[box] : nullptr, shownScale);
     }
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsWindowHovered() &&
-        !ImGui::IsAnyItemHovered()) {
+        !ImGui::IsAnyItemHovered() && !wasMarkerClicked) {
         typedBox.reset();
     }
+    ImGui::Unindent(frameRoom);
     ImGui::EndChild();
 }
 
 void MessageTab::draw() {
     if (!focus.catalog) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the messages…");
+        core::drawBusyCover(ImGui::GetCursorPos(), ImVec2(), "Loading messages");
         return;
     }
     const std::optional<usize> shown = findIndex();
@@ -927,16 +1145,36 @@ void MessageTab::draw() {
     }
     focus.shown = *shown;
     const Message& message = focus.draft.getTable().messages[*shown];
+    const bool isShownInLanguage =
+        isInLanguage(message, focus.language, focus.catalog->isFontMessageEnglish);
+    if (isShownInLanguage) {
+        static_cast<void>(updateLayout(*shown, message));
+    }
     drawHeader(*shown, message);
     drawEditState(*shown);
     ImGui::Separator();
-    if (!isInLanguage(message, focus.language, focus.catalog->isFontMessageEnglish)) {
+    const ImVec2 bodyStart = ImGui::GetCursorPos();
+    const bool isKanjiMissing =
+        focus.language == Language::Japanese && !focus.catalog->art.hasKanji;
+    if (!isShownInLanguage) {
         ImGui::TextColored(core::palette::TextMuted, "The build puts no %s text of this message.",
                            getLanguageName(focus.language));
-        return;
+    } else if (!isKanjiMissing) {
+        drawBody(*shown, message);
     }
-    const MessageLayout& laidOut = updateLayout(*shown, message);
-    updateEditor(*shown, message);
+    if (isKanjiMissing) {
+        core::drawBusyCover(bodyStart, ImVec2(), "Loading kanji font");
+    } else if (focus.isSaving) {
+        core::drawBusyCover(bodyStart, ImVec2(), "Saving messages");
+    } else if (focus.isReading) {
+        core::drawBusyCover(bodyStart, ImVec2(), "Loading messages");
+    }
+}
+
+void MessageTab::drawBody(const usize shown, const Message& message) {
+    const MessageLayout& laidOut = updateLayout(shown, message);
+    updateEditor(shown, message);
+    handleHotkeys();
     for (const base::Diagnostic& diagnostic : laidOut.diagnostics) {
         ImGui::TextColored(diagnostic.severity == base::Severity::Error ? core::palette::Danger
                                                                         : core::palette::Warning,
@@ -946,12 +1184,8 @@ void MessageTab::draw() {
         drawMarkup();
         return;
     }
-    const ImGuiStyle& style = ImGui::GetStyle();
-    const f32 buttonWidth = (ImGui::GetFontSize() * GlyphEms) + (style.FramePadding.x * 2.0F);
-    const f32 railWidth =
-        (buttonWidth * 2.0F) + style.ItemSpacing.x + (style.WindowPadding.x * 2.0F);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, core::palette::Surface);
-    if (ImGui::BeginChild("##rail", ImVec2(railWidth, 0.0F),
+    if (ImGui::BeginChild("##rail", ImVec2(measureRail(), 0.0F),
                           ImGuiChildFlags_AlwaysUseWindowPadding)) {
         drawRail();
     }
@@ -959,6 +1193,8 @@ void MessageTab::draw() {
     ImGui::PopStyleColor();
     ImGui::SameLine();
     drawStoryboard(laidOut);
+    drawMarkerList();
+    drawCodePopup();
 }
 
 } // namespace toki::message

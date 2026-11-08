@@ -140,7 +140,7 @@ WorkspacePanel::WorkspacePanel(const WorkspaceService& workspaceService)
 void WorkspacePanel::draw() {
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
     if (workspaceService.isLoading()) {
-        ImGui::TextColored(core::palette::TextMuted, "%s Reading the checkout…",
+        ImGui::TextColored(core::palette::TextMuted, "%s Loading checkout…",
                            core::icons::ArrowsClockwise);
     }
     if (workspace == nullptr) {

@@ -258,14 +258,16 @@ bool hasFontGlyph(const MessageArt& art, const u16 character) {
                font->bytes.size();
 }
 
-std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, const u16 character) {
+namespace {
+
+[[nodiscard]] std::optional<std::vector<u8>> decodeGlyph(const MessageArt& art, const u8 segment,
+                                                         const u32 offset) {
     constexpr usize GlyphPixels = 16 * 16;
     constexpr u8 IntensityScale = 0x11;
-    if (!hasFontGlyph(art, character)) {
+    const z64::ImageSegment* font = art.image.findSegment(segment);
+    if (font == nullptr || usize{offset} + (GlyphPixels / 2) > font->bytes.size()) {
         return std::nullopt;
     }
-    const z64::ImageSegment* font = art.image.findSegment(FontSegment);
-    const usize offset = static_cast<usize>(character - FirstFontCharacter) * FontCharacterSize;
     std::vector<u8> pixels;
     pixels.reserve(GlyphPixels * 4);
     for (usize pixel = 0; pixel < GlyphPixels; ++pixel) {
@@ -275,6 +277,20 @@ std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, const u16 
                       {0xFF, 0xFF, 0xFF, static_cast<u8>(intensity * IntensityScale)});
     }
     return pixels;
+}
+
+} // namespace
+
+std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, const u16 character) {
+    if (!hasFontGlyph(art, character)) {
+        return std::nullopt;
+    }
+    return decodeGlyph(art, FontSegment,
+                       static_cast<u32>(character - FirstFontCharacter) * FontCharacterSize);
+}
+
+std::optional<std::vector<u8>> decodeKanjiGlyph(const MessageArt& art, const u32 offset) {
+    return decodeGlyph(art, KanjiSegment, offset);
 }
 
 MessageArt readMessageArt(const hackeroot::Workspace& workspace, const bool readsKanji) {

@@ -37,6 +37,11 @@ public:
         return saved != nullptr;
     }
 
+    /// Whether a save is under way and not waiting on its review.
+    [[nodiscard]] bool isWriting() const {
+        return isSaving() && !isShown();
+    }
+
     void draw() override;
 
 private:

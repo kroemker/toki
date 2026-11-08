@@ -39,6 +39,9 @@ public:
     /// The text as pieces, runs of text joined.
     [[nodiscard]] std::vector<Piece> makePieces() const;
 
+    /// The units of `range` as pieces, runs of text joined.
+    [[nodiscard]] std::vector<Piece> makePieces(UnitRange range) const;
+
     [[nodiscard]] std::span<const BoxUnit> getUnits() const {
         return units;
     }
@@ -84,6 +87,10 @@ public:
     /// once; a code is left out where the color it sets is already drawn in.
     /// What was selected stays selected.
     void colorSelection(const CodePiece& color, const CodePiece& initial);
+
+    /// Puts `code` in place of the code unit `unit` is, the caret and the
+    /// selection kept.
+    void setCode(usize unit, const CodePiece& code);
 
     /// Puts UTF-8 `text` where the caret is, a line break of it as a new line.
     void insertText(std::string_view text);

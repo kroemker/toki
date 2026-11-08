@@ -108,22 +108,37 @@ The languages offered are those the checkout has text in: English and Japanese o
 English, German and French on PAL. A click previews a message in a tab of the central dock
 node, the tab the next one previewed takes, until it is edited or its tab double-clicked
 ([asset-tabs.md](asset-tabs.md)). A tab draws every box of its message in turn with a meter
-for each line: how far it reaches towards the box's right margin, as far from its right edge
-as text starts from its left. The game stops nowhere; past the margin, text runs over the
-frame.
+for each line, which the header's ruler switch hides, as its pin switch hides the
+markers of codes. The meter runs to the box's right
+edge, with a tick at its margin, as far from that edge as text starts from its left: green up
+to the margin, yellow up to the edge, red past it. The game stops nowhere; past the edge,
+text runs over the frame. The colors are read from a vanilla checkout: of its 8,931 English
+lines, 316 reach past the margin, 99% end 17 pixels short of the edge, and the longest 4
+pixels past it, so the margin alone would mark lines the game ships.
 
 Above each box stands what closes it, named by the mark the game draws at its end: No
 Prompt, a Continue Prompt (the triangle, a press for the next box), a Close Prompt (the
 square, a press to close) or a Choice Prompt (the arrow).
 
 The boxes are drawn as large as the panel holds, in steps of half a game pixel that keep the
-game's pixels whole. The zoom menu in the tab's header, or Ctrl+Scroll over the boxes, sets
+game's pixels whole. Each is drawn moved to the top of the screen and cut out around itself
+(`makeMovedBox`): nothing it draws depends on where it stands, and its gbi commands are then
+the same at every position, so a box moved is drawn from commands already expanded rather
+than a few hundred new ones. The zoom menu in the tab's header, or Ctrl+Scroll over the boxes, sets
 the step instead; it is shared by every tab.
 
 The header is the message's form: its ID, whose tooltip says which languages' tables hold it
-and where it is written, and its box type and position, set there. Nothing of a message is
-in the Properties panel. A switch at the header's right shows the whole message as markup in
-place of its boxes.
+and where it is written, and its box type and position, set there, with a small screen
+beside them showing where the box stands on it. The box is drawn cut out around itself, so
+its position shows only there. Nothing of a message is in the Properties panel. Render and
+Markup, side by side left of the language, switch between its boxes and the whole message
+as markup (Alt+1 and Alt+2).
+
+What is being read or written covers what it changes with a translucent grey that takes the
+mouse, and a spinner over it (`core::drawBusyCover`): the whole tab and the Messages table
+while the messages are first read, and the tab under its header and the table while they are
+read again, while the kanji font is read once Japanese is picked, and while they are saved.
+The header stays usable, so another language can be picked meanwhile.
 
 The catalog (`MessageCatalog`: the messages, the format, the layout tables and the art) is
 read off the UI thread and again when one of the files it was read from changes.
@@ -155,15 +170,34 @@ A key changes the units, and the box makes its pieces again and reads them back,
 typed key by key, `[`, `A`, `]`, becomes one unit when complete. The pieces go into the draft
 as a markup edit does, and the box is laid out and drawn again from there.
 
-A code that draws nothing, a color or a pause, is marked over the image where it stands, a
-color in its own color; hovering one names it in markup, and a click selects it, so Delete
-removes it. The rail at the tab's left puts in, where the caret is, the charmap's signs (the
-buttons and what lies past the Latin letters, as the charmap lists them), each shown as the
-glyph the checkout's font draws it with (`decodeFontGlyph`); a color (as `TextColor` lists
-them), each a swatch of the color `Message_SetTextColor` gives it in the box typed in; the
-player's name; or a code without arguments. A code with arguments is written as markup. The
-rail stands still, greyed out while no box is typed in, so nothing moves when a box is
-clicked. It also adds a box after the last and removes the one typed in.
+The box typed in is framed. A code that draws nothing, a color or a pause, is marked over the
+image where it stands (`BoxMarkers`): a color by a swatch of the color it sets, any other code
+grey, with an icon saying what kind it is, so no marker reads as text in a color. Hovering
+one says in a few words what it does, as `describeCode` words what `z_message.c` does with it
+("Red Text", "24 Pixels of Space"); a click selects it, so Delete removes it, and opens
+the form of its arguments for a code that has any. Codes that stand at one place, a color
+and a pause after one another, are one marker (`groupMarkers`): the last, whose color the
+text after it is drawn in, with how many there are. Hovering it lists them all, each with its
+head and what it does, and a click on one does what a click on its own marker would.
+
+The rail at the tab's left starts with adding a box after the one typed in, or the last, and
+deleting the one typed in. Under that it puts in, where the caret is, the charmap's signs
+(the buttons and what lies past the Latin letters, as the charmap lists them), each shown as
+the glyph the checkout's font draws it with (`decodeFontGlyph`, and for Japanese
+`decodeKanjiGlyph`, since its signs are glyphs of the kanji font); a color (as `TextColor`
+lists them), each a swatch of the color `Message_SetTextColor` gives it in the box typed in;
+and every other control code but the box breaks (`listInsertableCodes`), each a button with
+its name. A code with arguments goes in with a default and opens its form: a number as a
+field, a message ID with the start of that message's text beside it, and an item, a high
+score or a sound as a filtered dropdown of what the checkout's `ItemID`, `HighScores` and
+`SfxId` declare. The rail stands still, greyed out while no box is typed in, so nothing moves
+when a box is clicked.
+
+The keys, which the settings can change and the tooltips of the colors and of deleting a
+box name: Ctrl+1 to Ctrl+8 the colors in `TextColor`'s order,
+Ctrl+Enter splits the box at the caret, Ctrl+Shift+Delete deletes the box typed in, and
+Alt+3 and Alt+4 switch the meters and the markers of codes. They
+are heard while a box is typed in, as the viewport's are not.
 
 A color picked over selected text draws that text in it (`EditableBox::colorSelection`): the
 color goes before it, and after it the color the text after it was drawn in, the last color
@@ -180,9 +214,18 @@ the font is read from the checkout.
 The markup view (`MessageMarkup`) is the whole message as one text: text as it reads, a new
 line as a new line, and each control code in braces, named in words. A color is its name
 (`{Red}`), an item icon its item (`{Icon Pocket Egg}`), the player's name `{Name}`, any other
-code its name and arguments (`{Shift 4}`, `{Box Break Delayed 20}`), `{Box Break}` between
-boxes, a brace doubled. Markup that does not read says where, and the message keeps what it
-last read as. Every message of a vanilla checkout reads back from its markup as it was.
+code its name and arguments (`{Shift 4}`, `{Box Break Delayed 20}`), a brace doubled. A box
+break stands on a line of its own with an empty line after it, as the checkout writes its
+`BOX_BREAK`; the line breaks around it are layout and read as nothing, so a new line of the
+text beside a box break is written `{New Line}`. Markup that does not read says where, and
+the message keeps what it last read as. Every message of a vanilla checkout reads back from
+its markup as it was.
+
+The field draws its codes in colors of their own, a color code in the color it sets
+(`findMarkupSpans` cuts the text as `parseMarkup` reads it). Dear ImGui's field cannot color
+its text, so it draws the caret and the selection with the text made clear, and the runs are
+drawn over it at the places the field lays them out at: its child window's position and
+scroll, and the width of each run in the monospace font.
 
 Edits live in a draft (`MessageDraft`), kept apart message by message, so that one is saved or
 thrown away without the others. A table read again keeps every edit, moved onto the same

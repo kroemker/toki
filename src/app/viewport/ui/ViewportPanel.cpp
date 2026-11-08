@@ -322,7 +322,7 @@ void ViewportPanel::draw() {
     stripActions.clear();
     ImVec2 notePosition{ImGui::GetItemRectMax().x + ToolStripMargin, origin.y + 6.0F};
     if (readingName) {
-        const std::string note = std::format("Reading {}…", *readingName);
+        const std::string note = std::format("Loading {}…", *readingName);
         drawList->AddText(notePosition, ImGui::GetColorU32(core::palette::TextMuted), note.c_str());
         notePosition.y += ImGui::GetTextLineHeightWithSpacing();
     }

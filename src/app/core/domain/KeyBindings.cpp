@@ -73,6 +73,23 @@ constexpr auto Actions = std::to_array<ActionInfo>({
     {Action::SelectNone, "select_none", "Select None", ActionScope::Viewport, "Alt+A"},
     {Action::InvertSelection, "invert_selection", "Invert Selection", ActionScope::Viewport,
      "Ctrl+I"},
+    {Action::ShowMessageRender, "show_message_render", "Show Message Render", ActionScope::Message,
+     "Alt+1"},
+    {Action::ShowMessageMarkup, "show_message_markup", "Show Message Markup", ActionScope::Message,
+     "Alt+2"},
+    {Action::TextColor1, "text_color_1", "Text Color 1", ActionScope::Message, "Ctrl+1"},
+    {Action::TextColor2, "text_color_2", "Text Color 2", ActionScope::Message, "Ctrl+2"},
+    {Action::TextColor3, "text_color_3", "Text Color 3", ActionScope::Message, "Ctrl+3"},
+    {Action::TextColor4, "text_color_4", "Text Color 4", ActionScope::Message, "Ctrl+4"},
+    {Action::TextColor5, "text_color_5", "Text Color 5", ActionScope::Message, "Ctrl+5"},
+    {Action::TextColor6, "text_color_6", "Text Color 6", ActionScope::Message, "Ctrl+6"},
+    {Action::TextColor7, "text_color_7", "Text Color 7", ActionScope::Message, "Ctrl+7"},
+    {Action::TextColor8, "text_color_8", "Text Color 8", ActionScope::Message, "Ctrl+8"},
+    {Action::SplitBox, "split_box", "Split Box at Caret", ActionScope::Message, "Ctrl+Enter"},
+    {Action::DeleteBox, "delete_box", "Delete Box", ActionScope::Message, "Ctrl+Shift+Delete"},
+    {Action::ToggleMeters, "toggle_meters", "Toggle Meters", ActionScope::Message, "Alt+3"},
+    {Action::ToggleControlCodes, "toggle_control_codes", "Toggle Control Codes",
+     ActionScope::Message, "Alt+4"},
 });
 
 static_assert(Actions.size() == ActionCount, "every action needs its info");

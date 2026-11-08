@@ -28,6 +28,7 @@ add_executable(toki_tests
         app/message/CharmapTest.cpp
         app/message/EditableBoxTest.cpp
         app/message/MessageCheckoutTest.cpp
+        app/message/MessageCodesTest.cpp
         app/message/MessageDraftTest.cpp
         app/message/MessageLayoutTest.cpp
         app/message/MessageMarkupTest.cpp

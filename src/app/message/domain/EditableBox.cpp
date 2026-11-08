@@ -1,6 +1,7 @@
 #include "EditableBox.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -103,9 +104,13 @@ std::vector<BoxUnit> EditableBox::makeUnits(const std::span<const Piece> pieces,
 }
 
 std::vector<Piece> EditableBox::makePieces() const {
+    return makePieces(UnitRange{.begin = 0, .end = units.size()});
+}
+
+std::vector<Piece> EditableBox::makePieces(const UnitRange range) const {
     std::vector<Piece> pieces;
-    for (const BoxUnit& unit : units) {
-        appendPiece(pieces, unit.piece);
+    for (usize index = range.begin; index < std::min(range.end, units.size()); ++index) {
+        appendPiece(pieces, units[index].piece);
     }
     return pieces;
 }
@@ -196,6 +201,18 @@ void EditableBox::replace(const UnitRange range, const std::span<const Piece> pi
 
 void EditableBox::insert(const std::span<const Piece> pieces) {
     replace(getSelection(), pieces);
+}
+
+void EditableBox::setCode(const usize unit, const CodePiece& code) {
+    if (unit >= units.size() || !std::holds_alternative<CodePiece>(units[unit].piece)) {
+        return;
+    }
+    const usize keptCaret = caret;
+    const usize keptAnchor = anchor;
+    const std::array<Piece, 1> pieces = {code};
+    replace(UnitRange{.begin = unit, .end = unit + 1}, pieces);
+    caret = std::min(keptCaret, units.size());
+    anchor = std::min(keptAnchor, units.size());
 }
 
 void EditableBox::colorSelection(const CodePiece& color, const CodePiece& initial) {

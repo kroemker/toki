@@ -16,6 +16,7 @@ target_sources(toki PRIVATE
         PropertyTable.cpp
         SettingsWindow.cpp
         SetupWizard.cpp
+        Spinner.cpp
         Theme.cpp
         UnsavedEditsDialog.cpp
         Window.cpp)

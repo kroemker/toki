@@ -221,7 +221,7 @@ bool editSymbol(const char* label, std::string& symbol, const std::optional<std:
         ImGui::PopStyleColor();
         ImGui::SetItemTooltip("%s is not in %s", symbol.c_str(), object->c_str());
     } else if (object && assets == nullptr) {
-        ImGui::SetItemTooltip("Reading %s", object->c_str());
+        ImGui::SetItemTooltip("Loading %s", object->c_str());
     }
     ImGui::PopID();
     return isChanged;

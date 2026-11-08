@@ -4,9 +4,11 @@
 #include "app/core/ui/Fonts.h"
 #include "app/message/Types.h"
 #include "app/message/domain/EditableBox.h"
+#include "app/message/domain/MessageCodes.h"
 #include "app/message/domain/MessageKey.h"
 #include "app/message/domain/MessageLayout.h"
 #include "app/message/domain/MessageMarkup.h"
+#include "app/message/ui/BoxMarkers.h"
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageFocus.h"
 #include "app/message/ui/SignGlyphs.h"
@@ -56,11 +58,28 @@ private:
         friend bool operator==(const ShownKey&, const ShownKey&) = default;
     };
 
+    /// The code of a box whose arguments the code popup edits.
+    struct EditedCode {
+        usize box = 0;
+        usize unit = 0;
+    };
+
+    /// The markers of one place, listed while the mouse is over them.
+    struct MarkerList {
+        usize box = 0;
+        std::vector<BoxMarker> markers;
+        MarkerShape shape;
+    };
+
     [[nodiscard]] ShownKey makeShownKey(usize index) const;
     void drawHeader(usize index, const Message& message);
     void drawZoomMenu();
+    void showMarkup(bool isShown);
     void drawEditState(usize index);
+    /// What is under the header: the boxes and the rail, or the markup.
+    void drawBody(usize index, const Message& message);
     void drawRail();
+    [[nodiscard]] f32 measureRail() const;
     void drawStoryboard(const MessageLayout& laidOut);
     void drawBox(usize index, const LaidBox* box, f32 scale);
     void drawBoxImage(usize index, const LaidBox& box, f32 width);
@@ -69,6 +88,23 @@ private:
     /// The boxes' scale, window pixels a game pixel, in a width of `width`.
     [[nodiscard]] f32 findScale(f32 width) const;
     void editInBox(usize index, const LaidBox& box, const BoxImage& image);
+    /// Selects the marker clicked in box `index`, if one was, and opens the
+    /// code popup for one with arguments. A group under the mouse opens its
+    /// list. True when a click landed on a marker.
+    [[nodiscard]] bool selectMarker(usize index, std::span<const MarkerGroup> groups);
+    void selectCode(usize index, const BoxMarker& marker);
+    void drawMarkerList();
+    void handleHotkeys();
+    /// Makes the editables again from `boxes`, written to the draft first,
+    /// with the caret at `caret` in box `typed`.
+    void rebuildEditables(std::optional<usize> typed, usize caret);
+    void addBox();
+    void splitTypedBox();
+    void deleteTypedBox();
+    void applyColor(usize color);
+    void insertCode(const InsertableCode& insertable);
+    void openCodePopup(usize box, usize unit);
+    void drawCodePopup();
     void insertIntoTyped(std::span<const Piece> pieces);
     [[nodiscard]] const MessageLayout& updateLayout(usize index, const Message& message);
     void updateEditor(usize index, const Message& message);
@@ -94,7 +130,13 @@ private:
     std::vector<EditableBox> editables;
     std::optional<usize> typedBox;
     bool isDragging = false;
+    bool wasMarkerClicked = false;
     bool isMarkupShown = false;
+    std::optional<EditedCode> editedCode;
+    std::optional<MarkerList> markerList;
+    bool opensMarkerList = false;
+    bool opensCodePopup = false;
+    std::string argumentFilter;
     /// The scale the boxes were last shown at, which zooming steps from.
     f32 shownScale = 1.0F;
 };

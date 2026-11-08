@@ -65,17 +65,33 @@ enum class Action : u8 {
     SelectAll,
     SelectNone,
     InvertSelection,
+    ShowMessageRender,
+    ShowMessageMarkup,
+    TextColor1,
+    TextColor2,
+    TextColor3,
+    TextColor4,
+    TextColor5,
+    TextColor6,
+    TextColor7,
+    TextColor8,
+    SplitBox,
+    DeleteBox,
+    ToggleMeters,
+    ToggleControlCodes,
 };
 
-inline constexpr usize ActionCount = static_cast<usize>(Action::InvertSelection) + 1;
+inline constexpr usize ActionCount = static_cast<usize>(Action::ToggleControlCodes) + 1;
 
 /// Where an action's key is heard: anywhere in the window, only while the
-/// cursor is over the viewport, or only while a transform with the mouse runs
-/// there, when no other key of the viewport is.
+/// cursor is over the viewport, only while a transform with the mouse runs
+/// there, when no other key of the viewport is, or only in a focused message
+/// tab, while its text is typed too.
 enum class ActionScope : u8 {
     Global,
     Viewport,
     Transform,
+    Message,
 };
 
 /// An action as the config and the settings name it, and the key it has

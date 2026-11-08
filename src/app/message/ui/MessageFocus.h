@@ -11,8 +11,8 @@ namespace toki::message {
 
 /// What the Assets panel's Messages tab and the message tabs share:
 /// the catalog last read, the messages as edited, the language they are shown
-/// in, the message shown, by its index in the draft's table, and how large
-/// the boxes are drawn.
+/// in, the message shown, by its index in the draft's table, and how the
+/// boxes are drawn.
 struct MessageFocus {
     SharedCatalog catalog;
     MessageDraft draft;
@@ -21,6 +21,14 @@ struct MessageFocus {
     /// Window pixels a game pixel; none to draw the boxes as large as the
     /// panel holds.
     f32 zoom = 0.0F;
+    /// Whether each line of a box has a meter of how far it reaches under it.
+    bool showsMeters = true;
+    /// Whether the codes that draw nothing are marked over the boxes.
+    bool showsCodes = true;
+    /// Whether the catalog is being read, for the first time or again.
+    bool isReading = false;
+    /// Whether messages are being written, past the review of the save.
+    bool isSaving = false;
 
     /// The message shown, if it is still in the draft.
     [[nodiscard]] const Message* findShown() const {

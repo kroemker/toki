@@ -108,7 +108,7 @@ void MemoryMap::draw(const ConfigGroup& group,
                      const DrawValue& drawValue) {
     hovered.reset();
     if (buildMap == nullptr) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the build's map…");
+        ImGui::TextColored(core::palette::TextMuted, "Loading build map…");
         drawTable(group, nullptr, values, drawValue);
         return;
     }

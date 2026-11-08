@@ -222,7 +222,7 @@ void ActorsPanel::draw() {
         return;
     }
     if (!snapshot) {
-        ImGui::TextColored(core::palette::TextMuted, "Reading the actor database…");
+        ImGui::TextColored(core::palette::TextMuted, "Loading actor database…");
         return;
     }
     drawPanelHeader();

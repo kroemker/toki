@@ -79,8 +79,12 @@ bool isActionPressed(const Action action) {
     if (chord == ImGuiKey_None) {
         return false;
     }
-    if (getActionInfo(action).scope == ActionScope::Global) {
+    const ActionScope scope = getActionInfo(action).scope;
+    if (scope == ActionScope::Global) {
         return ImGui::Shortcut(chord, ImGuiInputFlags_RouteGlobal);
+    }
+    if (scope == ActionScope::Message) {
+        return ImGui::IsKeyChordPressed(chord);
     }
     return !ImGui::GetIO().WantTextInput && ImGui::IsKeyChordPressed(chord);
 }

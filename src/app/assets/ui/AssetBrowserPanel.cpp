@@ -116,7 +116,7 @@ void AssetBrowserPanel::draw() {
     if (workspace == nullptr) {
         ImGui::TextColored(core::palette::TextMuted, "%s",
                            workspaceService.isLoading()
-                               ? "Reading the checkout…"
+                               ? "Loading checkout…"
                                : "Open a HackerOoT checkout to browse its assets.");
         return;
     }
@@ -345,7 +345,7 @@ void AssetBrowserPanel::drawObjectDetails(const hackeroot::Workspace& workspace)
 void AssetBrowserPanel::drawReport(const hackeroot::AssetDirectory& asset) {
     const std::optional<std::string> reading = assetReader.findReadingName();
     if (reading && *reading == asset.name) {
-        ImGui::TextColored(core::palette::Accent, "reading…");
+        ImGui::TextColored(core::palette::Accent, "loading…");
         return;
     }
     const std::optional<ReportCounts> counts = assetReader.findReportCounts(asset.directory);
