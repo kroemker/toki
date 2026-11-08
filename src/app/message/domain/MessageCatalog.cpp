@@ -1,5 +1,7 @@
 #include "MessageCatalog.h"
 
+#include "app/message/domain/Charmap.h"
+#include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageReader.h"
 #include "app/message/domain/ShiftJis.h"
 #include "cparser/TypeTable.h"
@@ -14,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace toki::message {
 
@@ -24,6 +27,34 @@ EncodedText MessageCatalog::encode(const Message& message, const Language langua
     }
     return used->makeEncoder().encode(message.texts[static_cast<usize>(language)]);
 }
+
+namespace {
+
+void reportMissingGlyphs(MessageLayout& layout, const Message& message, const MessageArt& art,
+                         const Charmap& charmap) {
+    std::vector<u16> reported;
+    for (const LaidBox& box : layout.boxes) {
+        for (const LaidCharacter& character : box.characters) {
+            if (hasFontGlyph(art, character.character) ||
+                std::ranges::contains(reported, character.character)) {
+                continue;
+            }
+            reported.push_back(character.character);
+            const auto entry =
+                std::ranges::find(charmap.entries, character.character, &CharmapEntry::code);
+            const std::string name = entry != charmap.entries.end()
+                                         ? entry->text
+                                         : std::format("0x{:02X}", character.character);
+            layout.diagnostics.push_back(base::makeWarning(
+                message.location,
+                std::format("{} has no glyph in nes_font_static; the game draws whatever "
+                            "follows the font, drawn here as a red ?",
+                            name)));
+        }
+    }
+}
+
+} // namespace
 
 MessageLayout MessageCatalog::layOut(const Message& message, const Language language) const {
     if (!format) {
@@ -44,6 +75,9 @@ MessageLayout MessageCatalog::layOut(const Message& message, const Language lang
                                : layoutMessage(text.bytes, geometry, *request);
     std::ranges::move(text.diagnostics, std::back_inserter(layout.diagnostics));
     layout.sources = std::move(text.sources);
+    if (language != Language::Japanese && hasFont(art)) {
+        reportMissingGlyphs(layout, message, art, format->charmap);
+    }
     return layout;
 }
 

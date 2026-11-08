@@ -35,8 +35,9 @@ it calls back with whether it wrote the asset.
 
 `AssetTabHost` draws each tab as a window, `<title>###asset:<key>`, so the key and not the
 title is its ID. A tab with edits is marked by ImGui's own unsaved-document dot; the preview's
-title starts with an eye, since a docked tab cannot be drawn faint or in italics. A double
-click on the docked tab, found in the dock node's tab bar, pins the preview. The Properties
+title starts with an eye, since a docked tab cannot be drawn faint or in italics; it has no
+tooltip, the eye says enough. A double click on the docked tab, found in the dock node's tab
+bar, pins the preview. The Properties
 panel shows the active tab's asset.
 
 ## Docking

@@ -57,6 +57,15 @@ void appendPiece(std::vector<Piece>& pieces, const Piece& piece) {
     }
 }
 
+[[nodiscard]] bool isColor(const BoxUnit& unit) {
+    const auto* code = std::get_if<CodePiece>(&unit.piece);
+    return code != nullptr && code->name == "COLOR";
+}
+
+[[nodiscard]] bool isSameColor(const CodePiece& one, const CodePiece& other) {
+    return one.name == other.name && one.arguments == other.arguments;
+}
+
 } // namespace
 
 EditableBox::EditableBox(const std::span<const Piece> pieces, const Charmap* charmap)
@@ -187,6 +196,45 @@ void EditableBox::replace(const UnitRange range, const std::span<const Piece> pi
 
 void EditableBox::insert(const std::span<const Piece> pieces) {
     replace(getSelection(), pieces);
+}
+
+void EditableBox::colorSelection(const CodePiece& color, const CodePiece& initial) {
+    UnitRange range = getSelection();
+    while (range.begin > 0 && isColor(units[range.begin - 1])) {
+        --range.begin;
+    }
+    while (range.end < units.size() && isColor(units[range.end])) {
+        ++range.end;
+    }
+    const auto findColorBefore = [&](const usize unit) {
+        for (usize index = unit; index > 0; --index) {
+            if (isColor(units[index - 1])) {
+                return std::get<CodePiece>(units[index - 1].piece);
+            }
+        }
+        return initial;
+    };
+    const CodePiece before = findColorBefore(range.begin);
+    const CodePiece after = findColorBefore(range.end);
+    std::vector<Piece> inner;
+    for (usize index = range.begin; index < range.end; ++index) {
+        if (!isColor(units[index])) {
+            appendPiece(inner, units[index].piece);
+        }
+    }
+    const bool opens = !isSameColor(before, color);
+    std::vector<Piece> pieces;
+    if (opens) {
+        pieces.emplace_back(color);
+    }
+    pieces.insert(pieces.end(), inner.begin(), inner.end());
+    if (!isSameColor(after, color)) {
+        pieces.emplace_back(after);
+    }
+    const usize start = measureUntil(range.begin) + (opens ? 1 : 0);
+    replace(range, pieces);
+    anchor = findUnitByMeasure(start);
+    caret = findUnitByMeasure(start + measure(inner));
 }
 
 void EditableBox::insertText(const std::string_view text) {

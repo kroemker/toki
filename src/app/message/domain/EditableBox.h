@@ -77,6 +77,14 @@ public:
     /// after them.
     void insert(std::span<const Piece> pieces);
 
+    /// Draws what is selected in `color`, a `COLOR` code: puts `color` before
+    /// it and, after it, the color the text after it was drawn in, the last
+    /// `COLOR` before the selection's end or else `initial`. Color codes in and
+    /// right beside the selection go, so a selection colored twice is wrapped
+    /// once; a code is left out where the color it sets is already drawn in.
+    /// What was selected stays selected.
+    void colorSelection(const CodePiece& color, const CodePiece& initial);
+
     /// Puts UTF-8 `text` where the caret is, a line break of it as a new line.
     void insertText(std::string_view text);
 

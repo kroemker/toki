@@ -135,6 +135,46 @@ TEST_CASE("the caret moves by units, to a line's ends, and collapses a selection
     CHECK(box.getSelection().end == 5);
 }
 
+TEST_CASE("coloring a selection draws it in the color and the text after it as it was",
+          "[message]") {
+    const CodePiece red{.name = "COLOR", .arguments = {"RED"}};
+    const CodePiece blue{.name = "COLOR", .arguments = {"BLUE"}};
+    const CodePiece initial{.name = "COLOR", .arguments = {"DEFAULT"}};
+    EditableBox box(parse("One two three"), nullptr);
+    box.setCaret(4, false);
+    box.setCaret(7, true);
+
+    box.colorSelection(red, initial);
+    CHECK(format(box) == "One {Red}two{Default} three");
+    CHECK(box.getSelection().begin == 5);
+    CHECK(box.getSelection().end == 8);
+
+    box.colorSelection(blue, initial);
+    CHECK(format(box) == "One {Blue}two{Default} three");
+
+    box.setCaret(0, false);
+    box.setCaret(3, true);
+    box.colorSelection(blue, initial);
+    CHECK(format(box) == "{Blue}One{Default} {Blue}two{Default} three");
+}
+
+TEST_CASE("coloring a selection in colored text goes back to that color after it", "[message]") {
+    const CodePiece blue{.name = "COLOR", .arguments = {"BLUE"}};
+    const CodePiece red{.name = "COLOR", .arguments = {"RED"}};
+    const CodePiece initial{.name = "COLOR", .arguments = {"DEFAULT"}};
+    EditableBox box(parse("{Red}one two{Green} three"), nullptr);
+    box.setCaret(1, false);
+    box.setCaret(4, true);
+
+    box.colorSelection(blue, initial);
+    CHECK(format(box) == "{Blue}one{Red} two{Green} three");
+
+    box.setCaret(5, false);
+    box.setCaret(16, true);
+    box.colorSelection(red, initial);
+    CHECK(format(box) == "{Blue}one{Red} two three{Green}");
+}
+
 TEST_CASE("a position in the box's pieces falls in the unit it is part of", "[message]") {
     const Charmap charmap = makeCharmap();
     const EditableBox box(parse("x[A]{Red}"), &charmap);

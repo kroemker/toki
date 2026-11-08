@@ -41,6 +41,9 @@ constexpr u32 FirstImageAddress = 0x0010'0000;
 constexpr usize SetupDisplayList39 = 39;
 constexpr u32 MessageStaticTextureSize = 0x1000;
 constexpr u32 FontCharacterSize = 16 * 16 / 2;
+constexpr u16 FirstFontCharacter = 0x20;
+constexpr u16 MissingGlyphStandIn = '?';
+constexpr TextColor MissingGlyphColor{.red = 255, .green = 40, .blue = 40};
 constexpr u32 ItemIconSize = 32 * 32 * 4;
 constexpr u32 QuestIconSize = 24 * 24 * 4;
 constexpr std::array MessageStaticIndices = {0U, 1U, 3U, 2U};
@@ -169,7 +172,12 @@ void ListWriter::writeText(const LaidBox& box) {
     const u8 font = box.isWide ? KanjiSegment : FontSegment;
     const s32 size = box.isWide ? WideCharacterSize : CharacterSize;
     const s32 scale = box.isWide ? WideCharacterScale : CharacterScale;
-    for (const LaidCharacter& character : hasFont ? box.characters : std::vector<LaidCharacter>()) {
+    for (const LaidCharacter& laid : hasFont ? box.characters : std::vector<LaidCharacter>()) {
+        LaidCharacter character = laid;
+        if (!box.isWide && !hasFontGlyph(art, character.character)) {
+            character.fontOffset = (MissingGlyphStandIn - FirstFontCharacter) * FontCharacterSize;
+            character.color = MissingGlyphColor;
+        }
         add("gsDPPipeSync()");
         add(std::format("gsDPLoadTextureBlock_4b({}, G_IM_FMT_I, 16, 16, 0, G_TX_NOMIRROR | "
                         "G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, "
@@ -239,18 +247,25 @@ void ListWriter::writeEndIcon(const LaidBox& box) {
 
 } // namespace
 
+bool hasFont(const MessageArt& art) {
+    return art.image.findSegment(FontSegment) != nullptr;
+}
+
+bool hasFontGlyph(const MessageArt& art, const u16 character) {
+    const z64::ImageSegment* font = art.image.findSegment(FontSegment);
+    return font != nullptr && character >= FirstFontCharacter &&
+           (static_cast<usize>(character - FirstFontCharacter) + 1) * FontCharacterSize <=
+               font->bytes.size();
+}
+
 std::optional<std::vector<u8>> decodeFontGlyph(const MessageArt& art, const u16 character) {
-    constexpr u16 FirstCharacter = 0x20;
     constexpr usize GlyphPixels = 16 * 16;
     constexpr u8 IntensityScale = 0x11;
+    if (!hasFontGlyph(art, character)) {
+        return std::nullopt;
+    }
     const z64::ImageSegment* font = art.image.findSegment(FontSegment);
-    if (font == nullptr || character < FirstCharacter) {
-        return std::nullopt;
-    }
-    const usize offset = static_cast<usize>(character - FirstCharacter) * FontCharacterSize;
-    if (offset + FontCharacterSize > font->bytes.size()) {
-        return std::nullopt;
-    }
+    const usize offset = static_cast<usize>(character - FirstFontCharacter) * FontCharacterSize;
     std::vector<u8> pixels;
     pixels.reserve(GlyphPixels * 4);
     for (usize pixel = 0; pixel < GlyphPixels; ++pixel) {

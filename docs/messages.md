@@ -112,10 +112,18 @@ for each line: how far it reaches towards the box's right margin, as far from it
 as text starts from its left. The game stops nowhere; past the margin, text runs over the
 frame.
 
+Above each box stands what closes it, named by the mark the game draws at its end: No
+Prompt, a Continue Prompt (the triangle, a press for the next box), a Close Prompt (the
+square, a press to close) or a Choice Prompt (the arrow).
+
 The boxes are drawn as large as the panel holds, in steps of half a game pixel that keep the
-game's pixels whole, with each box's markup beside it when there is room and under it when
-there is not. The zoom menu in the tab's header, or Ctrl+Scroll over the boxes, sets the step
-instead; it is shared by every tab.
+game's pixels whole. The zoom menu in the tab's header, or Ctrl+Scroll over the boxes, sets
+the step instead; it is shared by every tab.
+
+The header is the message's form: its ID, whose tooltip says which languages' tables hold it
+and where it is written, and its box type and position, set there. Nothing of a message is
+in the Properties panel. A switch at the header's right shows the whole message as markup in
+place of its boxes.
 
 The catalog (`MessageCatalog`: the messages, the format, the layout tables and the art) is
 read off the UI thread and again when one of the files it was read from changes.
@@ -157,12 +165,24 @@ player's name; or a code without arguments. A code with arguments is written as 
 rail stands still, greyed out while no box is typed in, so nothing moves when a box is
 clicked. It also adds a box after the last and removes the one typed in.
 
-Beside or under each box its markup can be edited too (`MessageMarkup`): text as it reads, a new line as a new line,
-and each control code in braces, named in words. A color is its name (`{Red}`), an item icon
-its item (`{Icon Pocket Egg}`), the player's name `{Name}`, any other code its name and
-arguments (`{Shift 4}`, `{Box Break Delayed 20}`), a brace doubled. `{Box Break}` typed into
-a box splits it once the field is left. Every message of a vanilla checkout reads back from
-its markup as it was.
+A color picked over selected text draws that text in it (`EditableBox::colorSelection`): the
+color goes before it, and after it the color the text after it was drawn in, the last color
+before the selection's end or else the box's default, since every box starts in it. Colors
+inside the selection and right beside it go, so text colored twice is wrapped once, and a
+code that sets the color already drawn in is left out.
+
+The charmap names signs the font has no glyph for: `[D-Pad]` is `0xAB`, and vanilla
+`nes_font_static` ends at `0xAA`, the control stick. The game loads such a glyph from whatever
+follows the font. The rail leaves them out (`hasFontGlyph`), a message that uses one says so,
+and its box draws a red `?` in its place. A glyph added to the font is drawn as it is, since
+the font is read from the checkout.
+
+The markup view (`MessageMarkup`) is the whole message as one text: text as it reads, a new
+line as a new line, and each control code in braces, named in words. A color is its name
+(`{Red}`), an item icon its item (`{Icon Pocket Egg}`), the player's name `{Name}`, any other
+code its name and arguments (`{Shift 4}`, `{Box Break Delayed 20}`), `{Box Break}` between
+boxes, a brace doubled. Markup that does not read says where, and the message keeps what it
+last read as. Every message of a vanilla checkout reads back from its markup as it was.
 
 Edits live in a draft (`MessageDraft`), kept apart message by message, so that one is saved or
 thrown away without the others. A table read again keeps every edit, moved onto the same

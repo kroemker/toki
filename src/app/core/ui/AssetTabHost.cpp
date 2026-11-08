@@ -217,10 +217,7 @@ void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode
         if (entry.isPreview && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             assetTabs.pin(entry.key);
         }
-        if (entry.isPreview) {
-            ImGui::SetTooltip("Previewed: the next one picked takes this tab. Double-click it, "
-                              "or edit it, to keep it open.");
-        } else if (isEdited) {
+        if (!entry.isPreview && isEdited) {
             ImGui::SetTooltip("Edited, not saved.");
         }
     }

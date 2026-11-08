@@ -46,6 +46,14 @@ struct MessageArt {
 
 [[nodiscard]] MessageArt readMessageArt(const hackeroot::Workspace& workspace, bool readsKanji);
 
+/// Whether `nes_font_static` was read.
+[[nodiscard]] bool hasFont(const MessageArt& art);
+
+/// Whether `nes_font_static` holds a glyph for `character`. The charmap names
+/// signs past its end, `[D-Pad]` among them, which the game loads from
+/// whatever follows the font; a box draws a red `?` in their place.
+[[nodiscard]] bool hasFontGlyph(const MessageArt& art, u16 character);
+
 /// The glyph `nes_font_static` draws `character` with: 16 by 16 pixels, row
 /// by row from the top, each white with the font's intensity as its alpha,
 /// four bytes a pixel. Nothing when the font has no such glyph.

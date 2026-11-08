@@ -25,10 +25,10 @@ namespace toki::message {
 
 /// One message open in a tab: every box of it in turn as the game
 /// draws it, each with how far its lines reach into the box. A box is typed in
-/// where it is drawn, with a caret where the game's pen stands, or edited as
-/// markup beside or under it; the rail at the left puts signs, colors and
-/// codes in where the caret is. Its form in the Properties panel says what the
-/// message is and where it is written.
+/// where it is drawn, with a caret where the game's pen stands; the rail at
+/// the left puts signs, colors and codes in where the caret is, and a color
+/// over a selection draws it in that color. The header sets the box's type and
+/// position, and switches to the whole message written as markup.
 class MessageTab : public core::AssetTab {
 public:
     /// Saves the edits of the messages at the indices given.
@@ -46,9 +46,6 @@ public:
     void discard() override;
     void draw() override;
 
-    [[nodiscard]] std::optional<u64> findSelectionKey() const override;
-    void drawProperties() override;
-
 private:
     struct ShownKey {
         const MessageCatalog* catalog = nullptr;
@@ -59,24 +56,18 @@ private:
         friend bool operator==(const ShownKey&, const ShownKey&) = default;
     };
 
-    /// How the boxes are shown: their scale, window pixels a game pixel, and
-    /// whether each box's markup stands beside it rather than under it.
-    struct Arrangement {
-        f32 scale = 1.0F;
-        bool isBeside = false;
-    };
-
     [[nodiscard]] ShownKey makeShownKey(usize index) const;
-    void drawHeader(const Message& message);
+    void drawHeader(usize index, const Message& message);
     void drawZoomMenu();
     void drawEditState(usize index);
     void drawRail();
     void drawStoryboard(const MessageLayout& laidOut);
-    void drawBox(usize index, const LaidBox* box, const Arrangement& arrangement);
+    void drawBox(usize index, const LaidBox* box, f32 scale);
     void drawBoxImage(usize index, const LaidBox& box, f32 width);
-    void drawEditor(usize index, f32 width);
+    void drawMarkup();
     void zoomByWheel();
-    [[nodiscard]] Arrangement findArrangement(f32 width) const;
+    /// The boxes' scale, window pixels a game pixel, in a width of `width`.
+    [[nodiscard]] f32 findScale(f32 width) const;
     void editInBox(usize index, const LaidBox& box, const BoxImage& image);
     void insertIntoTyped(std::span<const Piece> pieces);
     [[nodiscard]] const MessageLayout& updateLayout(usize index, const Message& message);
@@ -98,11 +89,12 @@ private:
     std::vector<TextPosition> boxSources;
     std::optional<ShownKey> editorKey;
     std::vector<BoxText> boxes;
-    std::vector<std::string> markups;
-    std::vector<std::optional<MarkupError>> markupErrors;
+    std::string markup;
+    std::optional<MarkupError> markupError;
     std::vector<EditableBox> editables;
     std::optional<usize> typedBox;
     bool isDragging = false;
+    bool isMarkupShown = false;
     /// The scale the boxes were last shown at, which zooming steps from.
     f32 shownScale = 1.0F;
 };

@@ -308,8 +308,7 @@ TEST_CASE("every box of a real checkout reads back as it was from its boxes and 
             }
             for (toki::message::BoxText& box : boxes) {
                 const std::string boxRead = toki::message::formatMarkup(box.pieces);
-                box.pieces =
-                    toki::message::EditableBox(box.pieces, &format->charmap).makePieces();
+                box.pieces = toki::message::EditableBox(box.pieces, &format->charmap).makePieces();
                 const std::string typed = toki::message::formatMarkup(box.pieces);
                 if (typed != boxRead) {
                     problems += std::format("0x{:04X} language {}: {:?} typed as {:?}\n",
@@ -349,6 +348,8 @@ TEST_CASE("a message's boxes draw through the RSP and RDP from the checkout's ow
     CHECK(
         std::ranges::any_of(*glyph, [](const base::u8 byte) { return byte != 0xFF && byte != 0; }));
     CHECK_FALSE(toki::message::decodeFontGlyph(art, 0x10).has_value());
+    CHECK(toki::message::hasFontGlyph(art, 0xAA));
+    CHECK_FALSE(toki::message::hasFontGlyph(art, 0xAB));
 
     const toki::message::MessageGeometry geometry = toki::message::readMessageGeometry(*workspace);
     const toki::message::MessageTable table = toki::message::readMessages(*workspace);
