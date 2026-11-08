@@ -136,6 +136,17 @@ std::string describeCode(const CodePiece& code) {
     if (name == "BACKGROUND") {
         return "Background Picture";
     }
+    if (name == "NAME") {
+        return "Player Name";
+    }
+    if (name == "ITEM_ICON") {
+        constexpr std::string_view IconWord = "Icon ";
+        std::string words = makeWordsOf(code);
+        if (words.starts_with(IconWord)) {
+            words.erase(0, IconWord.size());
+        }
+        return words + " Icon";
+    }
     return makeWordsOf(code);
 }
 

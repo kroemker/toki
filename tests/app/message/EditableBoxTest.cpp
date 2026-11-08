@@ -15,6 +15,7 @@
 #include <variant>
 #include <vector>
 
+using base::s32;
 using base::usize;
 using toki::message::CaretPlace;
 using toki::message::Charmap;
@@ -237,6 +238,38 @@ TEST_CASE("the caret stands where the pen stood, and one the game drew nothing f
 
     CHECK(toki::message::findPlaceAt(places, 12, 80.0F, 165.0F) == 1);
     CHECK(toki::message::findPlaceAt(places, 12, 300.0F, 100.0F) == 3);
+}
+
+TEST_CASE("an icon and a sample are where they are drawn, to be clicked as their code",
+          "[message]") {
+    const EditableBox box(parse("a{Name}{Icon Pocket Egg}"), nullptr);
+    LaidBox laid;
+    laid.lines.push_back({.y = 160, .startX = 65, .endX = 100});
+    laid.characters = {toki::message::LaidCharacter{.character = 'a', .x = 65, .y = 160, .byte = 0},
+                       toki::message::LaidCharacter{
+                           .character = 'L', .x = 71, .y = 160, .isSample = true, .byte = 1},
+                       toki::message::LaidCharacter{
+                           .character = 'k', .x = 89, .y = 160, .isSample = true, .byte = 1}};
+    laid.stops = {LaidStop{.byte = 0, .x = 65, .y = 160}, LaidStop{.byte = 1, .x = 71, .y = 160},
+                  LaidStop{.byte = 2, .x = 95, .y = 160}, LaidStop{.byte = 4, .x = 127, .y = 160}};
+    laid.icon = toki::message::LaidIcon{.x = 40, .y = 150, .size = 32};
+    const std::vector<TextPosition> sources = {
+        {.piece = 0, .offset = 0}, {.piece = 1}, {.piece = 2}, {.piece = 2}, {.piece = 3}};
+
+    const std::vector<toki::message::DrawnCode> drawn =
+        toki::message::findDrawnCodes(box, laid, sources);
+
+    const s32 size = toki::message::findCharacterHeight(laid);
+    REQUIRE(drawn.size() == 2);
+    CHECK(drawn[0].unit == 1);
+    CHECK(drawn[0].left == 71);
+    CHECK(drawn[0].right == 89 + size);
+    CHECK(drawn[1].unit == 2);
+    CHECK(drawn[1].left == 40);
+    CHECK(drawn[1].bottom == 150 + 32);
+    CHECK(toki::message::findDrawnCodeAt(drawn, 50.0F, 160.0F) == &drawn[1]);
+    CHECK(toki::message::findDrawnCodeAt(drawn, 80.0F, 162.0F) == &drawn[0]);
+    CHECK(toki::message::findDrawnCodeAt(drawn, 120.0F, 162.0F) == nullptr);
 }
 
 TEST_CASE("a charmap's signs are its buttons and what lies past the Latin letters", "[message]") {

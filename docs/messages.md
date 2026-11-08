@@ -180,6 +180,13 @@ and a pause after one another, are one marker (`groupMarkers`): the last, whose 
 text after it is drawn in, with how many there are. Hovering it lists them all, each with its
 head and what it does, and a click on one does what a click on its own marker would.
 
+A code that draws in its place has no marker: what it draws is the code (`findDrawnCodes`).
+That is an item's icon, and the samples of what the game fills in, `Link` for the player's
+name, `00"00"` for a timer, `0` for points, tokens, the fish and a high score, `12:00` for the
+time. A click on it selects the whole code, shaded as selected text is, so Delete removes it
+and a code with arguments opens their form; hovering it names it ("Pocket Egg Icon",
+"Player Name").
+
 The rail at the tab's left starts with adding a box after the one typed in, or the last, and
 deleting the one typed in. Under that it puts in, where the caret is, the charmap's signs
 (the buttons and what lies past the Latin letters, as the charmap lists them), each shown as

@@ -32,4 +32,7 @@ TEST_CASE("a code is described in a few words by what the game does with it", "[
     CHECK(toki::message::describeCode(CodePiece{.name = "TEXTID", .arguments = {"0x6023"}}) ==
           "Next Message 0x6023");
     CHECK(toki::message::describeCode(CodePiece{.name = "MARATHON_TIME"}) == "Marathon Time");
+    CHECK(toki::message::describeCode(CodePiece{.name = "NAME"}) == "Player Name");
+    CHECK(toki::message::describeCode(CodePiece{
+              .name = "ITEM_ICON", .arguments = {"ITEM_POCKET_EGG"}}) == "Pocket Egg Icon");
 }

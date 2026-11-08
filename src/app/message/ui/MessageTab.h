@@ -92,7 +92,9 @@ private:
     /// code popup for one with arguments. A group under the mouse opens its
     /// list. True when a click landed on a marker.
     [[nodiscard]] bool selectMarker(usize index, std::span<const MarkerGroup> groups);
-    void selectCode(usize index, const BoxMarker& marker);
+    /// Selects the code at `unit` of box `index`, as a click on what marks
+    /// or draws it does, and opens its arguments when it has any.
+    void selectCode(usize index, usize unit);
     void drawMarkerList();
     void handleHotkeys();
     /// Makes the editables again from `boxes`, written to the draft first,

@@ -347,6 +347,65 @@ std::vector<CaretPlace> findCaretPlaces(const EditableBox& box, const LaidBox& l
     return places;
 }
 
+std::vector<DrawnCode> findDrawnCodes(const EditableBox& box, const LaidBox& laid,
+                                      const std::span<const TextPosition> sources) {
+    const auto findCodeUnit = [&](const usize byte) -> const CodePiece* {
+        if (byte >= sources.size()) {
+            return nullptr;
+        }
+        const std::optional<usize> unit = box.findUnit(sources[byte]);
+        if (!unit || *unit >= box.getUnits().size()) {
+            return nullptr;
+        }
+        return std::get_if<CodePiece>(&box.getUnits()[*unit].piece);
+    };
+    std::vector<DrawnCode> drawn;
+    const s32 size = findCharacterHeight(laid);
+    for (const LaidCharacter& character : laid.characters) {
+        if (!character.isSample || findCodeUnit(character.byte) == nullptr) {
+            continue;
+        }
+        const usize unit = *box.findUnit(sources[character.byte]);
+        if (!drawn.empty() && drawn.back().unit == unit) {
+            DrawnCode& last = drawn.back();
+            last.left = std::min(last.left, character.x);
+            last.top = std::min(last.top, character.y);
+            last.right = std::max(last.right, character.x + size);
+            last.bottom = std::max(last.bottom, character.y + size);
+            continue;
+        }
+        drawn.push_back(DrawnCode{.unit = unit,
+                                  .left = character.x,
+                                  .top = character.y,
+                                  .right = character.x + size,
+                                  .bottom = character.y + size});
+    }
+    if (!laid.icon) {
+        return drawn;
+    }
+    for (auto stop = laid.stops.rbegin(); stop != laid.stops.rend(); ++stop) {
+        const CodePiece* code = findCodeUnit(stop->byte);
+        if (code != nullptr && code->name == "ITEM_ICON") {
+            const LaidIcon& icon = *laid.icon;
+            drawn.push_back(DrawnCode{.unit = *box.findUnit(sources[stop->byte]),
+                                      .left = icon.x,
+                                      .top = icon.y,
+                                      .right = icon.x + icon.size,
+                                      .bottom = icon.y + icon.size});
+            break;
+        }
+    }
+    return drawn;
+}
+
+const DrawnCode* findDrawnCodeAt(const std::span<const DrawnCode> codes, const f32 x, const f32 y) {
+    const auto found = std::ranges::find_if(codes, [&](const DrawnCode& code) {
+        return x >= static_cast<f32>(code.left) && x < static_cast<f32>(code.right) &&
+               y >= static_cast<f32>(code.top) && y < static_cast<f32>(code.bottom);
+    });
+    return found != codes.end() ? &*found : nullptr;
+}
+
 usize findPlaceAt(const std::span<const CaretPlace> places, const s32 lineHeight, const f32 x,
                   const f32 y) {
     std::optional<s32> lineY;

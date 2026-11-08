@@ -137,6 +137,26 @@ struct CaretPlace {
 [[nodiscard]] std::vector<CaretPlace> findCaretPlaces(const EditableBox& box, const LaidBox& laid,
                                                       std::span<const TextPosition> sources);
 
+/// A code of a box that draws something in its place: an item's icon, or a
+/// sample of what the game fills in, the player's name or a timer, drawn as
+/// characters. `left` to `right` and `top` to `bottom` is where, in screen
+/// pixels of the game.
+struct DrawnCode {
+    usize unit = 0;
+    s32 left = 0;
+    s32 top = 0;
+    s32 right = 0;
+    s32 bottom = 0;
+};
+
+/// The codes of `box` that draw in `laid`, so that what they draw can be
+/// clicked as the code. `sources` is as `findCaretPlaces` takes it.
+[[nodiscard]] std::vector<DrawnCode> findDrawnCodes(const EditableBox& box, const LaidBox& laid,
+                                                    std::span<const TextPosition> sources);
+
+/// The drawn code at `x`, `y`, in screen pixels of the game, if one is there.
+[[nodiscard]] const DrawnCode* findDrawnCodeAt(std::span<const DrawnCode> codes, f32 x, f32 y);
+
 /// The caret place nearest to `x` on the line nearest to `y`, both in screen
 /// pixels, where a click there puts the caret.
 [[nodiscard]] usize findPlaceAt(std::span<const CaretPlace> places, s32 lineHeight, f32 x, f32 y);

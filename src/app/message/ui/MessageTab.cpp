@@ -100,11 +100,21 @@ void moveVertically(EditableBox& editable, const std::vector<CaretPlace>& places
 }
 
 void drawCaret(const EditableBox& editable, const std::vector<CaretPlace>& places,
-               const LaidBox& box, const BoxImage& image) {
+               const std::span<const DrawnCode> drawnCodes, const LaidBox& box,
+               const BoxImage& image) {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     const float height = static_cast<float>(findCharacterHeight(box)) * image.scale;
     const UnitRange selection = editable.getSelection();
     for (usize unit = selection.begin; unit < selection.end; ++unit) {
+        const auto drawn = std::ranges::find(drawnCodes, unit, &DrawnCode::unit);
+        if (drawn != drawnCodes.end()) {
+            drawList->AddRectFilled(image.findScreenPosition(static_cast<f32>(drawn->left),
+                                                             static_cast<f32>(drawn->top)),
+                                    image.findScreenPosition(static_cast<f32>(drawn->right),
+                                                             static_cast<f32>(drawn->bottom)),
+                                    ImGui::GetColorU32(ImGuiCol_TextSelectedBg));
+            continue;
+        }
         const CaretPlace& from = places[unit];
         const CaretPlace& to = places[unit + 1];
         const f32 end = to.y == from.y && to.x > from.x
@@ -1004,21 +1014,22 @@ bool MessageTab::selectMarker(const usize box, const std::span<const MarkerGroup
     wasMarkerClicked = true;
     isDragging = false;
     if (group->markers.size() == 1) {
-        selectCode(box, group->markers.front());
+        selectCode(box, group->markers.front().unit);
     }
     return true;
 }
 
-void MessageTab::selectCode(const usize box, const BoxMarker& marker) {
-    if (box >= editables.size()) {
+void MessageTab::selectCode(const usize box, const usize unit) {
+    if (box >= editables.size() || unit >= editables[box].getUnits().size()) {
         return;
     }
     typedBox = box;
-    editables[box].setCaret(marker.unit, false);
-    editables[box].setCaret(marker.unit + 1, true);
-    const InsertableCode* insertable = findInsertableCode(marker.code.name);
+    editables[box].setCaret(unit, false);
+    editables[box].setCaret(unit + 1, true);
+    const auto* code = std::get_if<CodePiece>(&editables[box].getUnits()[unit].piece);
+    const InsertableCode* insertable = code != nullptr ? findInsertableCode(code->name) : nullptr;
     if (insertable != nullptr && !insertable->arguments.empty()) {
-        openCodePopup(box, marker.unit);
+        openCodePopup(box, unit);
     }
 }
 
@@ -1056,7 +1067,7 @@ void MessageTab::drawMarkerList() {
         const usize box = markerList->box;
         markerList.reset();
         if (picked) {
-            selectCode(box, *picked);
+            selectCode(box, picked->unit);
         }
         return;
     }
@@ -1073,11 +1084,28 @@ void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage&
     const ImGuiIO& io = ImGui::GetIO();
     const ImVec2 game = image.findGamePosition(io.MousePos);
 
+    const std::vector<DrawnCode> drawnCodes = findDrawnCodes(editable, laid, boxSources);
+    const bool isOverMarker =
+        ImGui::IsWindowHovered() && findGroupAt(groups, io.MousePos) != nullptr;
+    const DrawnCode* drawnCode = ImGui::IsItemHovered() && !isOverMarker
+                                     ? findDrawnCodeAt(drawnCodes, game.x, game.y)
+                                     : nullptr;
     if (!selectMarker(box, groups) && ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
-        const bool extends = io.KeyShift && typedBox == box;
-        typedBox = box;
-        editable.setCaret(findPlaceAt(places, height, game.x, game.y), extends);
-        isDragging = true;
+        isDragging = drawnCode == nullptr;
+        if (drawnCode != nullptr) {
+            wasMarkerClicked = true;
+            selectCode(box, drawnCode->unit);
+        } else {
+            const bool extends = io.KeyShift && typedBox == box;
+            typedBox = box;
+            editable.setCaret(findPlaceAt(places, height, game.x, game.y), extends);
+        }
+    }
+    if (drawnCode != nullptr) {
+        if (const auto* code =
+                std::get_if<CodePiece>(&editable.getUnits()[drawnCode->unit].piece)) {
+            ImGui::SetTooltip("%s", describeCode(*code).c_str());
+        }
     }
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         isDragging = false;
@@ -1095,7 +1123,7 @@ void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage&
     if (!isTyping) {
         return;
     }
-    drawCaret(editable, places, laid, image);
+    drawCaret(editable, places, drawnCodes, laid, image);
     ImGui::SetNextFrameWantCaptureKeyboard(true);
     if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         typedBox.reset();
