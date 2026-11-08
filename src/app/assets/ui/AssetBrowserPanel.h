@@ -32,6 +32,7 @@ private:
         Messages,
     };
 
+    void drawAssets(const hackeroot::Workspace& workspace);
     void drawScenes(const hackeroot::Workspace& workspace, float height);
     void drawObjects(const hackeroot::Workspace& workspace, float height);
     void drawAssetRow(const hackeroot::AssetDirectory& asset, const char* name);

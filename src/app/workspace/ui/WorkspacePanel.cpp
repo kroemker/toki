@@ -4,6 +4,7 @@
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
+#include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 #include "app/workspace/Types.h"
 #include "app/workspace/domain/WorkspaceService.h"
@@ -138,22 +139,21 @@ WorkspacePanel::WorkspacePanel(const WorkspaceService& workspaceService)
       workspaceService(workspaceService) {}
 
 void WorkspacePanel::draw() {
+    const ImVec2 start = ImGui::GetCursorPos();
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (workspaceService.isLoading()) {
-        ImGui::TextColored(core::palette::TextMuted, "%s Loading checkout…",
-                           core::icons::ArrowsClockwise);
-    }
-    if (workspace == nullptr) {
-        if (!workspaceService.isLoading()) {
-            ImGui::TextColored(core::palette::TextMuted, "No checkout is open.");
-        }
+    if (workspace == nullptr && !workspaceService.isLoading()) {
+        ImGui::TextColored(core::palette::TextMuted, "No checkout is open.");
         return;
     }
-
-    drawSummary(*workspace);
-    ImGui::SetNextItemWidth(-1.0F);
-    ImGui::InputTextWithHint("##filter", "Filter…", filter.data(), filter.size());
-    drawTables(*workspace);
+    if (workspace != nullptr) {
+        drawSummary(*workspace);
+        ImGui::SetNextItemWidth(-1.0F);
+        ImGui::InputTextWithHint("##filter", "Filter…", filter.data(), filter.size());
+        drawTables(*workspace);
+    }
+    if (workspaceService.isLoading()) {
+        core::drawBusyCover(start, ImVec2(), "Loading checkout");
+    }
 }
 
 void WorkspacePanel::drawTables(const hackeroot::Workspace& workspace) const {

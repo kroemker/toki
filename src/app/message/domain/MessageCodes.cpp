@@ -54,10 +54,6 @@ constexpr std::array InsertableCodes = {
     InsertableCode{.macro = "TIME"},
 };
 
-[[nodiscard]] std::string findArgument(const CodePiece& code, const usize index) {
-    return index < code.arguments.size() ? code.arguments[index] : std::string("?");
-}
-
 [[nodiscard]] std::string makeWordsOf(const CodePiece& code) {
     const std::array<Piece, 1> pieces = {code};
     const std::string markup = formatMarkup(pieces);
@@ -83,71 +79,11 @@ CodePiece makeInitialCode(const InsertableCode& code) {
     return made;
 }
 
-std::string describeCode(const CodePiece& code) {
-    const std::string_view name = code.name;
-    if (name == "COLOR") {
+std::string makeCodeName(const CodePiece& code) {
+    if (code.name == "COLOR") {
         return std::format("{} Text", makeWordsOf(code));
     }
-    if (name == "SHIFT") {
-        return std::format("{} Pixels of Space", findArgument(code, 0));
-    }
-    if (name == "TEXT_SPEED") {
-        return std::format("{} Frames a Letter", findArgument(code, 0));
-    }
-    if (name == "QUICKTEXT_ENABLE") {
-        return "Instant Text";
-    }
-    if (name == "QUICKTEXT_DISABLE") {
-        return "Letter by Letter Text";
-    }
-    if (name == "AWAIT_BUTTON_PRESS") {
-        return "Wait for a Button";
-    }
-    if (name == "BOX_BREAK_DELAYED") {
-        return std::format("Next Box after {} Frames", findArgument(code, 0));
-    }
-    if (name == "FADE" || name == "FADE2") {
-        return std::format("Close after {} Frames", findArgument(code, 0));
-    }
-    if (name == "PERSISTENT") {
-        return "Stays Open";
-    }
-    if (name == "EVENT") {
-        return "Waits for the Game";
-    }
-    if (name == "TEXTID") {
-        return std::format("Next Message {}", findArgument(code, 0));
-    }
-    if (name == "TWO_CHOICE") {
-        return "Two Choices";
-    }
-    if (name == "THREE_CHOICE") {
-        return "Three Choices";
-    }
-    if (name == "UNSKIPPABLE") {
-        return "Unskippable Text";
-    }
-    if (name == "SFX") {
-        return std::format("Sound {}", findArgument(code, 0));
-    }
-    if (name == "OCARINA") {
-        return "Ocarina Playing";
-    }
-    if (name == "BACKGROUND") {
-        return "Background Picture";
-    }
-    if (name == "NAME") {
-        return "Player Name";
-    }
-    if (name == "ITEM_ICON") {
-        constexpr std::string_view IconWord = "Icon ";
-        std::string words = makeWordsOf(code);
-        if (words.starts_with(IconWord)) {
-            words.erase(0, IconWord.size());
-        }
-        return words + " Icon";
-    }
-    return makeWordsOf(code);
+    return makeWordsOf(CodePiece{.name = code.name});
 }
 
 } // namespace toki::message

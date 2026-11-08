@@ -165,7 +165,6 @@ void MessageBrowser::drawRow(const MessageRow& row) {
 void MessageBrowser::drawDetails() {
     const Message* message = focus.findShown();
     if (message == nullptr) {
-        ImGui::TextColored(core::palette::TextMuted, "Select a message to see it.");
         return;
     }
     ImGui::Text("0x%04X", message->id);

@@ -137,7 +137,10 @@ private:
     std::optional<EditedCode> editedCode;
     std::optional<MarkerList> markerList;
     bool opensMarkerList = false;
-    bool opensCodePopup = false;
+    /// The frame the code popup was asked for in. It opens on the next: a
+    /// popup opened in the frame of a mouse press is closed at that frame's
+    /// end by the press, which Dear ImGui takes for a click outside it.
+    std::optional<int> codePopupFrame;
     std::string argumentFilter;
     /// The scale the boxes were last shown at, which zooming steps from.
     f32 shownScale = 1.0F;

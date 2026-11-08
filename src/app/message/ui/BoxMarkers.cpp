@@ -188,14 +188,14 @@ void drawMarkers(const std::span<const MarkerGroup> groups, const BoxImage& imag
     }
     const MarkerGroup* hovered = findGroupAt(groups, ImGui::GetIO().MousePos);
     if (hovered != nullptr && hovered->markers.size() == 1) {
-        ImGui::SetTooltip("%s", describeCode(hovered->markers.front().code).c_str());
+        ImGui::SetTooltip("%s", makeCodeName(hovered->markers.front().code).c_str());
     }
 }
 
 bool drawMarkerRow(const BoxMarker& marker) {
     const ImGuiStyle& style = ImGui::GetStyle();
     const f32 size = ImGui::GetTextLineHeight();
-    const std::string text = describeCode(marker.code);
+    const std::string text = makeCodeName(marker.code);
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const f32 width = size + style.ItemInnerSpacing.x + ImGui::CalcTextSize(text.c_str()).x;
     const bool isClicked =

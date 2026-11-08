@@ -173,9 +173,10 @@ as a markup edit does, and the box is laid out and drawn again from there.
 The box typed in is framed. A code that draws nothing, a color or a pause, is marked over the
 image where it stands (`BoxMarkers`): a color by a swatch of the color it sets, any other code
 grey, with an icon saying what kind it is, so no marker reads as text in a color. Hovering
-one says in a few words what it does, as `describeCode` words what `z_message.c` does with it
-("Red Text", "24 Pixels of Space"); a click selects it, so Delete removes it, and opens
-the form of its arguments for a code that has any. Codes that stand at one place, a color
+one names it as the rail's button does (`makeCodeName`: "Red Text", "Shift"); a click
+selects it, so Delete removes it, and opens the form of its arguments for a code that has
+any. The form opens a frame after the click, since Dear ImGui closes a popup opened in the
+frame of a mouse press as if the press had landed outside it. Codes that stand at one place, a color
 and a pause after one another, are one marker (`groupMarkers`): the last, whose color the
 text after it is drawn in, with how many there are. Hovering it lists them all, each with its
 head and what it does, and a click on one does what a click on its own marker would.
@@ -184,8 +185,8 @@ A code that draws in its place has no marker: what it draws is the code (`findDr
 That is an item's icon, and the samples of what the game fills in, `Link` for the player's
 name, `00"00"` for a timer, `0` for points, tokens, the fish and a high score, `12:00` for the
 time. A click on it selects the whole code, shaded as selected text is, so Delete removes it
-and a code with arguments opens their form; hovering it names it ("Pocket Egg Icon",
-"Player Name").
+and a code with arguments opens their form; hovering it names it as the rail does ("Icon",
+"Name").
 
 The rail at the tab's left starts with adding a box after the one typed in, or the last, and
 deleting the one typed in. Under that it puts in, where the caret is, the charmap's signs

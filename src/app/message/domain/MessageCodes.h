@@ -47,8 +47,10 @@ struct InsertableCode {
 /// `code` with the arguments it is put in with.
 [[nodiscard]] CodePiece makeInitialCode(const InsertableCode& code);
 
-/// What `code` does where it stands, in a few words: "Red Text", "Next Box
-/// after 20 Frames". Read from what `z_message.c` does with it.
-[[nodiscard]] std::string describeCode(const CodePiece& code);
+/// What `code` is called wherever it is named: on the rail's button that
+/// puts it in, and over its marker. A color is the text it draws ("Red
+/// Text"), any other code its name in markup without its arguments ("Box
+/// Break Delayed").
+[[nodiscard]] std::string makeCodeName(const CodePiece& code);
 
 } // namespace toki::message

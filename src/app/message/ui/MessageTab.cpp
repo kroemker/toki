@@ -77,12 +77,6 @@ constexpr std::array ColorActions = {
     return std::string(sign);
 }
 
-[[nodiscard]] std::string makeCodeLabel(const CodePiece& code) {
-    const std::array<Piece, 1> pieces = {code};
-    const std::string label = formatMarkup(pieces);
-    return label.substr(1, label.size() - 2);
-}
-
 void moveVertically(EditableBox& editable, const std::vector<CaretPlace>& places,
                     const LaidBox& box, const s32 direction, const bool extends) {
     const CaretPlace& at = places[editable.getCaret()];
@@ -728,14 +722,14 @@ void MessageTab::drawRail() {
             ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled |
                                  ImGuiHoveredFlags_DelayNormal)) {
             const std::string name =
-                describeCode(CodePiece{.name = "COLOR", .arguments = {colors[color]}});
+                makeCodeName(CodePiece{.name = "COLOR", .arguments = {colors[color]}});
             ImGui::SetTooltip("%s", core::makeShortcutText(name, ColorActions[color]).c_str());
         }
         ImGui::PopID();
     }
     ImGui::Separator();
     for (const InsertableCode& insertable : listInsertableCodes()) {
-        const std::string label = makeCodeLabel(CodePiece{.name = std::string(insertable.macro)});
+        const std::string label = makeCodeName(CodePiece{.name = std::string(insertable.macro)});
         if (ImGui::Button(label.c_str(), ImVec2(railWidth, 0.0F))) {
             insertCode(insertable);
         }
@@ -747,7 +741,7 @@ f32 MessageTab::measureRail() const {
     const ImGuiStyle& style = ImGui::GetStyle();
     f32 width = measureToggleButton(std::format("{} Delete Box", core::icons::Trash).c_str());
     for (const InsertableCode& insertable : listInsertableCodes()) {
-        const std::string label = makeCodeLabel(CodePiece{.name = std::string(insertable.macro)});
+        const std::string label = makeCodeName(CodePiece{.name = std::string(insertable.macro)});
         width = std::max(width, measureToggleButton(label.c_str()));
     }
     return width + (style.WindowPadding.x * 2.0F) + style.ScrollbarSize;
@@ -840,13 +834,16 @@ void MessageTab::insertCode(const InsertableCode& insertable) {
 
 void MessageTab::openCodePopup(const usize box, const usize unit) {
     editedCode = EditedCode{.box = box, .unit = unit};
-    opensCodePopup = true;
+    codePopupFrame = ImGui::GetFrameCount();
 }
 
 void MessageTab::drawCodePopup() {
-    if (opensCodePopup) {
+    if (codePopupFrame && ImGui::GetFrameCount() > *codePopupFrame) {
         ImGui::OpenPopup("##codeArguments");
-        opensCodePopup = false;
+        codePopupFrame.reset();
+    }
+    if (codePopupFrame) {
+        return;
     }
     if (!ImGui::BeginPopup("##codeArguments")) {
         editedCode.reset();
@@ -863,7 +860,7 @@ void MessageTab::drawCodePopup() {
         return;
     }
     CodePiece edited = *code;
-    ImGui::TextUnformatted(makeCodeLabel(CodePiece{.name = edited.name}).c_str());
+    ImGui::TextUnformatted(makeCodeName(CodePiece{.name = edited.name}).c_str());
     if (drawCodeArguments(edited, *focus.catalog, focus.draft.getTable(), focus.language,
                           argumentFilter)) {
         editables[editedCode->box].setCode(editedCode->unit, edited);
@@ -1104,7 +1101,7 @@ void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage&
     if (drawnCode != nullptr) {
         if (const auto* code =
                 std::get_if<CodePiece>(&editable.getUnits()[drawnCode->unit].piece)) {
-            ImGui::SetTooltip("%s", describeCode(*code).c_str());
+            ImGui::SetTooltip("%s", makeCodeName(*code).c_str());
         }
     }
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {

@@ -7,6 +7,7 @@
 #include "app/core/domain/Utf8.h"
 #include "app/core/ui/Icons.h"
 #include "app/core/ui/Panel.h"
+#include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 #include "app/workspace/domain/WorkspaceService.h"
 #include "hackeroot/Assets.h"
@@ -112,14 +113,22 @@ AssetBrowserPanel::AssetBrowserPanel(const workspace::WorkspaceService& workspac
       openObject(std::move(openObject)), messageBrowser(messageBrowser) {}
 
 void AssetBrowserPanel::draw() {
+    const ImVec2 start = ImGui::GetCursorPos();
     const hackeroot::Workspace* workspace = workspaceService.getWorkspace();
-    if (workspace == nullptr) {
-        ImGui::TextColored(core::palette::TextMuted, "%s",
-                           workspaceService.isLoading()
-                               ? "Loading checkout…"
-                               : "Open a HackerOoT checkout to browse its assets.");
+    if (workspace == nullptr && !workspaceService.isLoading()) {
+        ImGui::TextColored(core::palette::TextMuted,
+                           "Open a HackerOoT checkout to browse its assets.");
         return;
     }
+    if (workspace != nullptr) {
+        drawAssets(*workspace);
+    }
+    if (workspaceService.isLoading()) {
+        core::drawBusyCover(start, ImVec2(), "Loading checkout");
+    }
+}
+
+void AssetBrowserPanel::drawAssets(const hackeroot::Workspace& workspace) {
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##filter",
                              kind == Kind::Messages ? "Filter by ID or text…"
@@ -148,13 +157,13 @@ void AssetBrowserPanel::draw() {
     const float tableHeight = std::max(ImGui::GetContentRegionAvail().y - detailsHeight,
                                        ImGui::GetTextLineHeightWithSpacing() * 4.0F);
     if (kind == Kind::Scenes) {
-        drawScenes(*workspace, tableHeight);
+        drawScenes(workspace, tableHeight);
         ImGui::Separator();
-        drawSceneDetails(*workspace);
+        drawSceneDetails(workspace);
     } else if (kind == Kind::Objects) {
-        drawObjects(*workspace, tableHeight);
+        drawObjects(workspace, tableHeight);
         ImGui::Separator();
-        drawObjectDetails(*workspace);
+        drawObjectDetails(workspace);
     } else {
         messageBrowser.drawTable(std::string(filter.data()), tableHeight);
         ImGui::Separator();

@@ -23,16 +23,14 @@ TEST_CASE("every code the rail puts in is one but colors and box breaks, with it
     CHECK(toki::message::listInsertableCodes().size() == 26);
 }
 
-TEST_CASE("a code is described in a few words by what the game does with it", "[message]") {
-    CHECK(toki::message::describeCode(CodePiece{.name = "COLOR", .arguments = {"RED"}}) ==
+TEST_CASE("a code is named as the rail's button names it, a color by the text it draws",
+          "[message]") {
+    CHECK(toki::message::makeCodeName(CodePiece{.name = "COLOR", .arguments = {"RED"}}) ==
           "Red Text");
-    CHECK(toki::message::describeCode(CodePiece{.name = "UNSKIPPABLE"}) == "Unskippable Text");
-    CHECK(toki::message::describeCode(CodePiece{.name = "SHIFT", .arguments = {"24"}}) ==
-          "24 Pixels of Space");
-    CHECK(toki::message::describeCode(CodePiece{.name = "TEXTID", .arguments = {"0x6023"}}) ==
-          "Next Message 0x6023");
-    CHECK(toki::message::describeCode(CodePiece{.name = "MARATHON_TIME"}) == "Marathon Time");
-    CHECK(toki::message::describeCode(CodePiece{.name = "NAME"}) == "Player Name");
-    CHECK(toki::message::describeCode(CodePiece{
-              .name = "ITEM_ICON", .arguments = {"ITEM_POCKET_EGG"}}) == "Pocket Egg Icon");
+    CHECK(toki::message::makeCodeName(CodePiece{.name = "UNSKIPPABLE"}) == "Unskippable");
+    CHECK(toki::message::makeCodeName(CodePiece{.name = "SHIFT", .arguments = {"24"}}) == "Shift");
+    CHECK(toki::message::makeCodeName(
+              CodePiece{.name = "BOX_BREAK_DELAYED", .arguments = {"20"}}) == "Box Break Delayed");
+    CHECK(toki::message::makeCodeName(
+              CodePiece{.name = "ITEM_ICON", .arguments = {"ITEM_POCKET_EGG"}}) == "Icon");
 }
