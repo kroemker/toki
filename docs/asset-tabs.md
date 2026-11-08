@@ -40,6 +40,17 @@ tooltip, the eye says enough. A double click on the docked tab, found in the doc
 bar, pins the preview. The Properties
 panel shows the active tab's asset.
 
+A tab opens at once, in the frame it is asked for, and what it takes time to show is read or
+drawn off the UI thread. While a tab says it is loading (`AssetTab::isLoading`), its host
+covers it with a translucent grey and a spinner (`core::drawBusyCover`), so a kind need not
+draw its own. That is for a tab with nothing to show yet; one whose header can be used
+meanwhile covers only what is under it itself, as a message tab does while its boxes are
+drawn.
+
+Undo and Redo go to the active tab when a tab was focused last, as Save does, and to the
+scene otherwise; the Edit menu asks the same one whether there is a step to take. A kind
+keeps its own steps (`AssetTab::undo`, `redo`, `canUndo`, `canRedo`).
+
 ## Docking
 
 A tab is docked once, in the frame its window first appears; after that it stays wherever it

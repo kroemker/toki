@@ -1,6 +1,7 @@
 #include "AssetTabHost.h"
 
 #include "app/core/ui/Icons.h"
+#include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 
 #include <imgui.h>
@@ -222,7 +223,13 @@ void AssetTabHost::drawTab(const AssetTabEntry& entry, const ImGuiID centralNode
         }
     }
     if (isVisible) {
+        const ImVec2 start = ImGui::GetCursorPos();
         tab.draw();
+        if (tab.isLoading()) {
+            ImGui::PushID("assetTabHost");
+            drawBusyCover(start, ImVec2(), "Loading");
+            ImGui::PopID();
+        }
     }
     ImGui::End();
     if (!isOpen) {

@@ -1,4 +1,5 @@
 target_sources(toki_core PRIVATE
+        BoxFrameWorker.cpp
         Charmap.cpp
         EditableBox.cpp
         Message.cpp

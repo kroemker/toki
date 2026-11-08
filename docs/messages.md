@@ -242,9 +242,27 @@ message found again in it by its `MessageKey`; the edits of a message the table 
 are dropped and the log names it. A message whose row the checkout changed under its edits
 says so. A message edited back to what was read has no edits.
 
+Each message keeps the steps it was edited in, as the whole message before each, and undoes
+and redoes them on its own (`MessageDraft::undo`). Keys typed in one box, the markup typed,
+and one code's arguments changed, each within a second of the last, are one step; a sign,
+color or code put in from the rail, a box added or deleted, and the box's type or position
+set, are a step each. A table read again keeps every message's steps as it keeps its edits;
+throwing the edits away throws the steps away with them. An edit that changes nothing is no
+step. The caret stays at its unit after a step, as far as the box still reaches. The markup
+field keeps no steps of its own: Undo's key typed in it undoes the draft's, and the field takes
+the markup the step left, its selection kept.
+
 Typing redraws only what changed. Each gbi command of a box is expanded through the gbi's
 macros once and its words kept (`GbiCommandCache`); a box is drawn again only when what it
-shows changes; and the Messages tab rebuilds only the row of the message edited.
+shows changes; a tab lays its message out again only when that message changed
+(`MessageDraft::getRevision(message)`), not for an edit in another tab; and the Messages tab
+rebuilds only the row of the message edited, putting it in, taking it out or sorting it
+again as the filter and the sort now have it. A box's frame, its commands expanded and run on
+the RSP and RDP, is run on a thread of its own (`BoxFrameWorker`), one for every tab and the
+Messages table, so a command expanded for one is not expanded again for the next, and a tab
+opens at once: a box not drawn yet shows the image it had, and while none of a tab's boxes is
+drawn yet, what is under its header is covered with a spinner. What drawing a box reported,
+such as a gbi command that could not be expanded, is written under it.
 
 ## Saving
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <format>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -80,23 +81,43 @@ MessageRow makeMessageRow(const Message& message, const usize index, const Langu
                       .boxCount = countBoxes(text)};
 }
 
+namespace {
+
+[[nodiscard]] std::optional<MessageRow> findRow(const Message& message, const usize index,
+                                                const Language language,
+                                                const bool isFontMessageEnglish,
+                                                const MessageFilter& filter,
+                                                const std::string_view needle) {
+    if (!isInLanguage(message, language, isFontMessageEnglish) ||
+        (filter.boxType && message.boxType != *filter.boxType)) {
+        return std::nullopt;
+    }
+    MessageRow row = makeMessageRow(message, index, language);
+    if (!needle.empty() && !matchesId(message.id, needle) &&
+        !makeLower(row.text).contains(needle)) {
+        return std::nullopt;
+    }
+    return row;
+}
+
+} // namespace
+
+std::optional<MessageRow> findMessageRow(const Message& message, const usize index,
+                                         const Language language, const bool isFontMessageEnglish,
+                                         const MessageFilter& filter) {
+    return findRow(message, index, language, isFontMessageEnglish, filter, makeLower(filter.text));
+}
+
 std::vector<MessageRow> makeMessageRows(const MessageTable& table, const Language language,
                                         const bool isFontMessageEnglish,
                                         const MessageFilter& filter) {
     const std::string needle = makeLower(filter.text);
     std::vector<MessageRow> rows;
     for (usize index = 0; index < table.messages.size(); ++index) {
-        const Message& message = table.messages[index];
-        if (!isInLanguage(message, language, isFontMessageEnglish) ||
-            (filter.boxType && message.boxType != *filter.boxType)) {
-            continue;
+        if (std::optional<MessageRow> row = findRow(table.messages[index], index, language,
+                                                    isFontMessageEnglish, filter, needle)) {
+            rows.push_back(std::move(*row));
         }
-        MessageRow row = makeMessageRow(message, index, language);
-        if (!needle.empty() && !matchesId(message.id, needle) &&
-            !makeLower(row.text).contains(needle)) {
-            continue;
-        }
-        rows.push_back(std::move(row));
     }
     return rows;
 }

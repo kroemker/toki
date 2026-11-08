@@ -48,6 +48,12 @@ struct MessageFilter {
 /// The row of `message`, the one at `index` of its table, in `language`.
 [[nodiscard]] MessageRow makeMessageRow(const Message& message, usize index, Language language);
 
+/// The row of `message`, the one at `index` of its table, in `language`, if
+/// the build puts it into that language's table and `filter` lets it through.
+[[nodiscard]] std::optional<MessageRow> findMessageRow(const Message& message, usize index,
+                                                       Language language, bool isFontMessageEnglish,
+                                                       const MessageFilter& filter);
+
 /// The rows of every message of `table` the build puts into `language`'s
 /// table that `filter` lets through, in table order.
 [[nodiscard]] std::vector<MessageRow> makeMessageRows(const MessageTable& table, Language language,

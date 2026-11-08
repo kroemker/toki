@@ -404,17 +404,18 @@ void drawScreenPlace(const LaidBox* box) {
 
 } // namespace
 
-MessageTab::MessageTab(const gfx::Device& device, const core::Fonts& fonts, MessageFocus& focus,
-                       SignGlyphs& signGlyphs, MessageKey key, SaveMessages saveMessages)
+MessageTab::MessageTab(const gfx::Device& device, BoxFrameWorker& boxFrameWorker,
+                       const core::Fonts& fonts, MessageFocus& focus, SignGlyphs& signGlyphs,
+                       MessageKey key, SaveMessages saveMessages)
     : fonts(fonts), focus(focus), signGlyphs(signGlyphs), key(key),
-      saveMessages(std::move(saveMessages)), boxRenderer(device) {}
+      saveMessages(std::move(saveMessages)), boxRenderer(device, boxFrameWorker) {}
 
 std::optional<usize> MessageTab::findIndex() const {
     if (!focus.catalog) {
         return std::nullopt;
     }
-    if (indexRevision != focus.draft.getRevision() || indexCatalog != focus.catalog.get()) {
-        indexRevision = focus.draft.getRevision();
+    if (indexRevision != focus.draft.getTableRevision() || indexCatalog != focus.catalog.get()) {
+        indexRevision = focus.draft.getTableRevision();
         indexCatalog = focus.catalog.get();
         index = findMessage(focus.draft.getTable(), key);
     }
@@ -459,7 +460,7 @@ void MessageTab::discard() {
 
 MessageTab::ShownKey MessageTab::makeShownKey(const usize shown) const {
     return ShownKey{.catalog = focus.catalog.get(),
-                    .revision = focus.draft.getRevision(),
+                    .revision = focus.draft.getRevision(shown),
                     .index = shown,
                     .language = focus.language};
 }
@@ -480,9 +481,11 @@ void MessageTab::updateEditor(const usize shown, const Message& message) {
     const bool isOtherMessage = !editorKey || editorKey->catalog != shownKey.catalog ||
                                 editorKey->index != shownKey.index ||
                                 editorKey->language != shownKey.language;
-    if (editorKey == shownKey || (!isOtherMessage && ImGui::IsAnyItemActive())) {
+    if (editorKey == shownKey || (!isOtherMessage && !isUndone && ImGui::IsAnyItemActive())) {
         return;
     }
+    reloadsMarkup = isUndone;
+    isUndone = false;
     editorKey = shownKey;
     const MessageText& text = message.texts[static_cast<usize>(focus.language)];
     boxes = splitBoxes(text);
@@ -507,14 +510,58 @@ void MessageTab::updateEditor(const usize shown, const Message& message) {
     }
 }
 
-void MessageTab::applyEditable(const usize box) {
-    boxes[box].pieces = editables[box].makePieces();
-    applyBoxes();
+bool MessageTab::joinsLastEdit(const EditKind kind, const usize subject) {
+    constexpr f64 JoinSeconds = 1.0;
+    const f64 now = ImGui::GetTime();
+    const bool joins = lastJoined && lastJoined->kind == kind && lastJoined->subject == subject &&
+                       now - lastJoined->time < JoinSeconds;
+    lastJoined = JoinedEdit{.kind = kind, .subject = subject, .time = now};
+    return joins;
 }
 
-void MessageTab::applyBoxes() {
+void MessageTab::applyEditable(const usize box, const std::optional<EditKind> kind,
+                               const usize subject) {
+    boxes[box].pieces = editables[box].makePieces();
+    applyBoxes(kind, subject);
+}
+
+void MessageTab::applyBoxes(const std::optional<EditKind> kind, const usize subject) {
+    const bool joinsLast = kind && joinsLastEdit(*kind, subject);
+    if (!kind) {
+        lastJoined.reset();
+    }
     if (const std::optional<usize> found = findIndex()) {
-        focus.draft.setText(*found, focus.language, joinBoxes(boxes));
+        focus.draft.setText(*found, focus.language, joinBoxes(boxes), joinsLast);
+    }
+}
+
+bool MessageTab::canUndo() const {
+    const std::optional<usize> found = findIndex();
+    return found && focus.draft.canUndo(*found);
+}
+
+bool MessageTab::canRedo() const {
+    const std::optional<usize> found = findIndex();
+    return found && focus.draft.canRedo(*found);
+}
+
+void MessageTab::undo() {
+    if (const std::optional<usize> found = findIndex(); found && focus.draft.undo(*found)) {
+        showUndone();
+    }
+}
+
+void MessageTab::redo() {
+    if (const std::optional<usize> found = findIndex(); found && focus.draft.redo(*found)) {
+        showUndone();
+    }
+}
+
+void MessageTab::showUndone() {
+    lastJoined.reset();
+    isUndone = true;
+    if (!isMarkupShown) {
+        ImGui::ClearActiveID();
     }
 }
 
@@ -542,12 +589,14 @@ void MessageTab::drawHeader(const usize shown, const Message& message) {
     std::string type = message.boxType;
     if (drawConstantCombo("##boxType", type, listBoxTypes(focus.draft.getTable()), "TEXTBOX_TYPE_",
                           em * BoxComboEms)) {
+        lastJoined.reset();
         focus.draft.setBoxType(shown, std::move(type));
     }
     ImGui::SameLine();
     std::string position = message.boxPosition;
     if (drawConstantCombo("##boxPosition", position, listBoxPositions(focus.draft.getTable()),
                           "TEXTBOX_POS_", em * BoxComboEms)) {
+        lastJoined.reset();
         focus.draft.setBoxPosition(shown, std::move(position));
     }
     ImGui::SameLine();
@@ -864,7 +913,7 @@ void MessageTab::drawCodePopup() {
     if (drawCodeArguments(edited, *focus.catalog, focus.draft.getTable(), focus.language,
                           argumentFilter)) {
         editables[editedCode->box].setCode(editedCode->unit, edited);
-        applyEditable(editedCode->box);
+        applyEditable(editedCode->box, EditKind::Arguments, editedCode->unit);
     }
     ImGui::EndPopup();
 }
@@ -919,7 +968,12 @@ void MessageTab::zoomByWheel() {
 }
 
 void MessageTab::drawBoxImage(const usize box, const LaidBox& laid, const f32 width) {
-    const BoxImage image = boxRenderer.draw(box, laid, focus.catalog->art, std::max(width, 1.0F));
+    const BoxImage image = boxRenderer.draw(box, laid, focus.catalog, std::max(width, 1.0F));
+    if (image.isPending) {
+        hasPendingBox = true;
+    } else {
+        hasShownBox = true;
+    }
     if (box < editables.size()) {
         editInBox(box, laid, image);
     }
@@ -948,6 +1002,9 @@ void MessageTab::drawBox(const usize box, const LaidBox* laid, const f32 scale) 
                            laid->lines.size(), laid->lines.size() == 1 ? "line" : "lines",
                            describeEndIcon(laid->endIcon));
         drawBoxImage(box, *laid, BoxImageWidth * scale);
+        for (const base::Diagnostic& diagnostic : boxRenderer.getDiagnostics(box)) {
+            ImGui::TextColored(core::palette::Danger, "%s", diagnostic.message.c_str());
+        }
     } else {
         ImGui::TextColored(core::palette::TextMuted,
                            "Box %zu · not drawn: the message ends before it", box + 1);
@@ -976,7 +1033,16 @@ void MessageTab::drawMarkup() {
             color == 0 ? findDefaultColor(boxType) : findTextColor(boxType, color);
         return IM_COL32(shade.red, shade.green, shade.blue, 255);
     };
-    if (!drawMarkupEditor("##markup", markup, fonts.getMono(), core::Fonts::MonoSize, findColor)) {
+    const bool isTyped = ImGui::GetActiveID() == ImGui::GetID("##markup");
+    const bool isReloaded = std::exchange(reloadsMarkup, false);
+    const bool isChanged = drawMarkupEditor("##markup", markup, fonts.getMono(),
+                                            core::Fonts::MonoSize, findColor, isReloaded);
+    if (isTyped && core::isActionKeyPressed(core::Action::Undo)) {
+        undo();
+    } else if (isTyped && core::isActionKeyPressed(core::Action::Redo)) {
+        redo();
+    }
+    if (!isChanged) {
         return;
     }
     std::expected<std::vector<Piece>, MarkupError> pieces = parseMarkup(markup);
@@ -986,7 +1052,8 @@ void MessageTab::drawMarkup() {
     }
     markupError.reset();
     if (const std::optional<usize> found = findIndex()) {
-        focus.draft.setText(*found, focus.language, std::move(*pieces));
+        focus.draft.setText(*found, focus.language, std::move(*pieces),
+                            joinsLastEdit(EditKind::Markup, 0));
     }
 }
 
@@ -1129,7 +1196,7 @@ void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage&
     }
     moveCaretByKeys(editable, places, laid);
     if (editByKeys(editable)) {
-        applyEditable(box);
+        applyEditable(box, EditKind::Typing, box);
     }
 }
 
@@ -1146,6 +1213,8 @@ void MessageTab::drawStoryboard(const MessageLayout& laidOut) {
     ImGui::Indent(frameRoom);
     shownScale = findScale(ImGui::GetContentRegionAvail().x - frameRoom);
     wasMarkerClicked = false;
+    hasShownBox = false;
+    hasPendingBox = false;
     const usize count = std::max(laidOut.boxes.size(), boxes.size());
     for (usize box = 0; box < count; ++box) {
         drawBox(box, box < laidOut.boxes.size() ? &laidOut.boxes[box] : nullptr, shownScale);
@@ -1154,13 +1223,18 @@ void MessageTab::drawStoryboard(const MessageLayout& laidOut) {
         !ImGui::IsAnyItemHovered() && !wasMarkerClicked) {
         typedBox.reset();
     }
+    isWaitingForBoxes = hasPendingBox && !hasShownBox;
     ImGui::Unindent(frameRoom);
     ImGui::EndChild();
 }
 
+bool MessageTab::isLoading() const {
+    return !focus.catalog;
+}
+
 void MessageTab::draw() {
+    isWaitingForBoxes = false;
     if (!focus.catalog) {
-        core::drawBusyCover(ImGui::GetCursorPos(), ImVec2(), "Loading messages");
         return;
     }
     const std::optional<usize> shown = findIndex();
@@ -1194,6 +1268,8 @@ void MessageTab::draw() {
         core::drawBusyCover(bodyStart, ImVec2(), "Saving messages");
     } else if (focus.isReading) {
         core::drawBusyCover(bodyStart, ImVec2(), "Loading messages");
+    } else if (isWaitingForBoxes) {
+        core::drawBusyCover(bodyStart, ImVec2(), "Drawing boxes");
     }
 }
 

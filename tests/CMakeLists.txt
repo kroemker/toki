@@ -25,6 +25,7 @@ add_executable(toki_tests
         app/core/ReadableNameTest.cpp
         app/displayList/FrameInspectionTest.cpp
         app/displayList/RdpStateTextTest.cpp
+        app/message/BoxFrameWorkerTest.cpp
         app/message/CharmapTest.cpp
         app/message/EditableBoxTest.cpp
         app/message/MessageCheckoutTest.cpp

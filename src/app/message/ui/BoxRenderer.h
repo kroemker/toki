@@ -1,8 +1,11 @@
 #pragma once
 
 #include "app/message/Types.h"
+#include "app/message/domain/BoxFrameWorker.h"
 #include "app/message/domain/MessageDrawing.h"
 #include "app/message/domain/MessageLayout.h"
+#include "app/message/domain/MessageLoader.h"
+#include "base/Diagnostic.h"
 #include "gfx/Device.h"
 #include "gfx/RenderTarget.h"
 #include "gfx/Renderer.h"
@@ -10,6 +13,7 @@
 #include <imgui.h>
 
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -23,6 +27,9 @@ struct BoxImage {
     f32 scale = 1.0F;
     f32 left = 0.0F;
     f32 top = 0.0F;
+    /// Whether the box is not drawn yet: its frame is still being run, and no
+    /// image of it is there to show meanwhile.
+    bool isPending = false;
 
     [[nodiscard]] ImVec2 findScreenPosition(f32 x, f32 y) const {
         return {origin.x + ((x - left) * scale), origin.y + ((y - top) * scale)};
@@ -38,33 +45,49 @@ struct BoxImage {
 /// shows changes. A box is drawn moved to the top of the screen: the image is
 /// cut out around it, so where it stands changes nothing of it, and a box
 /// moved draws the gbi commands drawn before, which are cached, rather than
-/// new ones for each position.
+/// new ones for each position. A frame is run on the `BoxFrameWorker` every
+/// renderer shares; until it is done, a slot shows what it drew before, or
+/// nothing.
 class BoxRenderer {
 public:
-    explicit BoxRenderer(const gfx::Device& device);
+    BoxRenderer(const gfx::Device& device, BoxFrameWorker& boxFrameWorker);
+    BoxRenderer(const BoxRenderer&) = delete;
+    BoxRenderer& operator=(const BoxRenderer&) = delete;
+    BoxRenderer(BoxRenderer&&) = delete;
+    BoxRenderer& operator=(BoxRenderer&&) = delete;
+    ~BoxRenderer();
 
     /// The width of a box's image over its height.
     static constexpr float AspectRatio = 272.0F / 84.0F;
 
-    /// Draws `box` into slot `slot`, unless the slot already holds what it
-    /// draws, and shows it `width` wide at the cursor, as an item a click
-    /// lands on.
-    BoxImage draw(usize slot, const LaidBox& box, const MessageArt& art, float width);
+    /// Draws `box` into slot `slot`, with the art of `catalog`, unless the
+    /// slot already holds what it draws, and shows it `width` wide at the
+    /// cursor, as an item a click lands on.
+    BoxImage draw(usize slot, const LaidBox& box, const SharedCatalog& catalog, float width);
+
+    /// What drawing the image slot `slot` shows reported, such as a gbi
+    /// command that could not be expanded and is missing from it.
+    [[nodiscard]] std::span<const base::Diagnostic> getDiagnostics(usize slot) const;
 
 private:
     struct Slot {
         std::optional<gfx::RenderTarget> target;
         std::optional<u64> key;
+        /// The content the slot could not be drawn for, so it is not asked
+        /// for again.
+        std::optional<u64> failedKey;
         u8 boxType = 0;
+        std::vector<base::Diagnostic> diagnostics;
     };
 
-    [[nodiscard]] bool render(Slot& slot, const LaidBox& box, const MessageArt& art);
+    [[nodiscard]] bool render(Slot& slot, const BoxFrame& frame, u8 boxType);
 
     const gfx::Device& device;
     std::optional<gfx::Renderer> renderer;
     std::string failure;
     std::vector<Slot> slots;
-    GbiCommandCache gbiCommandCache;
+    BoxFrameWorker& boxFrameWorker;
+    u64 owner = 0;
 };
 
 } // namespace toki::message

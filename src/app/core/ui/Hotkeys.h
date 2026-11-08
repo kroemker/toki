@@ -19,6 +19,11 @@ void setKeyBindings(const KeyBindings& bindings);
 /// only when asked too, while text is typed as well.
 [[nodiscard]] bool isActionPressed(Action action);
 
+/// Whether the key `action` is bound to was pressed this frame, whatever item
+/// has taken it: for a field that takes a global action's key from the global
+/// handler and does that action itself.
+[[nodiscard]] bool isActionKeyPressed(Action action);
+
 /// The key `action` is bound to as menus and tooltips show it, `Ctrl+,`;
 /// empty when it is bound to none.
 [[nodiscard]] std::string getShortcutLabel(Action action);

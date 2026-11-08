@@ -21,7 +21,9 @@ void drawCenteredSpinner(std::string_view label);
 /// `ImGui::GetCursorPos` gives it, `size` large or to the window's end where
 /// a side is zero, with a translucent grey that takes the mouse, and a
 /// centered spinner and `label` over it. Drawn after what it covers, child
-/// windows included, since it is a child window drawn over them.
+/// windows included, since it is a child window drawn over them. The cursor
+/// is left after it: moving it back over what was drawn would leave the
+/// window's extent to a cursor no item validates, which Dear ImGui refuses.
 void drawBusyCover(ImVec2 start, ImVec2 size, std::string_view label);
 
 } // namespace toki::core

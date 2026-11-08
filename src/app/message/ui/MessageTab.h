@@ -36,8 +36,9 @@ public:
     /// Saves the edits of the messages at the indices given.
     using SaveMessages = std::function<void(std::vector<usize>, core::AssetTab::Saved)>;
 
-    MessageTab(const gfx::Device& device, const core::Fonts& fonts, MessageFocus& focus,
-               SignGlyphs& signGlyphs, MessageKey key, SaveMessages saveMessages);
+    MessageTab(const gfx::Device& device, BoxFrameWorker& boxFrameWorker, const core::Fonts& fonts,
+               MessageFocus& focus, SignGlyphs& signGlyphs, MessageKey key,
+               SaveMessages saveMessages);
 
     /// The index of the message in the draft's table, if it is still there.
     [[nodiscard]] std::optional<usize> findIndex() const;
@@ -47,6 +48,11 @@ public:
     void save(Saved saved) override;
     void discard() override;
     void draw() override;
+    [[nodiscard]] bool isLoading() const override;
+    [[nodiscard]] bool canUndo() const override;
+    [[nodiscard]] bool canRedo() const override;
+    void undo() override;
+    void redo() override;
 
 private:
     struct ShownKey {
@@ -110,8 +116,30 @@ private:
     void insertIntoTyped(std::span<const Piece> pieces);
     [[nodiscard]] const MessageLayout& updateLayout(usize index, const Message& message);
     void updateEditor(usize index, const Message& message);
-    void applyEditable(usize index);
-    void applyBoxes();
+    /// What an edit is, to tell whether it joins the undo step of the one
+    /// before: keys typed in one box, the markup typed, or one code's
+    /// arguments, each within a moment of the last.
+    enum class EditKind : u8 {
+        Typing,
+        Markup,
+        Arguments,
+    };
+
+    struct JoinedEdit {
+        EditKind kind = EditKind::Typing;
+        usize subject = 0;
+        f64 time = 0.0;
+    };
+
+    [[nodiscard]] bool joinsLastEdit(EditKind kind, usize subject);
+    /// Writes the boxes to the draft as a step of their own, or, given what
+    /// the edit is and what it is of, as part of the step before when that
+    /// was the same edit a moment ago.
+    void applyEditable(usize index, std::optional<EditKind> kind = std::nullopt, usize subject = 0);
+    void applyBoxes(std::optional<EditKind> kind = std::nullopt, usize subject = 0);
+    /// Shows the draft as an undo or redo left it, the caret kept where it
+    /// stood as far as the box still reaches.
+    void showUndone();
 
     const core::Fonts& fonts;
     MessageFocus& focus;
@@ -133,6 +161,16 @@ private:
     std::optional<usize> typedBox;
     bool isDragging = false;
     bool wasMarkerClicked = false;
+    /// Whether none of the boxes drawn this frame is drawn yet, and one is
+    /// still being drawn.
+    bool isWaitingForBoxes = false;
+    bool hasShownBox = false;
+    bool hasPendingBox = false;
+    std::optional<JoinedEdit> lastJoined;
+    bool isUndone = false;
+    /// Whether the markup was written again past an undo or redo, so the
+    /// field, which may be typed in, takes it.
+    bool reloadsMarkup = false;
     bool isMarkupShown = false;
     std::optional<EditedCode> editedCode;
     std::optional<MarkerList> markerList;

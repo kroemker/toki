@@ -48,6 +48,10 @@ private:
         friend bool operator==(const LayoutKey&, const LayoutKey&) = default;
     };
 
+    /// Brings the row of `message`, the only one edited since, up to date:
+    /// made again, sorted again where its column changed, put in or taken out
+    /// where the filter now lets it through or not.
+    void updateRow(const RowsKey& key, usize message);
     void updateRows(const RowsKey& key);
     void drawRow(const MessageRow& row);
 

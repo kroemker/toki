@@ -229,7 +229,7 @@ void App::registerPanels() {
     scenePanel->setDisplayListInspector(inspect);
     panels.add(std::move(displayList));
     panels.add(std::make_unique<LogPanel>(log(), settings.log, fonts));
-    browserBoxes = std::make_unique<message::BoxRenderer>(*device);
+    browserBoxes = std::make_unique<message::BoxRenderer>(*device, boxFrameWorker);
     signGlyphs = std::make_unique<message::SignGlyphs>(*device);
     propertiesPanel->addSource(assetTabHost);
     messageBrowser = std::make_unique<message::MessageBrowser>(
@@ -312,7 +312,7 @@ void App::openMessage(const usize index) {
     const message::MessageKey key = message::makeMessageKey(table, index);
     assetTabHost.open(message::formatMessageKey(key), TabOpening::Preview, [this, key] {
         return std::make_unique<message::MessageTab>(
-            *device, fonts, messageFocus, *signGlyphs, key,
+            *device, boxFrameWorker, fonts, messageFocus, *signGlyphs, key,
             [this](std::vector<usize> messages, AssetTab::Saved saved) {
                 saveMessages(std::move(messages), std::move(saved));
             });
@@ -442,19 +442,30 @@ void App::drawFrame() {
         scenePanel->setSaving(saveSceneDialog.isSaving());
     }
     const scene::Scene* openScene = scenePanel != nullptr ? scenePanel->findScene() : nullptr;
-    const MenuActions actions =
-        drawMenuBar(panels, dialogs, settings,
-                    MenuState{.buildRunning = buildRunner.isRunning(),
-                              .saveLabel = makeSaveLabel(openScene),
-                              .canSaveAll = !listUnsaved().empty(),
-                              .canCloseTab = assetTabHost.findActive() != nullptr,
-                              .canUndo = scenePanel != nullptr && scenePanel->canUndo(),
-                              .canRedo = scenePanel != nullptr && scenePanel->canRedo()});
-    if (scenePanel != nullptr && (actions.undo || isActionPressed(Action::Undo))) {
-        scenePanel->undo();
+    AssetTab* undoTab = isTabFocused(openScene) ? assetTabHost.findActive() : nullptr;
+    const MenuActions actions = drawMenuBar(
+        panels, dialogs, settings,
+        MenuState{.buildRunning = buildRunner.isRunning(),
+                  .saveLabel = makeSaveLabel(openScene),
+                  .canSaveAll = !listUnsaved().empty(),
+                  .canCloseTab = assetTabHost.findActive() != nullptr,
+                  .canUndo = undoTab != nullptr ? undoTab->canUndo()
+                                                : scenePanel != nullptr && scenePanel->canUndo(),
+                  .canRedo = undoTab != nullptr ? undoTab->canRedo()
+                                                : scenePanel != nullptr && scenePanel->canRedo()});
+    if (actions.undo || isActionPressed(Action::Undo)) {
+        if (undoTab != nullptr) {
+            undoTab->undo();
+        } else if (scenePanel != nullptr) {
+            scenePanel->undo();
+        }
     }
-    if (scenePanel != nullptr && (actions.redo || isActionPressed(Action::Redo))) {
-        scenePanel->redo();
+    if (actions.redo || isActionPressed(Action::Redo)) {
+        if (undoTab != nullptr) {
+            undoTab->redo();
+        } else if (scenePanel != nullptr) {
+            scenePanel->redo();
+        }
     }
     panels.draw();
     assetTabHost.draw(panels.findCentralNodeId());

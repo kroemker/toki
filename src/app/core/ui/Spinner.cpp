@@ -61,7 +61,6 @@ void drawCenteredSpinner(const std::string_view label) {
 }
 
 void drawBusyCover(const ImVec2 start, const ImVec2 size, const std::string_view label) {
-    const ImVec2 cursor = ImGui::GetCursorPos();
     ImGui::SetCursorPos(start);
     const ImVec2 available = ImGui::GetContentRegionAvail();
     const ImVec2 covered(size.x > 0.0F ? size.x : available.x,
@@ -76,7 +75,6 @@ void drawBusyCover(const ImVec2 start, const ImVec2 size, const std::string_view
     ImGui::EndChild();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
-    ImGui::SetCursorPos(cursor);
 }
 
 } // namespace toki::core

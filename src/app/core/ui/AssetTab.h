@@ -38,6 +38,26 @@ public:
 
     virtual void draw() = 0;
 
+    [[nodiscard]] virtual bool canUndo() const {
+        return false;
+    }
+
+    [[nodiscard]] virtual bool canRedo() const {
+        return false;
+    }
+
+    /// Undoes or redoes the asset's last step, when Undo or Redo is asked for
+    /// while the tab is what was focused last.
+    virtual void undo() {}
+
+    virtual void redo() {}
+
+    /// Whether what the tab shows is still being read or drawn, so its host
+    /// covers it with a spinner. Asked after `draw`, of what it drew.
+    [[nodiscard]] virtual bool isLoading() const {
+        return false;
+    }
+
     /// What the Properties panel shows of the asset, as a number that changes
     /// whenever it does; nothing for a tab that shows nothing there.
     [[nodiscard]] virtual std::optional<u64> findSelectionKey() const {

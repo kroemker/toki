@@ -75,12 +75,17 @@ void drawSpans(const std::string& markup, ImGuiWindow& field, const ImGuiID id,
 } // namespace
 
 bool drawMarkupEditor(const char* id, std::string& markup, ImFont* font, const f32 fontSize,
-                      const FindMarkupColor& findColor) {
+                      const FindMarkupColor& findColor, const bool isReloaded) {
     ImGuiWindow* parent = ImGui::GetCurrentWindow();
     const ImGuiID fieldId = ImGui::GetID(id);
+    if (ImGuiInputTextState* state = ImGui::GetInputTextState(fieldId);
+        isReloaded && state != nullptr) {
+        state->ReloadUserBufAndKeepSelection();
+    }
     ImGui::PushFont(font, fontSize);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0F, 0.0F, 0.0F, 0.0F));
-    const bool isChanged = ImGui::InputTextMultiline(id, &markup, ImVec2(-FLT_MIN, -FLT_MIN));
+    const bool isChanged = ImGui::InputTextMultiline(id, &markup, ImVec2(-FLT_MIN, -FLT_MIN),
+                                                     ImGuiInputTextFlags_NoUndoRedo);
     ImGui::PopStyleColor();
     // A hack until Dear ImGui's field can color its text: the child window the
     // field scrolls in is found by the name BeginChildEx gives it, which is

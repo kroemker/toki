@@ -1,12 +1,14 @@
 #include "BoxRenderer.h"
 
 #include "app/core/ui/Theme.h"
+#include "app/message/domain/MessageCatalog.h"
 #include "base/Diagnostic.h"
 
 #include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <expected>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -67,7 +69,8 @@ private:
 
 } // namespace
 
-BoxRenderer::BoxRenderer(const gfx::Device& device) : device(device) {
+BoxRenderer::BoxRenderer(const gfx::Device& device, BoxFrameWorker& boxFrameWorker)
+    : device(device), boxFrameWorker(boxFrameWorker), owner(boxFrameWorker.makeOwner()) {
     std::expected<gfx::Renderer, base::Diagnostic> created = gfx::Renderer::create(device);
     if (created) {
         renderer.emplace(std::move(*created));
@@ -76,7 +79,18 @@ BoxRenderer::BoxRenderer(const gfx::Device& device) : device(device) {
     }
 }
 
-bool BoxRenderer::render(Slot& slot, const LaidBox& box, const MessageArt& art) {
+BoxRenderer::~BoxRenderer() {
+    boxFrameWorker.forget(owner);
+}
+
+std::span<const base::Diagnostic> BoxRenderer::getDiagnostics(const usize slot) const {
+    if (slot >= slots.size()) {
+        return {};
+    }
+    return slots[slot].diagnostics;
+}
+
+bool BoxRenderer::render(Slot& slot, const BoxFrame& frame, const u8 boxType) {
     if (!slot.target) {
         std::expected<gfx::RenderTarget, base::Diagnostic> created =
             gfx::RenderTarget::create(device, ScreenWidth * Scale, ScreenHeight * Scale);
@@ -86,20 +100,20 @@ bool BoxRenderer::render(Slot& slot, const LaidBox& box, const MessageArt& art) 
         }
         slot.target.emplace(std::move(*created));
     }
-    const BoxFrame frame = runBoxFrame(box, art, gbiCommandCache);
     static_cast<void>(renderer->render(frame.rspResult, frame.rdpResult, *slot.target));
-    slot.boxType = box.boxType;
+    slot.boxType = boxType;
     return true;
 }
 
-BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const MessageArt& art,
+BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const SharedCatalog& catalog,
                            const float width) {
+    const MessageArt& art = catalog->art;
     const LaidBox drawn = makeMovedBox(box, static_cast<s32>(CropAbove) - box.y);
     const u64 key = makeBoxKey(drawn, art);
     const ImVec2 size{width, width / AspectRatio};
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const float top = static_cast<float>(box.y) - CropAbove;
-    const BoxImage image{
+    BoxImage image{
         .origin = origin, .size = size, .scale = width / CropWidth, .left = CropLeft, .top = top};
     ImGui::InvisibleButton("##box", size);
     ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -111,12 +125,31 @@ BoxImage BoxRenderer::draw(const usize slotIndex, const LaidBox& box, const Mess
         slots.resize(slotIndex + 1);
     }
     Slot& slot = slots[slotIndex];
+    if (slot.failedKey == key) {
+        drawList->AddText(origin, ImGui::GetColorU32(core::palette::Danger), failure.c_str());
+        return image;
+    }
+    const BoxSlot workerSlot{.owner = owner, .index = slotIndex};
     if (slot.key != key) {
-        if (!render(slot, drawn, art)) {
-            drawList->AddText(origin, ImGui::GetColorU32(core::palette::Danger), failure.c_str());
-            return image;
+        std::optional<FinishedFrame> finished = boxFrameWorker.takeFinished(workerSlot);
+        if (finished && finished->key == key) {
+            if (!render(slot, finished->frame, drawn.boxType)) {
+                slot.failedKey = key;
+                drawList->AddText(origin, ImGui::GetColorU32(core::palette::Danger),
+                                  failure.c_str());
+                return image;
+            }
+            slot.key = key;
+            slot.diagnostics = std::move(finished->frame.diagnostics);
+        } else {
+            boxFrameWorker.request(workerSlot, key, drawn, catalog);
         }
-        slot.key = key;
+    }
+    if (!slot.key) {
+        image.isPending = true;
+        drawList->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y),
+                                ImGui::GetColorU32(DarkBackdrop));
+        return image;
     }
 
     const ImVec2 end{origin.x + size.x, origin.y + size.y};

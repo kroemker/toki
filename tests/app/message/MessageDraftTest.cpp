@@ -192,3 +192,82 @@ TEST_CASE("a message key finds the row of the same ID, macro and occurrence", "[
     table.messages[2].macro = toki::message::MessageMacro::NesOnly;
     CHECK_FALSE(toki::message::findMessage(table, key).has_value());
 }
+
+TEST_CASE("each edit of a message is undone and redone as a step of its own", "[message]") {
+    MessageDraft draft;
+    static_cast<void>(draft.setRead(makeTable("Hey")));
+    CHECK_FALSE(draft.canUndo(0));
+
+    draft.setText(0, Language::English, {TextPiece{.text = "H"}});
+    draft.setText(0, Language::English, {TextPiece{.text = "Ha"}}, true);
+    draft.setBoxType(0, "TEXTBOX_TYPE_WOODEN");
+
+    REQUIRE(draft.undo(0));
+    CHECK(draft.getTable().messages[0].boxType == "TEXTBOX_TYPE_BLACK");
+    CHECK(readEnglish(draft) == "Ha");
+    REQUIRE(draft.undo(0));
+    CHECK(readEnglish(draft) == "Hey");
+    CHECK_FALSE(draft.isEdited(0));
+    CHECK_FALSE(draft.undo(0));
+
+    REQUIRE(draft.redo(0));
+    CHECK(readEnglish(draft) == "Ha");
+    CHECK(draft.isEdited(0));
+    draft.setText(0, Language::English, {TextPiece{.text = "Ho"}}, true);
+    CHECK_FALSE(draft.canRedo(0));
+    REQUIRE(draft.undo(0));
+    CHECK(readEnglish(draft) == "Ha");
+}
+
+TEST_CASE("the steps of one message are undone without the other's, and follow it when the "
+          "table is read again",
+          "[message]") {
+    MessageDraft draft;
+    static_cast<void>(draft.setRead(makeTableOf({"a", "b"})));
+    draft.setText(0, Language::English, {TextPiece{.text = "a2"}});
+    draft.setText(1, Language::English, {TextPiece{.text = "b2"}}, true);
+
+    REQUIRE(draft.undo(0));
+    CHECK(readText(draft.getTable(), 0) == "a");
+    CHECK(readText(draft.getTable(), 1) == "b2");
+
+    MessageTable longer = makeTableOf({"a", "b"});
+    longer.messages.insert(longer.messages.begin(), makeTable("new").messages[0]);
+    longer.messages[0].id = 9;
+    static_cast<void>(draft.setRead(longer));
+    CHECK(draft.canRedo(1));
+    REQUIRE(draft.undo(2));
+    CHECK(readText(draft.getTable(), 2) == "b");
+}
+
+TEST_CASE("an edit that changes nothing is no step and no edit", "[message]") {
+    MessageDraft draft;
+    static_cast<void>(draft.setRead(makeTable("read")));
+    const base::u64 before = draft.getRevision();
+
+    draft.setText(0, Language::English, {TextPiece{.text = "read"}});
+    draft.setBoxType(0, "TEXTBOX_TYPE_BLACK");
+
+    CHECK(draft.getRevision() == before);
+    CHECK_FALSE(draft.isEdited(0));
+    CHECK_FALSE(draft.canUndo(0));
+}
+
+TEST_CASE("a message's revision changes with its own edits and every table taken", "[message]") {
+    MessageDraft draft;
+    static_cast<void>(draft.setRead(makeTableOf({"one", "two"})));
+    const base::u64 first = draft.getRevision(0);
+    const base::u64 second = draft.getRevision(1);
+    const base::u64 table = draft.getTableRevision();
+
+    draft.setText(1, Language::English, {TextPiece{.text = "edited"}});
+    CHECK(draft.getRevision(0) == first);
+    CHECK(draft.getRevision(1) != second);
+    CHECK(draft.getTableRevision() == table);
+
+    const base::u64 edited = draft.getRevision(1);
+    static_cast<void>(draft.setRead(makeTableOf({"one", "two"})));
+    CHECK(draft.getRevision(0) != first);
+    CHECK(draft.getRevision(1) != edited);
+    CHECK(draft.getTableRevision() != table);
+}

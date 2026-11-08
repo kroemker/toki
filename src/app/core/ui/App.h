@@ -21,6 +21,7 @@
 #include "app/core/ui/UnsavedEditsDialog.h"
 #include "app/core/ui/Window.h"
 #include "app/displayList/ui/DisplayListPanel.h"
+#include "app/message/domain/BoxFrameWorker.h"
 #include "app/message/domain/MessageLoader.h"
 #include "app/message/ui/BoxRenderer.h"
 #include "app/message/ui/MessageBrowser.h"
@@ -156,6 +157,7 @@ private:
     const hackeroot::Workspace* messageWorkspace = nullptr;
     bool messageReadsKanji = false;
     message::MessageFocus messageFocus;
+    message::BoxFrameWorker boxFrameWorker;
     std::unique_ptr<message::BoxRenderer> browserBoxes;
     std::unique_ptr<message::MessageBrowser> messageBrowser;
     std::unique_ptr<message::SignGlyphs> signGlyphs;

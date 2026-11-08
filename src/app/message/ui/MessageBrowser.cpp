@@ -4,6 +4,7 @@
 #include "app/core/ui/Spinner.h"
 #include "app/core/ui/Theme.h"
 #include "app/message/domain/MessageCatalog.h"
+#include "base/Diagnostic.h"
 
 #include <imgui.h>
 
@@ -65,6 +66,29 @@ void MessageBrowser::drawChips() {
     ImGui::NewLine();
 }
 
+void MessageBrowser::updateRow(const RowsKey& key, const usize message) {
+    std::optional<MessageRow> updated =
+        findMessageRow(focus.draft.getTable().messages[message], message, key.language,
+                       focus.catalog->isFontMessageEnglish,
+                       MessageFilter{.text = key.filter, .boxType = key.boxType});
+    const auto row = std::ranges::find(rows, message, &MessageRow::index);
+    if (row == rows.end() && !updated) {
+        return;
+    }
+    if (row == rows.end()) {
+        rows.push_back(std::move(*updated));
+    } else if (!updated) {
+        rows.erase(row);
+        return;
+    } else {
+        *row = std::move(*updated);
+        if (key.column == MessageColumn::Id) {
+            return;
+        }
+    }
+    sortMessageRows(rows, key.column, key.ascending);
+}
+
 void MessageBrowser::updateRows(const RowsKey& key) {
     if (rowsKey == key) {
         return;
@@ -75,11 +99,7 @@ void MessageBrowser::updateRows(const RowsKey& key) {
         const std::optional<usize> message = focus.draft.findOnlyEdited(rowsKey->revision);
         if (edited == key && message) {
             rowsKey = key;
-            const auto row = std::ranges::find(rows, *message, &MessageRow::index);
-            if (row != rows.end()) {
-                *row = makeMessageRow(focus.draft.getTable().messages[*message], *message,
-                                      key.language);
-            }
+            updateRow(key, *message);
             return;
         }
     }
@@ -186,7 +206,15 @@ void MessageBrowser::drawDetails() {
     }
     const float width = std::min(ImGui::GetContentRegionAvail().x,
                                  ImGui::GetContentRegionAvail().y * BoxRenderer::AspectRatio);
-    boxRenderer.draw(0, layout.boxes.front(), focus.catalog->art, std::max(width, 1.0F));
+    const ImVec2 start = ImGui::GetCursorPos();
+    const BoxImage image =
+        boxRenderer.draw(0, layout.boxes.front(), focus.catalog, std::max(width, 1.0F));
+    if (image.isPending) {
+        core::drawBusyCover(start, image.size, "");
+    }
+    for (const base::Diagnostic& diagnostic : boxRenderer.getDiagnostics(0)) {
+        ImGui::TextColored(core::palette::Danger, "%s", diagnostic.message.c_str());
+    }
 }
 
 } // namespace toki::message

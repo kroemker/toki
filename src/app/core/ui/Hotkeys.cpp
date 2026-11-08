@@ -89,6 +89,11 @@ bool isActionPressed(const Action action) {
     return !ImGui::GetIO().WantTextInput && ImGui::IsKeyChordPressed(chord);
 }
 
+bool isActionKeyPressed(const Action action) {
+    const ImGuiKeyChord chord = makeChord(getBindings().getChord(action));
+    return chord != ImGuiKey_None && ImGui::IsKeyChordPressed(chord);
+}
+
 std::string getShortcutLabel(const Action action) {
     KeyChord chord = getBindings().getChord(action);
     for (const auto& [name, printed] : PrintedKeys) {
