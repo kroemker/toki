@@ -196,7 +196,8 @@ the glyph the checkout's font draws it with (`decodeFontGlyph`, and for Japanese
 lists them), each a swatch of the color `Message_SetTextColor` gives it in the box typed in;
 and every other control code but the box breaks (`listInsertableCodes`), each a button with
 its name. A code with arguments goes in with a default and opens its form: a number as a
-field, a message ID with the start of that message's text beside it, and an item, a high
+field dragged with the mouse and typed in on a double click, as far as its bytes hold
+(`FADE2` takes two, the rest one), a message ID with the start of that message's text beside it, and an item, a high
 score or a sound as a filtered dropdown of what the checkout's `ItemID`, `HighScores` and
 `SfxId` declare. The rail stands still, greyed out while no box is typed in, so nothing moves
 when a box is clicked.

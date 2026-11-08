@@ -991,7 +991,7 @@ void MessageTab::drawMarkup() {
 }
 
 bool MessageTab::selectMarker(const usize box, const std::span<const MarkerGroup> groups) {
-    if (!ImGui::IsWindowHovered()) {
+    if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
         return false;
     }
     const MarkerGroup* group = findGroupAt(groups, ImGui::GetIO().MousePos);
@@ -1083,7 +1083,8 @@ void MessageTab::editInBox(const usize box, const LaidBox& laid, const BoxImage&
 
     const std::vector<DrawnCode> drawnCodes = findDrawnCodes(editable, laid, boxSources);
     const bool isOverMarker =
-        ImGui::IsWindowHovered() && findGroupAt(groups, io.MousePos) != nullptr;
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) &&
+        findGroupAt(groups, io.MousePos) != nullptr;
     const DrawnCode* drawnCode = ImGui::IsItemHovered() && !isOverMarker
                                      ? findDrawnCodeAt(drawnCodes, game.x, game.y)
                                      : nullptr;

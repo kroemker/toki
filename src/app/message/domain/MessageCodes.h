@@ -29,6 +29,8 @@ struct CodeArgument {
     /// What the argument is when the code is put in; for a constant, empty
     /// takes the first the checkout declares.
     std::string_view initial;
+    /// For a number, the largest the code's bytes hold.
+    s32 maximum = 0xFF;
 };
 
 /// A control code the rail puts in: its macro, and the arguments it takes.

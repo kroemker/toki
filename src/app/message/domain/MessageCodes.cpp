@@ -15,6 +15,8 @@ namespace {
 constexpr std::array ShiftArguments = {CodeArgument{.label = "Pixels", .initial = "8"}};
 constexpr std::array SpeedArguments = {CodeArgument{.label = "Frames", .initial = "1"}};
 constexpr std::array FramesArguments = {CodeArgument{.label = "Frames", .initial = "20"}};
+constexpr std::array LongFramesArguments = {
+    CodeArgument{.label = "Frames", .initial = "20", .maximum = 0xFFFF}};
 constexpr std::array TextIdArguments = {
     CodeArgument{.label = "Message", .kind = ArgumentKind::MessageId, .initial = "0x0000"}};
 constexpr std::array SoundArguments = {CodeArgument{.label = "Sound", .kind = ArgumentKind::Sound}};
@@ -37,7 +39,7 @@ constexpr std::array InsertableCodes = {
     InsertableCode{.macro = "AWAIT_BUTTON_PRESS"},
     InsertableCode{.macro = "BOX_BREAK_DELAYED", .arguments = FramesArguments},
     InsertableCode{.macro = "FADE", .arguments = FramesArguments},
-    InsertableCode{.macro = "FADE2", .arguments = FramesArguments},
+    InsertableCode{.macro = "FADE2", .arguments = LongFramesArguments},
     InsertableCode{.macro = "PERSISTENT"},
     InsertableCode{.macro = "EVENT"},
     InsertableCode{.macro = "TEXTID", .arguments = TextIdArguments},

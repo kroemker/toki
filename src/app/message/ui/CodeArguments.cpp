@@ -24,6 +24,33 @@ namespace toki::message {
 namespace {
 
 constexpr usize PreviewLength = 40;
+constexpr f32 DragSpeed = 0.25F;
+constexpr f32 LongDragSpeed = 2.0F;
+
+[[nodiscard]] std::optional<s32> parseNumber(const std::string_view text) {
+    s32 number = 0;
+    const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), number);
+    if (error != std::errc{} || end != text.data() + text.size() || text.empty()) {
+        return std::nullopt;
+    }
+    return number;
+}
+
+[[nodiscard]] bool drawNumber(std::string& value, const CodeArgument& argument) {
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    const std::optional<s32> parsed = parseNumber(value);
+    if (!parsed) {
+        return ImGui::InputText("##number", &value);
+    }
+    int number = *parsed;
+    const f32 speed = argument.maximum > 0xFF ? LongDragSpeed : DragSpeed;
+    if (!ImGui::DragInt("##number", &number, speed, 0, argument.maximum, "%d",
+                        ImGuiSliderFlags_AlwaysClamp)) {
+        return false;
+    }
+    value = std::to_string(number);
+    return true;
+}
 
 [[nodiscard]] std::optional<u16> parseMessageId(std::string_view text) {
     if (text.starts_with("0x") || text.starts_with("0X")) {
@@ -95,10 +122,13 @@ constexpr usize PreviewLength = 40;
 [[nodiscard]] bool drawArgument(std::string& value, const CodeArgument& argument,
                                 const MessageCatalog& catalog, const MessageTable& table,
                                 const Language language, std::string& filter) {
+    if (argument.kind == ArgumentKind::Number) {
+        return drawNumber(value, argument);
+    }
     ImGui::SetNextItemWidth(-FLT_MIN);
     switch (argument.kind) {
     case ArgumentKind::Number:
-        return ImGui::InputText("##number", &value, ImGuiInputTextFlags_CharsDecimal);
+        break;
     case ArgumentKind::MessageId: {
         const bool isChanged = ImGui::InputText("##id", &value);
         ImGui::TextColored(core::palette::TextMuted, "%s",
