@@ -169,6 +169,18 @@ TEST_CASE("a box break starts the next box, and the first waits on a triangle", 
     CHECK(layout.boxes[1].endIcon == EndIcon::Square);
 }
 
+TEST_CASE("a box break right before the end starts an empty box, as Message_Decode reads on into "
+          "the end",
+          "[message]") {
+    const MessageLayout layout = layOut(Bytes().add("A").add(BoxBreak).add(End));
+
+    REQUIRE(layout.boxes.size() == 2);
+    CHECK(layout.boxes[0].endIcon == EndIcon::Triangle);
+    CHECK(layout.boxes[1].begin == 2);
+    CHECK(layout.boxes[1].characters.empty());
+    CHECK(layout.boxes[1].endIcon == EndIcon::Square);
+}
+
 TEST_CASE("colors follow the box type, as Message_SetTextColor picks them", "[message]") {
     const Bytes bytes =
         Bytes().add(Color).add(0x41).add("A").add(Color).add(0x40).add("B").add(End);

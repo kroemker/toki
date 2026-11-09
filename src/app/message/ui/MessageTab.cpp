@@ -693,7 +693,6 @@ void MessageTab::drawRail() {
     const f32 railWidth = ImGui::GetContentRegionAvail().x;
     const usize columns = std::max<usize>(1, static_cast<usize>((railWidth + style.ItemSpacing.x) /
                                                                 (cellWidth + style.ItemSpacing.x)));
-    const bool canType = typedBox && *typedBox < editables.size();
     const Charmap* charmap = focus.catalog->findCharmap(focus.language);
     const ImVec4 tint = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     const MessageArt& art = focus.catalog->art;
@@ -703,7 +702,7 @@ void MessageTab::drawRail() {
                       ImVec2(railWidth, 0.0F))) {
         addBox();
     }
-    ImGui::BeginDisabled(!canType || boxes.size() <= 1);
+    ImGui::BeginDisabled(!typedBox || *typedBox >= editables.size() || boxes.size() <= 1);
     if (ImGui::Button(std::format("{} Delete Box", core::icons::Trash).c_str(),
                       ImVec2(railWidth, 0.0F))) {
         deleteTypedBox();
@@ -715,6 +714,7 @@ void MessageTab::drawRail() {
     }
     ImGui::Separator();
 
+    const bool canType = typedBox && *typedBox < editables.size();
     ImGui::BeginDisabled(!canType);
     if (charmap != nullptr) {
         usize column = 0;
@@ -1294,7 +1294,7 @@ void MessageTab::drawBody(const usize shown, const Message& message) {
     ImGui::EndChild();
     ImGui::PopStyleColor();
     ImGui::SameLine();
-    drawStoryboard(laidOut);
+    drawStoryboard(updateLayout(shown, message));
     drawMarkerList();
     drawCodePopup();
 }

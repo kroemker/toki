@@ -453,7 +453,8 @@ std::optional<usize> BoxLayouter::layOut(const usize begin) {
     layout.boxes.push_back(std::move(box));
 
     const Decoded& closing = decoded.entries.back();
-    if (closing.code == End || isEndAt(decoded.end)) {
+    const bool breaksBox = closing.code == BoxBreak || closing.code == BoxBreakDelayed;
+    if (closing.code == End || (breaksBox ? decoded.end >= bytes.size() : isEndAt(decoded.end))) {
         return std::nullopt;
     }
     return decoded.end;
